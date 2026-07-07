@@ -1,17 +1,17 @@
 {
-  "name": "ANPA Socios",
-  "slug": "anpa-socios",
-  "version": "1.24.0",
-  "download_url": "https://gitea.casabetty.mywire.org/nando/wp-anpa-socios/releases/download/v1.24.0/wp-anpa-socios-1.24.0.zip",
-  "homepage": "https://gitea.casabetty.mywire.org/nando/wp-anpa-socios",
-  "author": "ANPA As BraÃ±as",
-  "author_homepage": "https://anpaventin.es",
-  "requires": "6.0",
-  "tested": "6.7",
-  "requires_php": "7.4",
-  "last_updated": "2026-07-07 15:00:00",
-  "sections": {
-    "description": "Member management for parents' associations (ANPA/AMPA) on WordPress: passwordless member area, children and extracurricular enrolment, encrypted SEPA banking, season lifecycle, an admin dashboard, and self-hosted updates from Gitea.",
-    "changelog": "<h4>1.24.0</h4><ul><li>Self-hosted updates from the public Gitea repository (plugin-update-checker, JSON metadata mode).</li></ul><h4>1.23.0</h4><ul><li>New-socio approval workflow, session dropdown menu, verification module groundwork.</li></ul>"
-  }
+    "name":  "ANPA Socios",
+    "slug":  "anpa-socios",
+    "version":  "1.26.0",
+    "download_url":  "https://gitea.casabetty.mywire.org/nando/wp-anpa-socios/releases/download/v1.26.0/wp-anpa-socios-1.26.0.zip",
+    "homepage":  "https://gitea.casabetty.mywire.org/nando/wp-anpa-socios",
+    "author":  "ANPA As BraÃƒÂ±as",
+    "author_homepage":  "https://anpaventin.es",
+    "requires":  "6.0",
+    "tested":  "6.7",
+    "requires_php":  "7.4",
+    "last_updated":  "2026-07-07 17:02:41",
+    "sections":  {
+                     "description":  "Member management for parents\u0027 associations (ANPA/AMPA) on WordPress: passwordless member area, children and extracurricular enrolment, encrypted SEPA banking, season lifecycle, an admin dashboard, and self-hosted updates from Gitea.",
+                     "changelog":  "\u003ch4\u003e1.24.0\u003c/h4\u003e\u003cul\u003e\u003cli\u003eSelf-hosted updates from the public Gitea repository (plugin-update-checker, JSON metadata mode).\u003c/li\u003e\u003c/ul\u003e\u003ch4\u003e1.23.0\u003c/h4\u003e\u003cul\u003e\u003cli\u003eNew-socio approval workflow, session dropdown menu, verification module groundwork.\u003c/li\u003e\u003c/ul\u003e"
+                 }
 }

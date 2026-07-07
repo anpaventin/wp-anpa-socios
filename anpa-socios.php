@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ANPA Socios
  * Description: Sistema de altas de socios — formulario público e endpoint REST (Fase 2, paso 1).
- * Version: 1.24.0
+ * Version: 1.26.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: ANPA As Brañas
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ANPA_SOCIOS_VERSION', '1.24.0' );
+define( 'ANPA_SOCIOS_VERSION', '1.26.0' );
 define( 'ANPA_SOCIOS_DB_VERSION', '1.19.0' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
@@ -86,6 +86,9 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-hub-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-extraescolares-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-unified-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-preseason-guard.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-settings-tabs.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-verificacion-guard.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-verificacion-rest.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-admin-settings.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-backup.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-updater.php';
@@ -98,6 +101,11 @@ register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Extraescolar_Offers', 
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Season_Service', 'desprogramar' ) );
 
 add_action( 'rest_api_init', array( 'ANPA_Socios_REST', 'register_routes' ) );
+// fase13b: serve the anpa/v1 verification routes ourselves, but only when the
+// legacy anpa-verificacion plugin is NOT active (avoids double registration).
+if ( ANPA_Socios_Verificacion_Guard::should_register( defined( 'ANPA_VERIFICACION_VERSION' ) ) ) {
+	add_action( 'rest_api_init', array( 'ANPA_Socios_Verificacion_REST', 'register_routes' ) );
+}
 add_action( 'rest_api_init', array( 'ANPA_Socios_Area_REST', 'register_routes' ) );
 add_action( 'rest_api_init', array( 'ANPA_Socios_Preflight_REST', 'register_routes' ) );
 add_action( 'rest_api_init', array( 'ANPA_Socios_Admin_REST', 'register_routes' ) );
