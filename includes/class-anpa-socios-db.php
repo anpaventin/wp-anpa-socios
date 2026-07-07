@@ -114,6 +114,12 @@ class ANPA_Socios_DB {
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
 
+		// fase13b: create the base tables (wp_anpa_socios + verification codes)
+		// that were previously owned by the anpa-verificacion plugin, so this
+		// plugin is self-sufficient. Only creates them when MISSING, so it never
+		// alters the estado enum or other columns on an existing install.
+		self::create_base_tables();
+
 		// 1.2.0: extend wp_anpa_socios with rol + pendiente_alta estado.
 		// dbDelta does not always update enum columns; run an explicit
 		// migration guarded by the previous schema version.
@@ -190,10 +196,76 @@ class ANPA_Socios_DB {
 	}
 
 	/**
+	 * Creates the base tables (socios + verification codes) if MISSING.
+	 *
+	 * Absorbed from the former anpa-verificacion plugin (fase13b). Guarded by a
+	 * table-existence check so it only runs on a fresh install — it must never
+	 * dbDelta over an existing wp_anpa_socios (that would try to revert the
+	 * estado enum back to varchar). The ALTER-based migrations extend the base
+	 * schema afterwards.
+	 *
+	 * @since  1.26.0
+	 * @return void
+	 */
+	private static function create_base_tables(): void {
+		global $wpdb;
+
+		$charset_collate = $wpdb->get_charset_collate();
+		$socios          = self::tabela_socios();
+		$codigos         = $wpdb->prefix . 'anpa_codigos_verificacion';
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		if ( self::table_missing( $socios ) ) {
+			dbDelta( "CREATE TABLE {$socios} (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				email varchar(100) NOT NULL,
+				nome varchar(150) NOT NULL,
+				apelidos varchar(100) NOT NULL DEFAULT '',
+				estado varchar(10) NOT NULL DEFAULT 'activo',
+				creado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				actualizado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY  (id),
+				UNIQUE KEY email (email)
+			) {$charset_collate};" );
+		}
+
+		if ( self::table_missing( $codigos ) ) {
+			dbDelta( "CREATE TABLE {$codigos} (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				email varchar(100) NOT NULL,
+				codigo_hash varchar(255) NOT NULL,
+				creado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				expira_en datetime NOT NULL,
+				intentos tinyint(2) unsigned NOT NULL DEFAULT 0,
+				usado tinyint(1) unsigned NOT NULL DEFAULT 0,
+				ip varchar(45) DEFAULT NULL,
+				PRIMARY KEY  (id),
+				KEY email (email)
+			) {$charset_collate};" );
+		}
+	}
+
+	/**
+	 * Whether a full-name table is absent from the database.
+	 *
+	 * @since  1.26.0
+	 * @param  string $table Full table name.
+	 * @return bool
+	 */
+	private static function table_missing( string $table ): bool {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
+		$found = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
+
+		return $found !== $table;
+	}
+
+	/**
 	 * Returns the wp_anpa_socios table name.
 	 *
-	 * The table is owned by anpa-verificacion; this plugin extends it
-	 * via ALTER TABLE only.
+	 * The base table is created by create_base_tables() (fase13b, absorbed from
+	 * anpa-verificacion); this plugin also extends it via ALTER TABLE migrations.
 	 *
 	 * @since  1.2.0
 	 * @return string

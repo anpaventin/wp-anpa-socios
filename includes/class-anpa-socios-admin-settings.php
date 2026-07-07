@@ -39,6 +39,7 @@ final class ANPA_Socios_Admin_Settings {
 		add_action( 'admin_post_anpa_socios_save_settings', array( __CLASS__, 'handle_save_settings' ) );
 		add_action( 'admin_post_anpa_socios_set_admin_password', array( __CLASS__, 'handle_set_admin_password' ) );
 		add_action( 'admin_post_anpa_socios_run_season', array( __CLASS__, 'handle_run_season' ) );
+		add_action( 'admin_post_anpa_socios_check_updates', array( __CLASS__, 'handle_check_updates' ) );
 		add_action( 'admin_post_anpa_socios_backup', array( __CLASS__, 'handle_backup' ) );
 		add_action( 'admin_post_anpa_socios_wipe', array( __CLASS__, 'handle_wipe' ) );
 		add_action( 'admin_post_anpa_socios_restore', array( __CLASS__, 'handle_restore' ) );
@@ -103,7 +104,7 @@ final class ANPA_Socios_Admin_Settings {
 
 		self::render_flash();
 		if ( self::is_setup_done() ) {
-			self::render_config_editor();
+			self::render_tabs();
 		} else {
 			self::render_setup_wizard();
 		}
@@ -304,7 +305,49 @@ final class ANPA_Socios_Admin_Settings {
 	 *
 	 * @return void
 	 */
-	private static function render_config_editor(): void {
+	private static function render_tabs(): void {
+		$active = ANPA_Socios_Settings_Tabs::active(
+			isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : ''
+		);
+		$base = admin_url( 'admin.php?page=' . self::SETTINGS_SLUG );
+
+		echo '<h2 class="nav-tab-wrapper">';
+		foreach ( ANPA_Socios_Settings_Tabs::all() as $slug => $label ) {
+			printf(
+				'<a href="%s" class="nav-tab%s">%s</a>',
+				esc_url( add_query_arg( 'tab', $slug, $base ) ),
+				$active === $slug ? ' nav-tab-active' : '',
+				esc_html( $label )
+			);
+		}
+		echo '</h2>';
+
+		echo '<div class="anpa-tab-panel">';
+		switch ( $active ) {
+			case 'verificacion':
+				self::render_tab_verificacion();
+				break;
+			case 'actualizacions':
+				self::render_tab_actualizacions();
+				break;
+			case 'mantemento':
+				self::render_tab_mantemento();
+				break;
+			case 'xeral':
+			default:
+				self::render_tab_xeral();
+				break;
+		}
+		echo '</div>';
+	}
+
+	/**
+	 * Tab "Xeral": status summary + editable configuration (Settings-style form
+	 * handled via admin-post + PRG).
+	 *
+	 * @return void
+	 */
+	private static function render_tab_xeral(): void {
 		$post_url = esc_url( admin_url( 'admin-post.php' ) );
 		$season   = ANPA_Socios_Season_Service::current_course_row();
 		$master   = ANPA_Socios_Config::master_email();
@@ -366,6 +409,98 @@ final class ANPA_Socios_Admin_Settings {
 		echo '</tbody></table>';
 		submit_button( 'Gardar configuración' );
 		echo '</form>';
+	}
+
+	/**
+	 * Tab "Verificación": read-only status of the email-verification flow.
+	 * The full module absorption + controls arrive in fase13b.
+	 *
+	 * @return void
+	 */
+	private static function render_tab_verificacion(): void {
+		$legacy = defined( 'ANPA_VERIFICACION_VERSION' );
+		echo '<h2>Verificación por email</h2>';
+		echo '<table class="widefat striped" style="max-width:680px"><tbody>';
+		printf(
+			'<tr><td style="width:260px"><strong>Módulo de verificación</strong></td><td>%s</td></tr>',
+			$legacy
+				? '⚠️ servido polo plugin legado «ANPA Verificación» v' . esc_html( (string) constant( 'ANPA_VERIFICACION_VERSION' ) )
+				: '✅ integrado en ANPA Socios'
+		);
+		printf(
+			'<tr><td><strong>Rutas REST <code>anpa/v1</code></strong></td><td>%s</td></tr>',
+			$legacy ? 'rexístraas o plugin legado' : 'solicitar-codigo · verificar-codigo (por ANPA Socios)'
+		);
+		printf(
+			'<tr><td><strong>Validez do código</strong></td><td>%s</td></tr>',
+			'15 minutos · máx. 5 intentos por código · 3 envíos/hora'
+		);
+		echo '</tbody></table>';
+		if ( $legacy ) {
+			echo '<div class="notice notice-warning inline"><p>O plugin legado <strong>ANPA Verificación</strong> aínda está activo e é quen serve as rutas. '
+				. 'ANPA Socios xa inclúe o módulo equivalente: <strong>desactiva o plugin legado</strong> (Plugins → Desactivar) e ANPA Socios tomará o relevo automaticamente. '
+				. 'Despois xa podes eliminar o plugin legado.</p></div>';
+		} else {
+			echo '<p class="description">O módulo de verificación está integrado en ANPA Socios. Xa non se precisa o plugin «ANPA Verificación».</p>';
+		}
+	}
+
+	/**
+	 * Tab "Actualizacións": current version, update source, token status and a
+	 * manual "check now" action.
+	 *
+	 * @return void
+	 */
+	private static function render_tab_actualizacions(): void {
+		$post_url  = esc_url( admin_url( 'admin-post.php' ) );
+		$version   = defined( 'ANPA_SOCIOS_VERSION' ) ? ANPA_SOCIOS_VERSION : '?';
+		$repo      = 'https://gitea.casabetty.mywire.org/nando/wp-anpa-socios';
+		$has_token = defined( 'ANPA_SOCIOS_GITEA_TOKEN' ) && ANPA_SOCIOS_GITEA_TOKEN;
+
+		echo '<h2>Actualizacións</h2>';
+		echo '<table class="widefat striped" style="max-width:680px"><tbody>';
+		printf( '<tr><td style="width:260px"><strong>Versión instalada</strong></td><td>%s</td></tr>', esc_html( (string) $version ) );
+		printf( '<tr><td><strong>Orixe das actualizacións</strong></td><td><a href="%s/releases" target="_blank" rel="noreferrer">%s</a></td></tr>', esc_url( $repo ), esc_html( 'nando/wp-anpa-socios' ) );
+		printf(
+			'<tr><td><strong>Token de lectura (wp-config)</strong></td><td>%s</td></tr>',
+			$has_token ? '✅ configurado' : '❌ non configurado'
+		);
+
+		$pending = get_site_transient( 'update_plugins' );
+		$slug    = 'anpa-socios/anpa-socios.php';
+		$new_ver = '';
+		if ( is_object( $pending ) && ! empty( $pending->response[ $slug ]->new_version ) ) {
+			$new_ver = (string) $pending->response[ $slug ]->new_version;
+		}
+		printf(
+			'<tr><td><strong>Estado</strong></td><td>%s</td></tr>',
+			'' !== $new_ver
+				? '⬆️ hai unha actualización dispoñible: <strong>' . esc_html( $new_ver ) . '</strong> (ver <a href="' . esc_url( admin_url( 'plugins.php' ) ) . '">Plugins</a>)'
+				: '✅ ao día'
+		);
+		echo '</tbody></table>';
+
+		if ( ! $has_token ) {
+			echo '<div class="notice notice-warning inline"><p>Para recibir actualizacións, engade ao <code>wp-config.php</code>: <code>define(\'ANPA_SOCIOS_GITEA_TOKEN\', \'&lt;token de só-lectura&gt;\');</code></p></div>';
+		}
+
+		echo '<form method="post" action="' . $post_url . '">';
+		echo '<input type="hidden" name="action" value="anpa_socios_check_updates">';
+		wp_nonce_field( 'anpa_socios_check_updates' );
+		submit_button( 'Comprobar actualizacións agora', 'secondary', 'submit', false );
+		echo '</form>';
+		echo '<p class="description">Comproba a última <em>Release</em> publicada no repositorio e, se hai unha versión máis nova, aparecerá en <strong>Plugins</strong> para actualizar cun clic.</p>';
+	}
+
+	/**
+	 * Tab "Copias & Mantemento": admin password, season check, backup, restore
+	 * and wipe. All actions use admin-post handlers with nonce + capability.
+	 *
+	 * @return void
+	 */
+	private static function render_tab_mantemento(): void {
+		$post_url = esc_url( admin_url( 'admin-post.php' ) );
+		$has_pw   = ANPA_Socios_Master_Auth::admin_password_exists();
 
 		echo '<h2>Contrasinal curto de admin</h2>';
 		echo '<p class="description">Panel de admin (mín. 8 caracteres, unha maiúscula e un símbolo). A frase da clave bancaria non se cambia aquí (só reinstalando a BD).</p>';
@@ -446,7 +581,8 @@ final class ANPA_Socios_Admin_Settings {
 	private static function admin_styles(): string {
 		return '<style>
 			.anpa-cfg h1 { margin-bottom: .3em; }
-			.anpa-cfg h2 { margin: 2em 0 .6em; padding: .55em .8em; background: #fbfbfc;
+			.anpa-cfg .nav-tab-wrapper { margin: 1em 0 1.4em; }
+			.anpa-cfg h2:not(.nav-tab-wrapper) { margin: 2em 0 .6em; padding: .55em .8em; background: #fbfbfc;
 				border-left: 5px solid #e67e22; border-radius: 4px; font-size: 1.15em;
 				box-shadow: 0 1px 2px rgba(0,0,0,.05); }
 			.anpa-cfg h3 { margin: 1.2em 0 .3em; color: #2c3338; font-size: 1em; }
@@ -553,6 +689,24 @@ final class ANPA_Socios_Admin_Settings {
 		self::guard( 'anpa_socios_run_season' );
 		ANPA_Socios_Season_Service::run_check();
 		self::redirect_msg( 'season_ok' );
+	}
+
+	/**
+	 * admin-post: force a plugin update check now (clears the cache).
+	 *
+	 * @return void
+	 */
+	public static function handle_check_updates(): void {
+		self::guard( 'anpa_socios_check_updates' );
+		delete_site_transient( 'update_plugins' );
+		if ( function_exists( 'wp_update_plugins' ) ) {
+			wp_update_plugins();
+		}
+		wp_safe_redirect( add_query_arg(
+			array( 'anpa_msg' => 'updates_checked', 'tab' => 'actualizacions' ),
+			admin_url( 'admin.php?page=' . self::SETTINGS_SLUG )
+		) );
+		exit;
 	}
 
 	/**
@@ -818,6 +972,7 @@ final class ANPA_Socios_Admin_Settings {
 			'pw_ok'          => array( 'success', 'Contrasinal de admin actualizado.' ),
 			'pw_bad'         => array( 'error', 'O contrasinal non cumpre os requisitos (mín. 8 caracteres, unha maiúscula e un símbolo).' ),
 			'season_ok'      => array( 'success', 'Comprobación de temporada executada.' ),
+			'updates_checked' => array( 'success', 'Comprobación de actualizacións executada. Se hai unha versión nova, aparecerá en Plugins.' ),
 			'bak_bad_pw'     => array( 'error', 'Contrasinal de admin incorrecto.' ),
 			'bak_err'        => array( 'error', 'Non se puido xerar a copia (revisa a frase da clave bancaria).' ),
 			'restored'       => array( 'success', 'Copia recuperada correctamente.' ),

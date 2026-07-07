@@ -45,4 +45,30 @@ class ANPA_Socios_Codigo_Generator {
 	public static function expiry( int $now ): int {
 		return $now + self::TTL_SECONDS;
 	}
+
+	/**
+	 * Verifies a plain-text code against a stored bcrypt hash.
+	 *
+	 * @since  1.26.0
+	 * @param  string $code Plain-text code.
+	 * @param  string $hash Stored bcrypt hash.
+	 * @return bool
+	 */
+	public static function verify( string $code, string $hash ): bool {
+		return password_verify( $code, $hash );
+	}
+
+	/**
+	 * Whether an expiry timestamp is in the past (relative to $now).
+	 *
+	 * @since  1.26.0
+	 * @param  int      $expiry_ts Expiry timestamp.
+	 * @param  int|null $now       Reference now (defaults to time()).
+	 * @return bool
+	 */
+	public static function is_expired( int $expiry_ts, ?int $now = null ): bool {
+		$now = null === $now ? time() : $now;
+
+		return $expiry_ts < $now;
+	}
 }

@@ -46,4 +46,25 @@ class Test_ANPA_Socios_Codigo_Generator extends TestCase {
 			ANPA_Socios_Codigo_Generator::expiry( $now )
 		);
 	}
+
+	/**
+	 * verify() matches the code that produced the hash and rejects others.
+	 */
+	public function test_verify_matches_and_rejects(): void {
+		$hash = ANPA_Socios_Codigo_Generator::hash_code( '424242' );
+
+		$this->assertTrue( ANPA_Socios_Codigo_Generator::verify( '424242', $hash ) );
+		$this->assertFalse( ANPA_Socios_Codigo_Generator::verify( '000000', $hash ) );
+	}
+
+	/**
+	 * is_expired() is true strictly before the expiry timestamp.
+	 */
+	public function test_is_expired_boundary(): void {
+		$now = 1_700_000_000;
+
+		$this->assertTrue( ANPA_Socios_Codigo_Generator::is_expired( $now - 1, $now ) );
+		$this->assertFalse( ANPA_Socios_Codigo_Generator::is_expired( $now, $now ) );
+		$this->assertFalse( ANPA_Socios_Codigo_Generator::is_expired( $now + 1, $now ) );
+	}
 }

@@ -28,6 +28,8 @@
       <file>tests/Test_ANPA_Socios_Actividade_Options.php</file>
       <file>tests/Test_ANPA_Socios_Curso_Escolar.php</file>
       <file>tests/Test_ANPA_Socios_Horario_Builder.php</file>
+      <file>tests/Test_ANPA_Socios_Settings_Tabs.php</file>
+      <file>tests/Test_ANPA_Socios_Verificacion_Guard.php</file>
     </testsuite>
   </testsuites>
 </phpunit>
