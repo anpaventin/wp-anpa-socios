@@ -1,149 +1,117 @@
-# ANPA Socios
+<p align="center">
+  <img src="assets/img/anpa-socios-logo.png" alt="ANPA Socios" width="160">
+</p>
 
-> Plugin irmao de `anpa-verificacion` (Fase 1). Depende do
-> REST boundary de Fase 1 pero NON require_once o seu codigo
-> interno.
+<h1 align="center">ANPA Socios</h1>
 
-Sistema de altas de socios: formulario publico na pagina
-`/socios/asociarse/` + endpoint REST
-`POST /wp-json/anpa-socios/v1/crear-socio` que escribe na
-taboa `wp_anpa_socios` de producion.
+<p align="center">
+  <strong>Member management for parents' associations (ANPA/AMPA) on WordPress.</strong><br>
+  Passwordless member area, children & extracurricular enrolment, encrypted SEPA banking,
+  season lifecycle and an admin dashboard — with self-hosted updates from Gitea.
+</p>
 
-## Alcance deste paso (Fase 2 paso 1)
+<p align="center">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.23.0-blue">
+  <img alt="WordPress" src="https://img.shields.io/badge/WordPress-6.0%2B-21759b">
+  <img alt="PHP" src="https://img.shields.io/badge/PHP-7.4%2B-777bb4">
+  <img alt="Tests" src="https://img.shields.io/badge/PHPUnit-strict%20TDD-2eac68">
+</p>
 
-Solo "Alta de socio/a responsable" (nome + apelidos). NON
-inclue fillos/as, SEPA, baixa, gestion interna, nin cron
-anual. Esos chegan en cambios irmans futuros:
-`fase2-socios-fillos`, `fase2-socios-sepa`, `fase2-socios-baixa`,
-`fase2-socios-gestion`, `fase2-socios-cron`.
+---
 
-## Shortcode
-
-`[anpa_socios_asociarse]` renderiza o formulario de 3 pasos.
-
-## Contrato REST
-
-### Request
+## 📁 Repository Structure
 
 ```
-POST /wp-json/anpa-socios/v1/crear-socio
-Content-Type: application/json
-
-{
-  "token":    "<32-char alfanumerico obtido en /anpa/v1/verificar-codigo>",
-  "nome":     "<max 50 chars>",
-  "apelidos": "<max 100 chars>"
-}
+wp-anpa-socios/
+├── anpa-socios.php              # Plugin bootstrap: constants, requires, hooks
+├── includes/                    # Runtime classes
+│   ├── class-anpa-socios-*.php  # DB, REST, area, admin handlers, email, backup…
+│   └── lib/                     # Pure, unit-tested logic (payload, crypto, flow, season…)
+├── assets/
+│   ├── css/                     # unified.css, area.css
+│   ├── js/                      # unified.js, area.js, asociarse.js, admin-table.js…
+│   └── img/                     # logo and static images
+├── tests/                       # PHPUnit tests for the pure-logic classes
+├── composer.json                # Dev dependencies (PHPUnit); no runtime deps
+├── phpunit.xml                  # Test suite configuration
+├── .gitattributes / .gitignore
+└── README.md
 ```
 
-O `token` e o mesmo que Fase 1 devolve en
-`POST /wp-json/anpa/v1/verificar-codigo` (campo `token` do
-response JSON). E o token que o handler valida via
-`get_transient('anpa_token_' . $token)` — almacenado por
-Fase 1 con TTL 30 min, single-use.
+## 🎯 Vision
 
-### Response
+Give volunteer-run parents' associations a **simple, self-hostable, low-maintenance**
+tool to manage memberships and extracurricular activities without paper, spreadsheets,
+or fragile per-person knowledge. The plugin favours **clarity for families** and
+**reliable administration** for the board (*xunta directiva*), keeping configuration,
+content and secrets strictly separated.
 
-- `200 { success: true, message: "Alta completada" }` en
-  todos os casos exitosos: fresh insert, duplicate-update
-  (mismo email, novos dados), e reactivacion (estado de
-  'baixa' a 'activo').
-- `400 WP_Error 'anpa_socios_invalid_token' "Token invalido ou
-  caducado"` se o transient non existe, expirou, ou xa foi
-  consumido.
-- `400 WP_Error 'anpa_socios_invalid' "Datos invalidos"` se
-  nome ou apelidos fallan a validacion (empty, overlong, ou
-  control chars).
-- `500 WP_Error 'anpa_socios_db_error' "Erro interno"` se a
-  query falla con un erro distinto a duplicate-key. O transient
-  NON se borra neste caso, polo que o usuario pode reintentar
-  sen volver a Fase 1.
+## 🚀 Get Started
 
-## Loxica do handler (12 pasos)
+1. **Install**: download the latest release ZIP from the [Releases](../../releases)
+   page and upload it in *WordPress → Plugins → Add New → Upload Plugin*, or clone this
+   repo into `wp-content/plugins/anpa-socios/`.
+2. **Activate** the plugin in WordPress.
+3. **Configure** it once in *ANPA Socios → Axustes*: master email, banking passphrase,
+   admin password, socios page and current school year. This creates the database,
+   the master account and the members page.
+4. **Log in** on the socios page with the master email (a one-time code is emailed).
 
-1. Sanitize `token` (max 64 chars).
-2. Sanitize `nome`.
-3. Sanitize `apelidos`.
-4. `ANPA_Socios_Payload::validar_nome($nome)` — max 50, trim,
-   sen control chars.
-5. `ANPA_Socios_Payload::validar_apelidos($apelidos)` — max
-   100, trim, sen control chars.
-6. `get_transient('anpa_token_' . $token)` → email.
-7. Se transient false → 400 token invalido. **Non se borra o
-   transient** (xa e false, borrar e no-op).
-8. Build SQL: `INSERT INTO wp_anpa_socios (...) VALUES (...)
-   ON DUPLICATE KEY UPDATE actualizado_en = NOW(), estado =
-   'activo', nome = VALUES(nome), apelidos = VALUES(apelidos)`.
-9. Execute via `$wpdb->query`.
-10. **Comprobar `$wpdb->last_error`**:
-    - Se non-vacio E non-1062 (duplicate-key) → 500.
-      **NON chamar `delete_transient`** — o token segue
-      valido para retry.
-    - Se 1062 (silent no-op do upsert) → continue.
-11. **`delete_transient('anpa_token_' . $token)`** — SOLO
-    despois de DB write exitoso. Single-use enforcement.
-12. Return 200.
+> Requires WordPress 6.0+ and PHP 7.4+. No Composer install is needed on the server —
+> runtime code has no external dependencies.
 
-A orde dos pasos 9-12 e o contrato critico: `delete_transient`
-NON se chama se a DB write falla. Esto permite o retry sen
-repetir o fluxo de Fase 1.
+## 🌟 Key Features
 
-## Loxica do JS (3 pasos, vanilla ES6)
+- **Passwordless member area** — email one-time-code login; no passwords for families.
+- **Membership lifecycle** — alta, baixa, reactivation, optional **board approval** of
+  new members, and a protected master/admin role.
+- **Children & extracurriculars** — per-child enrolment, group capacity, waitlists,
+  authorisations, per-activity min/max places and school-year scoping.
+- **Encrypted SEPA banking** — sealed-box (public-key) encryption of IBAN/NIF.
+- **Season lifecycle** — automatic course open/close with configurable dates.
+- **Admin dashboard** — members, activities, courses, enrolments, exports (CSV),
+  approvals and audit log.
+- **Backup / restore / wipe** — encrypted `.anpabak` export protected by the admin
+  password; full reinstall path.
+- **Self-hosted updates** — one-click updates from this repo's Gitea Releases.
 
-| Step | Submit action | Success | Failure |
-|---|---|---|---|
-| email | POST `/anpa/v1/solicitar-codigo` | advance to codigo (on 200) | stay on email (on 4xx/network) |
-| codigo | POST `/anpa/v1/verificar-codigo` | read `response.token`, advance to datos (on 200) | stay on codigo (on 4xx) |
-| datos | POST `/anpa-socios/v1/crear-socio` | advance to ok (on 200) | stay on datos (on 4xx/5xx) |
+## 📖 Documentation
 
-**Critico**: cada `await fetch(...)` comproba `response.ok`.
-`fetch()` so rexeita a promesa en erros de RED, NON en 4xx/5xx.
-Un 400 do servidor DEBE ir ao estado "error", non ao seguinte
-paso.
+- In-plugin **Docs** screen (*ANPA Socios → Docs*): setup, season cycle, and the
+  shortcodes for the public extracurriculars/timetable pages.
+- Shortcodes: `[anpa_socios_area_unified]` (login/area), `[anpa_socios_asociarse]`
+  (signup), `[anpa_extraescolares_ofertadas]`, `[anpa_extraescolares_horario]`.
+- Development specs live in the private project repo under `openspec/`.
 
-O JS non distingue "email xa rexistrado" vs "email novo" (contrato
-de privacidade de Fase 1: ambos devolven 200 con a mesma
-mensaxe).
+## 🤝 Community Support
 
-## TDD
+This is a purpose-built plugin for **ANPA As Brañas (CEP Ventín, Ames)**. Issues and
+suggestions are welcome via the repository's issue tracker. For association matters,
+contact the *xunta directiva* at the email configured in the plugin.
 
-Pure-logic class `ANPA_Socios_Payload` con 10 unit tests
-(6 para nome, 4 para apelidos) en
-`tests/Test_ANPA_Socios_Payload.php`. PHPUnit strict, sin WP
-bootstrap, RED→GREEN evidence capturada no apply-progress do
-cambio SDD `fase2-socios-altas-socios`.
+## 🙌 Shout Outs
 
-## Integracion con Fase 1
+- [YahnisElsts/plugin-update-checker](https://github.com/YahnisElsts/plugin-update-checker)
+  — the mature library powering self-hosted updates.
+- The WordPress **Settings API** and coding standards.
+- Built for and with the families of **ANPA As Brañas**.
 
-| Aspecto | Estado |
-|---|---|
-| `anpa-verificacion` plugin | Activo en producion, byte-identical ao local |
-| `wp_anpa_socios` schema | id, email UNIQUE, nome, **apelidos** (R13), estado DEFAULT 'activo', creado_en, actualizado_en |
-| `verificar-codigo` response | `{ success: true, token: <32-char> }` (linha 309-314 de `class-anpa-rest.php` de Fase 1) |
-| Transient | `anpa_token_<token>` → email string, TTL 30 min, single-use |
-| Rate limit de Fase 1 | 3 requests / email / hora. O `crear-socio` non engade rate limit propio; o token e o recurso escaso (ver S9 do spec). |
+## 🔌 Canonical Plugin
 
-## R13 (exception documentada a Fase 1 frozen)
+`anpa-socios` is the **canonical member-management plugin** for the ANPA Ventín site.
+It absorbs the former `anpa-verificacion` (email verification) module and supersedes the
+`anpa-manager` prototype. The design-system and social-auto plugins remain separate.
 
-A columna `apelidos` foi anadida a `wp_anpa_socios` via
-`dbDelta()` en `class-anpa-db.php` (Fase 1). Esta e a UNICA
-modificacion a Fase 1 neste cambio. Razon: evitar migracion
-de datos reais de socios no futuro cando Fase 2 precise
-ordenar/exportar por apelidos. dbDelta() preserva as filas
-existentes (DEFAULT '' aplicalhes).
+## 🛠 Privacy & Telemetry
 
-Rollback manual: `ALTER TABLE wp_anpa_socios DROP COLUMN
-apelidos;` (non parte do apply do plugin).
+- **No telemetry.** The plugin sends **no analytics or usage data** anywhere.
+- The only outbound request is the **update check** against this repository's public
+  Gitea Releases (version metadata only) and the update download when you choose to
+  update.
+- Personal and banking data stay in your WordPress database; IBAN/NIF are stored
+  **encrypted** (sealed box). Verification codes are hashed and never logged.
+- Emails are sent through your own WordPress mail configuration.
 
-## Activacion
+---
 
-- **No apply**: a columna `apelidos` xa existe en producion
-  (R13 aplicado via `wp eval` o 2026-06-15).
-- **Plugin anpa-socios**: pendente de activacion. Sigue os
-  pasos do apply-progress.md do cambio SDD
-  `fase2-socios-altas-socios`:
-  1. Subir plugin via pscp/sync-sftp.
-  2. `wp plugin activate anpa-socios`.
-  3. Crear a pagina `/socios/asociarse/` con o shortcode.
-  4. E2E S1 (fresh insert), S2 (duplicate), S10
-    (reactivacion).
+<p align="center"><sub>Made for families, by families · ANPA As Brañas — CEP Ventín, Ames</sub></p>
