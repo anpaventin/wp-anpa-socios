@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.6/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         beStrictAboutTestsThatDoNotTestAnything="false"
+         convertErrorsToExceptions="true"
+         convertNoticesToExceptions="true"
+         convertWarningsToExceptions="true">
+  <testsuites>
+    <testsuite name="anpa-socios">
+      <file>tests/Test_ANPA_Socios_Payload.php</file>
+      <file>tests/Test_ANPA_Socios_Codigo_Generator.php</file>
+      <file>tests/Test_ANPA_Socios_Rate_Limiter.php</file>
+      <file>tests/Test_ANPA_Socios_Area_Session.php</file>
+      <file>tests/Test_ANPA_Socios_Roles.php</file>
+      <file>tests/Test_ANPA_Socios_Flow.php</file>
+      <file>tests/Test_ANPA_Socios_Admin_Payload.php</file>
+      <file>tests/Test_ANPA_Socios_Empresa_View.php</file>
+      <file>tests/Test_ANPA_Socios_Csv.php</file>
+      <file>tests/Test_ANPA_Socios_Antibot.php</file>
+      <file>tests/Test_ANPA_Socios_Alumnos_Export_Columns.php</file>
+      <file>tests/Test_ANPA_Socios_Fillo_Curso_Grupo.php</file>
+      <file>tests/Test_ANPA_Socios_Forms_Identity.php</file>
+      <file>tests/Test_ANPA_Socios_Alta_Payload.php</file>
+      <file>tests/Test_ANPA_Socios_Crypto.php</file>
+      <file>tests/Test_ANPA_Socios_Export_Exclusion.php</file>
+      <file>tests/Test_ANPA_Socios_Actividade_Options.php</file>
+      <file>tests/Test_ANPA_Socios_Curso_Escolar.php</file>
+      <file>tests/Test_ANPA_Socios_Horario_Builder.php</file>
+    </testsuite>
+  </testsuites>
+</phpunit>

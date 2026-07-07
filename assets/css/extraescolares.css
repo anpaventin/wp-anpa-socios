@@ -1,0 +1,112 @@
+/* fase10: public Extraescolares dynamic weekly schedule */
+.anpa-extra-horario {
+	width: 100%;
+	overflow-x: auto;
+}
+
+.anpa-extra-grid {
+	width: 100%;
+	border-collapse: collapse;
+	background: #fff;
+	font-size: 0.95rem;
+}
+
+.anpa-extra-grid th,
+.anpa-extra-grid td {
+	border: 1px solid #d9e2df;
+	padding: 0.65rem 0.75rem;
+	vertical-align: top;
+	text-align: left;
+}
+
+.anpa-extra-grid thead th {
+	background: #edf7f1;
+	color: #17412f;
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+.anpa-extra-grid tbody th {
+	background: #f8fbfa;
+	font-weight: 700;
+	white-space: nowrap;
+	color: #1c5d3a;
+}
+
+.anpa-extra-lista {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+}
+
+.anpa-extra-lista li {
+	background: #f1f7f3;
+	border-radius: 6px;
+	padding: 0.35rem 0.55rem;
+}
+
+.anpa-extra-act {
+	font-weight: 700;
+}
+
+.anpa-extra-grupos {
+	color: #5a6b60;
+	font-weight: 400;
+}
+
+.anpa-extra-empty {
+	padding: 1rem;
+	color: #5a6b60;
+	font-style: italic;
+}
+
+/* fase11: public offered-activity cards rendered from active DB activities */
+.anpa-extra-ofertadas.anpa-card-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 1rem;
+	margin: 1.25rem 0;
+}
+
+.anpa-extra-card {
+	background: #fff;
+	border: 1px solid #d9e2df;
+	border-radius: 14px;
+	box-shadow: 0 8px 20px rgba(24, 65, 47, 0.08);
+	padding: 1rem;
+}
+
+.anpa-extra-card h3 {
+	margin-top: 0.25rem;
+	margin-bottom: 0.5rem;
+	color: #17412f;
+}
+
+.anpa-extra-card p {
+	margin: 0.45rem 0;
+}
+
+.anpa-extra-card .anpa-icon-circle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 3rem;
+	height: 3rem;
+	margin: 0 0 0.5rem;
+	border-radius: 999px;
+	background: #edf7f1;
+	font-size: 1.5rem;
+}
+
+.anpa-extra-empresa {
+	color: #5a6b60;
+	font-size: 0.92rem;
+}
+
+.anpa-extra-meta {
+	font-size: 0.92rem;
+	line-height: 1.45;
+}

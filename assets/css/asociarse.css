@@ -1,0 +1,345 @@
+/* ANPA Socios - Asociarse form styles
+ * Mobile-first, accessible. Uses ANPA Design System variables.
+ * Matches area-persoal form styling (green palette, DS consistency).
+ */
+
+#anpa-asociarse {
+	font-family: inherit;
+	max-width: 600px;
+	margin: 1.5rem auto;
+}
+
+#anpa-asociarse [data-step] {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+#anpa-asociarse [data-step][hidden] {
+	display: none;
+}
+
+#anpa-asociarse label {
+	font-weight: 600;
+	font-size: 0.95rem;
+}
+
+#anpa-asociarse input[type="email"],
+#anpa-asociarse input[type="text"],
+#anpa-asociarse input[type="tel"],
+#anpa-asociarse input[type="date"],
+#anpa-asociarse select {
+	padding: 0.6rem 0.8rem;
+	font-size: 1rem;
+	border: 1px solid var(--anpa-border-strong, #9ca3af);
+	border-radius: var(--anpa-radius-sm, 4px);
+	width: 100%;
+	box-sizing: border-box;
+	background: var(--anpa-surface, #fff);
+}
+
+#anpa-asociarse input:focus,
+#anpa-asociarse button:focus {
+	outline: 2px solid #2271b1;
+	outline-offset: 2px;
+}
+
+#anpa-asociarse button {
+	padding: 0.7rem 1.2rem;
+	font-size: 1rem;
+	font-weight: var(--anpa-fw-strong, 600);
+	cursor: pointer;
+	background: var(--anpa-primary, #2d6a4f);
+	color: var(--anpa-text-on-primary, #fff);
+	border: 1px solid var(--anpa-primary, #2d6a4f);
+	border-radius: var(--anpa-radius-md, 8px);
+	align-self: flex-start;
+	transition: background var(--anpa-transition, .15s), border-color var(--anpa-transition, .15s);
+}
+
+#anpa-asociarse button:hover {
+	background: var(--anpa-primary-hover, #1f513b);
+	border-color: var(--anpa-primary-hover, #1f513b);
+}
+
+#anpa-asociarse button:disabled {
+	background: var(--anpa-text-muted, #5f6670);
+	border-color: var(--anpa-border-strong, #9ca3af);
+	cursor: not-allowed;
+}
+
+#anpa-asociarse [data-step="error"] {
+	margin-top: 1rem;
+	padding: 0.75rem 1rem;
+	background: #fcf0f1;
+	border: 1px solid #d63638;
+	border-radius: 4px;
+	color: #8b1a1a;
+}
+
+#anpa-asociarse [data-step="ok"] {
+	margin-top: 1rem;
+	padding: 1rem;
+	background: #edfaef;
+	border: 1px solid #00a32a;
+	border-radius: 4px;
+	color: #14532d;
+}
+
+#anpa-asociarse [data-step="ok"] p {
+	margin: 0;
+}
+
+/* fase5 PR-C3 — full alta form */
+#anpa-asociarse .anpa-fieldset {
+	border: 1px solid var(--anpa-border, #e5e7eb);
+	border-radius: var(--anpa-radius-lg, 12px);
+	padding: 1rem;
+	margin: 0 0 1rem;
+}
+
+#anpa-asociarse .anpa-fieldset legend {
+	font-weight: var(--anpa-fw-strong, 600);
+	padding: 0 0.4rem;
+}
+
+#anpa-asociarse .anpa-muted {
+	color: var(--anpa-text-muted, #5f6670);
+	font-size: 0.9rem;
+}
+
+#anpa-asociarse .anpa-consent-text,
+#anpa-asociarse .anpa-rgpd-text {
+	font-size: 0.82rem;
+	color: var(--anpa-text-body, #374151);
+	background: var(--anpa-surface-subtle, #f9fafb);
+	border-radius: var(--anpa-radius-md, 8px);
+	padding: 0.6rem 0.75rem;
+	margin: 0.5rem 0;
+}
+
+#anpa-asociarse .anpa-rgpd-text {
+	max-height: 9rem;
+	overflow-y: auto;
+}
+
+#anpa-asociarse .anpa-fillo-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+	border: 1px solid var(--anpa-border, #e5e7eb);
+	border-radius: var(--anpa-radius-md, 8px);
+	padding: 0.6rem;
+	margin: 0 0 0.5rem;
+}
+
+#anpa-asociarse .anpa-fillo-row input[type="text"],
+#anpa-asociarse .anpa-fillo-row input[type="date"],
+#anpa-asociarse .anpa-fillo-row select {
+	flex: 1 1 8rem;
+	min-width: 0;
+}
+
+#anpa-asociarse .anpa-check {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-size: 0.9rem;
+}
+
+#anpa-asociarse .anpa-secondary {
+	background: transparent;
+	border: 1px solid var(--anpa-border-strong, #9ca3af);
+	color: var(--anpa-text, #1f2937);
+}
+
+/* Personal-area access CTA (fase6) — shown above the alta form. */
+.anpa-area-access {
+	max-width: 720px;
+	margin: 1.5rem auto;
+	padding: 1.1rem 1.25rem;
+	border: 1px solid var(--anpa-border, #e5e7eb);
+	border-radius: 14px;
+	background: var(--anpa-surface-accent, #edf7f1);
+}
+
+.anpa-area-access .anpa-area-access-title {
+	margin: 0 0 0.25rem;
+	font-size: 1.1rem;
+	font-weight: 700;
+	color: var(--anpa-primary, #17412f);
+}
+
+.anpa-area-access p {
+	margin: 0 0 0.75rem;
+	color: var(--anpa-text-body, #17412f);
+}
+
+.anpa-area-access .anpa-area-access-btn {
+	display: inline-block;
+	padding: 0.65rem 1.2rem;
+	border-radius: var(--anpa-radius-md, 6px);
+	background: var(--anpa-primary, #2d6a4f);
+	color: var(--anpa-text-on-primary, #fff);
+	font-weight: 700;
+	text-decoration: none;
+}
+
+.anpa-area-access .anpa-area-access-btn:hover,
+.anpa-area-access .anpa-area-access-btn:focus {
+	background: var(--anpa-primary-hover, #1f513b);
+	color: var(--anpa-text-on-primary, #fff);
+}
+
+/* Fillos rows: saved (locked) vs editable state (fase6 alta UX). */
+#anpa-asociarse [data-fillo-row] {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+	padding: 0.6rem;
+	border: 1px solid var(--anpa-border, #e5e7eb);
+	border-radius: var(--anpa-radius-md, 8px);
+	margin-bottom: 0.6rem;
+}
+
+#anpa-asociarse [data-fillo-row].anpa-fillo-saved {
+	background: var(--anpa-surface-accent, #edf7f1);
+	border-color: var(--anpa-border, #e5e7eb);
+}
+
+#anpa-asociarse [data-fillo-row] [data-f][disabled] {
+	background: var(--anpa-surface-subtle, #f3faf6);
+	color: var(--anpa-text, #17412f);
+	border-color: var(--anpa-border, #cfe3d8);
+	opacity: 1;
+	-webkit-text-fill-color: var(--anpa-text, #17412f);
+}
+
+#anpa-asociarse [data-fillo-row] button[data-fillo-save] {
+	background: var(--anpa-primary, #2d6a4f);
+	border: 1px solid var(--anpa-primary, #2d6a4f);
+	color: var(--anpa-text-on-primary, #fff);
+	border-radius: var(--anpa-radius-md, 6px);
+	padding: 0.5rem 0.9rem;
+	font-weight: var(--anpa-fw-strong, 700);
+	cursor: pointer;
+}
+
+/* Unified Socios hub (fase8 PR-8b) */
+.anpa-hub {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+	max-width: 980px;
+	margin: 1.5rem auto;
+}
+
+.anpa-hub-card {
+	flex: 1 1 260px;
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+	padding: 1.25rem;
+	border: 1px solid var(--anpa-border, #d9e2df);
+	border-radius: 14px;
+	background: var(--anpa-surface, #fff);
+	box-shadow: var(--anpa-shadow-sm, 0 1px 3px rgba(0,0,0,.06));
+}
+
+.anpa-hub-card h3 {
+	margin: 0;
+}
+
+.anpa-hub-card p {
+	flex: 1 1 auto;
+	margin: 0;
+	color: var(--anpa-text-body, #4b5563);
+}
+
+.anpa-hub-btn {
+	display: inline-block;
+	align-self: flex-start;
+	padding: 0.65rem 1.2rem;
+	border-radius: var(--anpa-radius-md, 6px);
+	font-weight: var(--anpa-fw-strong, 700);
+	text-decoration: none;
+	color: var(--anpa-text-on-primary, #fff);
+	background: var(--anpa-primary, #2d6a4f);
+}
+
+.anpa-hub-btn:hover,
+.anpa-hub-btn:focus {
+	background: var(--anpa-primary-hover, #1f513b);
+	color: var(--anpa-text-on-primary, #fff);
+}
+
+/* Colour-code the three entries (keeps the current palette cues). */
+.anpa-hub-alta { border-top: 4px solid var(--anpa-primary, #2d6a4f); }
+.anpa-hub-login { border-top: 4px solid #1967d2; }
+.anpa-hub-login .anpa-hub-btn { background: #1967d2; }
+.anpa-hub-login .anpa-hub-btn:hover { background: #14529e; }
+.anpa-hub-baixa { border-top: 4px solid #b42318; }
+.anpa-hub-baixa .anpa-hub-btn { background: #b42318; }
+.anpa-hub-baixa .anpa-hub-btn:hover { background: #7a271a; }
+
+/* Alta email entry box — matches the area card format/width (fase8 PR-8b) */
+.anpa-alta-emailbox {
+	max-width: 720px;
+	margin: 1.5rem auto;
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+	padding: 1.25rem;
+	border: 1px solid var(--anpa-border, #d9e2df);
+	border-radius: 14px;
+	background: var(--anpa-surface, #fff);
+	box-shadow: var(--anpa-shadow-sm, 0 1px 3px rgba(0,0,0,.06));
+}
+
+.anpa-alta-emailbox h2 {
+	margin: 0;
+}
+
+/* Login bridge on the alta email box (fase8 PR-8c) */
+#anpa-asociarse .anpa-bridge {
+	margin: 0.5rem 0 0;
+	padding: 0.7rem 0.9rem;
+	border: 1px solid #1967d2;
+	border-radius: var(--anpa-radius-md, 8px);
+	background: #e6f0fb;
+	color: #14529e;
+	font-weight: var(--anpa-fw-strong, 600);
+}
+
+#anpa-asociarse .anpa-bridge[hidden] {
+	display: none;
+}
+
+#anpa-asociarse .anpa-bridge a {
+	color: #14529e;
+	font-weight: 700;
+}
+
+/* Fase 8b: field-level validation errors */
+#anpa-asociarse .anpa-field-error {
+	display: block;
+	color: #b42318;
+	font-size: 0.82rem;
+	font-weight: 600;
+	margin-top: -0.3rem;
+	margin-bottom: 0.25rem;
+}
+#anpa-asociarse .anpa-field-error[hidden] {
+	display: none;
+}
+#anpa-asociarse input.anpa-invalid,
+#anpa-asociarse select.anpa-invalid {
+	border-color: #b42318;
+	background: #fff1f0;
+	outline-color: #b42318;
+}
+#anpa-asociarse input.anpa-valid {
+	border-color: #2d6a4f;
+}

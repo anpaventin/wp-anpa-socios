@@ -1,0 +1,74 @@
+/**
+ * Styles for the unified "Área de socios" page.
+ *
+ * Intentionally minimal: all visual styling (colours, typography,
+ * spacing, borders, shadows) comes from the active WordPress theme.
+ * This file only provides the structural behaviour required by the
+ * unified-flow UI.
+ *
+ * @since  1.21.0
+ * @package ANPA_Socios
+ */
+
+/* Container behaves like a constrained section */
+#anpa-unified {
+	position: relative;
+}
+
+/* Only one step visible at a time */
+#anpa-unified [data-step][hidden] {
+	display: none;
+}
+
+/* Busy overlay: structurally centred, inherits theme colours via classes */
+.anpa-unified-busy[hidden] {
+	display: none;
+}
+
+.anpa-unified-busy {
+	text-align: center;
+	padding: var(--theme-content-vertical-spacing, 2rem) 0;
+}
+
+/* Notice block: relies on theme utility classes or inherits defaults.
+   Only adds structural constraints. */
+.anpa-unified-notice[hidden] {
+	display: none;
+}
+
+.anpa-unified-notice {
+	max-width: var(--theme-block-max-width, 600px);
+	margin-left: auto;
+	margin-right: auto;
+}
+
+/* Inline actions row */
+.anpa-unified-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--theme-button-spacing, 0.5rem);
+	align-items: center;
+}
+
+/* Mobile: stack buttons comfortably */
+@media (max-width: 689.98px) {
+	.anpa-unified-actions {
+		flex-direction: column;
+		align-items: stretch;
+	}
+}
+
+
+/* Task A: keep the email/code inputs at a natural field width instead of
+   spanning the whole page (they inherited the theme's full-width input). */
+#anpa-unified input[type="email"],
+#anpa-unified input[type="text"]:not([tabindex="-1"]),
+#anpa-unified input[inputmode="numeric"] {
+	display: block;
+	width: 100%;
+	max-width: 340px;
+	margin: 0.25rem 0 0.9rem;
+	padding: 0.55rem 0.7rem;
+	font-size: 1rem;
+	box-sizing: border-box;
+}

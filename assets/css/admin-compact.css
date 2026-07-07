@@ -1,0 +1,148 @@
+/**
+ * Admin compact buttons + layout (fase 1.20.0)
+ *
+ * - Smaller padding inside buttons
+ * - Small gap between sibling buttons
+ * - Vertical centering in table cells
+ * - Subtle hover/focus states
+ *
+ * Loaded only on pages that render the area/admin UI.
+ * Uses Blocksy theme variables where available.
+ *
+ * @since 1.20.0
+ * @package ANPA_Socios
+ */
+
+/* ── Compact buttons in admin action cells ─────────────────────── */
+.anpa-admin-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	align-items: center;
+}
+
+.anpa-admin-actions button,
+.anpa-admin-actions .anpa-btn {
+	padding: 0.3rem 0.65rem;
+	font-size: 0.875rem;
+	line-height: 1.2;
+	border-radius: 4px;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+/* Make the danger button (desactivar) consistent but compact */
+.anpa-admin-actions .anpa-area-danger,
+.anpa-admin-actions button[data-action="deactivate"],
+.anpa-admin-actions button[data-action="delete"] {
+	padding: 0.3rem 0.65rem;
+	font-size: 0.875rem;
+}
+
+/* ── Table cells: vertical centering so action columns don't push content down ── */
+.anpa-admin-table td,
+table.anpa-admin-table td,
+table[data-admin-table] td {
+	vertical-align: middle;
+}
+
+/* ── Subtle button hover/focus ─────────────────────────────────── */
+.anpa-admin-actions button:hover,
+.anpa-admin-actions .anpa-btn:hover {
+	filter: brightness(0.95);
+}
+.anpa-admin-actions button:focus-visible,
+.anpa-admin-actions .anpa-btn:focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: 1px;
+}
+
+/* ── Form heading + scroll anchor ───────────────────────────────── */
+[data-admin-form] {
+	scroll-margin-top: 1rem;
+}
+
+/* When editing/creating, dim the table to focus on the form */
+.anpa-admin-card[data-editing="1"] .anpa-admin-table {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+/* ── Course selector (actividades admin) ────────────────────────── */
+.anpa-admin-toolbar select[data-admin-curso-select] {
+	padding: 0.3rem 0.5rem;
+	font-size: 0.9rem;
+	border-radius: 4px;
+	min-width: 9rem;
+}
+
+/* ── Readonly curso_escolar hint ────────────────────────────────── */
+.anpa-readonly-hint {
+	display: inline-block;
+	margin-left: 0.5rem;
+	font-size: 0.8rem;
+	color: var(--theme-text-color);
+	font-style: italic;
+}
+.anpa-readonly-hint[data-warning="1"] {
+	color: #b45309;
+}
+
+/* ── Copy-to-current button (visually distinct but compact) ────── */
+.anpa-admin-actions button[data-action="copy-to-current"] {
+	background: #e0f2fe;
+	border: 1px solid #0284c7;
+	color: #075985;
+}
+.anpa-admin-actions button[data-action="copy-to-current"]:hover {
+	background: #bae6fd;
+}
+
+/* ── Empty-state message ───────────────────────────────────────── */
+.anpa-admin-empty {
+	padding: 1.5rem;
+	text-align: center;
+	color: var(--theme-text-color);
+	font-style: italic;
+	background: var(--theme-palette-color-6);
+	border: 1px dashed var(--theme-border-color);
+	border-radius: 6px;
+}
+
+/* ── Responsive: keep actions legible on mobile ────────────────── */
+@media (max-width: 640px) {
+	.anpa-admin-actions {
+		gap: 0.25rem;
+	}
+	.anpa-admin-actions button,
+	.anpa-admin-actions .anpa-btn {
+		padding: 0.25rem 0.5rem;
+		font-size: 0.8rem;
+	}
+}
+
+/* ── Orange admin theme (socios area navigation) ────────────────── */
+.anpa-admin-nav button.anpa-admin-action {
+	--anpa-admin-accent: #e67e22;
+	--anpa-admin-accent-hover: #d35400;
+}
+.anpa-admin-nav button.anpa-admin-action.active,
+.anpa-admin-nav button.anpa-admin-action[aria-pressed="true"] {
+	background-color: var(--anpa-admin-accent) !important;
+	color: #fff !important;
+}
+.anpa-admin-nav button.anpa-admin-action:hover {
+	background-color: var(--anpa-admin-accent-hover) !important;
+	color: #fff !important;
+}
+.anpa-admin-card h2 {
+	color: var(--anpa-admin-accent) !important;
+}
+.anpa-admin-action.anpa-area-secondary {
+	border-color: var(--anpa-admin-accent) !important;
+	color: var(--anpa-admin-accent) !important;
+}
+.anpa-admin-action.anpa-area-secondary:hover {
+	background-color: var(--anpa-admin-accent) !important;
+	color: #fff !important;
+}

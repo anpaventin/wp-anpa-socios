@@ -1,0 +1,9 @@
+# Normalise line endings to avoid CRLF/LF churn across Windows/Linux.
+* text=auto eol=lf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.zip binary
