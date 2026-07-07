@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ANPA Socios
  * Description: Sistema de altas de socios — formulario público e endpoint REST (Fase 2, paso 1).
- * Version: 1.23.0
+ * Version: 1.24.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: ANPA As Brañas
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ANPA_SOCIOS_VERSION', '1.23.0' );
+define( 'ANPA_SOCIOS_VERSION', '1.24.0' );
 define( 'ANPA_SOCIOS_DB_VERSION', '1.19.0' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
@@ -88,6 +88,7 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-unified-page.p
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-preseason-guard.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-admin-settings.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-backup.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-updater.php';
 
 register_activation_hook( __FILE__, array( 'ANPA_Socios_DB', 'crear_tabelas' ) );
 register_activation_hook( __FILE__, array( 'ANPA_Socios_Extraescolar_Offers', 'programar' ) );
@@ -139,3 +140,6 @@ add_action( 'wp_enqueue_scripts', array( 'ANPA_Socios_Unified_Page', 'enqueue_as
 ANPA_Socios_Header_Nav::register();
 ANPA_Socios_Preseason_Guard::register();
 ANPA_Socios_Admin_Settings::register();
+
+// Self-hosted updates from the public Gitea repo (read-only, GET-based).
+ANPA_Socios_Updater::init();
