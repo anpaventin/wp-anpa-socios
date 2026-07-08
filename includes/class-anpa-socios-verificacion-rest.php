@@ -74,7 +74,7 @@ final class ANPA_Socios_Verificacion_REST {
 	private static function resposta_xenerica() {
 		return rest_ensure_response( array(
 			'success' => true,
-			'message' => 'Se o email está rexistrado, recibirás un código en breve',
+			'message' => __( __( 'Se o email está rexistrado, recibirás un código en breve', 'anpa-socios' ), 'anpa-socios' ),
 		) );
 	}
 
@@ -102,7 +102,7 @@ final class ANPA_Socios_Verificacion_REST {
 
 		$email = (string) $request->get_param( 'email' );
 		if ( ! is_email( $email ) ) {
-			return new WP_Error( 'invalid_email', 'Email non válido', array( 'status' => 400 ) );
+			return new WP_Error( 'invalid_email', __( 'Email non válido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$tabela_codigos = $wpdb->prefix . 'anpa_codigos_verificacion';
@@ -166,21 +166,21 @@ final class ANPA_Socios_Verificacion_REST {
 		$codigo = (string) $request->get_param( 'codigo' );
 
 		if ( ! is_email( $email ) ) {
-			return new WP_Error( 'invalid_email', 'Email non válido', array( 'status' => 400 ) );
+			return new WP_Error( 'invalid_email', __( 'Email non válido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 		if ( ! preg_match( '/^[0-9]{6}$/', $codigo ) ) {
-			return new WP_Error( 'invalid_code', 'Código non válido', array( 'status' => 400 ) );
+			return new WP_Error( 'invalid_code', __( 'Código non válido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$ip = self::get_request_ip();
 		if ( '' === $ip ) {
-			return new WP_Error( 'origin_unknown', 'Non se puido determinar a orixe da solicitude', array( 'status' => 400 ) );
+			return new WP_Error( 'origin_unknown', __( 'Non se puido determinar a orixe da solicitude', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 		$rl_key      = 'anpa_vcode_ip_' . md5( $ip );
 		$rl_attempts = get_transient( $rl_key );
 		$rl_attempts = is_array( $rl_attempts ) ? array_map( 'intval', $rl_attempts ) : array();
 		if ( ! ANPA_Socios_Rate_Limiter::permitir( $rl_attempts, 20, 3600 ) ) {
-			return new WP_Error( 'too_many_requests', 'Demasiados intentos. Téntao de novo máis tarde.', array( 'status' => 429 ) );
+			return new WP_Error( 'too_many_requests', __( 'Demasiados intentos. Téntao de novo máis tarde.', 'anpa-socios' ), array( 'status' => 429 ) );
 		}
 		$cutoff      = time() - 3600;
 		$rl_attempts = array_values( array_filter(
@@ -199,19 +199,19 @@ final class ANPA_Socios_Verificacion_REST {
 
 		if ( ! $row ) {
 			ANPA_Socios_Codigo_Generator::hash_code( $codigo ); // timing equalisation.
-			return new WP_Error( 'invalid_code', 'Código incorrecto', array( 'status' => 400 ) );
+			return new WP_Error( 'invalid_code', __( 'Código incorrecto', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		if ( ANPA_Socios_Codigo_Generator::is_expired( (int) strtotime( (string) $row->expira_en ) ) ) {
-			return new WP_Error( 'code_expired', 'Código expirado, solicita un novo', array( 'status' => 400 ) );
+			return new WP_Error( 'code_expired', __( 'Código expirado, solicita un novo', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 		if ( (int) $row->intentos >= 5 ) {
-			return new WP_Error( 'code_expired', 'Código expirado, solicita un novo', array( 'status' => 400 ) );
+			return new WP_Error( 'code_expired', __( 'Código expirado, solicita un novo', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		if ( ! ANPA_Socios_Codigo_Generator::verify( $codigo, (string) $row->codigo_hash ) ) {
 			$wpdb->query( $wpdb->prepare( "UPDATE {$tabela} SET intentos = intentos + 1 WHERE id = %d", $row->id ) );
-			return new WP_Error( 'invalid_code', 'Código incorrecto', array( 'status' => 400 ) );
+			return new WP_Error( 'invalid_code', __( 'Código incorrecto', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$wpdb->update( $tabela, array( 'usado' => 1 ), array( 'id' => $row->id ), array( '%d' ), array( '%d' ) );

@@ -91,12 +91,12 @@ final class ANPA_Socios_Admin_Admins_Handler {
 			ARRAY_A
 		);
 		if ( ! is_array( $row ) ) {
-			return new WP_Error( 'anpa_admin_socio_not_found', 'Socio non atopado', array( 'status' => 404 ) );
+			return new WP_Error( 'anpa_admin_socio_not_found', __( 'Socio non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 
 		// Must be active.
 		if ( 'activo' !== $row['estado'] ) {
-			return new WP_Error( 'anpa_admin_inactive', 'O socio non está activo', array( 'status' => 409 ) );
+			return new WP_Error( 'anpa_admin_inactive', __( 'O socio non está activo', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
 
 		// Protected root guard: the master email cannot be promoted (already master).
@@ -120,7 +120,7 @@ final class ANPA_Socios_Admin_Admins_Handler {
 			array( '%s' )
 		);
 		if ( false === $updated ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'admin', $email, 'grant_admin' );
@@ -145,7 +145,7 @@ final class ANPA_Socios_Admin_Admins_Handler {
 
 		$email = ANPA_Socios_Admin_Payload::sanitise_email( rawurldecode( (string) $request->get_param( 'email' ) ) );
 		if ( null === $email ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Email inválido', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Email inválido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		// Protected root guard — DB untouched.
@@ -166,7 +166,7 @@ final class ANPA_Socios_Admin_Admins_Handler {
 			ARRAY_A
 		);
 		if ( ! is_array( $row ) ) {
-			return new WP_Error( 'anpa_admin_socio_not_found', 'Socio non atopado ou non é admin', array( 'status' => 404 ) );
+			return new WP_Error( 'anpa_admin_socio_not_found', __( 'Socio non atopado ou non é admin', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 
 		// Demote.
@@ -181,7 +181,7 @@ final class ANPA_Socios_Admin_Admins_Handler {
 			array( '%s' )
 		);
 		if ( false === $updated ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'admin', $email, 'revoke_admin' );

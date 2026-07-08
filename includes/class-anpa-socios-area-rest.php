@@ -332,7 +332,7 @@ class ANPA_Socios_Area_REST {
 		return new WP_REST_Response(
 			array(
 				'success' => true,
-				'message' => 'Se a túa conta pode reactivarse, a directiva revisará a túa solicitude e activarate en breve.',
+				'message' => __( __( 'Se a túa conta pode reactivarse, a directiva revisará a túa solicitude e activarate en breve.', 'anpa-socios' ), 'anpa-socios' ),
 			),
 			200
 		);
@@ -376,12 +376,12 @@ class ANPA_Socios_Area_REST {
 	 */
 	public static function handle_master_init( WP_REST_Request $request ) {
 		if ( ANPA_Socios_Master_Auth::is_initialized() ) {
-			return new WP_Error( 'anpa_master_already_initialized', 'A base de datos xa foi inicializada.', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_master_already_initialized', __( 'A base de datos xa foi inicializada.', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$passphrase = trim( (string) $request->get_param( 'passphrase' ) );
 		if ( '' === $passphrase ) {
-			return new WP_Error( 'anpa_master_invalid_passphrase', 'O contrasinal non pode estar baleiro.', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_master_invalid_passphrase', __( 'O contrasinal non pode estar baleiro.', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		// Validate: 5+ non-empty parts separated by hyphens, 20+ chars.
@@ -390,18 +390,18 @@ class ANPA_Socios_Area_REST {
 			return '' !== trim( $p );
 		} ) );
 		if ( count( $parts ) < 5 || strlen( $passphrase ) < 20 ) {
-			return new WP_Error( 'anpa_master_weak_passphrase', 'O contrasinal debe ter polo menos 5 palabras separadas por guións (ex: ceu-mar-sol-lua-vento).', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_master_weak_passphrase', __( 'O contrasinal debe ter polo menos 5 palabras separadas por guións (ex: ceu-mar-sol-lua-vento).', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		// Generate banking keypair and wrap the secret key with the passphrase.
 		$keypair = ANPA_Socios_Crypto::generate_keypair();
 		if ( empty( $keypair ) ) {
-			return new WP_Error( 'anpa_master_keygen_failed', 'Non foi posible xerar as claves de cifrado.', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_master_keygen_failed', __( 'Non foi posible xerar as claves de cifrado.', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		$wrapped = ANPA_Socios_Crypto::wrap_secret( $keypair['secret'], $passphrase );
 		if ( null === $wrapped ) {
-			return new WP_Error( 'anpa_master_wrap_failed', 'Non foi posible protexer a clave secreta.', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_master_wrap_failed', __( 'Non foi posible protexer a clave secreta.', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Banking_Key::store( $keypair['public'], $wrapped );
@@ -411,7 +411,7 @@ class ANPA_Socios_Area_REST {
 		return new WP_REST_Response(
 			array(
 				'success' => true,
-				'message' => 'Base de datos inicializada. Introduce o mesmo contrasinal para acceder ao panel de xestión.',
+				'message' => __( 'Base de datos inicializada. Introduce o mesmo contrasinal para acceder ao panel de xestión.', 'anpa-socios' ),
 			),
 			200
 		);
@@ -432,11 +432,11 @@ class ANPA_Socios_Area_REST {
 
 		$admin_password = (string) $request->get_param( 'admin_password' );
 		if ( '' === $admin_password ) {
-			return new WP_Error( 'anpa_admin_auth_missing', 'Introduce o contrasinal de administración.', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_auth_missing', __( 'Introduce o contrasinal de administración.', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		if ( ! ANPA_Socios_Master_Auth::verify_admin_password( $admin_password ) ) {
-			return new WP_Error( 'anpa_admin_auth_invalid', 'Contrasinal incorrecto.', array( 'status' => 403 ) );
+			return new WP_Error( 'anpa_admin_auth_invalid', __( 'Contrasinal incorrecto.', 'anpa-socios' ), array( 'status' => 403 ) );
 		}
 
 		$area_token = self::get_session_token( $request, 'X-Anpa-Area-Token' );
@@ -447,7 +447,7 @@ class ANPA_Socios_Area_REST {
 		return new WP_REST_Response(
 			array(
 				'success' => true,
-				'message' => 'Acceso autorizado.',
+				'message' => __( 'Acceso autorizado.', 'anpa-socios' ),
 			),
 			200
 		);
@@ -468,18 +468,18 @@ class ANPA_Socios_Area_REST {
 
 		$new_password = (string) $request->get_param( 'admin_password' );
 		if ( '' === $new_password ) {
-			return new WP_Error( 'anpa_admin_password_missing', 'Introduce o novo contrasinal.', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_password_missing', __( 'Introduce o novo contrasinal.', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$result = ANPA_Socios_Master_Auth::set_admin_password( $new_password );
 		if ( true !== $result ) {
-			return new WP_Error( 'anpa_admin_password_invalid', is_string( $result ) ? $result : 'Contrasinal inválido.', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_password_invalid', is_string( $result ) ? $result : __( __( 'Contrasinal inválido.', 'anpa-socios' ), 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		return new WP_REST_Response(
 			array(
 				'success' => true,
-				'message' => 'Contrasinal de administración actualizado.',
+				'message' => __( 'Contrasinal de administración actualizado.', 'anpa-socios' ),
 			),
 			200
 		);
@@ -582,7 +582,7 @@ class ANPA_Socios_Area_REST {
 		$sepa = ANPA_Socios_Alta_Payload::validar_sepa_opcional( is_array( $body ) ? $body : array() );
 		if ( ! is_array( $sepa ) ) {
 			// null (no data) or 'invalid' -> a change request must carry valid data.
-			return new WP_Error( 'anpa_area_invalid_payload', 'Datos bancarios inválidos', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_area_invalid_payload', __( 'Datos bancarios inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$saved = ANPA_Socios_Domiciliacion::save_sealed( $fam['familia_id'], $sepa );
@@ -590,7 +590,7 @@ class ANPA_Socios_Area_REST {
 			return $saved;
 		}
 
-		return new WP_REST_Response( array( 'success' => true, 'message' => 'Datos bancarios actualizados' ), 200 );
+		return new WP_REST_Response( array( 'success' => true, 'message' => __( 'Datos bancarios actualizados', 'anpa-socios' ) ), 200 );
 	}
 
 	/**
@@ -627,7 +627,7 @@ class ANPA_Socios_Area_REST {
 				array(
 					'success'      => true,
 					'baixa_estado' => 'solicitada',
-					'message'      => 'A túa solicitude de baixa xa está rexistrada e pendente de confirmación pola directiva.',
+					'message'      => __( __( 'A túa solicitude de baixa xa está rexistrada e pendente de confirmación pola directiva.', 'anpa-socios' ), 'anpa-socios' ),
 				),
 				200
 			);
@@ -680,7 +680,7 @@ class ANPA_Socios_Area_REST {
 		);
 
 		if ( false === $updated || '' !== (string) $wpdb->last_error ) {
-			return new WP_Error( 'anpa_area_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 		if ( 0 === (int) $updated ) {
 			// No active socio row matched — do not falsely report a pending baixa.
@@ -698,7 +698,7 @@ class ANPA_Socios_Area_REST {
 			array(
 				'success'      => true,
 				'baixa_estado' => 'solicitada',
-				'message'      => 'Solicitude de baixa rexistrada. A baixa será efectiva a fin de curso, tras a confirmación da directiva. Lembra que a cota anual do curso xa xerada non se devolve.',
+				'message'      => __( __( 'Solicitude de baixa rexistrada. A baixa será efectiva a fin de curso, tras a confirmación da directiva. Lembra que a cota anual do curso xa xerada non se devolve.', 'anpa-socios' ), 'anpa-socios' ),
 			),
 			200
 		);
@@ -741,7 +741,7 @@ class ANPA_Socios_Area_REST {
 		);
 
 		if ( false === $updated || '' !== (string) $wpdb->last_error ) {
-			return new WP_Error( 'anpa_area_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		$message = ( 0 === (int) $updated )
@@ -767,7 +767,7 @@ class ANPA_Socios_Area_REST {
 	 */
 	public static function handle_create_session( WP_REST_Request $request ) {
 		if ( ! self::consume_rate_limit( 'anpa_area_session_rl_', 10, HOUR_IN_SECONDS ) ) {
-			return new WP_Error( 'anpa_area_rate_limited', 'Demasiadas solicitudes', array( 'status' => 429 ) );
+			return new WP_Error( 'anpa_area_rate_limited', __( 'Demasiadas solicitudes', 'anpa-socios' ), array( 'status' => 429 ) );
 		}
 
 		$fase1_token = sanitize_text_field( (string) $request->get_param( 'token' ) );
@@ -882,7 +882,7 @@ class ANPA_Socios_Area_REST {
 		$ctx = $ctx ?? self::socio_session_context();
 
 		if ( ! self::consume_rate_limit( $rl_prefix, 60, MINUTE_IN_SECONDS ) ) {
-			return new WP_Error( 'anpa_area_rate_limited', 'Demasiadas solicitudes', array( 'status' => 429 ) );
+			return new WP_Error( 'anpa_area_rate_limited', __( 'Demasiadas solicitudes', 'anpa-socios' ), array( 'status' => 429 ) );
 		}
 
 		$token = self::get_session_token( $request, $ctx['token_header'] );
@@ -1039,7 +1039,7 @@ class ANPA_Socios_Area_REST {
 		try {
 			$session_token = bin2hex( random_bytes( 32 ) );
 		} catch ( Exception $exception ) {
-			return new WP_Error( 'anpa_area_token_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_area_token_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		global $wpdb;
@@ -1071,7 +1071,7 @@ class ANPA_Socios_Area_REST {
 		);
 
 		if ( false === $inserted || '' !== (string) $wpdb->last_error ) {
-			return new WP_Error( 'anpa_area_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		return array(
@@ -1104,7 +1104,7 @@ class ANPA_Socios_Area_REST {
 		$apelidos = ANPA_Socios_Payload::validar_apelidos( sanitize_text_field( (string) $request->get_param( 'apelidos' ) ) );
 
 		if ( null === $nome || null === $apelidos ) {
-			return new WP_Error( 'anpa_area_invalid_payload', 'Datos inválidos', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_area_invalid_payload', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$profile = self::request_profile( $request );
@@ -1133,7 +1133,7 @@ class ANPA_Socios_Area_REST {
 		);
 
 		if ( false === $updated || '' !== (string) $wpdb->last_error ) {
-			return new WP_Error( 'anpa_area_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		$updated_profile = self::get_active_profile_by_email( $profile['email'] );
@@ -1291,7 +1291,7 @@ class ANPA_Socios_Area_REST {
 		);
 
 		if ( '' !== (string) $wpdb->last_error ) {
-			return new WP_Error( 'anpa_area_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		if ( ! is_array( $profile ) || 'activo' !== (string) $profile['estado'] ) {

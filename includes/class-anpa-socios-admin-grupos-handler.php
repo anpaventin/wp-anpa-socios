@@ -119,11 +119,11 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		$actividad_id = (int) $request->get_param( 'id' );
 		$payload = ANPA_Socios_Admin_Payload::validar_grupo( ANPA_Socios_Admin_Shared::json_body( $request ) );
 		if ( null === $payload ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Datos inválidos', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 		$activity = self::get_activity( $actividad_id, (string) $payload['curso_escolar'] );
 		if ( null === $activity ) {
-			return new WP_Error( 'anpa_admin_actividad_not_found', 'Actividade non atopada para ese curso escolar', array( 'status' => 404 ) );
+			return new WP_Error( 'anpa_admin_actividad_not_found', __( 'Actividade non atopada para ese curso escolar', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 		$fit_error = self::assert_within_activity( $payload, $activity );
 		if ( null !== $fit_error ) {
@@ -137,7 +137,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			array( '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%d' )
 		);
 		if ( false === $inserted ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $wpdb->insert_id, 'create' );
@@ -158,15 +158,15 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		$id      = (int) $request->get_param( 'id' );
 		$current = self::get_grupo_row( $id );
 		if ( null === $current ) {
-			return new WP_Error( 'anpa_admin_grupo_not_found', 'Grupo non atopado', array( 'status' => 404 ) );
+			return new WP_Error( 'anpa_admin_grupo_not_found', __( 'Grupo non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 		$payload = ANPA_Socios_Admin_Payload::validar_grupo( ANPA_Socios_Admin_Shared::json_body( $request ) );
 		if ( null === $payload ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Datos inválidos', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 		$activity = self::get_activity( (int) $current['actividad_id'], (string) $payload['curso_escolar'] );
 		if ( null === $activity ) {
-			return new WP_Error( 'anpa_admin_actividad_not_found', 'Actividade non atopada para ese curso escolar', array( 'status' => 404 ) );
+			return new WP_Error( 'anpa_admin_actividad_not_found', __( 'Actividade non atopada para ese curso escolar', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 		$fit_error = self::assert_within_activity( $payload, $activity );
 		if ( null !== $fit_error ) {
@@ -182,7 +182,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			array( '%d' )
 		);
 		if ( false === $updated ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $id, 'update' );
@@ -221,7 +221,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 
 		$deleted = $wpdb->delete( ANPA_Socios_DB::tabela_grupos(), array( 'id' => $id ), array( '%d' ) );
 		if ( false === $deleted ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $id, 'delete' );
@@ -241,12 +241,12 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 
 		$id     = (int) $request->get_param( 'id' );
 		if ( null === self::get_grupo_row( $id ) ) {
-			return new WP_Error( 'anpa_admin_grupo_not_found', 'Grupo non atopado', array( 'status' => 404 ) );
+			return new WP_Error( 'anpa_admin_grupo_not_found', __( 'Grupo non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 		$body   = ANPA_Socios_Admin_Shared::json_body( $request );
 		$estado = isset( $body['estado'] ) ? (string) $body['estado'] : '';
 		if ( ! in_array( $estado, ANPA_Socios_Admin_Payload::GRUPO_ESTADO, true ) ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Estado inválido', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Estado inválido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$updated = $wpdb->update(
@@ -257,7 +257,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			array( '%d' )
 		);
 		if ( false === $updated ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $id, 'estado_' . $estado );
@@ -319,7 +319,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		$body   = ANPA_Socios_Admin_Shared::json_body( $request );
 		$target = isset( $body['grupo_id'] ) ? (int) $body['grupo_id'] : 0;
 		if ( $target <= 0 ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Grupo destino inválido', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Grupo destino inválido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
@@ -338,7 +338,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			ARRAY_A
 		);
 		if ( ! is_array( $mat ) ) {
-			return new WP_Error( 'anpa_admin_matricula_not_found', 'Matrícula non atopada', array( 'status' => 404 ) );
+			return new WP_Error( 'anpa_admin_matricula_not_found', __( 'Matrícula non atopada', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 
 		$grupo = $wpdb->get_row(
@@ -349,12 +349,12 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			ARRAY_A
 		);
 		if ( ! is_array( $grupo ) ) {
-			return new WP_Error( 'anpa_admin_grupo_not_found', 'Grupo destino non atopado', array( 'status' => 404 ) );
+			return new WP_Error( 'anpa_admin_grupo_not_found', __( 'Grupo destino non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 
 		// Must be the same activity.
 		if ( (int) $grupo['actividad_id'] !== (int) $mat['activitad_id'] ) {
-			return new WP_Error( 'anpa_admin_mover_actividade', 'Só se pode mover entre grupos da mesma actividade', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_mover_actividade', __( 'Só se pode mover entre grupos da mesma actividade', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		// Curso fit.
@@ -372,7 +372,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			)
 		);
 		if ( $activos >= (int) $grupo['max_pupilos'] ) {
-			return new WP_Error( 'anpa_admin_mover_cheo', 'O grupo destino está completo', array( 'status' => 409 ) );
+			return new WP_Error( 'anpa_admin_mover_cheo', __( 'O grupo destino está completo', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
 
 		// Single atomic update. Position is not changed: it is the immutable
@@ -386,7 +386,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			)
 		);
 		if ( false === $updated ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'matricula', (string) $mat_id, 'mover' );
@@ -421,10 +421,10 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			ARRAY_A
 		);
 		if ( ! is_array( $mat ) ) {
-			return new WP_Error( 'anpa_admin_matricula_not_found', 'Matrícula non atopada', array( 'status' => 404 ) );
+			return new WP_Error( 'anpa_admin_matricula_not_found', __( 'Matrícula non atopada', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 		if ( 'baixa_solicitada' !== $mat['estado'] ) {
-			return new WP_Error( 'anpa_admin_no_baixa_request', 'Esta matrícula non ten unha solicitude de baixa pendente', array( 'status' => 409 ) );
+			return new WP_Error( 'anpa_admin_no_baixa_request', __( 'Esta matrícula non ten unha solicitude de baixa pendente', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
 
 		$updated = $wpdb->update(
@@ -435,7 +435,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			array( '%d' )
 		);
 		if ( false === $updated ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'matricula', (string) $id, 'baixa_confirm' );

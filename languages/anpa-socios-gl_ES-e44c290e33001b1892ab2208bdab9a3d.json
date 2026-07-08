@@ -1,0 +1,69 @@
+{
+    "translation-revision-date": "2026-07-08 11:19+0000",
+    "generator": "anpa-socios-i18n-helper",
+    "source": "assets\/js\/asociarse.js",
+    "domain": "messages",
+    "locale_data": {
+        "messages": {
+            "": {
+                "domain": "messages",
+                "lang": "gl_ES",
+                "plural-forms": "nplurals=2; plural=(n != 1);"
+            },
+            "Erro de rede. Téntao de novo.": [
+                "Erro de rede. Téntao de novo."
+            ],
+            "Corrixe os campos marcados.": [
+                "Corrixe os campos marcados."
+            ],
+            "Erro": [
+                "Erro"
+            ],
+            "Resposta inválida do servidor.": [
+                "Resposta inválida do servidor."
+            ],
+            "O correo electrónico non é válido.": [
+                "O correo electrónico non é válido."
+            ],
+            "Iniciar sesión na área persoal": [
+                "Iniciar sesión na área persoal"
+            ],
+            "Inicia sesión na túa área persoal.": [
+                "Inicia sesión na túa área persoal."
+            ],
+            "Nome": [
+                "Nome"
+            ],
+            "Apelidos": [
+                "Apelidos"
+            ],
+            "Data de nacemento": [
+                "Data de nacemento"
+            ],
+            "Gardar fillo\/a": [
+                "Gardar fillo\/a"
+            ],
+            "Modificar": [
+                "Modificar"
+            ],
+            "Quitar": [
+                "Quitar"
+            ],
+            "Curso": [
+                "Curso"
+            ],
+            "Grupo": [
+                "Grupo"
+            ],
+            "Código incorrecto": [
+                "Código incorrecto"
+            ],
+            "O código caducou, solícitao de novo": [
+                "O código caducou, solícitao de novo"
+            ],
+            "Debes aceptar a política de protección de datos.": [
+                "Debes aceptar a política de protección de datos."
+            ]
+        }
+    }
+}

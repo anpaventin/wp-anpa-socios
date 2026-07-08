@@ -80,6 +80,10 @@ Examples already in place: `association_name()`, `contact_email()`, `association
 - Source language is Galician. User-facing strings should move to `__()/esc_html__()`
   with the `anpa-socios` text domain; translations ship as `.mo` files under
   `/languages`. The active language is chosen in *Axustes → Localización e idioma*.
+- For JS strings, use `wp.i18n.__( '…', 'anpa-socios' )` and ensure the script declares
+  `wp-i18n` as a dependency. Call `wp_set_script_translations()` in the enqueue.
+- See the **"🌍 Translating the plugin"** section in `README.md` for the full workflow
+  to add or update translations.
 
 ---
 

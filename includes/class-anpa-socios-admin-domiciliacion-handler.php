@@ -56,13 +56,13 @@ final class ANPA_Socios_Admin_Domiciliacion_Handler {
 
 		$familia_id = (int) $request->get_param( 'familia_id' );
 		if ( $familia_id <= 0 ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Identificador inválido', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Identificador inválido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$body       = ANPA_Socios_Admin_Shared::json_body( $request );
 		$passphrase = (string) ( $body['passphrase'] ?? '' );
 		if ( '' === $passphrase ) {
-			return new WP_Error( 'anpa_admin_passphrase', 'Falta o contrasinal de descifrado', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_passphrase', __( 'Falta o contrasinal de descifrado', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$table = ANPA_Socios_DB::tabela_domiciliacions();
@@ -71,20 +71,20 @@ final class ANPA_Socios_Admin_Domiciliacion_Handler {
 			ARRAY_A
 		);
 		if ( ! is_array( $row ) ) {
-			return new WP_Error( 'anpa_admin_not_found', 'Sen domiciliación', array( 'status' => 404 ) );
+			return new WP_Error( 'anpa_admin_not_found', __( 'Sen domiciliación', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 
 		// Unwrap the banking secret key with the supplied passphrase (in memory).
 		$public  = ANPA_Socios_Banking_Key::public_key();
 		$wrapped = ANPA_Socios_Banking_Key::wrapped_secret();
 		if ( null === $public || null === $wrapped ) {
-			return new WP_Error( 'anpa_admin_no_key', 'A clave bancaria non está configurada', array( 'status' => 409 ) );
+			return new WP_Error( 'anpa_admin_no_key', __( 'A clave bancaria non está configurada', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
 		$secret = ANPA_Socios_Crypto::unwrap_secret( $wrapped['blob'], $wrapped['salt'], $wrapped['nonce'], $passphrase );
 		if ( null === $secret ) {
 			// Wrong passphrase (or tampered blob): generic error, no oracle.
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'domiciliacion', (string) $familia_id, 'decrypt_denied' );
-			return new WP_Error( 'anpa_admin_bad_passphrase', 'Contrasinal incorrecto', array( 'status' => 403 ) );
+			return new WP_Error( 'anpa_admin_bad_passphrase', __( 'Contrasinal incorrecto', 'anpa-socios' ), array( 'status' => 403 ) );
 		}
 
 		$iban = ANPA_Socios_Crypto::unseal( (string) $row['iban_cifrado'], $public, $secret );
@@ -93,7 +93,7 @@ final class ANPA_Socios_Admin_Domiciliacion_Handler {
 
 		if ( null === $iban || null === $nif ) {
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'domiciliacion', (string) $familia_id, 'decrypt_fail' );
-			return new WP_Error( 'anpa_admin_decrypt_error', 'Erro ao descifrar', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_decrypt_error', __( 'Erro ao descifrar', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		// Audit the successful read of sensitive banking data.

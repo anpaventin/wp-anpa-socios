@@ -50,7 +50,7 @@ final class ANPA_Socios_Admin_Eliminar_Handler {
 
 		$email = ANPA_Socios_Admin_Payload::sanitise_email( rawurldecode( (string) $request->get_param( 'email' ) ) );
 		if ( null === $email ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Email inválido', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Email inválido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		// Protect the root master account.
@@ -64,7 +64,7 @@ final class ANPA_Socios_Admin_Eliminar_Handler {
 		$socios_table = $wpdb->prefix . 'anpa_socios';
 		$socio        = $wpdb->get_var( $wpdb->prepare( "SELECT email FROM {$socios_table} WHERE email = %s", $email ) );
 		if ( null === $socio ) {
-			return new WP_Error( 'anpa_admin_socio_not_found', 'Socio non atopado', array( 'status' => 404 ) );
+			return new WP_Error( 'anpa_admin_socio_not_found', __( 'Socio non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 
 		$fillos_table       = $wpdb->prefix . 'anpa_fillos';

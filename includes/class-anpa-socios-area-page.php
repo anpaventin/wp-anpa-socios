@@ -109,91 +109,91 @@ class ANPA_Socios_Area_Page {
 			<div class="anpa-area-notice" data-area-message hidden></div>
 			<div class="anpa-area-idle" data-idle-warning hidden role="alertdialog" aria-live="assertive">
 				<span data-idle-text></span>
-				<button type="button" data-action="idle-stay">Seguir conectado</button>
+				<button type="button" data-action="idle-stay"><?php esc_html_e( 'Seguir conectado', 'anpa-socios' ); ?></button>
 			</div>
-			<div class="anpa-area-busy" data-busy hidden aria-hidden="true"><span class="anpa-area-spinner" role="status" aria-label="Traballando"></span></div>
+			<div class="anpa-area-busy" data-busy hidden aria-hidden="true"><span class="anpa-area-spinner" role="status" aria-label="<?php esc_attr_e( 'Traballando', 'anpa-socios' ); ?>"></span></div>
 			<div class="anpa-area-session-header" data-session-header hidden>
 				<details class="anpa-session-menu" data-session-menu>
-					<summary class="anpa-session-summary"><span class="anpa-area-session-who">Conectada/o como <strong data-session-email></strong></span></summary>
+					<summary class="anpa-session-summary"><span class="anpa-area-session-who"><?php esc_html_e( 'Conectada/o como', 'anpa-socios' ); ?> <strong data-session-email></strong></span></summary>
 					<div class="anpa-session-menu-body">
-						<button type="button" class="anpa-area-secondary" data-action="header-area">Os meus datos</button>
-						<button type="button" class="anpa-area-secondary anpa-admin-action" data-action="header-admin" data-admin-entry hidden>Xestión ANPA</button>
-						<button type="button" class="anpa-area-secondary anpa-admin-action" data-action="header-exports" data-admin-entry hidden>Listados</button>
-						<button type="button" class="anpa-area-secondary anpa-admin-action" data-action="header-fullexport" data-admin-entry hidden>Descargar Socios IBAN</button>
-						<button type="button" class="anpa-area-secondary anpa-area-danger" data-action="header-logout">Pechar sesión</button>
+						<button type="button" class="anpa-area-secondary" data-action="header-area"><?php esc_html_e( 'Os meus datos', 'anpa-socios' ); ?></button>
+						<button type="button" class="anpa-area-secondary anpa-admin-action" data-action="header-admin" data-admin-entry hidden><?php esc_html_e( 'Xestión ANPA', 'anpa-socios' ); ?></button>
+						<button type="button" class="anpa-area-secondary anpa-admin-action" data-action="header-exports" data-admin-entry hidden><?php esc_html_e( 'Listados', 'anpa-socios' ); ?></button>
+						<button type="button" class="anpa-area-secondary anpa-admin-action" data-action="header-fullexport" data-admin-entry hidden><?php esc_html_e( 'Descargar Socios IBAN', 'anpa-socios' ); ?></button>
+						<button type="button" class="anpa-area-secondary anpa-area-danger" data-action="header-logout"><?php esc_html_e( 'Pechar sesión', 'anpa-socios' ); ?></button>
 					</div>
 				</details>
 			</div>
 			<div class="anpa-area-card" data-step="email" hidden>
-				<h2>Área persoal de socios/as</h2>
-				<p>Introduce o email co que estás dado/a de alta na ANPA. Enviarémosche un código para acceder sen contrasinal.</p>
-				<label for="anpa-area-email">Email</label>
+				<h2><?php esc_html_e( 'Área persoal de socios/as', 'anpa-socios' ); ?></h2>
+				<p><?php esc_html_e( 'Introduce o email co que estás dado/a de alta na ANPA. Enviarémosche un código para acceder sen contrasinal.', 'anpa-socios' ); ?></p>
+				<label for="anpa-area-email"><?php esc_html_e( 'Email', 'anpa-socios' ); ?></label>
 				<input id="anpa-area-email" type="email" autocomplete="email" required>
 				<div style="position:absolute;left:-9999px" aria-hidden="true">
 					<input type="text" id="anpa-area-website" name="website" tabindex="-1" autocomplete="off" value="">
 				</div>
 				<input type="hidden" id="anpa-area-ts" name="_ts" value="<?php echo (int) time(); ?>">
-				<button type="button" data-action="request-code">Enviar código</button>
+				<button type="button" data-action="request-code"><?php esc_html_e( 'Enviar código', 'anpa-socios' ); ?></button>
 			</div>
 
 			<div class="anpa-area-card" data-step="code" hidden>
-				<h2>Revisa o teu correo</h2>
-				<p>Escribe o código recibido para abrir a túa área persoal.</p>
-				<label for="anpa-area-code">Código de 6 díxitos</label>
+				<h2><?php esc_html_e( 'Revisa o teu correo', 'anpa-socios' ); ?></h2>
+				<p><?php esc_html_e( 'Escribe o código recibido para abrir a túa área persoal.', 'anpa-socios' ); ?></p>
+				<label for="anpa-area-code"><?php esc_html_e( 'Código de 6 díxitos', 'anpa-socios' ); ?></label>
 				<input id="anpa-area-code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required>
-				<button type="button" data-action="verify-code">Entrar</button>
-				<button type="button" class="anpa-area-secondary" data-action="back-email">Cambiar email</button>
+				<button type="button" data-action="verify-code"><?php esc_html_e( 'Entrar', 'anpa-socios' ); ?></button>
+				<button type="button" class="anpa-area-secondary" data-action="back-email"><?php esc_html_e( 'Cambiar email', 'anpa-socios' ); ?></button>
 			</div>
 
 			<div class="anpa-area-card" data-step="alta" hidden>
-				<h2>Completa a túa alta</h2>
-				<p>Se o email é válido, recibirás un código. Tras introducilo, pedirémosche os teus datos para completar a alta como socio/a.</p>
-				<label for="anpa-area-email-alta">Email</label>
+				<h2><?php esc_html_e( 'Completa a túa alta', 'anpa-socios' ); ?></h2>
+				<p><?php esc_html_e( 'Se o email é válido, recibirás un código. Tras introducilo, pedirémosche os teus datos para completar a alta como socio/a.', 'anpa-socios' ); ?></p>
+				<label for="anpa-area-email-alta"><?php esc_html_e( 'Email', 'anpa-socios' ); ?></label>
 				<input id="anpa-area-email-alta" type="email" autocomplete="email" required>
-				<button type="button" data-action="request-code-alta">Enviar código</button>
+				<button type="button" data-action="request-code-alta"><?php esc_html_e( 'Enviar código', 'anpa-socios' ); ?></button>
 			</div>
 
 			<div class="anpa-area-card" data-step="inactivo" hidden>
-				<h2>A túa solicitude de baixa está procesada</h2>
-				<p>Se queres volver a ser socio/a, podes solicitar a reactivación da túa conta. Un/unha administrador/a da ANPA deberá aprobala antes de poder acceder de novo.</p>
+				<h2><?php esc_html_e( 'A túa solicitude de baixa está procesada', 'anpa-socios' ); ?></h2>
+				<p><?php esc_html_e( 'Se queres volver a ser socio/a, podes solicitar a reactivación da túa conta. Un/unha administrador/a da ANPA deberá aprobala antes de poder acceder de novo.', 'anpa-socios' ); ?></p>
 				<div class="anpa-area-actions">
-					<button type="button" data-action="request-reactivar">Solicitar reactivación</button>
-					<button type="button" class="anpa-area-secondary" data-action="back-email">Cambiar email</button>
+					<button type="button" data-action="request-reactivar"><?php esc_html_e( 'Solicitar reactivación', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary" data-action="back-email"><?php esc_html_e( 'Cambiar email', 'anpa-socios' ); ?></button>
 				</div>
 			</div>
 
 			<!-- ── Profile step (fase8b: expanded with telefono, nif, email, proxenitor2, banking) ── -->
 			<div class="anpa-area-card" data-step="profile" hidden>
-				<h2>Os teus datos</h2>
+				<h2><?php esc_html_e( 'Os teus datos', 'anpa-socios' ); ?></h2>
 				<p class="anpa-area-muted" data-profile-help></p>
 				<p><strong>Email:</strong> <span data-profile-email></span></p>
 				<!-- Profile edit fields -->
-				<label for="anpa-area-nome">Nome</label>
+				<label for="anpa-area-nome"><?php esc_html_e( 'Nome', 'anpa-socios' ); ?></label>
 				<input id="anpa-area-nome" type="text" autocomplete="given-name" required>
 				<span class="anpa-field-error" data-error="nome" hidden></span>
-				<label for="anpa-area-apelidos">Apelidos</label>
+				<label for="anpa-area-apelidos"><?php esc_html_e( 'Apelidos', 'anpa-socios' ); ?></label>
 				<input id="anpa-area-apelidos" type="text" autocomplete="family-name" required>
 				<span class="anpa-field-error" data-error="apelidos" hidden></span>
-				<label for="anpa-area-telefono">Teléfono</label>
+				<label for="anpa-area-telefono"><?php esc_html_e( 'Teléfono', 'anpa-socios' ); ?></label>
 				<input id="anpa-area-telefono" type="tel" autocomplete="tel">
 				<span class="anpa-field-error" data-error="telefono" hidden></span>
-				<label for="anpa-area-nif">NIF / NIE</label>
+				<label for="anpa-area-nif"><?php esc_html_e( 'NIF / NIE', 'anpa-socios' ); ?></label>
 				<input id="anpa-area-nif" type="text" autocomplete="off" required>
 				<span class="anpa-field-error" data-error="nif" hidden></span>
-				<label for="anpa-area-email-edit">Correo electrónico</label>
+				<label for="anpa-area-email-edit"><?php esc_html_e( 'Correo electrónico', 'anpa-socios' ); ?></label>
 				<input id="anpa-area-email-edit" type="email" autocomplete="email">
 				<span class="anpa-field-error" data-error="email" hidden></span>
 				<p class="anpa-area-baixa-status" data-baixa-status hidden></p>
 				<div class="anpa-area-actions">
-					<button type="button" data-action="save-profile">Gardar cambios</button>
-					<button type="button" class="anpa-area-secondary" data-action="manage-fillos">Xestionar fillos/as</button>
-					<button type="button" class="anpa-area-secondary" data-action="manage-extraescolares">Extraescolares</button>
-					<button type="button" class="anpa-area-secondary" data-action="toggle-proxenitor2">Engadir outro proxenitor/titor</button>
-					<button type="button" class="anpa-area-secondary" data-action="toggle-banking">Modificación IBAN</button>
-					<button type="button" class="anpa-area-secondary anpa-admin-action" data-action="open-admin" data-admin-entry hidden>Xestión ANPA</button>
-					<button type="button" class="anpa-area-secondary anpa-area-danger" data-action="request-baixa" data-baixa-btn hidden>Solicitar baixa de socio/a</button>
-					<button type="button" class="anpa-area-secondary" data-action="cancel-baixa" data-baixa-cancel-btn hidden>Anular solicitude de baixa</button>
-					<button type="button" class="anpa-area-secondary" data-action="logout">Pechar sesión</button>
+					<button type="button" data-action="save-profile"><?php esc_html_e( 'Gardar cambios', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary" data-action="manage-fillos"><?php esc_html_e( 'Xestionar fillos/as', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary" data-action="manage-extraescolares"><?php esc_html_e( 'Extraescolares', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary" data-action="toggle-proxenitor2"><?php esc_html_e( 'Engadir outro proxenitor/titor', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary" data-action="toggle-banking"><?php esc_html_e( 'Modificación IBAN', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary anpa-admin-action" data-action="open-admin" data-admin-entry hidden><?php esc_html_e( 'Xestión ANPA', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary anpa-area-danger" data-action="request-baixa" data-baixa-btn hidden><?php esc_html_e( 'Solicitar baixa de socio/a', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary" data-action="cancel-baixa" data-baixa-cancel-btn hidden><?php esc_html_e( 'Anular solicitude de baixa', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary" data-action="logout"><?php esc_html_e( 'Pechar sesión', 'anpa-socios' ); ?></button>
 
 				</div>
 			</div>
@@ -294,20 +294,20 @@ class ANPA_Socios_Area_Page {
 			</div>
 
 			<div class="anpa-area-card" data-step="fillos" hidden>
-				<h2>Os teus fillos e fillas</h2>
-				<p class="anpa-area-muted">Engade, edita ou da de baixa os datos básicos dos teus fillos/as. Só ti podes ver e xestionar os teus.</p>
+				<h2><?php esc_html_e( 'Os teus fillos e fillas', 'anpa-socios' ); ?></h2>
+				<p class="anpa-area-muted"><?php esc_html_e( 'Engade, edita ou da de baixa os datos básicos dos teus fillos/as. Só ti podes ver e xestionar os teus.', 'anpa-socios' ); ?></p>
 				<div data-fillos-list></div>
-				<h3 data-fillos-form-title>Engadir fillo/a</h3>
+				<h3 data-fillos-form-title><?php esc_html_e( 'Engadir fillo/a', 'anpa-socios' ); ?></h3>
 				<input type="hidden" data-fillo-edit-id value="">
-				<label for="anpa-fillo-nome">Nome</label>
+				<label for="anpa-fillo-nome"><?php esc_html_e( 'Nome', 'anpa-socios' ); ?></label>
 				<input id="anpa-fillo-nome" type="text" autocomplete="off" required>
-				<label for="anpa-fillo-apelidos">Apelidos</label>
+				<label for="anpa-fillo-apelidos"><?php esc_html_e( 'Apelidos', 'anpa-socios' ); ?></label>
 				<input id="anpa-fillo-apelidos" type="text" autocomplete="off" required>
-				<label for="anpa-fillo-data">Data de nacemento</label>
+				<label for="anpa-fillo-data"><?php esc_html_e( 'Data de nacemento', 'anpa-socios' ); ?></label>
 				<input id="anpa-fillo-data" type="date" required>
-				<label for="anpa-fillo-curso">Curso</label>
+				<label for="anpa-fillo-curso"><?php esc_html_e( 'Curso', 'anpa-socios' ); ?></label>
 				<select id="anpa-fillo-curso" required>
-					<option value="">-- Selecciona --</option>
+					<option value=""><?php esc_html_e( '-- Selecciona --', 'anpa-socios' ); ?></option>
 					<option value="1">1º</option>
 					<option value="2">2º</option>
 					<option value="3">3º</option>
@@ -315,35 +315,35 @@ class ANPA_Socios_Area_Page {
 					<option value="5">5º</option>
 					<option value="6">6º</option>
 				</select>
-				<label for="anpa-fillo-aula">Grupo</label>
+				<label for="anpa-fillo-aula"><?php esc_html_e( 'Grupo', 'anpa-socios' ); ?></label>
 				<select id="anpa-fillo-aula" required>
-					<option value="">-- Selecciona --</option>
+					<option value=""><?php esc_html_e( '-- Selecciona --', 'anpa-socios' ); ?></option>
 					<option value="A">A</option>
 					<option value="B">B</option>
 					<option value="C">C</option>
 					<option value="D">D</option>
 				</select>
 				<div class="anpa-area-actions">
-					<button type="button" data-action="save-fillo">Gardar fillo/a</button>
-					<button type="button" class="anpa-area-secondary" data-action="cancel-fillo-edit" hidden>Cancelar edición</button>
-					<button type="button" class="anpa-area-secondary" data-action="back-profile">Volver aos meus datos</button>
+					<button type="button" data-action="save-fillo"><?php esc_html_e( 'Gardar fillo/a', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary" data-action="cancel-fillo-edit" hidden><?php esc_html_e( 'Cancelar edición', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary" data-action="back-profile"><?php esc_html_e( 'Volver aos meus datos', 'anpa-socios' ); ?></button>
 				</div>
 			</div>
 
 			<div class="anpa-area-card" data-step="extraescolares" hidden>
-				<h2>Actividades extraescolares</h2>
-				<p class="anpa-area-muted">Anota os teus fillos/as nas actividades dispoñibles. Se un grupo está completo, entrarán na lista de espera e avisarémosvos por correo se queda praza.</p>
+				<h2><?php esc_html_e( 'Actividades extraescolares', 'anpa-socios' ); ?></h2>
+				<p class="anpa-area-muted"><?php esc_html_e( 'Anota os teus fillos/as nas actividades dispoñibles. Se un grupo está completo, entrarán na lista de espera e avisarémosvos por correo se queda praza.', 'anpa-socios' ); ?></p>
 				<div data-extra-matriculas></div>
-				<h3>Nova matrícula</h3>
+				<h3><?php esc_html_e( 'Nova matrícula', 'anpa-socios' ); ?></h3>
 				<div data-extra-enrol></div>
 				<div class="anpa-area-actions">
-					<button type="button" class="anpa-area-secondary" data-action="extra-back">Volver aos teus datos</button>
+					<button type="button" class="anpa-area-secondary" data-action="extra-back"><?php esc_html_e( 'Volver aos teus datos', 'anpa-socios' ); ?></button>
 				</div>
 			</div>
 
 			<div class="anpa-area-card anpa-admin-card" data-step="admin" hidden>
-				<h2>Xestión ANPA</h2>
-				<p class="anpa-area-muted">Panel de administración. Só accesible para a directiva (rol master). Cada consulta valídase no servidor.</p>
+				<h2><?php esc_html_e( 'Xestión ANPA', 'anpa-socios' ); ?></h2>
+				<p class="anpa-area-muted"><?php esc_html_e( 'Panel de administración. Só accesible para a directiva (rol master). Cada consulta valídase no servidor.', 'anpa-socios' ); ?></p>
 				<div class="anpa-admin-toolbar">
 					<nav class="anpa-admin-nav" aria-label="Seccións de xestión">
 						<button type="button" class="anpa-area-secondary anpa-admin-action" data-admin-section="socios">Socios/as</button>
@@ -388,7 +388,7 @@ class ANPA_Socios_Area_Page {
 			</div>
 
 			<div class="anpa-area-card" data-step="empresa" hidden>
-				<h2>Panel da empresa</h2>
+				<h2><?php esc_html_e( 'Panel da empresa', 'anpa-socios' ); ?></h2>
 				<p class="anpa-area-muted"><strong>Empresa:</strong> <span data-empresa-nome></span></p>
 				<p class="anpa-area-muted"><strong>Email:</strong> <span data-empresa-email></span></p>
 				<div class="anpa-area-actions">
@@ -459,10 +459,11 @@ class ANPA_Socios_Area_Page {
 		wp_enqueue_script(
 			'anpa-socios-area',
 			plugins_url( 'assets/js/area.js', ANPA_SOCIOS_PLUGIN_FILE ),
-			array( 'anpa-socios-admin-table', 'anpa-socios-normalize', 'anpa-socios-utils' ),
+			array( 'wp-i18n', 'anpa-socios-admin-table', 'anpa-socios-normalize', 'anpa-socios-utils' ),
 			$js_version,
 			true
 		);
+		wp_set_script_translations( 'anpa-socios-area', 'anpa-socios', ANPA_SOCIOS_PLUGIN_DIR . 'languages' );
 
 		wp_enqueue_style(
 			'anpa-socios-area',

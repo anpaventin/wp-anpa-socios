@@ -1,0 +1,189 @@
+{
+    "translation-revision-date": "2026-07-08 11:19+0000",
+    "generator": "anpa-socios-i18n-helper",
+    "source": "assets\/js\/area.js",
+    "domain": "messages",
+    "locale_data": {
+        "messages": {
+            "": {
+                "domain": "messages",
+                "lang": "es_ES",
+                "plural-forms": "nplurals=2; plural=(n != 1);"
+            },
+            "Erro de rede. Téntao de novo.": [
+                "Error de red. Inténtalo de nuevo."
+            ],
+            "Non foi posible completar a operación.": [
+                "No fue posible completar la operación."
+            ],
+            "A túa sesión pechouse por inactividade.": [
+                "Tu sesión se cerró por inactividad."
+            ],
+            "Sesión pechada.": [
+                "Sesión cerrada."
+            ],
+            "Introduce o teu email.": [
+                "Introduce tu email."
+            ],
+            "Se o email é válido, recibirás un código en breve.": [
+                "Si el email es válido, recibirás un código en breve."
+            ],
+            "Solicitude de reactivación enviada.": [
+                "Solicitud de reactivación enviada."
+            ],
+            "Introduce o email e o código.": [
+                "Introduce el email y el código."
+            ],
+            "Código incorrecto.": [
+                "Código incorrecto."
+            ],
+            "Non foi posible cargar o perfil. Téntao de novo.": [
+                "No fue posible cargar el perfil. Inténtalo de nuevo."
+            ],
+            "A sesión caducou. Volve entrar.": [
+                "La sesión caducó. Vuelve a entrar."
+            ],
+            "Datos gardados correctamente.": [
+                "Datos guardados correctamente."
+            ],
+            "Solicitude de baixa rexistrada.": [
+                "Solicitud de baja registrada."
+            ],
+            "Solicitude de baixa anulada.": [
+                "Solicitud de baja anulada."
+            ],
+            "Editar": [
+                "Editar"
+            ],
+            "Desactivar": [
+                "Desactivar"
+            ],
+            "En lista de espera": [
+                "En lista de espera"
+            ],
+            "Oferta de praza pendente": [
+                "Oferta de plaza pendiente"
+            ],
+            "Baixa solicitada": [
+                "Baja solicitada"
+            ],
+            "Baixa": [
+                "Baja"
+            ],
+            "Aínda non tes ningunha matrícula en extraescolares.": [
+                "Aún no tienes ninguna matrícula en extraescolares."
+            ],
+            "Aceptar praza": [
+                "Aceptar plaza"
+            ],
+            "Praza aceptada.": [
+                "Plaza aceptada."
+            ],
+            "Dar de baixa": [
+                "Dar de baja"
+            ],
+            "Anular baixa": [
+                "Anular baja"
+            ],
+            "Baixa anulada.": [
+                "Baja anulada."
+            ],
+            "Non hai actividades dispoñibles neste momento.": [
+                "No hay actividades disponibles en este momento."
+            ],
+            "Selecciona un grupo compatible.": [
+                "Selecciona un grupo compatible."
+            ],
+            "É obrigatorio autorizar a cesión dos datos necesarios á empresa da actividade.": [
+                "Es obligatorio autorizar la cesión de los datos necesarios a la empresa de la actividad."
+            ],
+            "Indica se autorizas ao persoal de comedor a facilitar a participación.": [
+                "Indica si autorizas al personal de comedor a facilitar la participación."
+            ],
+            "Indica se o neno\/a vén do comedor ou se a familia o levará á actividade.": [
+                "Indica si el niño\/a viene del comedor o si la familia lo llevará a la actividad."
+            ],
+            "Matrícula confirmada.": [
+                "Matrícula confirmada."
+            ],
+            "Nome e apelidos son obrigatorios.": [
+                "Nombre y apellidos son obligatorios."
+            ],
+            "O NIF\/NIE é obrigatorio.": [
+                "El NIF\/NIE es obligatorio."
+            ],
+            "Para modificar os datos bancarios debes cubrir IBAN, titular e autorización.": [
+                "Para modificar los datos bancarios debes completar IBAN, titular y autorización."
+            ],
+            "Debes autorizar a domiciliación dos recibos.": [
+                "Debes autorizar la domiciliación de los recibos."
+            ],
+            "Datos bancarios actualizados correctamente.": [
+                "Datos bancarios actualizados correctamente."
+            ],
+            "Completa todos os campos do fillo\/a.": [
+                "Completa todos los campos del hijo\/a."
+            ],
+            "Erro de configuración (falta URL de inicialización).": [
+                "Error de configuración (falta URL de inicialización)."
+            ],
+            "Todos os campos son obrigatorios.": [
+                "Todos los campos son obligatorios."
+            ],
+            "Non se atopou o socio\/a na lista. Recarga a sección.": [
+                "No se encontró el socio\/a en la lista. Recarga la sección."
+            ],
+            "Selecciona polo menos unha solicitude.": [
+                "Selecciona al menos una solicitud."
+            ],
+            "Completa nome, email, responsable e teléfono.": [
+                "Completa nombre, email, responsable y teléfono."
+            ],
+            "Introduce un email.": [
+                "Introduce un email."
+            ],
+            "Completa empresa, nome, descrición e curso escolar.": [
+                "Completa empresa, nombre, descripción y curso escolar."
+            ],
+            "Selecciona polo menos un horario, un grupo e un día.": [
+                "Selecciona al menos un horario, un grupo y un día."
+            ],
+            "Selecciona un grupo destino.": [
+                "Selecciona un grupo destino."
+            ],
+            "Selecciona polo menos un día.": [
+                "Selecciona al menos un día."
+            ],
+            "Indica o horario do grupo.": [
+                "Indica el horario del grupo."
+            ],
+            "O máximo debe ser maior que 0 e non menor que o mínimo.": [
+                "El máximo debe ser mayor que 0 y no menor que el mínimo."
+            ],
+            "Introduce o contrasinal de descifrado.": [
+                "Introduce la contraseña de descifrado."
+            ],
+            "Descarga iniciada.": [
+                "Descarga iniciada."
+            ],
+            "Non tes permisos para esta acción.": [
+                "No tienes permisos para esta acción."
+            ],
+            "Non foi posible descargar o ficheiro.": [
+                "No fue posible descargar el archivo."
+            ],
+            "O contrasinal debe ter polo menos 5 palabras separadas por guións (ex: ceu-mar-sol-lua-vento).": [
+                "La contraseña debe tener al menos 5 palabras separadas por guiones (ej: cielo-mar-sol-luna-viento)."
+            ],
+            "Introduce o contrasinal de administración.": [
+                "Introduce la contraseña de administración."
+            ],
+            "Erro de configuración (falta URL de autenticación).": [
+                "Error de configuración (falta URL de autenticación)."
+            ],
+            "Demasiadas solicitudes. Agarda uns minutos.": [
+                "Demasiadas solicitudes. Espera unos minutos."
+            ]
+        }
+    }
+}

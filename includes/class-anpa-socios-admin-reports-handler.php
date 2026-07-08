@@ -87,13 +87,13 @@ final class ANPA_Socios_Admin_Reports_Handler {
 		$include_banking = filter_var( $body['include_banking'] ?? false, FILTER_VALIDATE_BOOLEAN );
 
 		if ( '' === $passphrase ) {
-			return new WP_Error( 'anpa_admin_passphrase', 'Falta o contrasinal de descifrado', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_passphrase', __( 'Falta o contrasinal de descifrado', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$public  = ANPA_Socios_Banking_Key::public_key();
 		$wrapped = ANPA_Socios_Banking_Key::wrapped_secret();
 		if ( null === $public || null === $wrapped ) {
-			return new WP_Error( 'anpa_admin_no_key', 'A clave bancaria non está configurada', array( 'status' => 409 ) );
+			return new WP_Error( 'anpa_admin_no_key', __( 'A clave bancaria non está configurada', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
 
 		// Brute-force lockout on the decryption passphrase (per admin actor):
@@ -110,7 +110,7 @@ final class ANPA_Socios_Admin_Reports_Handler {
 		if ( null === $secret ) {
 			set_transient( $lock_key, $fails + 1, 15 * MINUTE_IN_SECONDS );
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'export', 'full', 'export_denied' );
-			return new WP_Error( 'anpa_admin_bad_passphrase', 'Contrasinal incorrecto', array( 'status' => 403 ) );
+			return new WP_Error( 'anpa_admin_bad_passphrase', __( 'Contrasinal incorrecto', 'anpa-socios' ), array( 'status' => 403 ) );
 		}
 		// Correct passphrase: clear the failed-attempt counter.
 		delete_transient( $lock_key );

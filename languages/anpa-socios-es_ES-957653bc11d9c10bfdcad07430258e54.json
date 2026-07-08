@@ -1,0 +1,30 @@
+{
+    "translation-revision-date": "2026-07-08 11:19+0000",
+    "generator": "anpa-socios-i18n-helper",
+    "source": "assets\/js\/unified.js",
+    "domain": "messages",
+    "locale_data": {
+        "messages": {
+            "": {
+                "domain": "messages",
+                "lang": "es_ES",
+                "plural-forms": "nplurals=2; plural=(n != 1);"
+            },
+            "Erro do servidor": [
+                "Error del servidor"
+            ],
+            "Enviouse un código de acceso a ": [
+                "Se envió un código de acceso a "
+            ],
+            "Enviouse un código a ": [
+                "Se envió un código a "
+            ],
+            "Introduce un correo electrónico.": [
+                "Introduce un correo electrónico."
+            ],
+            "Código incorrecto ou caducado.": [
+                "Código incorrecto o caducado."
+            ]
+        }
+    }
+}

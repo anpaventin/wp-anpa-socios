@@ -72,7 +72,7 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 			$curso = ANPA_Socios_Curso_Escolar::current();
 		}
 		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
-			return new WP_Error( 'anpa_admin_curso_invalid', 'Curso escolar inválido', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_curso_invalid', __( 'Curso escolar inválido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
@@ -110,7 +110,7 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 
 		$payload = ANPA_Socios_Admin_Payload::validar_matricula( ANPA_Socios_Admin_Shared::json_body( $request ) );
 		if ( null === $payload ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Datos inválidos', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$inserted = $wpdb->insert(
@@ -121,9 +121,9 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 		if ( false === $inserted ) {
 			$code = (string) $wpdb->last_error;
 			if ( false !== strpos( $code, '1062' ) ) {
-				return new WP_Error( 'anpa_admin_already_enrolled', 'Xa matriculado nesta actividade', array( 'status' => 409 ) );
+				return new WP_Error( 'anpa_admin_already_enrolled', __( 'Xa matriculado nesta actividade', 'anpa-socios' ), array( 'status' => 409 ) );
 			}
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'matricula', (string) $wpdb->insert_id, 'create' );
@@ -158,7 +158,7 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 			array( '%d' )
 		);
 		if ( false === $updated ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'matricula', (string) $id, 'delete' );

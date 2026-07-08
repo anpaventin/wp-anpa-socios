@@ -95,7 +95,7 @@ class ANPA_Socios_Preflight_REST {
 			return new WP_REST_Response(
 				array(
 					'success' => true,
-					'message' => 'Continúa',
+					'message' => __( 'Continúa', 'anpa-socios' ),
 					'next'    => ANPA_Socios_Flow::next( array() ),
 				),
 				200
@@ -122,7 +122,7 @@ class ANPA_Socios_Preflight_REST {
 		return new WP_REST_Response(
 			array(
 				'success' => true,
-				'message' => 'Continúa',
+				'message' => __( 'Continúa', 'anpa-socios' ),
 				'next'    => $next,
 			),
 			200

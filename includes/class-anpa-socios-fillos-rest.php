@@ -362,7 +362,7 @@ final class ANPA_Socios_Fillos_REST {
 	 * @return WP_Error
 	 */
 	private static function invalid_payload_error(): WP_Error {
-		return new WP_Error( 'anpa_fillos_invalid_payload', 'Datos inválidos', array( 'status' => 400 ) );
+		return new WP_Error( 'anpa_fillos_invalid_payload', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 	}
 
 	/**
@@ -383,7 +383,7 @@ final class ANPA_Socios_Fillos_REST {
 	 * @return WP_Error
 	 */
 	private static function db_error(): WP_Error {
-		return new WP_Error( 'anpa_fillos_db_error', 'Erro interno', array( 'status' => 500 ) );
+		return new WP_Error( 'anpa_fillos_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 	}
 
 	/**

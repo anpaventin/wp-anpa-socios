@@ -2,12 +2,13 @@
 /**
  * Plugin Name: ANPA Socios
  * Description: Xestión de socios para asociacións de nais e pais (ANPA/AMPA): área de socios sen contrasinal, fillos e actividades extraescolares, domiciliación SEPA cifrada, ciclo de curso, panel de administración e actualizacións self-hosted. Configurable para calquera asociación.
- * Version: 1.28.0
+ * Version: 1.29.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: ANPA Socios
  * License: GPL-2.0-or-later
  * Text Domain: anpa-socios
+ * Domain Path: /languages
  *
  * The email-verification module (formerly the standalone anpa-verificacion
  * plugin) is now built in; no companion plugin is required.
@@ -20,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ANPA_SOCIOS_VERSION', '1.28.0' );
+define( 'ANPA_SOCIOS_VERSION', '1.29.0' );
 define( 'ANPA_SOCIOS_DB_VERSION', '1.19.0' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );

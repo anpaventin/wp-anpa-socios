@@ -130,7 +130,7 @@ final class ANPA_Socios_Admin_Banking_Key_Handler {
 		if ( empty( $keypair['public'] ) || empty( $keypair['secret'] ) || null === $wrapped ) {
 			// Release the claim so the admin can retry.
 			delete_option( ANPA_Socios_Banking_Key::OPTION_PUBKEY );
-			return new WP_Error( 'anpa_banking_key_error', 'Erro interno ao xerar a clave', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_banking_key_error', __( 'Erro interno ao xerar a clave', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Banking_Key::store( $keypair['public'], $wrapped );

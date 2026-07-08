@@ -95,7 +95,7 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 		$body  = ANPA_Socios_Admin_Shared::json_body( $request );
 		$curso = isset( $body['curso_escolar'] ) ? (string) $body['curso_escolar'] : '';
 		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
-			return new WP_Error( 'anpa_admin_curso_invalid', 'Curso escolar inválido', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_curso_invalid', __( 'Curso escolar inválido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 		$open = ! empty( $body['matriculas_abertas'] ) ? 1 : 0;
 		$table = ANPA_Socios_DB::tabela_cursos();
@@ -124,7 +124,7 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 			)
 		);
 		if ( false === $done ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'curso', $curso, $open ? 'abrir' : 'pechar' );

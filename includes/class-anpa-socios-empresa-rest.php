@@ -187,7 +187,7 @@ class ANPA_Socios_Empresa_REST {
 		);
 
 		if ( '' !== (string) $wpdb->last_error ) {
-			return new WP_Error( 'anpa_area_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		if ( ! is_array( $row ) || 'activo' !== (string) $row['estado'] ) {
@@ -346,7 +346,7 @@ class ANPA_Socios_Empresa_REST {
 	 */
 	public static function handle_create_session( WP_REST_Request $request ) {
 		if ( ! self::consume_rate_limit( 'anpa_empresa_session_rl_', 10, HOUR_IN_SECONDS ) ) {
-			return new WP_Error( 'anpa_area_rate_limited', 'Demasiadas solicitudes', array( 'status' => 429 ) );
+			return new WP_Error( 'anpa_area_rate_limited', __( 'Demasiadas solicitudes', 'anpa-socios' ), array( 'status' => 429 ) );
 		}
 
 		$fase1_token = sanitize_text_field( (string) $request->get_param( 'token' ) );
@@ -437,7 +437,7 @@ class ANPA_Socios_Empresa_REST {
 		$empresa_id = is_array( $profile ) && isset( $profile['id'] ) ? (int) $profile['id'] : 0;
 
 		if ( $empresa_id <= 0 ) {
-			return new WP_Error( 'anpa_empresa_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_empresa_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		$rows = ANPA_Socios_Alumnos_Export::rows( $empresa_id );

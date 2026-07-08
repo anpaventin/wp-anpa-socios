@@ -10,6 +10,7 @@
 
 (function () {
 	'use strict';
+	const { __ } = wp.i18n;
 
 	// Pure functions come from anpa-utils.js (loaded before area.js).
 	// Fallback to inline versions for safety.
@@ -90,7 +91,7 @@
 			try {
 				response = await fetch(url, options);
 			} catch (_) {
-				showMessage(root, 'Erro de rede. Téntao de novo.', 'error');
+				showMessage(root, __( 'Erro de rede. Téntao de novo.', 'anpa-socios' ), 'error');
 				return null;
 			}
 
@@ -106,7 +107,7 @@
 			}
 
 			if (!response.ok) {
-				showMessage(root, body.message || 'Non foi posible completar a operación.', 'error');
+				showMessage(root, body.message || __( 'Non foi posible completar a operación.', 'anpa-socios' ), 'error');
 				return null;
 			}
 
@@ -167,6 +168,20 @@
 		if (proxBtn) { proxBtn.hidden = isMaster; }
 		var bankBtn = root.querySelector('[data-action="toggle-banking"]');
 		if (bankBtn) { bankBtn.hidden = isMaster; }
+		// The master is an operational admin, NOT a socio: it has no personal
+		// data to manage. Hide the "Os meus datos" entry (dropdown) and the
+		// profile-edit + baixa controls entirely; the master only uses the
+		// Xestión ANPA / Listados / IBAN admin entries.
+		var headerAreaBtn = root.querySelector('[data-action="header-area"]');
+		if (headerAreaBtn) { headerAreaBtn.hidden = isMaster; }
+		var saveProfileBtn = root.querySelector('[data-action="save-profile"]');
+		if (saveProfileBtn) { saveProfileBtn.hidden = isMaster; }
+		// Make the identity fields read-only for the master (defensive: it never
+		// lands on this step, but never let it edit a non-existent profile).
+		var nomeInput = root.querySelector('#anpa-area-nome');
+		var apelInput = root.querySelector('#anpa-area-apelidos');
+		if (nomeInput) { nomeInput.readOnly = isMaster; }
+		if (apelInput) { apelInput.readOnly = isMaster; }
 		// Role-aware help text describing exactly what the user can do.
 		const help = root.querySelector('[data-profile-help]');
 		if (help) {
@@ -196,7 +211,7 @@
 		}
 		const baixaCancelBtn = root.querySelector('[data-baixa-cancel-btn]');
 		if (baixaCancelBtn) {
-			baixaCancelBtn.hidden = !pendingBaixa;
+			baixaCancelBtn.hidden = isMaster || !pendingBaixa;
 		}
 	}
 
@@ -324,7 +339,7 @@
 			root.classList.remove('anpa-area-wide');
 			hideSessionHeader();
 			showStep(root, 'email');
-			showMessage(root, 'A túa sesión pechouse por inactividade.', 'info');
+			showMessage(root, __( 'A túa sesión pechouse por inactividade.', 'anpa-socios' ), 'info');
 		}
 
 		// Reset the idle timer on genuine activity (throttled to once / 3s).
@@ -371,7 +386,7 @@
 			hideSessionHeader();
 			root.classList.remove('anpa-area-wide');
 			showStep(root, 'email');
-			showMessage(root, 'Sesión pechada.', 'success');
+			showMessage(root, __( 'Sesión pechada.', 'anpa-socios' ), 'success');
 		});
 
 		// ── Session dropdown menu shortcuts (PR-12l part 2) ──────────────
@@ -413,7 +428,7 @@
 			showMessage(root, '', 'info');
 			email = (root.querySelector('#anpa-area-email').value || '').trim();
 			if (!email) {
-				showMessage(root, 'Introduce o teu email.', 'error');
+				showMessage(root, __( 'Introduce o teu email.', 'anpa-socios' ), 'error');
 				return;
 			}
 
@@ -441,7 +456,7 @@
 				if (result) {
 					showStep(root, 'code');
 					root.dataset.empresaFlow = '1';
-					showMessage(root, 'Se o email é válido, recibirás un código en breve.', 'success');
+					showMessage(root, __( 'Se o email é válido, recibirás un código en breve.', 'anpa-socios' ), 'success');
 				}
 				return;
 			}
@@ -457,7 +472,7 @@
 				} else if (next === 'baixa_pendente') {
 					showMessage(root, 'Tes unha solicitude de baixa pendente. Inicia sesión coa clave que che enviamos para xestionala (poderás anulala desde a túa área).', 'success');
 				} else {
-					showMessage(root, 'Se o email é válido, recibirás un código en breve.', 'success');
+					showMessage(root, __( 'Se o email é válido, recibirás un código en breve.', 'anpa-socios' ), 'success');
 				}
 			}
 		});
@@ -478,14 +493,14 @@
 			showMessage(root, '', 'info');
 			if (!email) {
 				showStep(root, 'email');
-				showMessage(root, 'Introduce o teu email.', 'error');
+				showMessage(root, __( 'Introduce o teu email.', 'anpa-socios' ), 'error');
 				return;
 			}
 			const website = (root.querySelector('#anpa-area-website') || {}).value || '';
 			const _ts = (root.querySelector('#anpa-area-ts') || {}).value || '';
 			const result = await jsonPost(root.dataset.reactivarUrl, { email, website, _ts }, root);
 			if (result) {
-				showMessage(root, result.message || 'Solicitude de reactivación enviada.', 'success');
+				showMessage(root, result.message || __( 'Solicitude de reactivación enviada.', 'anpa-socios' ), 'success');
 			}
 		});
 
@@ -493,14 +508,14 @@
 			showMessage(root, '', 'info');
 			const codigo = (root.querySelector('#anpa-area-code').value || '').trim();
 			if (!email || !codigo) {
-				showMessage(root, 'Introduce o email e o código.', 'error');
+				showMessage(root, __( 'Introduce o email e o código.', 'anpa-socios' ), 'error');
 				return;
 			}
 
 			const verified = await jsonPost(root.dataset.verifyCodeUrl, { email, codigo }, root);
 			if (!verified || verified.success !== true || !verified.token) {
 				if (verified) {
-					showMessage(root, verified.message || 'Código incorrecto.', 'error');
+					showMessage(root, verified.message || __( 'Código incorrecto.', 'anpa-socios' ), 'error');
 				}
 				return;
 			}
@@ -551,7 +566,7 @@
 			areaToken = '';
 			clearAreaToken();
 			showStep(root, 'email');
-			showMessage(root, 'Non foi posible cargar o perfil. Téntao de novo.', 'error');
+			showMessage(root, __( 'Non foi posible cargar o perfil. Téntao de novo.', 'anpa-socios' ), 'error');
 			return;
 		});
 
@@ -559,7 +574,7 @@
 			showMessage(root, '', 'info');
 			if (!areaToken) {
 				showStep(root, 'email');
-				showMessage(root, 'A sesión caducou. Volve entrar.', 'error');
+				showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
 				return;
 			}
 
@@ -568,7 +583,7 @@
 			const profile = await tokenRequest('PUT', root.dataset.profileUrl, areaToken, { nome, apelidos }, root);
 			if (profile) {
 				fillProfile(root, profile);
-				showMessage(root, 'Datos gardados correctamente.', 'success');
+				showMessage(root, __( 'Datos gardados correctamente.', 'anpa-socios' ), 'success');
 			}
 		});
 
@@ -583,14 +598,14 @@
 			hideSessionHeader();
 			root.classList.remove('anpa-area-wide');
 			showStep(root, 'email');
-			showMessage(root, 'Sesión pechada.', 'success');
+			showMessage(root, __( 'Sesión pechada.', 'anpa-socios' ), 'success');
 		});
 
 		bind('[data-action="request-baixa"]', 'click', async () => {
 			showMessage(root, '', 'info');
 			if (!areaToken) {
 				showStep(root, 'email');
-				showMessage(root, 'A sesión caducou. Volve entrar.', 'error');
+				showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
 				return;
 			}
 			const warning = 'Vas solicitar a baixa como socio/a.\n\n'
@@ -603,7 +618,7 @@
 			}
 			const result = await tokenRequest('POST', root.dataset.baixaUrl, areaToken, {}, root);
 			if (result) {
-				showMessage(root, result.message || 'Solicitude de baixa rexistrada.', 'success');
+				showMessage(root, result.message || __( 'Solicitude de baixa rexistrada.', 'anpa-socios' ), 'success');
 				const profile = await tokenRequest('GET', root.dataset.profileUrl, areaToken, null, root);
 				if (profile) {
 					fillProfile(root, profile);
@@ -615,12 +630,12 @@
 			showMessage(root, '', 'info');
 			if (!areaToken) {
 				showStep(root, 'email');
-				showMessage(root, 'A sesión caducou. Volve entrar.', 'error');
+				showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
 				return;
 			}
 			const result = await tokenRequest('POST', root.dataset.baixaCancelUrl, areaToken, {}, root);
 			if (result) {
-				showMessage(root, result.message || 'Solicitude de baixa anulada.', 'success');
+				showMessage(root, result.message || __( 'Solicitude de baixa anulada.', 'anpa-socios' ), 'success');
 				const profile = await tokenRequest('GET', root.dataset.profileUrl, areaToken, null, root);
 				if (profile) {
 					fillProfile(root, profile);
@@ -691,7 +706,7 @@
 				editBtn.type = 'button';
 				editBtn.className = 'anpa-area-secondary';
 				editBtn.dataset.filloEdit = String(fillo.id);
-				editBtn.textContent = 'Editar';
+				editBtn.textContent = __( 'Editar', 'anpa-socios' );
 				row.appendChild(editBtn);
 
 				const delBtn = document.createElement('button');
@@ -699,7 +714,7 @@
 				delBtn.className = 'anpa-area-secondary';
 				delBtn.dataset.filloDelete = String(fillo.id);
 				delBtn.dataset.action = 'deactivate';
-			delBtn.textContent = 'Desactivar';
+			delBtn.textContent = __( 'Desactivar', 'anpa-socios' );
 				row.appendChild(delBtn);
 
 				fillosListEl.appendChild(row);
@@ -709,7 +724,7 @@
 		async function loadFillos() {
 			if (!areaToken) {
 				showStep(root, 'email');
-				showMessage(root, 'A sesión caducou. Volve entrar.', 'error');
+				showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
 				return;
 			}
 			const list = await tokenRequest('GET', root.dataset.fillosUrl, areaToken, null, root);
@@ -730,10 +745,10 @@
 		const EXTRA_RANGE_LABELS = { '1-2-3': '1º-2º-3º', '4-5-6': '4º-5º-6º' };
 		const EXTRA_ESTADO_LABELS = {
 			activo: 'Matriculado/a',
-			lista_espera: 'En lista de espera',
-			oferta: 'Oferta de praza pendente',
-			baixa_solicitada: 'Baixa solicitada',
-			baixa: 'Baixa',
+			lista_espera: __( 'En lista de espera', 'anpa-socios' ),
+			oferta: __( 'Oferta de praza pendente', 'anpa-socios' ),
+			baixa_solicitada: __( 'Baixa solicitada', 'anpa-socios' ),
+			baixa: __( 'Baixa', 'anpa-socios' ),
 		};
 
 		function extraDiasText(csv) {
@@ -776,7 +791,7 @@
 			if (!list.length) {
 				const p = document.createElement('p');
 				p.className = 'anpa-area-muted';
-				p.textContent = 'Aínda non tes ningunha matrícula en extraescolares.';
+				p.textContent = __( 'Aínda non tes ningunha matrícula en extraescolares.', 'anpa-socios' );
 				host.appendChild(p);
 				return;
 			}
@@ -798,10 +813,10 @@
 				if (m.estado === 'oferta') {
 					const acc = document.createElement('button');
 					acc.type = 'button';
-					acc.textContent = 'Aceptar praza';
+					acc.textContent = __( 'Aceptar praza', 'anpa-socios' );
 					acc.addEventListener('click', async () => {
 						const done = await tokenRequest('POST', base + '/oferta/aceptar', areaToken, {}, root);
-						if (done) { showMessage(root, 'Praza aceptada.', 'success'); await loadExtraescolares(); }
+						if (done) { showMessage(root, __( 'Praza aceptada.', 'anpa-socios' ), 'success'); await loadExtraescolares(); }
 					});
 					li.appendChild(acc);
 				}
@@ -809,11 +824,11 @@
 					const baixa = document.createElement('button');
 					baixa.type = 'button';
 					baixa.className = 'anpa-area-secondary anpa-area-danger';
-					baixa.textContent = 'Dar de baixa';
+					baixa.textContent = __( 'Dar de baixa', 'anpa-socios' );
 					baixa.addEventListener('click', async () => {
 						if (!window.confirm('Solicitar a baixa desta actividade?')) { return; }
 						const done = await tokenRequest('POST', base + '/baixa', areaToken, {}, root);
-						if (done) { showMessage(root, 'Solicitude de baixa rexistrada.', 'success'); await loadExtraescolares(); }
+						if (done) { showMessage(root, __( 'Solicitude de baixa rexistrada.', 'anpa-socios' ), 'success'); await loadExtraescolares(); }
 					});
 					li.appendChild(baixa);
 				}
@@ -821,10 +836,10 @@
 					const cancel = document.createElement('button');
 					cancel.type = 'button';
 					cancel.className = 'anpa-area-secondary';
-					cancel.textContent = 'Anular baixa';
+					cancel.textContent = __( 'Anular baixa', 'anpa-socios' );
 					cancel.addEventListener('click', async () => {
 						const done = await tokenRequest('POST', base + '/baixa/cancel', areaToken, {}, root);
-						if (done) { showMessage(root, 'Baixa anulada.', 'success'); await loadExtraescolares(); }
+						if (done) { showMessage(root, __( 'Baixa anulada.', 'anpa-socios' ), 'success'); await loadExtraescolares(); }
 					});
 					li.appendChild(cancel);
 				}
@@ -845,7 +860,7 @@
 			if (!oferta.length) {
 				const p = document.createElement('p');
 				p.className = 'anpa-area-muted';
-				p.textContent = 'Non hai actividades dispoñibles neste momento.';
+				p.textContent = __( 'Non hai actividades dispoñibles neste momento.', 'anpa-socios' );
 				host.appendChild(p);
 				return;
 			}
@@ -998,12 +1013,12 @@
 			enrolBtn.addEventListener('click', async () => {
 				showMessage(root, '', 'info');
 				if (!grupoSel.value) {
-					showMessage(root, 'Selecciona un grupo compatible.', 'error');
+					showMessage(root, __( 'Selecciona un grupo compatible.', 'anpa-socios' ), 'error');
 					return;
 				}
 				const cesion = authHost.querySelector('input[name="cesion_datos_empresa"]');
 				if (!cesion || !cesion.checked) {
-					showMessage(root, 'É obrigatorio autorizar a cesión dos datos necesarios á empresa da actividade.', 'error');
+					showMessage(root, __( 'É obrigatorio autorizar a cesión dos datos necesarios á empresa da actividade.', 'anpa-socios' ), 'error');
 					return;
 				}
 				const payload = {
@@ -1014,14 +1029,14 @@
 				if (isComedorFranja(selectedGroupFranja())) {
 					const autComedor = authHost.querySelector('input[name="autorizacion_comedor"]:checked');
 					if (!autComedor) {
-						showMessage(root, 'Indica se autorizas ao persoal de comedor a facilitar a participación.', 'error');
+						showMessage(root, __( 'Indica se autorizas ao persoal de comedor a facilitar a participación.', 'anpa-socios' ), 'error');
 						return;
 					}
 					payload.autorizacion_comedor = autComedor.value;
 				} else {
 					const transicion = authHost.querySelector('input[name="tarde_transicion"]:checked');
 					if (!transicion) {
-						showMessage(root, 'Indica se o neno/a vén do comedor ou se a familia o levará á actividade.', 'error');
+						showMessage(root, __( 'Indica se o neno/a vén do comedor ou se a familia o levará á actividade.', 'anpa-socios' ), 'error');
 						return;
 					}
 					payload.tarde_transicion = transicion.value;
@@ -1033,7 +1048,7 @@
 				if (result) {
 					const msg = (result.estado === 'lista_espera')
 						? 'Matrícula en lista de espera (posición ' + (result.posicion || '?') + ').'
-						: 'Matrícula confirmada.';
+						: __( 'Matrícula confirmada.', 'anpa-socios' );
 					showMessage(root, msg, 'success');
 					await loadExtraescolares();
 				}
@@ -1070,7 +1085,7 @@
 			showMessage(root, '', 'info');
 			if (!areaToken) {
 				showStep(root, 'email');
-				showMessage(root, 'A sesión caducou. Volve entrar.', 'error');
+				showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
 				return;
 			}
 
@@ -1081,11 +1096,11 @@
 			var telefono = (root.querySelector('#anpa-area-p2-telefono') || {}).value || '';
 
 			if (!nome || !apelidos) {
-				showMessage(root, 'Nome e apelidos son obrigatorios.', 'error');
+				showMessage(root, __( 'Nome e apelidos son obrigatorios.', 'anpa-socios' ), 'error');
 				return;
 			}
 			if (!nif) {
-				showMessage(root, 'O NIF/NIE é obrigatorio.', 'error');
+				showMessage(root, __( 'O NIF/NIE é obrigatorio.', 'anpa-socios' ), 'error');
 				return;
 			}
 
@@ -1116,7 +1131,7 @@
 			showMessage(root, '', 'info');
 			if (!areaToken) {
 				showStep(root, 'email');
-				showMessage(root, 'A sesión caducou. Volve entrar.', 'error');
+				showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
 				return;
 			}
 			showStep(root, 'banking');
@@ -1157,7 +1172,7 @@
 			showMessage(root, '', 'info');
 			if (!areaToken) {
 				showStep(root, 'email');
-				showMessage(root, 'A sesión caducou. Volve entrar.', 'error');
+				showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
 				return;
 			}
 
@@ -1177,17 +1192,17 @@
 			};
 
 			if (!payload.iban && !payload.titular_nome && !payload.titular_nif) {
-				showMessage(root, 'Para modificar os datos bancarios debes cubrir IBAN, titular e autorización.', 'error');
+				showMessage(root, __( 'Para modificar os datos bancarios debes cubrir IBAN, titular e autorización.', 'anpa-socios' ), 'error');
 				return;
 			}
 			if (!payload.autorizacion) {
-				showMessage(root, 'Debes autorizar a domiciliación dos recibos.', 'error');
+				showMessage(root, __( 'Debes autorizar a domiciliación dos recibos.', 'anpa-socios' ), 'error');
 				return;
 			}
 
 			var result = await tokenRequest('PUT', root.dataset.profileUrl + '/banking', areaToken, payload, root);
 			if (result) {
-				showMessage(root, result.message || 'Datos bancarios actualizados correctamente.', 'success');
+				showMessage(root, result.message || __( 'Datos bancarios actualizados correctamente.', 'anpa-socios' ), 'success');
 				// Reload banking to show updated mask/fields
 				var banking = await tokenRequest('GET', root.dataset.profileUrl + '/banking', areaToken, null, root);
 				if (banking && banking.has_banking) {
@@ -1207,13 +1222,13 @@
 			showMessage(root, '', 'info');
 			if (!areaToken) {
 				showStep(root, 'email');
-				showMessage(root, 'A sesión caducou. Volve entrar.', 'error');
+				showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
 				return;
 			}
 
 			const data = readFilloForm();
 			if (!data.nome || !data.apelidos || !data.data_nacemento || !data.curso || !data.aula) {
-				showMessage(root, 'Completa todos os campos do fillo/a.', 'error');
+				showMessage(root, __( 'Completa todos os campos do fillo/a.', 'anpa-socios' ), 'error');
 				return;
 			}
 
@@ -1272,7 +1287,7 @@
 			showMessage(root, '', 'info');
 			const initUrl = root.dataset.masterInitUrl;
 			if (!initUrl) {
-				showMessage(root, 'Erro de configuración (falta URL de inicialización).', 'error');
+				showMessage(root, __( 'Erro de configuración (falta URL de inicialización).', 'anpa-socios' ), 'error');
 				return;
 			}
 			const initStatus = await tokenRequest('GET', initUrl, areaToken, null, root);
@@ -1314,6 +1329,13 @@
 
 		// Returns true if a row is considered inactive for filtering purposes.
 		// Builds a filter toolbar: "Mostrar inactivos ☐  (X activos de Y total)"
+		// Per-section search state, persisted across the section's re-renders so
+		// the query (and focus) survive when the table is rebuilt on each
+		// keystroke. Without this the input was recreated empty on every render
+		// and the typed text "disappeared".
+		var adminSearch = {};
+		var adminSearchFocus = null;
+
 		function buildFilterBar(section, rows) {
 			const bar = document.createElement('div');
 			bar.className = 'anpa-filter-bar';
@@ -1347,7 +1369,29 @@
 			searchInput.style.borderRadius = '6px';
 			searchInput.style.fontSize = '0.9rem';
 			searchInput.setAttribute('data-search', section);
+			// Restore the persisted query so re-renders keep the typed text.
+			searchInput.value = adminSearch[section] || '';
+			searchInput.addEventListener('input', function () {
+				adminSearch[section] = searchInput.value;
+				adminSearchFocus = section;
+			});
+			searchInput.addEventListener('focus', function () { adminSearchFocus = section; });
 			bar.appendChild(searchInput);
+
+			// After the caller inserts this bar into the DOM, restore focus +
+			// caret to the search box if it was the one being used, so typing
+			// continues seamlessly across the debounced re-render.
+			if (adminSearchFocus === section) {
+				setTimeout(function () {
+					if (document.body.contains(searchInput)) {
+						try {
+							searchInput.focus();
+							var l = searchInput.value.length;
+							searchInput.setSelectionRange(l, l);
+						} catch (_) {}
+					}
+				}, 0);
+			}
 
 			return bar;
 		}
@@ -1549,7 +1593,7 @@
 				editBtn.type = 'button';
 				editBtn.className = 'anpa-area-secondary';
 				editBtn.dataset.socioEdit = String(row.email || '');
-				editBtn.textContent = 'Editar';
+				editBtn.textContent = __( 'Editar', 'anpa-socios' );
 				actions.appendChild(editBtn);
 				tr.appendChild(actions);
 				tbody.appendChild(tr);
@@ -1727,7 +1771,7 @@
 					rol: currentRol,
 				};
 				if (!data.nome || !data.apelidos) {
-					showMessage(root, 'Nome e apelidos son obrigatorios.', 'error');
+					showMessage(root, __( 'Nome e apelidos son obrigatorios.', 'anpa-socios' ), 'error');
 					return;
 				}
 				const result = await tokenRequest(
@@ -1876,7 +1920,7 @@
 				var editBtn = document.createElement('button');
 				editBtn.type = 'button';
 				editBtn.className = 'anpa-area-secondary';
-				editBtn.textContent = 'Editar';
+				editBtn.textContent = __( 'Editar', 'anpa-socios' );
 								editBtn.addEventListener('click', async function() {
 									showMessage(root, '', 'info');
 									await renderAdminFilloEditForm(email, fillo, _filloEditHost, box);
@@ -2003,7 +2047,7 @@
 					aula: aulaI.value,
 				};
 				if (!payload.nome || !payload.apelidos || !payload.data_nacemento || !payload.curso || !payload.aula) {
-					showMessage(root, 'Todos os campos son obrigatorios.', 'error');
+					showMessage(root, __( 'Todos os campos son obrigatorios.', 'anpa-socios' ), 'error');
 					return;
 				}
 				var res = await tokenRequest('PATCH', adminUrl('fillo/' + encodeURIComponent(fillo.id)), areaToken, payload, root);
@@ -2038,14 +2082,14 @@
 			if (socio) {
 				renderSocioEditForm(socio);
 			} else {
-				showMessage(root, 'Non se atopou o socio/a na lista. Recarga a sección.', 'error');
+				showMessage(root, __( 'Non se atopou o socio/a na lista. Recarga a sección.', 'anpa-socios' ), 'error');
 			}
 		}
 
 		async function loadAdminSection(section) {
 			if (!areaToken) {
 				showStep(root, 'email');
-				showMessage(root, 'A sesión caducou. Volve entrar.', 'error');
+				showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
 				return;
 			}
 			adminContentEl.textContent = '';
@@ -2158,7 +2202,7 @@
 
 			async function process(mode) {
 				var emails = selectedEmails();
-				if (!emails.length) { showMessage(root, 'Selecciona polo menos unha solicitude.', 'error'); return; }
+				if (!emails.length) { showMessage(root, __( 'Selecciona polo menos unha solicitude.', 'anpa-socios' ), 'error'); return; }
 				var verb = (mode === 'approve') ? 'aprobar' : 'rexeitar';
 				if (!window.confirm('Seguro que queres ' + verb + ' ' + emails.length + ' solicitude(s)?')) { return; }
 				var res = await tokenRequest('POST', adminUrl('approvals/' + mode), areaToken, { emails: emails }, root);
@@ -2477,7 +2521,7 @@
 				const editBtn = document.createElement('button');
 				editBtn.type = 'button';
 				editBtn.className = 'anpa-area-secondary';
-				editBtn.textContent = 'Editar';
+				editBtn.textContent = __( 'Editar', 'anpa-socios' );
 				editBtn.addEventListener('click', () => {
 					showMessage(root, '', 'info');
 					formHost.textContent = '';
@@ -2490,7 +2534,7 @@
 				delBtn.type = 'button';
 				delBtn.className = 'anpa-area-secondary anpa-area-danger';
 				delBtn.dataset.action = 'deactivate';
-				delBtn.textContent = 'Desactivar';
+				delBtn.textContent = __( 'Desactivar', 'anpa-socios' );
 				delBtn.addEventListener('click', async () => {
 					showMessage(root, '', 'info');
 					if (!window.confirm('Desactivar a empresa "' + (row.nome || '') + '"? Os datos manteranse na base de datos pero non aparecerá nos listados por defecto.')) { return; }
@@ -2563,7 +2607,7 @@
 					estado: estado.value,
 				};
 				if (!payload.nome || !payload.email || !payload.responsable || !payload.telefono) {
-					showMessage(root, 'Completa nome, email, responsable e teléfono.', 'error');
+					showMessage(root, __( 'Completa nome, email, responsable e teléfono.', 'anpa-socios' ), 'error');
 					return;
 				}
 				let result;
@@ -2706,7 +2750,7 @@
 			addBtn.addEventListener('click', async () => {
 				showMessage(root, '', 'info');
 				const email = (emailInput.value || '').trim();
-				if (!email) { showMessage(root, 'Introduce un email.', 'error'); return; }
+				if (!email) { showMessage(root, __( 'Introduce un email.', 'anpa-socios' ), 'error'); return; }
 				const result = await tokenRequest('POST', adminUrl('admins'), areaToken, { email: email }, root);
 				if (result) {
 					showMessage(root, 'Administrador engadido.', 'success');
@@ -2970,7 +3014,7 @@
 					const editBtn = document.createElement('button');
 					editBtn.type = 'button';
 					editBtn.className = 'anpa-area-secondary';
-					editBtn.textContent = 'Editar';
+					editBtn.textContent = __( 'Editar', 'anpa-socios' );
 					editBtn.addEventListener('click', () => {
 						showMessage(root, '', 'info');
 						formHost.textContent = '';
@@ -3218,11 +3262,11 @@
 					estado: activa.checked ? 'activo' : 'inactivo',
 				};
 				if (!payload.empresa_id || !payload.nome || !payload.descripcion || !payload.curso_escolar) {
-					showMessage(root, 'Completa empresa, nome, descrición e curso escolar.', 'error');
+					showMessage(root, __( 'Completa empresa, nome, descrición e curso escolar.', 'anpa-socios' ), 'error');
 					return;
 				}
 				if (!horarios.length || !grupos.length || !dias.length) {
-					showMessage(root, 'Selecciona polo menos un horario, un grupo e un día.', 'error');
+					showMessage(root, __( 'Selecciona polo menos un horario, un grupo e un día.', 'anpa-socios' ), 'error');
 					return;
 				}
 				let result;
@@ -3446,7 +3490,7 @@
 					moveBtn.className = 'anpa-area-secondary';
 					moveBtn.textContent = 'Mover';
 					moveBtn.addEventListener('click', async () => {
-						if (!sel.value) { showMessage(root, 'Selecciona un grupo destino.', 'error'); return; }
+						if (!sel.value) { showMessage(root, __( 'Selecciona un grupo destino.', 'anpa-socios' ), 'error'); return; }
 						const done = await tokenRequest('POST', adminUrl('matricula/' + encodeURIComponent(m.id) + '/mover'), areaToken, { grupo_id: parseInt(sel.value, 10) || 0 }, root);
 						if (done) {
 							showMessage(root, 'Alumno/a movido/a.', 'success');
@@ -3560,7 +3604,7 @@
 				showMessage(root, '', 'info');
 				const dias = diaBoxes.filter((b) => b.checked).map((b) => b.value);
 				if (!dias.length) {
-					showMessage(root, 'Selecciona polo menos un día.', 'error');
+					showMessage(root, __( 'Selecciona polo menos un día.', 'anpa-socios' ), 'error');
 					return;
 				}
 				const payload = {
@@ -3572,11 +3616,11 @@
 					estado: abertoCb.checked ? 'aberto' : 'pechado',
 				};
 				if (!payload.franxa) {
-					showMessage(root, 'Indica o horario do grupo.', 'error');
+					showMessage(root, __( 'Indica o horario do grupo.', 'anpa-socios' ), 'error');
 					return;
 				}
 				if (payload.max_pupilos <= 0 || payload.max_pupilos < payload.min_pupilos) {
-					showMessage(root, 'O máximo debe ser maior que 0 e non menor que o mínimo.', 'error');
+					showMessage(root, __( 'O máximo debe ser maior que 0 e non menor que o mínimo.', 'anpa-socios' ), 'error');
 					return;
 				}
 				let result;
@@ -3610,7 +3654,7 @@
 		async function adminExportFull() {
 			if (!areaToken) {
 				showStep(root, 'email');
-				showMessage(root, 'A sesión caducou. Volve entrar.', 'error');
+				showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
 				return;
 			}
 
@@ -3622,7 +3666,7 @@
 			}
 
 			if (!passphrase) {
-				showMessage(root, 'Introduce o contrasinal de descifrado.', 'error');
+				showMessage(root, __( 'Introduce o contrasinal de descifrado.', 'anpa-socios' ), 'error');
 				return;
 			}
 
@@ -3639,14 +3683,14 @@
 					body: payload,
 				});
 			} catch (_) {
-				showMessage(root, 'Erro de rede. Téntao de novo.', 'error');
+				showMessage(root, __( 'Erro de rede. Téntao de novo.', 'anpa-socios' ), 'error');
 				return;
 			}
 
 			if (response.status === 401) {
 				areaToken = '';
 				showStep(root, 'email');
-				showMessage(root, 'A sesión caducou. Volve entrar.', 'error');
+				showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
 				return;
 			}
 			if (!response.ok) {
@@ -3672,13 +3716,13 @@
 			a.click();
 			document.body.removeChild(a);
 			URL.revokeObjectURL(url);
-			showMessage(root, 'Descarga iniciada.', 'success');
+			showMessage(root, __( 'Descarga iniciada.', 'anpa-socios' ), 'success');
 		}
 
 		async function adminDownload(entity) {
 			if (!areaToken) {
 				showStep(root, 'email');
-				showMessage(root, 'A sesión caducou. Volve entrar.', 'error');
+				showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
 				return;
 			}
 			const path = entity === 'alumnos' ? 'export/alumnos' : 'export/' + entity;
@@ -3690,22 +3734,22 @@
 					headers: { 'X-Anpa-Area-Token': areaToken },
 				});
 			} catch (_) {
-				showMessage(root, 'Erro de rede. Téntao de novo.', 'error');
+				showMessage(root, __( 'Erro de rede. Téntao de novo.', 'anpa-socios' ), 'error');
 				return;
 			}
 
 			if (response.status === 401) {
 				areaToken = '';
 				showStep(root, 'email');
-				showMessage(root, 'A sesión caducou. Volve entrar.', 'error');
+				showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
 				return;
 			}
 			if (response.status === 403) {
-				showMessage(root, 'Non tes permisos para esta acción.', 'error');
+				showMessage(root, __( 'Non tes permisos para esta acción.', 'anpa-socios' ), 'error');
 				return;
 			}
 			if (!response.ok) {
-				showMessage(root, 'Non foi posible descargar o ficheiro.', 'error');
+				showMessage(root, __( 'Non foi posible descargar o ficheiro.', 'anpa-socios' ), 'error');
 				return;
 			}
 
@@ -3750,7 +3794,7 @@
 			// Check master init status first.
 			const initUrl = root.dataset.masterInitUrl;
 			if (!initUrl) {
-				showMessage(root, 'Erro de configuración (falta URL de inicialización).', 'error');
+				showMessage(root, __( 'Erro de configuración (falta URL de inicialización).', 'anpa-socios' ), 'error');
 				return;
 			}
 			const initStatus = await tokenRequest('GET', initUrl, areaToken, null, root);
@@ -3806,11 +3850,11 @@
 			const passphrase = (inp && inp.value || '').trim();
 			const parts = passphrase.split('-').filter(Boolean);
 			if (parts.length < 5 || passphrase.length < 20) {
-				showMessage(root, 'O contrasinal debe ter polo menos 5 palabras separadas por guións (ex: ceu-mar-sol-lua-vento).', 'error');
+				showMessage(root, __( 'O contrasinal debe ter polo menos 5 palabras separadas por guións (ex: ceu-mar-sol-lua-vento).', 'anpa-socios' ), 'error');
 				return;
 			}
 			if (!root.dataset.masterInitPostUrl) {
-				showMessage(root, 'Erro de configuración (falta URL de inicialización).', 'error');
+				showMessage(root, __( 'Erro de configuración (falta URL de inicialización).', 'anpa-socios' ), 'error');
 				return;
 			}
 			const result = await tokenRequest('POST', root.dataset.masterInitPostUrl, areaToken, { passphrase }, root);
@@ -3826,11 +3870,11 @@
 			const inp = document.getElementById('anpa-admin-auth-pass');
 			const password = (inp && inp.value || '');
 			if (!password) {
-				showMessage(root, 'Introduce o contrasinal de administración.', 'error');
+				showMessage(root, __( 'Introduce o contrasinal de administración.', 'anpa-socios' ), 'error');
 				return;
 			}
 			if (!root.dataset.adminAuthUrl) {
-				showMessage(root, 'Erro de configuración (falta URL de autenticación).', 'error');
+				showMessage(root, __( 'Erro de configuración (falta URL de autenticación).', 'anpa-socios' ), 'error');
 				return;
 			}
 			const result = await tokenRequest('POST', root.dataset.adminAuthUrl, areaToken, { admin_password: password }, root);
@@ -3907,7 +3951,7 @@
 					body: body ? JSON.stringify(body) : undefined,
 				});
 			} catch (_) {
-				showMessage(root, 'Erro de rede. Téntao de novo.', 'error');
+				showMessage(root, __( 'Erro de rede. Téntao de novo.', 'anpa-socios' ), 'error');
 				return null;
 			}
 
@@ -3918,12 +3962,12 @@
 			if (response.status === 401) {
 				empresaToken = '';
 				showStep(root, 'email');
-				showMessage(root, 'A sesión caducou. Volve entrar.', 'error');
+				showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
 				return null;
 			}
 
 			if (response.status === 429) {
-				showMessage(root, 'Demasiadas solicitudes. Agarda uns minutos.', 'error');
+				showMessage(root, __( 'Demasiadas solicitudes. Agarda uns minutos.', 'anpa-socios' ), 'error');
 				return null;
 			}
 
@@ -3935,7 +3979,7 @@
 			}
 
 			if (!response.ok) {
-				showMessage(root, data.message || 'Non foi posible completar a operación.', 'error');
+				showMessage(root, data.message || __( 'Non foi posible completar a operación.', 'anpa-socios' ), 'error');
 				return null;
 			}
 
@@ -3964,7 +4008,7 @@
 			showMessage(root, '', 'info');
 			if (!empresaToken) {
 				showStep(root, 'email');
-				showMessage(root, 'A sesión caducou. Volve entrar.', 'error');
+				showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
 				return;
 			}
 
@@ -3975,19 +4019,19 @@
 					headers: { 'X-Anpa-Empresa-Token': empresaToken },
 				});
 			} catch (_) {
-				showMessage(root, 'Erro de rede. Téntao de novo.', 'error');
+				showMessage(root, __( 'Erro de rede. Téntao de novo.', 'anpa-socios' ), 'error');
 				return;
 			}
 
 			if (response.status === 401) {
 				empresaToken = '';
 				showStep(root, 'email');
-				showMessage(root, 'A sesión caducou. Volve entrar.', 'error');
+				showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
 				return;
 			}
 
 			if (!response.ok) {
-				showMessage(root, 'Non foi posible descargar o ficheiro.', 'error');
+				showMessage(root, __( 'Non foi posible descargar o ficheiro.', 'anpa-socios' ), 'error');
 				return;
 			}
 
@@ -4011,7 +4055,7 @@
 			clearIdleTimers();
 			hideSessionHeader();
 			showStep(root, 'email');
-			showMessage(root, 'Sesión pechada.', 'success');
+			showMessage(root, __( 'Sesión pechada.', 'anpa-socios' ), 'success');
 		});
 
 		// ── Persistent session recovery on page load ─────────────────────
