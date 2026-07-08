@@ -1,10 +1,10 @@
 # Spanish translations for anpa-socios.
 msgid ""
 msgstr ""
-"Project-Id-Version: anpa-socios 1.29.0\n"
+"Project-Id-Version: anpa-socios 1.29.1\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-07-08 11:17+0000\n"
-"PO-Revision-Date: 2026-07-08 11:17+0000\n"
+"PO-Revision-Date: 2026-07-08 11:43+0000\n"
 "Last-Translator: ANPA Socios <socios@example.com>\n"
 "Language-Team: Spanish\n"
 "Language: es_ES\n"
@@ -191,13 +191,13 @@ msgid "Seguintes pasos"
 msgstr "Siguientes pasos"
 
 msgid "Vai á %1$spáxina de socios%2$s e inicia sesión co email do master (%3$s). Recibirás un código de acceso por correo."
-msgstr ""
+msgstr "Ve a la %1$spágina de socios%2$s e inicia sesión con el email del master (%3$s). Recibirás un código de acceso por correo."
 
 msgid "Podes editar a configuración e o contrasinal de admin en calquera momento desde esta páxina de Axustes."
 msgstr "Puedes editar la configuración y la contraseña de admin en cualquier momento desde esta página de Ajustes."
 
 msgid "Para amosar as actividades extraescolares e o horario, consulta a %1$sdocumentación%2$s co código a pegar na páxina de extraescolares (e suxestións de FAQ e cabeceira)."
-msgstr ""
+msgstr "Para mostrar las actividades extraescolares y el horario, consulta la %1$sdocumentación%2$s con el código a pegar en la página de extraescolares (y sugerencias de FAQ y cabecera)."
 
 msgid "Ir a Axustes"
 msgstr "Ir a Ajustes"
@@ -344,73 +344,73 @@ msgid "Rol inválido"
 msgstr "Rol inválido"
 
 msgid "Seguir conectado"
-msgstr ""
+msgstr "Seguir conectado"
 
 msgid "Traballando"
-msgstr ""
+msgstr "Trabajando"
 
 msgid "Conectada/o como"
-msgstr ""
+msgstr "Conectada/o como"
 
 msgid "Os meus datos"
-msgstr ""
+msgstr "Mis datos"
 
 msgid "Xestión ANPA"
-msgstr ""
+msgstr "Gestión ANPA"
 
 msgid "Listados"
-msgstr ""
+msgstr "Listados"
 
 msgid "Descargar Socios IBAN"
-msgstr ""
+msgstr "Descargar Socios IBAN"
 
 msgid "Pechar sesión"
-msgstr ""
+msgstr "Cerrar sesión"
 
 msgid "Área persoal de socios/as"
-msgstr ""
+msgstr "Área personal de socios/as"
 
 msgid "Introduce o email co que estás dado/a de alta na ANPA. Enviarémosche un código para acceder sen contrasinal."
-msgstr ""
+msgstr "Introduce el email con el que estás dado/a de alta en la ANPA. Te enviaremos un código para acceder sin contraseña."
 
 msgid "Email"
-msgstr ""
+msgstr "Email"
 
 msgid "Enviar código"
-msgstr ""
+msgstr "Enviar código"
 
 msgid "Revisa o teu correo"
-msgstr ""
+msgstr "Revisa tu correo"
 
 msgid "Escribe o código recibido para abrir a túa área persoal."
-msgstr ""
+msgstr "Escribe el código recibido para abrir tu área personal."
 
 msgid "Código de 6 díxitos"
-msgstr ""
+msgstr "Código de 6 dígitos"
 
 msgid "Entrar"
-msgstr ""
+msgstr "Entrar"
 
 msgid "Cambiar email"
-msgstr ""
+msgstr "Cambiar email"
 
 msgid "Completa a túa alta"
-msgstr ""
+msgstr "Completa tu alta"
 
 msgid "Se o email é válido, recibirás un código. Tras introducilo, pedirémosche os teus datos para completar a alta como socio/a."
-msgstr ""
+msgstr "Si el email es válido, recibirás un código. Tras introducirlo, te pediremos tus datos para completar el alta como socio/a."
 
 msgid "A túa solicitude de baixa está procesada"
-msgstr ""
+msgstr "Tu solicitud de baja está procesada"
 
 msgid "Se queres volver a ser socio/a, podes solicitar a reactivación da túa conta. Un/unha administrador/a da ANPA deberá aprobala antes de poder acceder de novo."
-msgstr ""
+msgstr "Si quieres volver a ser socio/a, puedes solicitar la reactivación de tu cuenta. Un/a administrador/a de la ANPA deberá aprobarla antes de poder acceder de nuevo."
 
 msgid "Solicitar reactivación"
-msgstr ""
+msgstr "Solicitar reactivación"
 
 msgid "Os teus datos"
-msgstr ""
+msgstr "Tus datos"
 
 msgid "Nome"
 msgstr "Nombre"
@@ -419,43 +419,43 @@ msgid "Apelidos"
 msgstr "Apellidos"
 
 msgid "Teléfono"
-msgstr ""
+msgstr "Teléfono"
 
 msgid "NIF / NIE"
-msgstr ""
+msgstr "NIF / NIE"
 
 msgid "Correo electrónico"
-msgstr ""
+msgstr "Correo electrónico"
 
 msgid "Gardar cambios"
-msgstr ""
+msgstr "Guardar cambios"
 
 msgid "Xestionar fillos/as"
-msgstr ""
+msgstr "Gestionar hijos/as"
 
 msgid "Extraescolares"
-msgstr ""
+msgstr "Extraescolares"
 
 msgid "Engadir outro proxenitor/titor"
-msgstr ""
+msgstr "Añadir otro progenitor/tutor"
 
 msgid "Modificación IBAN"
-msgstr ""
+msgstr "Modificación IBAN"
 
 msgid "Solicitar baixa de socio/a"
-msgstr ""
+msgstr "Solicitar baja de socio/a"
 
 msgid "Anular solicitude de baixa"
-msgstr ""
+msgstr "Anular solicitud de baja"
 
 msgid "Os teus fillos e fillas"
-msgstr ""
+msgstr "Tus hijos e hijas"
 
 msgid "Engade, edita ou da de baixa os datos básicos dos teus fillos/as. Só ti podes ver e xestionar os teus."
-msgstr ""
+msgstr "Añade, edita o da de baja los datos básicos de tus hijos/as. Solo tú puedes ver y gestionar los tuyos."
 
 msgid "Engadir fillo/a"
-msgstr ""
+msgstr "Añadir hijo/a"
 
 msgid "Data de nacemento"
 msgstr "Fecha de nacimiento"
@@ -464,7 +464,7 @@ msgid "Curso"
 msgstr "Curso"
 
 msgid "-- Selecciona --"
-msgstr ""
+msgstr "-- Selecciona --"
 
 msgid "Grupo"
 msgstr "Grupo"
@@ -473,28 +473,28 @@ msgid "Gardar fillo/a"
 msgstr "Guardar hijo/a"
 
 msgid "Cancelar edición"
-msgstr ""
+msgstr "Cancelar edición"
 
 msgid "Volver aos meus datos"
-msgstr ""
+msgstr "Volver a mis datos"
 
 msgid "Actividades extraescolares"
-msgstr ""
+msgstr "Actividades extraescolares"
 
 msgid "Anota os teus fillos/as nas actividades dispoñibles. Se un grupo está completo, entrarán na lista de espera e avisarémosvos por correo se queda praza."
-msgstr ""
+msgstr "Apunta a tus hijos/as en las actividades disponibles. Si un grupo está completo, entrarán en la lista de espera y os avisaremos por correo si queda plaza."
 
 msgid "Nova matrícula"
-msgstr ""
+msgstr "Nueva matrícula"
 
 msgid "Volver aos teus datos"
-msgstr ""
+msgstr "Volver a tus datos"
 
 msgid "Panel de administración. Só accesible para a directiva (rol master). Cada consulta valídase no servidor."
-msgstr ""
+msgstr "Panel de administración. Solo accesible para la junta directiva (rol master). Cada consulta se valida en el servidor."
 
 msgid "Panel da empresa"
-msgstr ""
+msgstr "Panel de la empresa"
 
 msgid "Se a túa conta pode reactivarse, a directiva revisará a túa solicitude e activarate en breve."
 msgstr "Si tu cuenta puede reactivarse, la directiva revisará tu solicitud y te activará en breve."
@@ -725,139 +725,139 @@ msgid "%s €/mes"
 msgstr "%s €/mes"
 
 msgid "Facerme socio/a"
-msgstr ""
+msgstr "Hacerme socio/a"
 
 msgid "Dáte de alta na %1$s. A cota é de %2$s € por familia e curso."
-msgstr ""
+msgstr "Date de alta en %1$s. La cuota es de %2$s € por familia y curso."
 
 msgid "Asociarme"
-msgstr ""
+msgstr "Asociarme"
 
 msgid "Xa es socio/a?"
-msgstr ""
+msgstr "¿Ya eres socio/a?"
 
 msgid "Accede á túa área persoal para xestionar os teus datos, fillos/as e a domiciliación."
-msgstr ""
+msgstr "Accede a tu área personal para gestionar tus datos, hijos/as y la domiciliación."
 
 msgid "Entrar na área persoal"
-msgstr ""
+msgstr "Entrar en el área personal"
 
 msgid "Darme de baixa"
-msgstr ""
+msgstr "Darme de baja"
 
 msgid "A baixa solicítase desde a túa área persoal e require confirmación da directiva (efectiva a fin de curso)."
-msgstr ""
+msgstr "La baja se solicita desde tu área personal y requiere confirmación de la junta directiva (efectiva a fin de curso)."
 
 msgid "Ir á área persoal"
-msgstr ""
+msgstr "Ir al área personal"
 
 msgid "Área persoal"
-msgstr ""
+msgstr "Área personal"
 
 msgid "Facerte socio/a da %s"
-msgstr ""
+msgstr "Hacerte socio/a de %s"
 
 msgid "A alta e o inicio de sesión fanse desde a Área de socios. Preme o botón para comezar: introduces o teu correo, recibes un código de verificación e completas a alta na mesma páxina."
-msgstr ""
+msgstr "El alta y el inicio de sesión se hacen desde el Área de socios. Pulsa el botón para comenzar: introduces tu correo, recibes un código de verificación y completas el alta en la misma página."
 
 msgid "Ir á Área de socios"
-msgstr ""
+msgstr "Ir al Área de socios"
 
 msgid "Introduce o teu email para comezar a alta na ANPA. Enviarémosche un código de verificación para continuar."
-msgstr ""
+msgstr "Introduce tu email para comenzar el alta en la ANPA. Te enviaremos un código de verificación para continuar."
 
 msgid "Verificar"
-msgstr ""
+msgstr "Verificar"
 
 msgid "Nome *"
-msgstr ""
+msgstr "Nombre *"
 
 msgid "Apelidos *"
-msgstr ""
+msgstr "Apellidos *"
 
 msgid "Teléfono de contacto *"
-msgstr ""
+msgstr "Teléfono de contacto *"
 
 msgid "NIF / NIE *"
-msgstr ""
+msgstr "NIF / NIE *"
 
 msgid "Outro/a proxenitor/a (opcional)"
-msgstr ""
+msgstr "Otro/a progenitor/a (opcional)"
 
 msgid "Se a outra persoa proxenitora tamén quere ser socia, completa os seus datos. Deixa baleiro se non aplica."
-msgstr ""
+msgstr "Si la otra persona progenitora también quiere ser socia, completa sus datos. Deja vacío si no aplica."
 
 msgid "Fillos e fillas"
-msgstr ""
+msgstr "Hijos e hijas"
 
 msgid "Engade os teus fillos/as. Completa os datos e preme «Gardar fillo/a»; despois poderás engadir outro ou modificar/quitar os xa gardados. O curso e o grupo escóllense das listas."
-msgstr ""
+msgstr "Añade a tus hijos/as. Completa los datos y pulsa «Guardar hijo/a»; después podrás añadir otro o modificar/quitar los ya guardados. El curso y el grupo se eligen de las listas."
 
 msgid "AUTORIZO á %s á toma de imaxes (fotos ou vídeos) nas que apareza o meu fillo/a. En ningún caso a asociación divulgará as imaxes e vídeos de forma pública. Marca a casa de cada fillo/a para autorizalo."
-msgstr ""
+msgstr "AUTORIZO a %s a la toma de imágenes (fotos o vídeos) en las que aparezca mi hijo/a. En ningún caso la asociación divulgará las imágenes y vídeos de forma pública. Marca la casilla de cada hijo/a para autorizarlo."
 
 msgid "Datos bancarios (domiciliación)"
-msgstr ""
+msgstr "Datos bancarios (domiciliación)"
 
 msgid "A alta como socio/a implica domiciliación bancaria. A cota é de %s € por familia e curso. Os datos bancarios gárdanse cifrados e só os ve a directiva."
-msgstr ""
+msgstr "El alta como socio/a implica domiciliación bancaria. La cuota es de %s € por familia y curso. Los datos bancarios se guardan cifrados y solo los ve la junta directiva."
 
 msgid "A baixa como socio/a debe solicitarse desde a área persoal e será efectiva a fin de curso, tras a confirmación da directiva. A cota anual do curso xa xerada non se devolve, aínda que se solicite a baixa durante o ano."
-msgstr ""
+msgstr "La baja como socio/a debe solicitarse desde el área personal y será efectiva a fin de curso, tras la confirmación de la junta directiva. La cuota anual del curso ya generada no se devuelve, aunque se solicite la baja durante el año."
 
 msgid "Mediante a presente orde de domiciliación o debedor autoriza (A) ao acredor a enviar instrucións á entidade do debedor para cargar na súa conta e (B) á entidade para efectuar os cargos na súa conta seguindo as instrucións do acredor. Como parte dos seus dereitos, o debedor está lexitimado ao reembolso pola súa entidade nos termos e condicións do contrato subscrito con ela. A solicitude de reembolso deberá efectuarse dentro das oito semanas seguintes á data de cargo en conta. Pode obter información adicional sobre os seus dereitos na súa entidade bancaria."
-msgstr ""
+msgstr "Mediante la presente orden de domiciliación el deudor autoriza (A) al acreedor a enviar instrucciones a la entidad del deudor para cargar en su cuenta y (B) a la entidad para efectuar los cargos en su cuenta siguiendo las instrucciones del acreedor. Como parte de sus derechos, el deudor está legitimado al reembolso por su entidad en los términos y condiciones del contrato suscrito con ella. La solicitud de reembolso deberá efectuarse dentro de las ocho semanas siguientes a la fecha de cargo en cuenta. Puede obtener información adicional sobre sus derechos en su entidad bancaria."
 
 msgid "Nome do titular da conta"
-msgstr ""
+msgstr "Nombre del titular de la cuenta"
 
 msgid "Copiarase do proxenitor 1"
-msgstr ""
+msgstr "Se copiará del progenitor 1"
 
 msgid "Apelidos do titular"
-msgstr ""
+msgstr "Apellidos del titular"
 
 msgid "NIF/NIE do titular"
-msgstr ""
+msgstr "NIF/NIE del titular"
 
 msgid "Enderezo"
-msgstr ""
+msgstr "Dirección"
 
 msgid "Provincia"
-msgstr ""
+msgstr "Provincia"
 
 msgid "Poboación"
-msgstr ""
+msgstr "Población"
 
 msgid "Código postal"
-msgstr ""
+msgstr "Código postal"
 
 msgid "Nome da entidade bancaria"
-msgstr ""
+msgstr "Nombre de la entidad bancaria"
 
 msgid "IBAN"
-msgstr ""
+msgstr "IBAN"
 
 msgid "Lugar e data"
-msgstr ""
+msgstr "Lugar y fecha"
 
 msgid "Autorizo a domiciliación bancaria"
-msgstr ""
+msgstr "Autorizo la domiciliación bancaria"
 
 msgid "Protección de datos de carácter persoal"
-msgstr ""
+msgstr "Protección de datos de carácter personal"
 
 msgid "De conformidade co Reglamento (UE) 2016/679 de 27 de Abril (RGPD), os datos suministrados para a solicitude de alta quedarán incorporados nun ficheiro con titularidade da %1$s, sendo utilizados exclusivamente por esta asociación para a prestación dos seus servizos. Estes datos recolleranse a través dos correspondentes formularios, os cales só conterán os campos imprescindibles para poder prestar o servizo solicitado. Os datos de carácter persoal serán tratados co grao de protección adecuado para evitar a súa alteración, perda, tratamento ou acceso non autorizado por parte de terceiros que os poidan utilizar para finalidades distintas daquelas para as que foron recabados. Pode exercer os seus dereitos de acceso, rectificación, cancelación e oposición, en cumprimento co establecido na RGPD, ante a %1$s%2$s."
-msgstr ""
+msgstr "De conformidad con el Reglamento (UE) 2016/679 de 27 de abril (RGPD), los datos suministrados para la solicitud de alta quedarán incorporados en un fichero con titularidad de %1$s, siendo utilizados exclusivamente por esta asociación para la prestación de sus servicios. Estos datos se recogerán a través de los correspondientes formularios, los cuales solo contendrán los campos imprescindibles para poder prestar el servicio solicitado. Los datos de carácter personal serán tratados con el grado de protección adecuado para evitar su alteración, pérdida, tratamiento o acceso no autorizado por parte de terceros que los puedan utilizar para finalidades distintas de aquellas para las que fueron recabados. Puede ejercer sus derechos de acceso, rectificación, cancelación y oposición, en cumplimiento con lo establecido en el RGPD, ante %1$s%2$s."
 
 msgid "Acepto a política de protección de datos *"
-msgstr ""
+msgstr "Acepto la política de protección de datos *"
 
 msgid "Completar alta"
-msgstr ""
+msgstr "Completar alta"
 
 msgid "Alta completada. Grazas."
-msgstr ""
+msgstr "Alta completada. Gracias."
 
 msgid "Continúa"
 msgstr "Continúa"
@@ -884,49 +884,49 @@ msgid "Alta completada"
 msgstr "Alta completada"
 
 msgid "O curso escolar %s aínda non comezou"
-msgstr ""
+msgstr "El curso escolar %s aún no ha comenzado"
 
 msgid "A alta de socios e a matriculación nas actividades extraescolares abriranse automaticamente o <strong>%s</strong>. O proceso farase de xeito automático, non tes que facer nada agora."
-msgstr ""
+msgstr "El alta de socios y la matriculación en las actividades extraescolares se abrirán automáticamente el <strong>%s</strong>. El proceso se realizará de forma automática, no tienes que hacer nada ahora."
 
 msgid "Mentres tanto, só o equipo administrador pode iniciar sesión."
-msgstr ""
+msgstr "Mientras tanto, solo el equipo administrador puede iniciar sesión."
 
 msgid "Acceder ó Área de socios/as da %s"
-msgstr ""
+msgstr "Acceder al Área de socios/as de %s"
 
 msgid "O formulario de alta require cubrir todos os campos obrigatorios e aceptar a política de privacidade. Recibirás un código de verificación no teu correo para confirmar a identidade."
-msgstr ""
+msgstr "El formulario de alta requiere completar todos los campos obligatorios y aceptar la política de privacidad. Recibirás un código de verificación en tu correo para confirmar la identidad."
 
 msgid "Escribe o código recibido para continuar."
-msgstr ""
+msgstr "Escribe el código recibido para continuar."
 
 msgid "Solicitude de baixa pendente"
-msgstr ""
+msgstr "Solicitud de baja pendiente"
 
 msgid "Recibimos a túa solicitude de baixa. Se foi un erro, podes anulala e seguir sendo socio/a."
-msgstr ""
+msgstr "Recibimos tu solicitud de baja. Si fue un error, puedes anularla y seguir siendo socio/a."
 
 msgid "Ir á miña área"
-msgstr ""
+msgstr "Ir a mi área"
 
 msgid "A túa conta está dada de baixa"
-msgstr ""
+msgstr "Tu cuenta está dada de baja"
 
 msgid "Se queres volver ser socio/a, solicita a reactivación e a directiva revisará a túa petición."
-msgstr ""
+msgstr "Si quieres volver a ser socio/a, solicita la reactivación y la junta directiva revisará tu petición."
 
 msgid "Benvido/a á túa área de socio/a"
-msgstr ""
+msgstr "Bienvenido/a a tu área de socio/a"
 
 msgid "Redirixíndoche á túa área persoal..."
-msgstr ""
+msgstr "Redirigiendo a tu área personal..."
 
 msgid "Houbo un problema"
-msgstr ""
+msgstr "Hubo un problema"
 
 msgid "Tentar de novo"
-msgstr ""
+msgstr "Intentar de nuevo"
 
 msgid "Se o email está rexistrado, recibirás un código en breve"
 msgstr "Si el email está registrado, recibirás un código en breve"
