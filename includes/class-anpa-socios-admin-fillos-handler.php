@@ -345,7 +345,7 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 		if ( $require_curso && ! ANPA_Socios_Curso_Escolar::is_valid( $curso_escolar ) ) {
 			return null;
 		}
-		if ( ! in_array( $curso, array( '1', '2', '3', '4', '5', '6' ), true ) || ! in_array( $aula, array( 'A', 'B', 'C', 'D' ), true ) ) {
+		if ( ! in_array( $curso, array( '1', '2', '3', '4', '5', '6' ), true ) || ! in_array( $aula, ANPA_Socios_Admin_Payload::GRUPO_VALIDOS, true ) ) {
 			return null;
 		}
 
@@ -385,11 +385,11 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 	 * @since  1.14.0
 	 * @param  int    $fillo_id Fillo id.
 	 * @param  string $curso    Curso 1-6.
-	 * @param  string $aula     Aula A-D.
+	 * @param  string $aula     Aula A-H.
 	 * @return void
 	 */
 	private static function sync_current_course_assignment( int $fillo_id, string $curso, string $aula ): void {
-		if ( $fillo_id <= 0 || ! in_array( $curso, array( '1', '2', '3', '4', '5', '6' ), true ) || ! in_array( $aula, array( 'A', 'B', 'C', 'D' ), true ) ) {
+		if ( $fillo_id <= 0 || ! in_array( $curso, array( '1', '2', '3', '4', '5', '6' ), true ) || ! in_array( $aula, ANPA_Socios_Admin_Payload::GRUPO_VALIDOS, true ) ) {
 			return;
 		}
 

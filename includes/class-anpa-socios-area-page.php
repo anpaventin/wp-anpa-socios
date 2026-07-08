@@ -105,6 +105,7 @@ class ANPA_Socios_Area_Page {
 			data-master-init-post-url="<?php echo esc_attr( $master_init_post_url ); ?>"
 			data-admin-auth-url="<?php echo esc_attr( $admin_auth_url ); ?>"
 			data-admin-password-url="<?php echo esc_attr( $admin_password_url ); ?>"
+			data-aulas="<?php echo esc_attr( (string) wp_json_encode( ANPA_Socios_Config::aulas() ) ); ?>"
 			data-login-url="<?php echo esc_attr( class_exists( 'ANPA_Socios_Admin_Settings' ) ? ANPA_Socios_Admin_Settings::landing_page_url() : '' ); ?>">
 			<div class="anpa-area-notice" data-area-message hidden></div>
 			<div class="anpa-area-idle" data-idle-warning hidden role="alertdialog" aria-live="assertive">
@@ -318,10 +319,9 @@ class ANPA_Socios_Area_Page {
 				<label for="anpa-fillo-aula"><?php esc_html_e( 'Grupo', 'anpa-socios' ); ?></label>
 				<select id="anpa-fillo-aula" required>
 					<option value=""><?php esc_html_e( '-- Selecciona --', 'anpa-socios' ); ?></option>
-					<option value="A">A</option>
-					<option value="B">B</option>
-					<option value="C">C</option>
-					<option value="D">D</option>
+					<?php foreach ( ANPA_Socios_Config::aulas() as $aula_option ) : ?>
+						<option value="<?php echo esc_attr( $aula_option ); ?>"><?php echo esc_html( $aula_option ); ?></option>
+					<?php endforeach; ?>
 				</select>
 				<div class="anpa-area-actions">
 					<button type="button" data-action="save-fillo"><?php esc_html_e( 'Gardar fillo/a', 'anpa-socios' ); ?></button>

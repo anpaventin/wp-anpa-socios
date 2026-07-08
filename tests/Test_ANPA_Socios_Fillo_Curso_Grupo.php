@@ -101,6 +101,10 @@ class Test_ANPA_Socios_Fillo_Curso_Grupo extends TestCase {
 			'grupo B' => array( 'B' ),
 			'grupo C' => array( 'C' ),
 			'grupo D' => array( 'D' ),
+			'grupo E' => array( 'E' ),
+			'grupo F' => array( 'F' ),
+			'grupo G' => array( 'G' ),
+			'grupo H' => array( 'H' ),
 		);
 	}
 
@@ -116,11 +120,13 @@ class Test_ANPA_Socios_Fillo_Curso_Grupo extends TestCase {
 
 	public function invalid_grupo_provider(): array {
 		return array(
-			'out of range E'   => array( 'E' ),
+			'out of range I'   => array( 'I' ),
+			'out of range Z'   => array( 'Z' ),
 			'lowercase a'      => array( 'a' ),
 			'lowercase b'      => array( 'b' ),
 			'lowercase c'      => array( 'c' ),
 			'lowercase d'      => array( 'd' ),
+			'lowercase e'      => array( 'e' ),
 			'number'           => array( '1' ),
 			'empty string'     => array( '' ),
 			'multi-char'       => array( 'AB' ),
@@ -149,6 +155,6 @@ class Test_ANPA_Socios_Fillo_Curso_Grupo extends TestCase {
 
 	public function test_constants_are_defined(): void {
 		$this->assertSame( array( '1', '2', '3', '4', '5', '6' ), ANPA_Socios_Admin_Payload::CURSO_VALIDOS );
-		$this->assertSame( array( 'A', 'B', 'C', 'D' ), ANPA_Socios_Admin_Payload::GRUPO_VALIDOS );
+		$this->assertSame( array( 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' ), ANPA_Socios_Admin_Payload::GRUPO_VALIDOS );
 	}
 }

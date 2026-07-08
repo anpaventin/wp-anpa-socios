@@ -18,7 +18,7 @@ class Test_ANPA_Socios_Settings_Tabs extends TestCase {
 
 	public function test_all_has_the_expected_tabs_in_order(): void {
 		$this->assertSame(
-			array( 'xeral', 'localizacion', 'verificacion', 'actualizacions', 'mantemento' ),
+			array( 'xeral', 'cursos', 'localizacion', 'verificacion', 'actualizacions', 'mantemento' ),
 			array_keys( ANPA_Socios_Settings_Tabs::all() )
 		);
 	}
