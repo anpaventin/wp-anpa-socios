@@ -80,24 +80,24 @@ final class ANPA_Socios_Hub_Page {
 		?>
 		<div class="anpa-hub">
 			<div class="anpa-hub-card anpa-hub-alta">
-				<h3>Facerme socio/a</h3>
-				<p>Dáte de alta na <?php echo $assoc; ?>. A cota é de <?php echo $fee; ?> € por familia e curso.</p>
+				<h3><?php esc_html_e( 'Facerme socio/a', 'anpa-socios' ); ?></h3>
+				<p><?php echo sprintf( esc_html__( 'Dáte de alta na %1$s. A cota é de %2$s € por familia e curso.', 'anpa-socios' ), $assoc, $fee ); ?></p>
 				<?php if ( '' !== $alta_url ) : ?>
-					<a class="anpa-hub-btn" href="<?php echo esc_url( $alta_url ); ?>">Asociarme</a>
+					<a class="anpa-hub-btn" href="<?php echo esc_url( $alta_url ); ?>"><?php esc_html_e( 'Asociarme', 'anpa-socios' ); ?></a>
 				<?php endif; ?>
 			</div>
 			<div class="anpa-hub-card anpa-hub-login">
-				<h3>Xa es socio/a?</h3>
-				<p>Accede á túa área persoal para xestionar os teus datos, fillos/as e a domiciliación.</p>
+				<h3><?php esc_html_e( 'Xa es socio/a?', 'anpa-socios' ); ?></h3>
+				<p><?php esc_html_e( 'Accede á túa área persoal para xestionar os teus datos, fillos/as e a domiciliación.', 'anpa-socios' ); ?></p>
 				<?php if ( '' !== $area_url ) : ?>
-					<a class="anpa-hub-btn" href="<?php echo esc_url( $area_url ); ?>">Entrar na área persoal</a>
+					<a class="anpa-hub-btn" href="<?php echo esc_url( $area_url ); ?>"><?php esc_html_e( 'Entrar na área persoal', 'anpa-socios' ); ?></a>
 				<?php endif; ?>
 			</div>
 			<div class="anpa-hub-card anpa-hub-baixa">
-				<h3>Darme de baixa</h3>
-				<p>A baixa solicítase desde a túa área persoal e require confirmación da directiva (efectiva a fin de curso).</p>
+				<h3><?php esc_html_e( 'Darme de baixa', 'anpa-socios' ); ?></h3>
+				<p><?php esc_html_e( 'A baixa solicítase desde a túa área persoal e require confirmación da directiva (efectiva a fin de curso).', 'anpa-socios' ); ?></p>
 				<?php if ( '' !== $area_url ) : ?>
-					<a class="anpa-hub-btn" href="<?php echo esc_url( $area_url ); ?>">Ir á área persoal</a>
+					<a class="anpa-hub-btn" href="<?php echo esc_url( $area_url ); ?>"><?php esc_html_e( 'Ir á área persoal', 'anpa-socios' ); ?></a>
 				<?php endif; ?>
 			</div>
 		</div>
@@ -117,7 +117,7 @@ final class ANPA_Socios_Hub_Page {
 		if ( '' === $area_url ) {
 			return '';
 		}
-		$atts = shortcode_atts( array( 'text' => 'Área persoal' ), is_array( $atts ) ? $atts : array() );
+		$atts = shortcode_atts( array( 'text' => __( 'Área persoal', 'anpa-socios' ) ), is_array( $atts ) ? $atts : array() );
 
 		return '<a class="anpa-area-link" href="' . esc_url( $area_url ) . '">' . esc_html( $atts['text'] ) . '</a>';
 	}

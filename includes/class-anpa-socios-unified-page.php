@@ -108,76 +108,76 @@ class ANPA_Socios_Unified_Page {
 			<?php if ( $is_preseason ) : ?>
 			<!-- PRE-SEASON: course not started yet; only admins can log in. -->
 			<div class="anpa-preseason-notice anpa-aviso" role="status">
-				<h2>O curso escolar <?php echo esc_html( $preseason_curso ); ?> aínda non comezou</h2>
-				<p>A alta de socios e a matriculación nas actividades extraescolares abriranse automaticamente o <strong><?php echo esc_html( $preseason_date ); ?></strong>. O proceso farase de xeito automático, non tes que facer nada agora.</p>
-				<p>Mentres tanto, só o equipo administrador pode iniciar sesión.</p>
+				<h2><?php echo sprintf( esc_html__( 'O curso escolar %s aínda non comezou', 'anpa-socios' ), esc_html( $preseason_curso ) ); ?></h2>
+				<p><?php echo sprintf( __( 'A alta de socios e a matriculación nas actividades extraescolares abriranse automaticamente o <strong>%s</strong>. O proceso farase de xeito automático, non tes que facer nada agora.', 'anpa-socios' ), esc_html( $preseason_date ) ); ?></p>
+				<p><?php esc_html_e( 'Mentres tanto, só o equipo administrador pode iniciar sesión.', 'anpa-socios' ); ?></p>
 			</div>
 			<?php endif; ?>
 
 			<!-- PERSISTENT NOTICES -->
 			<div class="anpa-unified-notice" data-notice hidden></div>
 			<div class="anpa-unified-busy" data-busy hidden>
-				<span class="anpa-area-spinner" role="status" aria-label="Traballando"></span>
+				<span class="anpa-area-spinner" role="status" aria-label="<?php esc_attr_e( 'Traballando', 'anpa-socios' ); ?>"></span>
 			</div>
 
 			<!-- STEP: alta -- email input for new members -->
 			<div data-step="alta" hidden>
-				<h2>Acceder ó Área de socios/as da <?php echo esc_html( ANPA_Socios_Config::association_name() ); ?></h2>
-				<p>O formulario de alta require cubrir todos os campos obrigatorios e aceptar a política de privacidade. Recibirás un código de verificación no teu correo para confirmar a identidade.</p>
-				<label for="anpa-unified-email">Email</label>
+				<h2><?php echo sprintf( esc_html__( 'Acceder ó Área de socios/as da %s', 'anpa-socios' ), esc_html( ANPA_Socios_Config::association_name() ) ); ?></h2>
+				<p><?php esc_html_e( 'O formulario de alta require cubrir todos os campos obrigatorios e aceptar a política de privacidade. Recibirás un código de verificación no teu correo para confirmar a identidade.', 'anpa-socios' ); ?></p>
+				<label for="anpa-unified-email"><?php esc_html_e( 'Email', 'anpa-socios' ); ?></label>
 				<input id="anpa-unified-email" type="email" autocomplete="email" required>
 				<div style="position:absolute;left:-9999px" aria-hidden="true">
 					<input type="text" id="anpa-unified-website" name="website" tabindex="-1" autocomplete="off" value="">
 				</div>
 				<input type="hidden" id="anpa-unified-ts" name="_ts" value="<?php echo (int) time(); ?>">
 				<div class="anpa-unified-actions">
-					<button type="button" class="wp-element-button" data-action="request-code-alta">Enviar código</button>
+					<button type="button" class="wp-element-button" data-action="request-code-alta"><?php esc_html_e( 'Enviar código', 'anpa-socios' ); ?></button>
 				</div>
 			</div>
 
 			<!-- STEP: code -- verification code entry -->
 			<div data-step="code" hidden>
-				<h2>Revisa o teu correo</h2>
-				<p>Escribe o código recibido para continuar.</p>
-				<label for="anpa-unified-code">Código de 6 díxitos</label>
+				<h2><?php esc_html_e( 'Revisa o teu correo', 'anpa-socios' ); ?></h2>
+				<p><?php esc_html_e( 'Escribe o código recibido para continuar.', 'anpa-socios' ); ?></p>
+				<label for="anpa-unified-code"><?php esc_html_e( 'Código de 6 díxitos', 'anpa-socios' ); ?></label>
 				<input id="anpa-unified-code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required>
 				<div class="anpa-unified-actions">
-					<button type="button" class="wp-element-button" data-action="verify-code">Verificar</button>
-					<button type="button" class="wp-element-button is-style-outline" data-action="back-email">Cambiar email</button>
+					<button type="button" class="wp-element-button" data-action="verify-code"><?php esc_html_e( 'Verificar', 'anpa-socios' ); ?></button>
+					<button type="button" class="wp-element-button is-style-outline" data-action="back-email"><?php esc_html_e( 'Cambiar email', 'anpa-socios' ); ?></button>
 				</div>
 			</div>
 
 			<!-- STEP: baixa_solicitada -- pending cancellation -->
 			<div data-step="baixa-solicitada" hidden>
-				<h2>Solicitude de baixa pendente</h2>
-				<p>Recibimos a túa solicitude de baixa. Se foi un erro, podes anulala e seguir sendo socio/a.</p>
+				<h2><?php esc_html_e( 'Solicitude de baixa pendente', 'anpa-socios' ); ?></h2>
+				<p><?php esc_html_e( 'Recibimos a túa solicitude de baixa. Se foi un erro, podes anulala e seguir sendo socio/a.', 'anpa-socios' ); ?></p>
 				<div class="anpa-unified-actions">
-					<button type="button" class="wp-element-button" data-action="cancel-baixa">Anular solicitude de baixa</button>
-					<button type="button" class="wp-element-button is-style-outline" data-action="area-confirm">Ir á miña área</button>
+					<button type="button" class="wp-element-button" data-action="cancel-baixa"><?php esc_html_e( 'Anular solicitude de baixa', 'anpa-socios' ); ?></button>
+					<button type="button" class="wp-element-button is-style-outline" data-action="area-confirm"><?php esc_html_e( 'Ir á miña área', 'anpa-socios' ); ?></button>
 				</div>
 			</div>
 
 			<!-- STEP: inactivo -- member has been deactivated -->
 			<div data-step="inactivo" hidden>
-				<h2>A túa conta está dada de baixa</h2>
-				<p>Se queres volver ser socio/a, solicita a reactivación e a directiva revisará a túa petición.</p>
+				<h2><?php esc_html_e( 'A túa conta está dada de baixa', 'anpa-socios' ); ?></h2>
+				<p><?php esc_html_e( 'Se queres volver ser socio/a, solicita a reactivación e a directiva revisará a túa petición.', 'anpa-socios' ); ?></p>
 				<div class="anpa-unified-actions">
-					<button type="button" class="wp-element-button" data-action="request-reactivar">Solicitar reactivación</button>
+					<button type="button" class="wp-element-button" data-action="request-reactivar"><?php esc_html_e( 'Solicitar reactivación', 'anpa-socios' ); ?></button>
 				</div>
 			</div>
 
 			<!-- STEP: area -- logged-in dashboard (redirect by default) -->
 			<div data-step="area" hidden>
-				<h2>Benvido/a á túa área de socio/a</h2>
-				<p>Redirixíndoche á túa área persoal...</p>
+				<h2><?php esc_html_e( 'Benvido/a á túa área de socio/a', 'anpa-socios' ); ?></h2>
+				<p><?php esc_html_e( 'Redirixíndoche á túa área persoal...', 'anpa-socios' ); ?></p>
 			</div>
 
 			<!-- STEP: error -- generic error display -->
 			<div data-step="error" hidden>
-				<h2>Houbo un problema</h2>
+				<h2><?php esc_html_e( 'Houbo un problema', 'anpa-socios' ); ?></h2>
 				<p data-error-text></p>
 				<div class="anpa-unified-actions">
-					<button type="button" class="wp-element-button is-style-outline" data-action="back-email">Tentar de novo</button>
+					<button type="button" class="wp-element-button is-style-outline" data-action="back-email"><?php esc_html_e( 'Tentar de novo', 'anpa-socios' ); ?></button>
 				</div>
 			</div>
 		</div>
@@ -219,10 +219,11 @@ class ANPA_Socios_Unified_Page {
 		wp_enqueue_script(
 			'anpa-socios-unified',
 			plugins_url( 'assets/js/unified.js', ANPA_SOCIOS_PLUGIN_FILE ),
-			array(),
+			array( 'wp-i18n' ),
 			$js_version,
 			true
 		);
+		wp_set_script_translations( 'anpa-socios-unified', 'anpa-socios', ANPA_SOCIOS_PLUGIN_DIR . 'languages' );
 
 		wp_enqueue_style(
 			'anpa-socios-unified',
@@ -241,10 +242,11 @@ class ANPA_Socios_Unified_Page {
 		wp_enqueue_script(
 			'anpa-socios-asociarse',
 			plugins_url( 'assets/js/asociarse.js', ANPA_SOCIOS_PLUGIN_FILE ),
-			array(),
+			array( 'wp-i18n' ),
 			$alta_js_ver,
 			true
 		);
+		wp_set_script_translations( 'anpa-socios-asociarse', 'anpa-socios', ANPA_SOCIOS_PLUGIN_DIR . 'languages' );
 		wp_enqueue_style(
 			'anpa-socios-asociarse',
 			plugins_url( 'assets/css/asociarse.css', ANPA_SOCIOS_PLUGIN_FILE ),

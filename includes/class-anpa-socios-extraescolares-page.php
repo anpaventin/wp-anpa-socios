@@ -107,9 +107,10 @@ final class ANPA_Socios_Extraescolares_Page {
 					$max   = (int) ( $g['max_pupilos'] ?? 0 );
 					$ins   = (int) ( $g['activos'] ?? 0 );
 					$esp   = (int) ( $g['espera'] ?? 0 );
-					$stats = $max > 0 ? "{$ins} / {$max}" : ( $min > 0 ? "mín {$min}" : '' );
+					$stats = $max > 0 ? "{$ins} / {$max}" : ( $min > 0 ? sprintf( __( 'mín %d', 'anpa-socios' ), $min ) : '' );
 					if ( $esp > 0 ) {
-						$stats .= " ( {$esp} en espera)";
+						/* translators: %d: number of pupils on the waiting list */
+						$stats .= ' (' . sprintf( __( '%d en espera', 'anpa-socios' ), $esp ) . ')';
 					}
 					$parts[] = empty( $stats ) ? $label : "{$label} — {$stats}";
 				}
@@ -305,6 +306,7 @@ final class ANPA_Socios_Extraescolares_Page {
 			return __( 'consultar condicións', 'anpa-socios' );
 		}
 
-		return number_format_i18n( $price, 2 ) . ' €/mes';
+		/* translators: %s: formatted price with decimals */
+		return sprintf( __( '%s €/mes', 'anpa-socios' ), number_format_i18n( $price, 2 ) );
 	}
 }

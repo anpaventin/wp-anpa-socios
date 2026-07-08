@@ -63,7 +63,7 @@ final class ANPA_Socios_Admin_Empresas_Handler {
 
 		$payload = ANPA_Socios_Admin_Payload::validar_empresa( ANPA_Socios_Admin_Shared::json_body( $request ) );
 		if ( null === $payload ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Datos inválidos', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$inserted = $wpdb->insert(
@@ -74,9 +74,9 @@ final class ANPA_Socios_Admin_Empresas_Handler {
 		if ( false === $inserted ) {
 			$code = (string) $wpdb->last_error;
 			if ( false !== strpos( $code, '1062' ) ) {
-				return new WP_Error( 'anpa_admin_email_taken', 'Email xa rexistrado', array( 'status' => 409 ) );
+				return new WP_Error( 'anpa_admin_email_taken', __( 'Email xa rexistrado', 'anpa-socios' ), array( 'status' => 409 ) );
 			}
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'empresa', (string) $wpdb->insert_id, 'create' );
@@ -98,7 +98,7 @@ final class ANPA_Socios_Admin_Empresas_Handler {
 		$id      = (int) $request->get_param( 'id' );
 		$payload = ANPA_Socios_Admin_Payload::validar_empresa( ANPA_Socios_Admin_Shared::json_body( $request ) );
 		if ( null === $payload ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Datos inválidos', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 		$payload['actualizado_en'] = current_time( 'mysql' );
 
@@ -112,9 +112,9 @@ final class ANPA_Socios_Admin_Empresas_Handler {
 		if ( false === $updated ) {
 			$code = (string) $wpdb->last_error;
 			if ( false !== strpos( $code, '1062' ) ) {
-				return new WP_Error( 'anpa_admin_email_taken', 'Email xa rexistrado', array( 'status' => 409 ) );
+				return new WP_Error( 'anpa_admin_email_taken', __( 'Email xa rexistrado', 'anpa-socios' ), array( 'status' => 409 ) );
 			}
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'empresa', (string) $id, 'update' );
@@ -137,7 +137,7 @@ final class ANPA_Socios_Admin_Empresas_Handler {
 			array( '%d' )
 		);
 		if ( false === $updated ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'empresa', (string) $id, 'delete' );

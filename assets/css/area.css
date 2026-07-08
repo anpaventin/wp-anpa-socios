@@ -744,3 +744,97 @@
 	width: 100%;
 	text-align: left;
 }
+
+/* ──────────────────────────────────────────────────────────────────
+ * Self-contained button colours (do NOT inherit the theme palette).
+ * The child theme's --theme-button-* / --theme-palette-* vars caused
+ * clashes (green text on green, white on white, orange on black). We
+ * pin explicit, accessible colours so the plugin looks consistent on
+ * ANY theme. Placed last so it wins over the earlier var-based rules.
+ * ────────────────────────────────────────────────────────────────── */
+
+/* Primary action button */
+#anpa-area button,
+#anpa-area .anpa-area-actions button {
+	background: #2d6a4f;
+	color: #ffffff;
+	border: 1px solid #2d6a4f;
+	border-radius: 8px;
+	padding: 0.55rem 1rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background .15s ease, border-color .15s ease;
+}
+#anpa-area button:hover,
+#anpa-area .anpa-area-actions button:hover {
+	background: #1f513b;
+	border-color: #1f513b;
+	color: #ffffff;
+}
+
+/* Secondary (outline) button — white bg, green text/border */
+#anpa-area .anpa-area-secondary {
+	background: #ffffff;
+	color: #1f513b;
+	border: 1px solid #9cc6b4;
+}
+#anpa-area .anpa-area-secondary:hover {
+	background: #eef7f2;
+	color: #14402f;
+	border-color: #2d6a4f;
+}
+
+/* Admin-only actions — amber, dark text (clearly distinct, readable) */
+#anpa-area .anpa-area-secondary.anpa-admin-action,
+#anpa-area .anpa-admin-action {
+	background: #fff4e5;
+	color: #8a4b00;
+	border: 1px solid #e0a45c;
+}
+#anpa-area .anpa-area-secondary.anpa-admin-action:hover,
+#anpa-area .anpa-admin-action:hover {
+	background: #ffe8cc;
+	color: #6b3a00;
+	border-color: #cf8a3a;
+}
+
+/* Danger (baixa, logout) — red */
+#anpa-area .anpa-area-secondary.anpa-area-danger,
+#anpa-area .anpa-area-danger {
+	background: #ffffff;
+	color: #b42318;
+	border: 1px solid #e6a49e;
+}
+#anpa-area .anpa-area-secondary.anpa-area-danger:hover,
+#anpa-area .anpa-area-danger:hover {
+	background: #fdecea;
+	color: #7a271a;
+	border-color: #b42318;
+}
+
+/* Focus ring for accessibility (all area buttons) */
+#anpa-area button:focus-visible {
+	outline: 2px solid #1a4b8b;
+	outline-offset: 2px;
+}
+
+/* ── Session dropdown (top green box) — tidy, readable menu ────────── */
+#anpa-area .anpa-area-session-header {
+	background: #eef7f2;
+	border: 1px solid #cfe3d8;
+	border-radius: 10px;
+}
+#anpa-area .anpa-session-summary {
+	color: #14402f;
+	font-weight: 700;
+}
+#anpa-area .anpa-session-menu-body {
+	gap: 0.5rem;
+	margin-top: 0.7rem;
+	padding-top: 0.7rem;
+	border-top: 1px solid #cfe3d8;
+}
+#anpa-area .anpa-session-menu-body button {
+	width: 100%;
+	text-align: left;
+}

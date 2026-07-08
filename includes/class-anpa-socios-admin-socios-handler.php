@@ -67,8 +67,10 @@ final class ANPA_Socios_Admin_Socios_Handler {
 	public static function list_socios(): WP_REST_Response {
 		global $wpdb;
 
+		// Exclude the master account: it is an operational admin, not a socio,
+		// so it must not appear as "one more socio" in the listing.
 		$rows = $wpdb->get_results(
-			"SELECT email, nome, apelidos, telefono, nif, estado, rol, baixa_estado, baixa_solicitada_en, creado_en, actualizado_en FROM {$wpdb->prefix}anpa_socios ORDER BY email ASC",
+			"SELECT email, nome, apelidos, telefono, nif, estado, rol, baixa_estado, baixa_solicitada_en, creado_en, actualizado_en FROM {$wpdb->prefix}anpa_socios WHERE rol <> 'master' ORDER BY email ASC",
 			ARRAY_A
 		);
 
@@ -92,7 +94,7 @@ final class ANPA_Socios_Admin_Socios_Handler {
 		// only ever used in a prepared statement (%s).
 		$email = ANPA_Socios_Admin_Payload::sanitise_email( rawurldecode( (string) $request->get_param( 'email' ) ) );
 		if ( null === $email ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Email inválido', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Email inválido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$row   = $wpdb->get_row(
@@ -103,7 +105,7 @@ final class ANPA_Socios_Admin_Socios_Handler {
 			ARRAY_A
 		);
 		if ( ! is_array( $row ) ) {
-			return new WP_Error( 'anpa_admin_socio_not_found', 'Socio non atopado', array( 'status' => 404 ) );
+			return new WP_Error( 'anpa_admin_socio_not_found', __( 'Socio non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 
 		return new WP_REST_Response( $row, 200 );
@@ -122,7 +124,7 @@ final class ANPA_Socios_Admin_Socios_Handler {
 		// rawurldecode: see get_socio() — tolerate an undecoded %40 in the path.
 		$email = ANPA_Socios_Admin_Payload::sanitise_email( rawurldecode( (string) $request->get_param( 'email' ) ) );
 		if ( null === $email ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Email inválido', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Email inválido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$body  = ANPA_Socios_Admin_Shared::json_body( $request );
@@ -135,13 +137,13 @@ final class ANPA_Socios_Admin_Socios_Handler {
 		$rol      = isset( $body['rol'] ) ? (string) $body['rol'] : null;
 
 		if ( null === $nome || null === $apelidos ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Datos inválidos', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 		if ( null !== $estado && ! in_array( $estado, array( 'activo', 'pendiente_alta', 'pendente_aprobacion', 'baixa' ), true ) ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Estado inválido', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Estado inválido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 		if ( null !== $rol && ! ANPA_Socios_Roles::rol_valido( $rol ) ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Rol inválido', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Rol inválido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		// Initial master lock: the configured master account is fully immutable
@@ -166,7 +168,7 @@ final class ANPA_Socios_Admin_Socios_Handler {
 			ARRAY_A
 		);
 		if ( ! is_array( $current ) ) {
-			return new WP_Error( 'anpa_admin_socio_not_found', 'Socio non atopado', array( 'status' => 404 ) );
+			return new WP_Error( 'anpa_admin_socio_not_found', __( 'Socio non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 
 		$final_estado = ( null === $estado ) ? (string) $current['estado'] : $estado;
@@ -211,7 +213,7 @@ final class ANPA_Socios_Admin_Socios_Handler {
 			array( '%s' )
 		);
 		if ( false === $updated ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'socio', $email, 'update' );
@@ -236,7 +238,7 @@ final class ANPA_Socios_Admin_Socios_Handler {
 		// rawurldecode: see get_socio() — tolerate an undecoded %40 in the path.
 		$email = ANPA_Socios_Admin_Payload::sanitise_email( rawurldecode( (string) $request->get_param( 'email' ) ) );
 		if ( null === $email ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Email inválido', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Email inválido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		// Protected root guard: the root admin can never be given baixa.
@@ -261,7 +263,7 @@ final class ANPA_Socios_Admin_Socios_Handler {
 			array( '%s', '%s' )
 		);
 		if ( false === $updated ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 		if ( 0 === $updated ) {
 			// No row matched the pending-request precondition: refuse rather than
@@ -288,11 +290,14 @@ final class ANPA_Socios_Admin_Socios_Handler {
 		global $wpdb;
 		$table = $wpdb->prefix . 'anpa_socios';
 
-		$total     = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
-		$activos   = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE estado = 'activo'" );
-		$sem_tel   = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE (telefono IS NULL OR telefono = '') AND estado = 'activo'" );
-		$sem_nif   = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE (nif IS NULL OR nif = '') AND estado = 'activo'" );
-		$sem_ambos = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE (telefono IS NULL OR telefono = '') AND (nif IS NULL OR nif = '') AND estado = 'activo'" );
+		// The master account is an operational admin, not a real socio: it has
+		// no NIF/telefono/banking on purpose, so it is EXCLUDED from every count
+		// (incomplete-data warning and totals) — see also list_socios().
+		$total     = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE rol <> 'master'" );
+		$activos   = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE estado = 'activo' AND rol <> 'master'" );
+		$sem_tel   = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE (telefono IS NULL OR telefono = '') AND estado = 'activo' AND rol <> 'master'" );
+		$sem_nif   = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE (nif IS NULL OR nif = '') AND estado = 'activo' AND rol <> 'master'" );
+		$sem_ambos = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE (telefono IS NULL OR telefono = '') AND (nif IS NULL OR nif = '') AND estado = 'activo' AND rol <> 'master'" );
 
 		return new WP_REST_Response( array(
 			'total_socios'     => $total,

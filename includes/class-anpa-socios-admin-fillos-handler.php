@@ -84,7 +84,7 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 		// lower-cased/trimmed. Defense-in-depth even though the query is prepared.
 		$email = ANPA_Socios_Admin_Payload::sanitise_email( rawurldecode( (string) $request->get_param( 'email' ) ) );
 		if ( null === $email ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Email inválido', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Email inválido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 		$rows  = $wpdb->get_results(
 			$wpdb->prepare(
@@ -130,11 +130,11 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 
 		$email   = ANPA_Socios_Admin_Payload::sanitise_email( rawurldecode( (string) $request->get_param( 'email' ) ) );
 		if ( null === $email ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Email inválido', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Email inválido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 		$payload = ANPA_Socios_Admin_Payload::validar_fillo( ANPA_Socios_Admin_Shared::json_body( $request ) );
 		if ( null === $payload ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Datos inválidos', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 		$payload['socio_email'] = $email;
 
@@ -144,7 +144,7 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s' )
 		);
 		if ( false === $inserted ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'fillo', (string) $wpdb->insert_id, 'create' );
@@ -172,7 +172,7 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 		$id      = (int) $request->get_param( 'id' );
 		$payload = ANPA_Socios_Admin_Payload::validar_fillo( ANPA_Socios_Admin_Shared::json_body( $request ) );
 		if ( null === $payload ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Datos inválidos', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 		$payload['actualizado_en'] = current_time( 'mysql' );
 
@@ -184,7 +184,7 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 			array( '%d' )
 		);
 		if ( false === $updated ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'fillo', (string) $id, 'update' );
@@ -201,7 +201,7 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 
 		$id = (int) $request->get_param( 'id' );
 		if ( $id <= 0 || ! self::fillo_exists( $id ) ) {
-			return new WP_Error( 'anpa_admin_not_found', 'Non atopado', array( 'status' => 404 ) );
+			return new WP_Error( 'anpa_admin_not_found', __( 'Non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 
 		$table = ANPA_Socios_DB::tabela_fillos_cursos();
@@ -223,10 +223,10 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 		$id      = (int) $request->get_param( 'id' );
 		$payload = self::validate_fillo_curso_payload( ANPA_Socios_Admin_Shared::json_body( $request ), true );
 		if ( $id <= 0 || ! self::fillo_exists( $id ) ) {
-			return new WP_Error( 'anpa_admin_not_found', 'Non atopado', array( 'status' => 404 ) );
+			return new WP_Error( 'anpa_admin_not_found', __( 'Non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 		if ( null === $payload ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Datos inválidos', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		global $wpdb;
@@ -242,7 +242,7 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 			array( '%d', '%s', '%s', '%s' )
 		);
 		if ( false === $inserted ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'fillo_curso', (string) $wpdb->insert_id, 'create' );
 
@@ -257,10 +257,10 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 		$curso_escolar = str_replace( '-', '/', sanitize_text_field( (string) $request->get_param( 'curso_escolar' ) ) );
 		$payload        = self::validate_fillo_curso_payload( ANPA_Socios_Admin_Shared::json_body( $request ), false );
 		if ( $id <= 0 || ! self::fillo_exists( $id ) || ! ANPA_Socios_Curso_Escolar::is_valid( $curso_escolar ) ) {
-			return new WP_Error( 'anpa_admin_not_found', 'Non atopado', array( 'status' => 404 ) );
+			return new WP_Error( 'anpa_admin_not_found', __( 'Non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 		if ( null === $payload ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Datos inválidos', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		global $wpdb;
@@ -280,7 +280,7 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 			array( '%d', '%s' )
 		);
 		if ( false === $updated ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'fillo_curso', (string) $id . ':' . $curso_escolar, 'update' );
 
@@ -305,7 +305,7 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 			array( '%d' )
 		);
 		if ( false === $updated ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'fillo', (string) $id, 'delete' );

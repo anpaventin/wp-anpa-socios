@@ -112,7 +112,7 @@ class ANPA_Socios_REST {
 		return new WP_REST_Response(
 			array(
 				'success' => true,
-				'message' => 'Se o email é válido, recibirás un código en breve',
+				'message' => __( 'Se o email é válido, recibirás un código en breve', 'anpa-socios' ),
 			),
 			200
 		);
@@ -186,7 +186,7 @@ class ANPA_Socios_REST {
 		if ( ! is_email( $email ) ) {
 			return new WP_Error(
 				'invalid_email',
-				'Email non válido',
+				__( 'Email non válido', 'anpa-socios' ),
 				array( 'status' => 400 )
 			);
 		}
@@ -215,7 +215,7 @@ class ANPA_Socios_REST {
 			)
 		);
 		if ( self::has_db_error() ) {
-			return new WP_Error( 'anpa_socios_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		$timestamps = array_map( 'intval', is_array( $timestamps ) ? $timestamps : array() );
@@ -232,7 +232,7 @@ class ANPA_Socios_REST {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- transaction keeps invalidation + insert atomic.
 		$wpdb->query( 'START TRANSACTION' );
 		if ( self::has_db_error() ) {
-			return new WP_Error( 'anpa_socios_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		// Global one-active-code rule: invalidate every previous unused code for this email,
@@ -248,7 +248,7 @@ class ANPA_Socios_REST {
 		if ( self::has_db_error() ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- transaction rollback for failed invalidation.
 			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_socios_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		self::clear_db_error();
@@ -268,7 +268,7 @@ class ANPA_Socios_REST {
 		if ( false === $inserted || self::has_db_error() ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- transaction rollback for failed insert.
 			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_socios_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		self::clear_db_error();
@@ -277,13 +277,13 @@ class ANPA_Socios_REST {
 		if ( self::has_db_error() ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback is safe even if commit outcome is uncertain.
 			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_socios_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		$enviado = ANPA_Socios_Email::enviar_codigo( $email, $codigo );
 		if ( ! $enviado ) {
 			error_log( 'wp_mail failed for solicitar-codigo-alta from ip=' . $ip ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- operational SMTP failure signal; no email/code is logged.
-			return new WP_Error( 'anpa_socios_mail_error', 'Erro ao enviar, téntao de novo', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_socios_mail_error', __( 'Erro ao enviar, téntao de novo', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		return self::resposta_xenerica();
@@ -313,7 +313,7 @@ class ANPA_Socios_REST {
 		// Defense-in-depth rate limit (the token is single-use and strong,
 		// but cap per-IP attempts anyway). 20 attempts/hour/IP.
 		if ( ! self::consume_alta_rate_limit() ) {
-			return new WP_Error( 'anpa_socios_rate_limited', 'Demasiadas solicitudes', array( 'status' => 429 ) );
+			return new WP_Error( 'anpa_socios_rate_limited', __( 'Demasiadas solicitudes', 'anpa-socios' ), array( 'status' => 429 ) );
 		}
 
 		$body = $request->get_json_params();
@@ -328,17 +328,17 @@ class ANPA_Socios_REST {
 			if ( ! empty( $field_errors ) ) {
 				return new WP_Error(
 					'anpa_socios_invalid',
-					'Corrixe os campos marcados.',
+					__( 'Corrixe os campos marcados.', 'anpa-socios' ),
 					array( 'status' => 400, 'fields' => $field_errors )
 				);
 			}
-			return new WP_Error( 'anpa_socios_invalid', 'Datos inválidos', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_socios_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		// Single-use token -> parent1 email. Mirrors crear-socio.
 		$email = get_transient( 'anpa_token_' . $token );
 		if ( false === $email || ! is_string( $email ) || '' === $email ) {
-			return new WP_Error( 'anpa_socios_invalid_token', 'Token inválido ou caducado', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_socios_invalid_token', __( 'Token inválido ou caducado', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$socios       = $wpdb->prefix . 'anpa_socios';
@@ -348,7 +348,7 @@ class ANPA_Socios_REST {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- transaction keeps the multi-row alta atomic.
 		$wpdb->query( 'START TRANSACTION' );
 		if ( self::has_db_error() ) {
-			return new WP_Error( 'anpa_socios_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		// New-socio approval workflow: when enabled, a new socio is parked in
@@ -363,7 +363,7 @@ class ANPA_Socios_REST {
 		if ( ! self::upsert_socio( $email, $clean['parent1'], null, false, $owner_estado ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback on failed parent1 write.
 			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_socios_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		// Ensure the configured master email gets the master role (and stays
@@ -383,7 +383,7 @@ class ANPA_Socios_REST {
 		if ( $parent1_id <= 0 ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback when parent1 id cannot be resolved.
 			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_socios_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		$familia_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT familia_id FROM {$socios} WHERE email = %s", $email ) );
@@ -394,7 +394,7 @@ class ANPA_Socios_REST {
 			if ( self::has_db_error() ) {
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback on failed familia_id link.
 				$wpdb->query( 'ROLLBACK' );
-				return new WP_Error( 'anpa_socios_db_error', 'Erro interno', array( 'status' => 500 ) );
+				return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 			}
 		}
 
@@ -405,7 +405,7 @@ class ANPA_Socios_REST {
 			if ( ! self::upsert_socio( $clean['parent2']['email'], $clean['parent2'], $familia_id, true ) ) {
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback on failed parent2 write.
 				$wpdb->query( 'ROLLBACK' );
-				return new WP_Error( 'anpa_socios_db_error', 'Erro interno', array( 'status' => 500 ) );
+				return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 			}
 		}
 
@@ -444,7 +444,7 @@ class ANPA_Socios_REST {
 			if ( false === $inserted || self::has_db_error() ) {
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback on failed fillo insert.
 				$wpdb->query( 'ROLLBACK' );
-				return new WP_Error( 'anpa_socios_db_error', 'Erro interno', array( 'status' => 500 ) );
+				return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 			}
 		}
 
@@ -465,7 +465,7 @@ class ANPA_Socios_REST {
 		if ( self::has_db_error() ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback if commit outcome is uncertain.
 			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_socios_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		// Single-use enforcement: consume the token only after commit.
@@ -485,7 +485,8 @@ class ANPA_Socios_REST {
 					'success'          => true,
 					'pending_approval' => true,
 					'message'          => sprintf(
-						'A túa solicitude foi rexistrada. A directiva de %s ten que aprobala antes de que poidas acceder á área de socios. Recibirás un correo cando estea aprobada.',
+						/* translators: %s: association name */
+						__( 'A túa solicitude foi rexistrada. A directiva de %s ten que aprobala antes de que poidas acceder á área de socios. Recibirás un correo cando estea aprobada.', 'anpa-socios' ),
 						$assoc
 					),
 				),
@@ -496,7 +497,7 @@ class ANPA_Socios_REST {
 		return new WP_REST_Response(
 			array(
 				'success' => true,
-				'message' => 'Alta completada',
+				'message' => __( 'Alta completada', 'anpa-socios' ),
 			),
 			200
 		);

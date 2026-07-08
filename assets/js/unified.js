@@ -14,6 +14,7 @@
  */
 (function () {
 	'use strict';
+	const { __ } = wp.i18n;
 
 	/**
 	 * Parse data attributes from the container element.
@@ -72,7 +73,7 @@
 		if (!res.ok) {
 			var errBody;
 			try { errBody = await res.json(); } catch (_) {}
-			return { error: (errBody && errBody.message) || 'Erro do servidor', code: res.status };
+			return { error: (errBody && errBody.message) || __( 'Erro do servidor', 'anpa-socios' ), code: res.status };
 		}
 		try { return await res.json(); } catch (_) { return null; }
 	}
@@ -263,7 +264,7 @@
 				codeInput.value = '';
 				codeInput.focus();
 			}
-			showNotice(cfg, 'Enviouse un código de acceso a ' + email);
+			showNotice(cfg, __( 'Enviouse un código de acceso a ', 'anpa-socios' ) + email);
 			return;
 		}
 
@@ -321,7 +322,7 @@
 			codeInput2.value = '';
 			codeInput2.focus();
 		}
-		showNotice(cfg, 'Enviouse un código a ' + email);
+		showNotice(cfg, __( 'Enviouse un código a ', 'anpa-socios' ) + email);
 	}
 
 	/**
@@ -338,7 +339,7 @@
 		requestBtn.addEventListener('click', async function () {
 			var email = (emailInput.value || '').trim().toLowerCase();
 			if (!email) {
-				showNotice(cfg, 'Introduce un correo electrónico.', true);
+				showNotice(cfg, __( 'Introduce un correo electrónico.', 'anpa-socios' ), true);
 				return;
 			}
 			hideNotice(cfg);
@@ -391,7 +392,7 @@
 
 				if (!result) {
 					verifyBtn.disabled = false;
-					showNotice(cfg, 'Código incorrecto ou caducado.', true);
+					showNotice(cfg, __( 'Código incorrecto ou caducado.', 'anpa-socios' ), true);
 					return;
 				}
 

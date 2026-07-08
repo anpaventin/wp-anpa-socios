@@ -17,6 +17,7 @@
 
 (function () {
 	'use strict';
+	const { __ } = wp.i18n;
 
 	// REST endpoints used by the form. The code verification
 	// endpoint stays in Fase 1; the anpa-socios endpoints are read
@@ -44,7 +45,7 @@
 				body: JSON.stringify(body),
 			});
 		} catch (networkErr) {
-			errEl.textContent = 'Erro de rede. Téntao de novo.';
+			errEl.textContent = __( 'Erro de rede. Téntao de novo.', 'anpa-socios' );
 			errEl.parentElement.hidden = false;
 			return null;
 		}
@@ -58,12 +59,12 @@
 			// If the server returned per-field errors, apply them
 			if (errBody && errBody.data && errBody.data.fields) {
 				applyFieldErrors(errBody.data.fields);
-				errEl.textContent = errBody.message || 'Corrixe os campos marcados.';
+				errEl.textContent = errBody.message || __( 'Corrixe os campos marcados.', 'anpa-socios' );
 			} else {
 				errEl.textContent =
 					(errBody && errBody.message)
 						? errBody.message
-						: 'Erro';
+						: __( 'Erro', 'anpa-socios' );
 			}
 			errEl.parentElement.hidden = false;
 			return null;
@@ -72,7 +73,7 @@
 		try {
 			return await res.json();
 		} catch (_) {
-			errEl.textContent = 'Resposta inválida do servidor.';
+			errEl.textContent = __( 'Resposta inválida do servidor.', 'anpa-socios' );
 			errEl.parentElement.hidden = false;
 			return null;
 		}
@@ -306,7 +307,7 @@
 				break;
 			case 'p2_email':
 				if (value && !validEmail(value)) {
-					message = 'O correo electrónico non é válido.';
+					message = __( 'O correo electrónico non é válido.', 'anpa-socios' );
 					valid = false;
 				}
 				break;
@@ -422,6 +423,7 @@
 
 	function initAsociarseForm(formEl, options) {
 		'use strict';
+	const { __ } = wp.i18n;
 		if (!formEl) { return; }
 		const form = formEl;
 		const errEl = form.querySelector('[data-anpasocio-error]');
@@ -444,10 +446,10 @@
 			if (areaUrl) {
 				const a = document.createElement('a');
 				a.href = areaUrl;
-				a.textContent = 'Iniciar sesión na área persoal';
+				a.textContent = __( 'Iniciar sesión na área persoal', 'anpa-socios' );
 				bridgeEl.appendChild(a);
 			} else {
-				bridgeEl.appendChild(document.createTextNode('Inicia sesión na túa área persoal.'));
+				bridgeEl.appendChild(document.createTextNode(__( 'Inicia sesión na túa área persoal.', 'anpa-socios' )));
 			}
 			bridgeEl.hidden = false;
 		}
@@ -498,17 +500,17 @@
 			const nome = document.createElement('input');
 			nome.type = 'text';
 			nome.dataset.f = 'nome';
-			nome.placeholder = 'Nome';
+			nome.placeholder = __( 'Nome', 'anpa-socios' );
 
 			const apelidos = document.createElement('input');
 			apelidos.type = 'text';
 			apelidos.dataset.f = 'apelidos';
-			apelidos.placeholder = 'Apelidos';
+			apelidos.placeholder = __( 'Apelidos', 'anpa-socios' );
 
 			const data = document.createElement('input');
 			data.type = 'date';
 			data.dataset.f = 'data_nacemento';
-			data.title = 'Data de nacemento';
+			data.title = __( 'Data de nacemento', 'anpa-socios' );
 
 			const curso = document.createElement('select');
 			curso.dataset.f = 'curso';
@@ -529,7 +531,7 @@
 			const save = document.createElement('button');
 			save.type = 'button';
 			save.dataset.filloSave = '';
-			save.textContent = 'Gardar fillo/a';
+			save.textContent = __( 'Gardar fillo/a', 'anpa-socios' );
 			save.addEventListener('click', () => {
 				if (!filloComplete(row)) {
 					errEl.textContent = 'Completa nome, apelidos, data, curso e grupo do fillo/a antes de gardar.';
@@ -545,7 +547,7 @@
 			edit.type = 'button';
 			edit.className = 'anpa-secondary';
 			edit.dataset.filloEdit = '';
-			edit.textContent = 'Modificar';
+			edit.textContent = __( 'Modificar', 'anpa-socios' );
 			edit.hidden = true;
 			edit.addEventListener('click', () => {
 				setFilloLocked(row, false);
@@ -554,7 +556,7 @@
 			const remove = document.createElement('button');
 			remove.type = 'button';
 			remove.className = 'anpa-secondary';
-			remove.textContent = 'Quitar';
+			remove.textContent = __( 'Quitar', 'anpa-socios' );
 			remove.addEventListener('click', () => {
 				row.remove();
 				ensureTrailingEmptyRow();
@@ -574,11 +576,11 @@
 			};
 
 			[
-				field('Nome', nome),
-				field('Apelidos', apelidos),
-				field('Data de nacemento', data),
-				field('Curso', curso),
-				field('Grupo', aula),
+				field(__( 'Nome', 'anpa-socios' ), nome),
+				field(__( 'Apelidos', 'anpa-socios' ), apelidos),
+				field(__( 'Data de nacemento', 'anpa-socios' ), data),
+				field(__( 'Curso', 'anpa-socios' ), curso),
+				field(__( 'Grupo', 'anpa-socios' ), aula),
 			].forEach((el) => row.appendChild(el));
 			[consentLabel, save, edit, remove].forEach((el) => row.appendChild(el));
 			return row;
@@ -811,7 +813,7 @@
 					autoCopyTitular();
 					autoFillLugarData();
 				} else if (result) {
-					errEl.textContent = (result.message) || 'Código incorrecto';
+					errEl.textContent = (result.message) || __( 'Código incorrecto', 'anpa-socios' );
 					errEl.parentElement.hidden = false;
 				}
 			});
@@ -827,21 +829,21 @@
 
 				if (!state.token) {
 					showStep(form, 'codigo');
-					errEl.textContent = 'O código caducou, solícitao de novo';
+					errEl.textContent = __( 'O código caducou, solícitao de novo', 'anpa-socios' );
 					errEl.parentElement.hidden = false;
 					return;
 				}
 
 				// Client-side validation for all fields
 				if (!validateAllFields(form)) {
-					errEl.textContent = 'Corrixe os campos marcados.';
+					errEl.textContent = __( 'Corrixe os campos marcados.', 'anpa-socios' );
 					errEl.parentElement.hidden = false;
 					return;
 				}
 
 				const rgpd = !!(form.querySelector('#anpa-rgpd') || {}).checked;
 				if (!rgpd) {
-					errEl.textContent = 'Debes aceptar a política de protección de datos.';
+					errEl.textContent = __( 'Debes aceptar a política de protección de datos.', 'anpa-socios' );
 					errEl.parentElement.hidden = false;
 					return;
 				}
@@ -851,7 +853,7 @@
 				const parent2HasData = hasP2Data();
 				if (parent2HasData && !parent2raw.nif) {
 					showFieldError(form.querySelector('#anpa-p2-nif'), 'Se introduces datos do 2º proxenitor, o NIF/NIE é obrigatorio.');
-					errEl.textContent = 'Corrixe os campos marcados.';
+					errEl.textContent = __( 'Corrixe os campos marcados.', 'anpa-socios' );
 					errEl.parentElement.hidden = false;
 					return;
 				}

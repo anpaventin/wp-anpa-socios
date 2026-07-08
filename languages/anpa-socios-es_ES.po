@@ -1,0 +1,1158 @@
+# Spanish translations for anpa-socios.
+msgid ""
+msgstr ""
+"Project-Id-Version: anpa-socios 1.29.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-08 11:17+0000\n"
+"PO-Revision-Date: 2026-07-08 11:17+0000\n"
+"Last-Translator: ANPA Socios <socios@example.com>\n"
+"Language-Team: Spanish\n"
+"Language: es_ES\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Datos inválidos"
+msgstr "Datos inválidos"
+
+msgid "Curso escolar non creado"
+msgstr "Curso escolar no creado"
+
+msgid "Erro interno"
+msgstr "Error interno"
+
+msgid "Socio non atopado"
+msgstr "Socio no encontrado"
+
+msgid "O socio non está activo"
+msgstr "El socio no está activo"
+
+msgid "Email inválido"
+msgstr "Email inválido"
+
+msgid "Socio non atopado ou non é admin"
+msgstr "Socio no encontrado o no es admin"
+
+msgid "Erro interno ao xerar a clave"
+msgstr "Error interno al generar la clave"
+
+msgid "Curso escolar inválido"
+msgstr "Curso escolar inválido"
+
+msgid "Identificador inválido"
+msgstr "Identificador inválido"
+
+msgid "Falta o contrasinal de descifrado"
+msgstr "Falta la contraseña de descifrado"
+
+msgid "Sen domiciliación"
+msgstr "Sin domiciliación"
+
+msgid "A clave bancaria non está configurada"
+msgstr "La clave bancaria no está configurada"
+
+msgid "Contrasinal incorrecto"
+msgstr "Contraseña incorrecta"
+
+msgid "Erro ao descifrar"
+msgstr "Error al descifrar"
+
+msgid "Email xa rexistrado"
+msgstr "Email ya registrado"
+
+msgid "Non atopado"
+msgstr "No encontrado"
+
+msgid "Actividade non atopada para ese curso escolar"
+msgstr "Actividad no encontrada para ese curso escolar"
+
+msgid "Grupo non atopado"
+msgstr "Grupo no encontrado"
+
+msgid "Estado inválido"
+msgstr "Estado inválido"
+
+msgid "Grupo destino inválido"
+msgstr "Grupo destino inválido"
+
+msgid "Matrícula non atopada"
+msgstr "Matrícula no encontrada"
+
+msgid "Grupo destino non atopado"
+msgstr "Grupo destino no encontrado"
+
+msgid "Só se pode mover entre grupos da mesma actividade"
+msgstr "Solo se puede mover entre grupos de la misma actividad"
+
+msgid "O grupo destino está completo"
+msgstr "El grupo destino está completo"
+
+msgid "Esta matrícula non ten unha solicitude de baixa pendente"
+msgstr "Esta matrícula no tiene una solicitud de baja pendiente"
+
+msgid "Xa matriculado nesta actividade"
+msgstr "Ya matriculado en esta actividad"
+
+msgid "Axustes"
+msgstr "Ajustes"
+
+msgid "Docs"
+msgstr "Docs"
+
+msgid "Acceso non permitido."
+msgstr "Acceso no permitido."
+
+msgid "Ver documentación"
+msgstr "Ver documentación"
+
+msgid "Instalación limpa."
+msgstr "Instalación limpia."
+
+msgid "Configura o equipo administrador, a clave bancaria e a páxina de socios para poñer en marcha o sistema. Este paso só se fai unha vez."
+msgstr "Configura el equipo administrador, la clave bancaria y la página de socios para poner en marcha el sistema. Este paso solo se hace una vez."
+
+msgid "Email do equipo administrador (master)"
+msgstr "Email del equipo administrador (master)"
+
+msgid "Frase da clave bancaria (mín. 5 palabras)"
+msgstr "Frase de la clave bancaria (mín. 5 palabras)"
+
+msgid "Xerar outra"
+msgstr "Generar otra"
+
+msgid "Garda esta frase nun lugar seguro."
+msgstr "Guarda esta frase en un lugar seguro."
+
+msgid "Protexe os datos bancarios cifrados. Se a perdes, os datos serán irrecuperables e só se poderá cambiar reinstalando a base de datos."
+msgstr "Protege los datos bancarios cifrados. Si la pierdes, los datos serán irrecuperables y solo se podrá cambiar reinstalando la base de datos."
+
+msgid "Contrasinal de administración"
+msgstr "Contraseña de administración"
+
+msgid "Obrigatorio. Os administradores deberán introducilo ao entrar en \"Xestión ANPA\". Mín. 8 caracteres, unha maiúscula e un símbolo."
+msgstr "Obligatorio. Los administradores deberán introducirlo al entrar en \"Gestión ANPA\". Mín. 8 caracteres, una mayúscula y un símbolo."
+
+msgid "Páxina de socios"
+msgstr "Página de socios"
+
+msgid "Curso escolar actual"
+msgstr "Curso escolar actual"
+
+msgid "Formato AAAA/AAAA+1. Proposto para hoxe."
+msgstr "Formato AAAA/AAAA+1. Propuesto para hoy."
+
+msgid "Comeza (data_inicio)"
+msgstr "Comienza (data_inicio)"
+
+msgid "Pecha (data_peche)"
+msgstr "Cierra (data_peche)"
+
+msgid "Lanzar instalación e crear o equipo administrador"
+msgstr "Lanzar instalación y crear el equipo administrador"
+
+msgid "Email do master non válido."
+msgstr "Email del master no válido."
+
+msgid "A frase da clave debe ter polo menos %d caracteres."
+msgstr "La frase de la clave debe tener al menos %d caracteres."
+
+msgid "O contrasinal de administración é obrigatorio."
+msgstr "La contraseña de administración es obligatoria."
+
+msgid "Instalación completada."
+msgstr "Instalación completada."
+
+msgid "O equipo administrador, a clave bancaria e a páxina de socios quedaron configurados."
+msgstr "El equipo administrador, la clave bancaria y la página de socios quedaron configurados."
+
+msgid "Garda esta información AGORA. Non se volverá amosar."
+msgstr "Guarda esta información AHORA. No se volverá a mostrar."
+
+msgid "Email do master"
+msgstr "Email del master"
+
+msgid "Frase da clave bancaria"
+msgstr "Frase de la clave bancaria"
+
+msgid "Clave privada (escrow)"
+msgstr "Clave privada (escrow)"
+
+msgid "Clave privada"
+msgstr "Clave privada"
+
+msgid "xa existía; non se rexenerou."
+msgstr "ya existía; no se regeneró."
+
+msgid "Sen a frase e a clave privada, os datos bancarios cifrados serán irrecuperables."
+msgstr "Sin la frase y la clave privada, los datos bancarios cifrados serán irrecuperables."
+
+msgid "Seguintes pasos"
+msgstr "Siguientes pasos"
+
+msgid "Vai á %1$spáxina de socios%2$s e inicia sesión co email do master (%3$s). Recibirás un código de acceso por correo."
+msgstr ""
+
+msgid "Podes editar a configuración e o contrasinal de admin en calquera momento desde esta páxina de Axustes."
+msgstr "Puedes editar la configuración y la contraseña de admin en cualquier momento desde esta página de Ajustes."
+
+msgid "Para amosar as actividades extraescolares e o horario, consulta a %1$sdocumentación%2$s co código a pegar na páxina de extraescolares (e suxestións de FAQ e cabeceira)."
+msgstr ""
+
+msgid "Ir a Axustes"
+msgstr "Ir a Ajustes"
+
+msgid "Abrir a páxina de socios"
+msgstr "Abrir la página de socios"
+
+msgid "Estado"
+msgstr "Estado"
+
+msgid "Versión da base de datos"
+msgstr "Versión de la base de datos"
+
+msgid "(non instalada)"
+msgstr "(no instalada)"
+
+msgid "Clave bancaria"
+msgstr "Clave bancaria"
+
+msgid "configurada"
+msgstr "configurada"
+
+msgid "sen configurar"
+msgstr "sin configurar"
+
+msgid "Contrasinal curto de admin"
+msgstr "Contraseña corta de admin"
+
+msgid "definido"
+msgstr "definido"
+
+msgid "sen definir"
+msgstr "sin definir"
+
+msgid "Email do equipo administrador"
+msgstr "Email del equipo administrador"
+
+msgid "Pendente (pre-temporada)"
+msgstr "Pendiente (pre-temporada)"
+
+msgid "Activo"
+msgstr "Activo"
+
+msgid "Pechado"
+msgstr "Cerrado"
+
+msgid "Configuración"
+msgstr "Configuración"
+
+msgid "Páxina que contén a área de socios."
+msgstr "Página que contiene el área de socios."
+
+msgid "Estado do curso"
+msgstr "Estado del curso"
+
+msgid "Nome da asociación"
+msgstr "Nombre de la asociación"
+
+msgid "Úsase en toda a app (correos, avisos) no canto dun valor fixo."
+msgstr "Se usa en toda la app (correos, avisos) en lugar de un valor fijo."
+
+msgid "Firma dos correos"
+msgstr "Firma de los correos"
+
+msgid "Engádese ao final dos correos enviados dende a conta do equipo administrador."
+msgstr "Se añade al final de los correos enviados desde la cuenta del equipo administrador."
+
+msgid "Aprobación de socios novos"
+msgstr "Aprobación de socios nuevos"
+
+msgid "Os socios novos precisan aprobación do equipo administrador antes de acceder."
+msgstr "Los socios nuevos necesitan aprobación del equipo administrador antes de acceder."
+
+msgid "Gardar configuración"
+msgstr "Guardar configuración"
+
+msgid "Gardar localización"
+msgstr "Guardar localización"
+
+msgid "Comprobar actualizacións agora"
+msgstr "Comprobar actualizaciones ahora"
+
+msgid "Panel de admin (mín. 8 caracteres, unha maiúscula e un símbolo). A frase da clave bancaria non se cambia aquí (só reinstalando a BD)."
+msgstr "Panel de admin (mín. 8 caracteres, una mayúscula y un símbolo). La frase de la clave bancaria no se cambia aquí (solo reinstalando la BD)."
+
+msgid "Novo contrasinal"
+msgstr "Nueva contraseña"
+
+msgid "Definir contrasinal"
+msgstr "Definir contraseña"
+
+msgid "Cambiar contrasinal"
+msgstr "Cambiar contraseña"
+
+msgid "Executar comprobación de temporada agora"
+msgstr "Ejecutar comprobación de temporada ahora"
+
+msgid "Descargar copia de seguridade"
+msgstr "Descargar copia de seguridad"
+
+msgid "Recuperar copia"
+msgstr "Recuperar copia"
+
+msgid "Borrar base de datos"
+msgstr "Borrar base de datos"
+
+msgid "Configuración gardada."
+msgstr "Configuración guardada."
+
+msgid "Contrasinal de admin actualizado."
+msgstr "Contraseña de admin actualizada."
+
+msgid "O contrasinal non cumpre os requisitos (mín. 8 caracteres, unha maiúscula e un símbolo)."
+msgstr "La contraseña no cumple los requisitos (mín. 8 caracteres, una mayúscula y un símbolo)."
+
+msgid "Comprobación de temporada executada."
+msgstr "Comprobación de temporada ejecutada."
+
+msgid "Comprobación de actualizacións executada. Se hai unha versión nova, aparecerá en Plugins."
+msgstr "Comprobación de actualizaciones ejecutada. Si hay una versión nueva, aparecerá en Plugins."
+
+msgid "Contrasinal de admin incorrecto."
+msgstr "Contraseña de admin incorrecta."
+
+msgid "Non se puido xerar a copia (revisa a frase da clave bancaria)."
+msgstr "No se pudo generar la copia (revisa la frase de la clave bancaria)."
+
+msgid "Copia recuperada correctamente."
+msgstr "Copia recuperada correctamente."
+
+msgid "Non se recibiu ningún ficheiro de copia."
+msgstr "No se recibió ningún archivo de copia."
+
+msgid "Non se puido recuperar a copia (ficheiro ou contrasinal incorrectos)."
+msgstr "No se pudo recuperar la copia (archivo o contraseña incorrectos)."
+
+msgid "Base de datos borrada. Configura de novo o plugin."
+msgstr "Base de datos borrada. Configura de nuevo el plugin."
+
+msgid "Debes confirmar a casa de verificación para borrar a base de datos."
+msgstr "Debes confirmar la casilla de verificación para borrar la base de datos."
+
+msgid "Rol inválido"
+msgstr "Rol inválido"
+
+msgid "Seguir conectado"
+msgstr ""
+
+msgid "Traballando"
+msgstr ""
+
+msgid "Conectada/o como"
+msgstr ""
+
+msgid "Os meus datos"
+msgstr ""
+
+msgid "Xestión ANPA"
+msgstr ""
+
+msgid "Listados"
+msgstr ""
+
+msgid "Descargar Socios IBAN"
+msgstr ""
+
+msgid "Pechar sesión"
+msgstr ""
+
+msgid "Área persoal de socios/as"
+msgstr ""
+
+msgid "Introduce o email co que estás dado/a de alta na ANPA. Enviarémosche un código para acceder sen contrasinal."
+msgstr ""
+
+msgid "Email"
+msgstr ""
+
+msgid "Enviar código"
+msgstr ""
+
+msgid "Revisa o teu correo"
+msgstr ""
+
+msgid "Escribe o código recibido para abrir a túa área persoal."
+msgstr ""
+
+msgid "Código de 6 díxitos"
+msgstr ""
+
+msgid "Entrar"
+msgstr ""
+
+msgid "Cambiar email"
+msgstr ""
+
+msgid "Completa a túa alta"
+msgstr ""
+
+msgid "Se o email é válido, recibirás un código. Tras introducilo, pedirémosche os teus datos para completar a alta como socio/a."
+msgstr ""
+
+msgid "A túa solicitude de baixa está procesada"
+msgstr ""
+
+msgid "Se queres volver a ser socio/a, podes solicitar a reactivación da túa conta. Un/unha administrador/a da ANPA deberá aprobala antes de poder acceder de novo."
+msgstr ""
+
+msgid "Solicitar reactivación"
+msgstr ""
+
+msgid "Os teus datos"
+msgstr ""
+
+msgid "Nome"
+msgstr "Nombre"
+
+msgid "Apelidos"
+msgstr "Apellidos"
+
+msgid "Teléfono"
+msgstr ""
+
+msgid "NIF / NIE"
+msgstr ""
+
+msgid "Correo electrónico"
+msgstr ""
+
+msgid "Gardar cambios"
+msgstr ""
+
+msgid "Xestionar fillos/as"
+msgstr ""
+
+msgid "Extraescolares"
+msgstr ""
+
+msgid "Engadir outro proxenitor/titor"
+msgstr ""
+
+msgid "Modificación IBAN"
+msgstr ""
+
+msgid "Solicitar baixa de socio/a"
+msgstr ""
+
+msgid "Anular solicitude de baixa"
+msgstr ""
+
+msgid "Os teus fillos e fillas"
+msgstr ""
+
+msgid "Engade, edita ou da de baixa os datos básicos dos teus fillos/as. Só ti podes ver e xestionar os teus."
+msgstr ""
+
+msgid "Engadir fillo/a"
+msgstr ""
+
+msgid "Data de nacemento"
+msgstr "Fecha de nacimiento"
+
+msgid "Curso"
+msgstr "Curso"
+
+msgid "-- Selecciona --"
+msgstr ""
+
+msgid "Grupo"
+msgstr "Grupo"
+
+msgid "Gardar fillo/a"
+msgstr "Guardar hijo/a"
+
+msgid "Cancelar edición"
+msgstr ""
+
+msgid "Volver aos meus datos"
+msgstr ""
+
+msgid "Actividades extraescolares"
+msgstr ""
+
+msgid "Anota os teus fillos/as nas actividades dispoñibles. Se un grupo está completo, entrarán na lista de espera e avisarémosvos por correo se queda praza."
+msgstr ""
+
+msgid "Nova matrícula"
+msgstr ""
+
+msgid "Volver aos teus datos"
+msgstr ""
+
+msgid "Panel de administración. Só accesible para a directiva (rol master). Cada consulta valídase no servidor."
+msgstr ""
+
+msgid "Panel da empresa"
+msgstr ""
+
+msgid "Se a túa conta pode reactivarse, a directiva revisará a túa solicitude e activarate en breve."
+msgstr "Si tu cuenta puede reactivarse, la directiva revisará tu solicitud y te activará en breve."
+
+msgid "A base de datos xa foi inicializada."
+msgstr "La base de datos ya fue inicializada."
+
+msgid "O contrasinal non pode estar baleiro."
+msgstr "La contraseña no puede estar vacía."
+
+msgid "O contrasinal debe ter polo menos 5 palabras separadas por guións (ex: ceu-mar-sol-lua-vento)."
+msgstr "La contraseña debe tener al menos 5 palabras separadas por guiones (ej: cielo-mar-sol-luna-viento)."
+
+msgid "Non foi posible xerar as claves de cifrado."
+msgstr "No fue posible generar las claves de cifrado."
+
+msgid "Non foi posible protexer a clave secreta."
+msgstr "No fue posible proteger la clave secreta."
+
+msgid "Base de datos inicializada. Introduce o mesmo contrasinal para acceder ao panel de xestión."
+msgstr "Base de datos inicializada. Introduce la misma contraseña para acceder al panel de gestión."
+
+msgid "Introduce o contrasinal de administración."
+msgstr "Introduce la contraseña de administración."
+
+msgid "Contrasinal incorrecto."
+msgstr "Contraseña incorrecta."
+
+msgid "Acceso autorizado."
+msgstr "Acceso autorizado."
+
+msgid "Introduce o novo contrasinal."
+msgstr "Introduce la nueva contraseña."
+
+msgid "Contrasinal inválido."
+msgstr "Contraseña inválida."
+
+msgid "Contrasinal de administración actualizado."
+msgstr "Contraseña de administración actualizada."
+
+msgid "Datos bancarios inválidos"
+msgstr "Datos bancarios inválidos"
+
+msgid "Datos bancarios actualizados"
+msgstr "Datos bancarios actualizados"
+
+msgid "A túa solicitude de baixa xa está rexistrada e pendente de confirmación pola directiva."
+msgstr "Tu solicitud de baja ya está registrada y pendiente de confirmación por la directiva."
+
+msgid "Solicitude de baixa rexistrada. A baixa será efectiva a fin de curso, tras a confirmación da directiva. Lembra que a cota anual do curso xa xerada non se devolve."
+msgstr "Solicitud de baja registrada. La baja será efectiva a fin de curso, tras la confirmación de la directiva. Recuerda que la cuota anual del curso ya generada no se devuelve."
+
+msgid "Demasiadas solicitudes"
+msgstr "Demasiadas solicitudes"
+
+msgid "O teu código de verificación — %s"
+msgstr "Tu código de verificación — %s"
+
+msgid "O teu código de alta — %s"
+msgstr "Tu código de alta — %s"
+
+msgid "Verificación de socio/a"
+msgstr "Verificación de socio/a"
+
+msgid "O teu código de verificación é:"
+msgstr "Tu código de verificación es:"
+
+msgid "Este código caduca en %s."
+msgstr "Este código caduca en %s."
+
+msgid "15 minutos"
+msgstr "15 minutos"
+
+msgid "Se non solicitaches este código, ignora este correo."
+msgstr "Si no solicitaste este código, ignora este correo."
+
+msgid "Alta na %s"
+msgstr "Alta en %s"
+
+msgid "O teu código para continuar coa alta é:"
+msgstr "Tu código para continuar con el alta es:"
+
+msgid "Se non solicitaches esta alta, ignora este correo."
+msgstr "Si no solicitaste esta alta, ignora este correo."
+
+msgid "Solicitude de baixa de socio/a — %s"
+msgstr "Solicitud de baja de socio/a — %s"
+
+msgid "Solicitude de baixa de socio/a"
+msgstr "Solicitud de baja de socio/a"
+
+msgid "Un/unha socio/a solicitou a baixa en %s:"
+msgstr "Un/a socio/a solicitó la baja en %s:"
+
+msgid "Nome:"
+msgstr "Nombre:"
+
+msgid "Email:"
+msgstr "Email:"
+
+msgid "A baixa será efectiva a fin de curso, tras a confirmación dun/dunha administrador/a no panel de Xestión ANPA."
+msgstr "La baja será efectiva a fin de curso, tras la confirmación de un/a administrador/a en el panel de Gestión ANPA."
+
+msgid "Aviso automático do sistema de socios."
+msgstr "Aviso automático del sistema de socios."
+
+msgid "Solicitude de reactivación de socio/a — %s"
+msgstr "Solicitud de reactivación de socio/a — %s"
+
+msgid "Solicitude de reactivación"
+msgstr "Solicitud de reactivación"
+
+msgid "Un/unha antig@ socio/a solicitou reactivar a súa conta:"
+msgstr "Un/a antiguo/a socio/a solicitó reactivar su cuenta:"
+
+msgid "A conta quedou en estado pendente de alta. Un/unha administrador/a debe activala explicitamente no panel de Xestión ANPA para restaurar o acceso."
+msgstr "La cuenta quedó en estado pendiente de alta. Un/a administrador/a debe activarla explícitamente en el panel de Gestión ANPA para restaurar el acceso."
+
+msgid "Solicitude de baixa nunha extraescolar — %s"
+msgstr "Solicitud de baja en una extraescolar — %s"
+
+msgid "Solicitude de baixa nunha actividade extraescolar"
+msgstr "Solicitud de baja en una actividad extraescolar"
+
+msgid "Alumno/a:"
+msgstr "Alumno/a:"
+
+msgid "Actividade:"
+msgstr "Actividad:"
+
+msgid "Solicitado por:"
+msgstr "Solicitado por:"
+
+msgid "A baixa será efectiva a fin de trimestre, tras a confirmación dun/dunha administrador/a no panel de Xestión ANPA."
+msgstr "La baja será efectiva a fin de trimestre, tras la confirmación de un/a administrador/a en el panel de Gestión ANPA."
+
+msgid "Hai unha praza dispoñible nunha extraescolar — %s"
+msgstr "Hay una plaza disponible en una extraescolar — %s"
+
+msgid "Quedou unha praza libre"
+msgstr "Quedó una plaza libre"
+
+msgid "Liberouse unha praza na actividade %s e o teu fillo/a é o/a seguinte na lista de espera."
+msgstr "Se liberó una plaza en la actividad %s y tu hijo/a es el/la siguiente en la lista de espera."
+
+msgid "Entra na túa Área persoal da web da ANPA e acepta a praza no apartado «Actividades extraescolares» antes de %d días. Se non respondes a tempo, a praza ofrecerase á seguinte familia."
+msgstr "Entra en tu Área personal de la web del ANPA y acepta la plaza en el apartado «Actividades extraescolares» antes de %d días. Si no respondes a tiempo, la plaza se ofrecerá a la siguiente familia."
+
+msgid "Novo socio/a pendente de aprobación — %s"
+msgstr "Nuevo socio/a pendiente de aprobación — %s"
+
+msgid "Novo socio/a pendente de aprobación"
+msgstr "Nuevo socio/a pendiente de aprobación"
+
+msgid "Unha nova persoa solicitou darse de alta en %s e precisa da túa aprobación:"
+msgstr "Una nueva persona solicitó darse de alta en %s y necesita tu aprobación:"
+
+msgid "(sen nome)"
+msgstr "(sin nombre)"
+
+msgid "Revisa e aproba (ou rexeita) as solicitudes pendentes na sección de Xestión ANPA da área de socios, ou na páxina de Axustes do plugin:"
+msgstr "Revisa y aprueba (o rechaza) las solicitudes pendientes en la sección de Gestión ANPA del área de socios, o en la página de Ajustes del plugin:"
+
+msgid "A túa alta foi aprobada — %s"
+msgstr "Tu alta ha sido aprobada — %s"
+
+msgid "Benvido/a a %s"
+msgstr "Bienvenido/a a %s"
+
+msgid "A directiva de %s aprobou a túa alta como socio/a. Xa podes acceder á túa área persoal."
+msgstr "La directiva de %s aprobó tu alta como socio/a. Ya puedes acceder a tu área personal."
+
+msgid "Entra na área de socios e inicia sesión co teu correo (recibirás un código de acceso):"
+msgstr "Entra en el área de socios e inicia sesión con tu correo (recibirás un código de acceso):"
+
+msgid "Entra na área de socios da web e inicia sesión co teu correo; recibirás un código de acceso."
+msgstr "Entra en el área de socios de la web e inicia sesión con tu correo; recibirás un código de acceso."
+
+msgid "Desde a túa área persoal poderás xestionar os teus datos, os teus fillos/as e as actividades extraescolares."
+msgstr "Desde tu área personal podrás gestionar tus datos, tus hijos/as y las actividades extraescolares."
+
+msgid "Sobre a túa solicitude de alta — %s"
+msgstr "Sobre tu solicitud de alta — %s"
+
+msgid "Solicitude de alta"
+msgstr "Solicitud de alta"
+
+msgid "Sentímolo, pero por decisión da directiva de %s non se aprobou a túa solicitude de alta como socio/a neste momento."
+msgstr "Lo sentimos, pero por decisión de la directiva de %s no se aprobó tu solicitud de alta como socio/a en este momento."
+
+msgid "Se pensas que se trata dun erro ou queres máis información, ponte en contacto con nós respondendo a este correo ou escribindo a %s."
+msgstr "Si piensas que se trata de un error o quieres más información, ponte en contacto con nosotros respondiendo a este correo o escribiendo a %s."
+
+msgid "Aínda non hai actividades extraescolares dispoñibles. Volve máis adiante."
+msgstr "Aún no hay actividades extraescolares disponibles. Vuelve más adelante."
+
+msgid "Franxa horaria"
+msgstr "Franja horaria"
+
+msgid "Aínda non hai actividades extraescolares publicadas para este curso."
+msgstr "Aún no hay actividades extraescolares publicadas para este curso."
+
+msgid "Horario:"
+msgstr "Horario:"
+
+msgid "mín %d"
+msgstr "mín %d"
+
+msgid "%d en espera"
+msgstr "%d en espera"
+
+msgid "Grupos:"
+msgstr "Grupos:"
+
+msgid "Prezo:"
+msgstr "Precio:"
+
+msgid "Empresa:"
+msgstr "Empresa:"
+
+msgid "Máis información"
+msgstr "Más información"
+
+msgid "consultar condicións"
+msgstr "consultar condiciones"
+
+msgid "%s €/mes"
+msgstr "%s €/mes"
+
+msgid "Facerme socio/a"
+msgstr ""
+
+msgid "Dáte de alta na %1$s. A cota é de %2$s € por familia e curso."
+msgstr ""
+
+msgid "Asociarme"
+msgstr ""
+
+msgid "Xa es socio/a?"
+msgstr ""
+
+msgid "Accede á túa área persoal para xestionar os teus datos, fillos/as e a domiciliación."
+msgstr ""
+
+msgid "Entrar na área persoal"
+msgstr ""
+
+msgid "Darme de baixa"
+msgstr ""
+
+msgid "A baixa solicítase desde a túa área persoal e require confirmación da directiva (efectiva a fin de curso)."
+msgstr ""
+
+msgid "Ir á área persoal"
+msgstr ""
+
+msgid "Área persoal"
+msgstr ""
+
+msgid "Facerte socio/a da %s"
+msgstr ""
+
+msgid "A alta e o inicio de sesión fanse desde a Área de socios. Preme o botón para comezar: introduces o teu correo, recibes un código de verificación e completas a alta na mesma páxina."
+msgstr ""
+
+msgid "Ir á Área de socios"
+msgstr ""
+
+msgid "Introduce o teu email para comezar a alta na ANPA. Enviarémosche un código de verificación para continuar."
+msgstr ""
+
+msgid "Verificar"
+msgstr ""
+
+msgid "Nome *"
+msgstr ""
+
+msgid "Apelidos *"
+msgstr ""
+
+msgid "Teléfono de contacto *"
+msgstr ""
+
+msgid "NIF / NIE *"
+msgstr ""
+
+msgid "Outro/a proxenitor/a (opcional)"
+msgstr ""
+
+msgid "Se a outra persoa proxenitora tamén quere ser socia, completa os seus datos. Deixa baleiro se non aplica."
+msgstr ""
+
+msgid "Fillos e fillas"
+msgstr ""
+
+msgid "Engade os teus fillos/as. Completa os datos e preme «Gardar fillo/a»; despois poderás engadir outro ou modificar/quitar os xa gardados. O curso e o grupo escóllense das listas."
+msgstr ""
+
+msgid "AUTORIZO á %s á toma de imaxes (fotos ou vídeos) nas que apareza o meu fillo/a. En ningún caso a asociación divulgará as imaxes e vídeos de forma pública. Marca a casa de cada fillo/a para autorizalo."
+msgstr ""
+
+msgid "Datos bancarios (domiciliación)"
+msgstr ""
+
+msgid "A alta como socio/a implica domiciliación bancaria. A cota é de %s € por familia e curso. Os datos bancarios gárdanse cifrados e só os ve a directiva."
+msgstr ""
+
+msgid "A baixa como socio/a debe solicitarse desde a área persoal e será efectiva a fin de curso, tras a confirmación da directiva. A cota anual do curso xa xerada non se devolve, aínda que se solicite a baixa durante o ano."
+msgstr ""
+
+msgid "Mediante a presente orde de domiciliación o debedor autoriza (A) ao acredor a enviar instrucións á entidade do debedor para cargar na súa conta e (B) á entidade para efectuar os cargos na súa conta seguindo as instrucións do acredor. Como parte dos seus dereitos, o debedor está lexitimado ao reembolso pola súa entidade nos termos e condicións do contrato subscrito con ela. A solicitude de reembolso deberá efectuarse dentro das oito semanas seguintes á data de cargo en conta. Pode obter información adicional sobre os seus dereitos na súa entidade bancaria."
+msgstr ""
+
+msgid "Nome do titular da conta"
+msgstr ""
+
+msgid "Copiarase do proxenitor 1"
+msgstr ""
+
+msgid "Apelidos do titular"
+msgstr ""
+
+msgid "NIF/NIE do titular"
+msgstr ""
+
+msgid "Enderezo"
+msgstr ""
+
+msgid "Provincia"
+msgstr ""
+
+msgid "Poboación"
+msgstr ""
+
+msgid "Código postal"
+msgstr ""
+
+msgid "Nome da entidade bancaria"
+msgstr ""
+
+msgid "IBAN"
+msgstr ""
+
+msgid "Lugar e data"
+msgstr ""
+
+msgid "Autorizo a domiciliación bancaria"
+msgstr ""
+
+msgid "Protección de datos de carácter persoal"
+msgstr ""
+
+msgid "De conformidade co Reglamento (UE) 2016/679 de 27 de Abril (RGPD), os datos suministrados para a solicitude de alta quedarán incorporados nun ficheiro con titularidade da %1$s, sendo utilizados exclusivamente por esta asociación para a prestación dos seus servizos. Estes datos recolleranse a través dos correspondentes formularios, os cales só conterán os campos imprescindibles para poder prestar o servizo solicitado. Os datos de carácter persoal serán tratados co grao de protección adecuado para evitar a súa alteración, perda, tratamento ou acceso non autorizado por parte de terceiros que os poidan utilizar para finalidades distintas daquelas para as que foron recabados. Pode exercer os seus dereitos de acceso, rectificación, cancelación e oposición, en cumprimento co establecido na RGPD, ante a %1$s%2$s."
+msgstr ""
+
+msgid "Acepto a política de protección de datos *"
+msgstr ""
+
+msgid "Completar alta"
+msgstr ""
+
+msgid "Alta completada. Grazas."
+msgstr ""
+
+msgid "Continúa"
+msgstr "Continúa"
+
+msgid "Se o email é válido, recibirás un código en breve"
+msgstr "Si el email es válido, recibirás un código en breve"
+
+msgid "Email non válido"
+msgstr "Email no válido"
+
+msgid "Erro ao enviar, téntao de novo"
+msgstr "Error al enviar, inténtalo de nuevo"
+
+msgid "Corrixe os campos marcados."
+msgstr "Corrige los campos marcados."
+
+msgid "Token inválido ou caducado"
+msgstr "Token inválido o caducado"
+
+msgid "A túa solicitude foi rexistrada. A directiva de %s ten que aprobala antes de que poidas acceder á área de socios. Recibirás un correo cando estea aprobada."
+msgstr "Tu solicitud ha sido registrada. La directiva de %s tiene que aprobarla antes de que puedas acceder al área de socios. Recibirás un correo cuando esté aprobada."
+
+msgid "Alta completada"
+msgstr "Alta completada"
+
+msgid "O curso escolar %s aínda non comezou"
+msgstr ""
+
+msgid "A alta de socios e a matriculación nas actividades extraescolares abriranse automaticamente o <strong>%s</strong>. O proceso farase de xeito automático, non tes que facer nada agora."
+msgstr ""
+
+msgid "Mentres tanto, só o equipo administrador pode iniciar sesión."
+msgstr ""
+
+msgid "Acceder ó Área de socios/as da %s"
+msgstr ""
+
+msgid "O formulario de alta require cubrir todos os campos obrigatorios e aceptar a política de privacidade. Recibirás un código de verificación no teu correo para confirmar a identidade."
+msgstr ""
+
+msgid "Escribe o código recibido para continuar."
+msgstr ""
+
+msgid "Solicitude de baixa pendente"
+msgstr ""
+
+msgid "Recibimos a túa solicitude de baixa. Se foi un erro, podes anulala e seguir sendo socio/a."
+msgstr ""
+
+msgid "Ir á miña área"
+msgstr ""
+
+msgid "A túa conta está dada de baixa"
+msgstr ""
+
+msgid "Se queres volver ser socio/a, solicita a reactivación e a directiva revisará a túa petición."
+msgstr ""
+
+msgid "Benvido/a á túa área de socio/a"
+msgstr ""
+
+msgid "Redirixíndoche á túa área persoal..."
+msgstr ""
+
+msgid "Houbo un problema"
+msgstr ""
+
+msgid "Tentar de novo"
+msgstr ""
+
+msgid "Se o email está rexistrado, recibirás un código en breve"
+msgstr "Si el email está registrado, recibirás un código en breve"
+
+msgid "Código non válido"
+msgstr "Código no válido"
+
+msgid "Non se puido determinar a orixe da solicitude"
+msgstr "No se pudo determinar el origen de la solicitud"
+
+msgid "Demasiados intentos. Téntao de novo máis tarde."
+msgstr "Demasiados intentos. Inténtalo más tarde."
+
+msgid "Código incorrecto"
+msgstr "Código incorrecto"
+
+msgid "Código expirado, solicita un novo"
+msgstr "Código expirado, solicita uno nuevo"
+
+msgid "Erro de rede. Téntao de novo."
+msgstr "Error de red. Inténtalo de nuevo."
+
+msgid "Non foi posible completar a operación."
+msgstr "No fue posible completar la operación."
+
+msgid "A túa sesión pechouse por inactividade."
+msgstr "Tu sesión se cerró por inactividad."
+
+msgid "Sesión pechada."
+msgstr "Sesión cerrada."
+
+msgid "Introduce o teu email."
+msgstr "Introduce tu email."
+
+msgid "Se o email é válido, recibirás un código en breve."
+msgstr "Si el email es válido, recibirás un código en breve."
+
+msgid "Solicitude de reactivación enviada."
+msgstr "Solicitud de reactivación enviada."
+
+msgid "Introduce o email e o código."
+msgstr "Introduce el email y el código."
+
+msgid "Código incorrecto."
+msgstr "Código incorrecto."
+
+msgid "Non foi posible cargar o perfil. Téntao de novo."
+msgstr "No fue posible cargar el perfil. Inténtalo de nuevo."
+
+msgid "A sesión caducou. Volve entrar."
+msgstr "La sesión caducó. Vuelve a entrar."
+
+msgid "Datos gardados correctamente."
+msgstr "Datos guardados correctamente."
+
+msgid "Solicitude de baixa rexistrada."
+msgstr "Solicitud de baja registrada."
+
+msgid "Solicitude de baixa anulada."
+msgstr "Solicitud de baja anulada."
+
+msgid "Editar"
+msgstr "Editar"
+
+msgid "Desactivar"
+msgstr "Desactivar"
+
+msgid "En lista de espera"
+msgstr "En lista de espera"
+
+msgid "Oferta de praza pendente"
+msgstr "Oferta de plaza pendiente"
+
+msgid "Baixa solicitada"
+msgstr "Baja solicitada"
+
+msgid "Baixa"
+msgstr "Baja"
+
+msgid "Aínda non tes ningunha matrícula en extraescolares."
+msgstr "Aún no tienes ninguna matrícula en extraescolares."
+
+msgid "Aceptar praza"
+msgstr "Aceptar plaza"
+
+msgid "Praza aceptada."
+msgstr "Plaza aceptada."
+
+msgid "Dar de baixa"
+msgstr "Dar de baja"
+
+msgid "Anular baixa"
+msgstr "Anular baja"
+
+msgid "Baixa anulada."
+msgstr "Baja anulada."
+
+msgid "Non hai actividades dispoñibles neste momento."
+msgstr "No hay actividades disponibles en este momento."
+
+msgid "Selecciona un grupo compatible."
+msgstr "Selecciona un grupo compatible."
+
+msgid "É obrigatorio autorizar a cesión dos datos necesarios á empresa da actividade."
+msgstr "Es obligatorio autorizar la cesión de los datos necesarios a la empresa de la actividad."
+
+msgid "Indica se autorizas ao persoal de comedor a facilitar a participación."
+msgstr "Indica si autorizas al personal de comedor a facilitar la participación."
+
+msgid "Indica se o neno/a vén do comedor ou se a familia o levará á actividade."
+msgstr "Indica si el niño/a viene del comedor o si la familia lo llevará a la actividad."
+
+msgid "Matrícula confirmada."
+msgstr "Matrícula confirmada."
+
+msgid "Nome e apelidos son obrigatorios."
+msgstr "Nombre y apellidos son obligatorios."
+
+msgid "O NIF/NIE é obrigatorio."
+msgstr "El NIF/NIE es obligatorio."
+
+msgid "Para modificar os datos bancarios debes cubrir IBAN, titular e autorización."
+msgstr "Para modificar los datos bancarios debes completar IBAN, titular y autorización."
+
+msgid "Debes autorizar a domiciliación dos recibos."
+msgstr "Debes autorizar la domiciliación de los recibos."
+
+msgid "Datos bancarios actualizados correctamente."
+msgstr "Datos bancarios actualizados correctamente."
+
+msgid "Completa todos os campos do fillo/a."
+msgstr "Completa todos los campos del hijo/a."
+
+msgid "Erro de configuración (falta URL de inicialización)."
+msgstr "Error de configuración (falta URL de inicialización)."
+
+msgid "Todos os campos son obrigatorios."
+msgstr "Todos los campos son obligatorios."
+
+msgid "Non se atopou o socio/a na lista. Recarga a sección."
+msgstr "No se encontró el socio/a en la lista. Recarga la sección."
+
+msgid "Selecciona polo menos unha solicitude."
+msgstr "Selecciona al menos una solicitud."
+
+msgid "Completa nome, email, responsable e teléfono."
+msgstr "Completa nombre, email, responsable y teléfono."
+
+msgid "Introduce un email."
+msgstr "Introduce un email."
+
+msgid "Completa empresa, nome, descrición e curso escolar."
+msgstr "Completa empresa, nombre, descripción y curso escolar."
+
+msgid "Selecciona polo menos un horario, un grupo e un día."
+msgstr "Selecciona al menos un horario, un grupo y un día."
+
+msgid "Selecciona un grupo destino."
+msgstr "Selecciona un grupo destino."
+
+msgid "Selecciona polo menos un día."
+msgstr "Selecciona al menos un día."
+
+msgid "Indica o horario do grupo."
+msgstr "Indica el horario del grupo."
+
+msgid "O máximo debe ser maior que 0 e non menor que o mínimo."
+msgstr "El máximo debe ser mayor que 0 y no menor que el mínimo."
+
+msgid "Introduce o contrasinal de descifrado."
+msgstr "Introduce la contraseña de descifrado."
+
+msgid "Descarga iniciada."
+msgstr "Descarga iniciada."
+
+msgid "Non tes permisos para esta acción."
+msgstr "No tienes permisos para esta acción."
+
+msgid "Non foi posible descargar o ficheiro."
+msgstr "No fue posible descargar el archivo."
+
+msgid "Erro de configuración (falta URL de autenticación)."
+msgstr "Error de configuración (falta URL de autenticación)."
+
+msgid "Demasiadas solicitudes. Agarda uns minutos."
+msgstr "Demasiadas solicitudes. Espera unos minutos."
+
+msgid "Erro"
+msgstr "Error"
+
+msgid "Resposta inválida do servidor."
+msgstr "Respuesta inválida del servidor."
+
+msgid "O correo electrónico non é válido."
+msgstr "El correo electrónico no es válido."
+
+msgid "Iniciar sesión na área persoal"
+msgstr "Iniciar sesión en el área personal"
+
+msgid "Inicia sesión na túa área persoal."
+msgstr "Inicia sesión en tu área personal."
+
+msgid "Modificar"
+msgstr "Modificar"
+
+msgid "Quitar"
+msgstr "Quitar"
+
+msgid "O código caducou, solícitao de novo"
+msgstr "El código caducó, solicítalo de nuevo"
+
+msgid "Debes aceptar a política de protección de datos."
+msgstr "Debes aceptar la política de protección de datos."
+
+msgid "Erro do servidor"
+msgstr "Error del servidor"
+
+msgid "Enviouse un código de acceso a "
+msgstr "Se envió un código de acceso a "
+
+msgid "Enviouse un código a "
+msgstr "Se envió un código a "
+
+msgid "Introduce un correo electrónico."
+msgstr "Introduce un correo electrónico."
+
+msgid "Código incorrecto ou caducado."
+msgstr "Código incorrecto o caducado."
+

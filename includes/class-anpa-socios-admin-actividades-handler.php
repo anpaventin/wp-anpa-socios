@@ -90,10 +90,10 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 
 		$payload = ANPA_Socios_Admin_Payload::validar_actividad( ANPA_Socios_Admin_Shared::json_body( $request ) );
 		if ( null === $payload ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Datos inválidos', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 		if ( ! self::curso_exists( (string) $payload['curso_escolar'] ) ) {
-			return new WP_Error( 'anpa_admin_curso_not_found', 'Curso escolar non creado', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_curso_not_found', __( 'Curso escolar non creado', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$base = self::base_payload( $payload );
@@ -103,7 +103,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			array( '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%f', '%s' )
 		);
 		if ( false === $inserted ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		$actividad_id = (int) $wpdb->insert_id;
@@ -123,10 +123,10 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		$id      = (int) $request->get_param( 'id' );
 		$payload = ANPA_Socios_Admin_Payload::validar_actividad( ANPA_Socios_Admin_Shared::json_body( $request ) );
 		if ( null === $payload ) {
-			return new WP_Error( 'anpa_admin_invalid', 'Datos inválidos', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 		if ( ! self::curso_exists( (string) $payload['curso_escolar'] ) ) {
-			return new WP_Error( 'anpa_admin_curso_not_found', 'Curso escolar non creado', array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_curso_not_found', __( 'Curso escolar non creado', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		$base                   = self::base_payload( $payload );
@@ -139,7 +139,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			array( '%d' )
 		);
 		if ( false === $updated ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		$year_saved = self::upsert_year_payload( $id, $payload );
@@ -167,7 +167,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			array( '%d' )
 		);
 		if ( false === $updated ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		$wpdb->update(
@@ -244,7 +244,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 				array( '%d' )
 			);
 			if ( false === $updated ) {
-				return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+				return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 			}
 			return true;
 		}
@@ -255,7 +255,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			array( '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%f', '%s', '%s' )
 		);
 		if ( false === $inserted ) {
-			return new WP_Error( 'anpa_admin_db_error', 'Erro interno', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 		return true;
 	}

@@ -362,6 +362,6 @@ final class ANPA_Socios_Fillo_Cursos_REST {
 	 * @return WP_Error
 	 */
 	private static function db_error(): WP_Error {
-		return new WP_Error( 'anpa_fillo_cursos_db_error', 'Erro interno', array( 'status' => 500 ) );
+		return new WP_Error( 'anpa_fillo_cursos_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 	}
 }
