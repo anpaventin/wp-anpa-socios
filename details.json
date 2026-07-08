@@ -1,15 +1,15 @@
 {
     "name":  "ANPA Socios",
     "slug":  "anpa-socios",
-    "version":  "1.30.0",
-    "download_url":  "https://github.com/anpaventin/wp-anpa-socios/releases/download/v1.30.0/wp-anpa-socios-1.30.0.zip",
+    "version":  "1.31.0",
+    "download_url":  "https://github.com/anpaventin/wp-anpa-socios/releases/download/v1.31.0/wp-anpa-socios-1.31.0.zip",
     "homepage":  "https://github.com/anpaventin/wp-anpa-socios",
     "author":  "ANPA Socios",
     "author_homepage":  "https://github.com/anpaventin/wp-anpa-socios",
     "requires":  "6.0",
     "tested":  "6.7",
     "requires_php":  "7.4",
-    "last_updated":  "2026-07-08 19:18:42",
+    "last_updated":  "2026-07-08 21:25:00",
     "sections":  {
                      "description":  "Member management for parents\u0027 associations (ANPA/AMPA) on WordPress: passwordless member area, children and extracurricular enrolment, encrypted SEPA banking, season lifecycle, an admin dashboard, and self-hosted updates from Gitea.",
                      "changelog":  "\u003ch4\u003e1.24.0\u003c/h4\u003e\u003cul\u003e\u003cli\u003eSelf-hosted updates from the public Gitea repository (plugin-update-checker, JSON metadata mode).\u003c/li\u003e\u003c/ul\u003e\u003ch4\u003e1.23.0\u003c/h4\u003e\u003cul\u003e\u003cli\u003eNew-socio approval workflow, session dropdown menu, verification module groundwork.\u003c/li\u003e\u003c/ul\u003e"
