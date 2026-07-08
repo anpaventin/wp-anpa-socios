@@ -77,7 +77,42 @@ final class ANPA_Socios_Config {
 	const OPTION_ASSOCIATION  = 'anpa_socios_association_name';
 	const OPTION_SIGNATURE     = 'anpa_socios_email_signature';
 	const OPTION_APPROVAL      = 'anpa_socios_require_approval';
-	const DEFAULT_ASSOCIATION  = 'ANPA As Brañas';
+	const OPTION_CONTACT_EMAIL = 'anpa_socios_contact_email';
+	const OPTION_ADDRESS       = 'anpa_socios_association_address';
+	const OPTION_FEE           = 'anpa_socios_membership_fee';
+
+	// Localización (multi-tenant location defaults). Language is NOT a plugin
+	// setting: the plugin follows the WordPress site language (see i18n in the
+	// bootstrap), so there is no custom language option here.
+	const OPTION_COUNTRY       = 'anpa_socios_country';
+	const OPTION_PROVINCE      = 'anpa_socios_default_province';
+	const OPTION_TOWN          = 'anpa_socios_default_town';
+
+	/**
+	 * Neutral location default. Empty province/town means the socio form ships
+	 * no prefill until the deployer sets their area from Axustes. No single
+	 * association's data is hardcoded.
+	 *
+	 * @var string
+	 */
+	const DEFAULT_COUNTRY = '';
+
+	/**
+	 * Generic default association name. Deployers set their real name via the
+	 * setup wizard / Axustes (option OPTION_ASSOCIATION); this neutral default
+	 * keeps the plugin free of any single association's identity so it can be
+	 * published and reused by any ANPA/AMPA.
+	 *
+	 * @var string
+	 */
+	const DEFAULT_ASSOCIATION  = 'ANPA';
+
+	/**
+	 * Default membership fee shown in the alta copy (euros, per family/course).
+	 *
+	 * @var string
+	 */
+	const DEFAULT_FEE = '15';
 
 	/**
 	 * The configurable association name (variable, not hardcoded).
@@ -91,6 +126,42 @@ final class ANPA_Socios_Config {
 	}
 
 	/**
+	 * Public contact email shown to families (error messages, notices).
+	 *
+	 * Precedence: option anpa_socios_contact_email > the master email.
+	 *
+	 * @return string
+	 */
+	public static function contact_email(): string {
+		$value = trim( (string) get_option( self::OPTION_CONTACT_EMAIL, '' ) );
+
+		return '' !== $value ? $value : self::master_email();
+	}
+
+	/**
+	 * The association's postal address for the RGPD/privacy notice.
+	 *
+	 * Empty by default (generic plugin ships no address); deployers set their
+	 * own via Axustes. When empty the RGPD text omits the address clause.
+	 *
+	 * @return string
+	 */
+	public static function association_address(): string {
+		return trim( (string) get_option( self::OPTION_ADDRESS, '' ) );
+	}
+
+	/**
+	 * The annual membership fee (euros, per family and course) as a string.
+	 *
+	 * @return string
+	 */
+	public static function membership_fee(): string {
+		$value = trim( (string) get_option( self::OPTION_FEE, '' ) );
+
+		return '' !== $value ? $value : self::DEFAULT_FEE;
+	}
+
+	/**
 	 * The configurable signature appended to plugin emails.
 	 *
 	 * @return string
@@ -98,6 +169,39 @@ final class ANPA_Socios_Config {
 	public static function email_signature(): string {
 		return (string) get_option( self::OPTION_SIGNATURE, '' );
 	}
+
+	/**
+	 * Configured country (free text; empty by default).
+	 *
+	 * @return string
+	 */
+	public static function country(): string {
+		$value = trim( (string) get_option( self::OPTION_COUNTRY, '' ) );
+
+		return '' !== $value ? $value : self::DEFAULT_COUNTRY;
+	}
+
+	/**
+	 * Default province/state prefilled into the socio's Provincia field.
+	 * The socio can always overwrite it.
+	 *
+	 * @return string
+	 */
+	public static function default_province(): string {
+		return trim( (string) get_option( self::OPTION_PROVINCE, '' ) );
+	}
+
+	/**
+	 * Default town prefilled into the socio's Poboación field.
+	 * The socio can always overwrite it.
+	 *
+	 * @return string
+	 */
+	public static function default_town(): string {
+		return trim( (string) get_option( self::OPTION_TOWN, '' ) );
+	}
+
+
 
 	/**
 	 * Whether new socios require master approval before gaining access.

@@ -1,16 +1,16 @@
 <?php
 /**
  * Plugin Name: ANPA Socios
- * Description: Sistema de altas de socios — formulario público e endpoint REST (Fase 2, paso 1).
- * Version: 1.26.0
+ * Description: Xestión de socios para asociacións de nais e pais (ANPA/AMPA): área de socios sen contrasinal, fillos e actividades extraescolares, domiciliación SEPA cifrada, ciclo de curso, panel de administración e actualizacións self-hosted. Configurable para calquera asociación.
+ * Version: 1.28.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
- * Author: ANPA As Brañas
+ * Author: ANPA Socios
  * License: GPL-2.0-or-later
  * Text Domain: anpa-socios
  *
- * Sibling plugin of anpa-verificacion; depends on its REST API
- * but does NOT require_once it.
+ * The email-verification module (formerly the standalone anpa-verificacion
+ * plugin) is now built in; no companion plugin is required.
  *
  * @since  1.0.0
  * @package ANPA_Socios
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ANPA_SOCIOS_VERSION', '1.26.0' );
+define( 'ANPA_SOCIOS_VERSION', '1.28.0' );
 define( 'ANPA_SOCIOS_DB_VERSION', '1.19.0' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
@@ -81,7 +81,6 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-empresa-vi
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-empresa-rest.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-area-page.php';
-require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-header-nav.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-hub-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-extraescolares-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-unified-page.php';
@@ -145,9 +144,20 @@ add_action( 'wp_enqueue_scripts', array( 'ANPA_Socios_Area_Page', 'enqueue_asset
 add_action( 'wp_enqueue_scripts', array( 'ANPA_Socios_Extraescolares_Page', 'enqueue_assets' ) );
 add_action( 'wp_enqueue_scripts', array( 'ANPA_Socios_Hub_Page', 'enqueue_assets' ) );
 add_action( 'wp_enqueue_scripts', array( 'ANPA_Socios_Unified_Page', 'enqueue_assets' ) );
-ANPA_Socios_Header_Nav::register();
 ANPA_Socios_Preseason_Guard::register();
 ANPA_Socios_Admin_Settings::register();
 
 // Self-hosted updates from the public Gitea repo (read-only, GET-based).
 ANPA_Socios_Updater::init();
+
+// Internationalisation: the plugin follows the WordPress site language
+// (Axustes → Xerais no WordPress). No custom language setting. Translations
+// ship as .mo files under /languages named `anpa-socios-{locale}.mo`
+// (Galician is the source language). WordPress loads the right one for the
+// active site locale.
+add_action(
+	'init',
+	static function () {
+		load_plugin_textdomain( 'anpa-socios', false, dirname( plugin_basename( ANPA_SOCIOS_PLUGIN_FILE ) ) . '/languages' );
+	}
+);

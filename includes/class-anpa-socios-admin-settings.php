@@ -37,6 +37,7 @@ final class ANPA_Socios_Admin_Settings {
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( ANPA_SOCIOS_PLUGIN_FILE ), array( __CLASS__, 'action_links' ) );
 		add_action( 'admin_post_anpa_socios_save_settings', array( __CLASS__, 'handle_save_settings' ) );
+		add_action( 'admin_post_anpa_socios_save_location', array( __CLASS__, 'handle_save_location' ) );
 		add_action( 'admin_post_anpa_socios_set_admin_password', array( __CLASS__, 'handle_set_admin_password' ) );
 		add_action( 'admin_post_anpa_socios_run_season', array( __CLASS__, 'handle_run_season' ) );
 		add_action( 'admin_post_anpa_socios_check_updates', array( __CLASS__, 'handle_check_updates' ) );
@@ -324,6 +325,9 @@ final class ANPA_Socios_Admin_Settings {
 
 		echo '<div class="anpa-tab-panel">';
 		switch ( $active ) {
+			case 'localizacion':
+				self::render_tab_localizacion();
+				break;
 			case 'verificacion':
 				self::render_tab_verificacion();
 				break;
@@ -412,6 +416,82 @@ final class ANPA_Socios_Admin_Settings {
 	}
 
 	/**
+	 * Tab "Localización e idioma": country/province/town defaults shown to
+	 * socios in the Provincia/Poboación fields, plus the plugin UI language.
+	 * Every value is a deployer-editable option — nothing is hardcoded.
+	 *
+	 * @return void
+	 */
+	private static function render_tab_localizacion(): void {
+		$post_url = esc_url( admin_url( 'admin-post.php' ) );
+
+		echo '<h2>Localización</h2>';
+		echo '<p class="description" style="max-width:720px">O país, provincia/estado e poboación que escollas aquí mostraranse <strong>por defecto</strong> aos socios nos campos <strong>Provincia</strong> e <strong>Poboación</strong> do formulario de alta (poderán escribir outros valores se o desexan). Pensado para colexios onde a maioría das familias son da mesma zona. WordPress non inclúe unha base de datos de países/provincias/concellos, así que estes campos son de texto libre.</p>';
+
+		echo '<form method="post" action="' . $post_url . '">';
+		echo '<input type="hidden" name="action" value="anpa_socios_save_location">';
+		wp_nonce_field( 'anpa_socios_save_location' );
+		echo '<table class="form-table" role="presentation"><tbody>';
+		printf(
+			'<tr><th scope="row"><label for="loc-country">País</label></th><td><input name="country" id="loc-country" type="text" class="regular-text" value="%s"></td></tr>',
+			esc_attr( ANPA_Socios_Config::country() )
+		);
+		printf(
+			'<tr><th scope="row"><label for="loc-province">Provincia / Estado (por defecto)</label></th><td><input name="default_province" id="loc-province" type="text" class="regular-text" value="%s"></td></tr>',
+			esc_attr( ANPA_Socios_Config::default_province() )
+		);
+		printf(
+			'<tr><th scope="row"><label for="loc-town">Poboación (por defecto)</label></th><td><input name="default_town" id="loc-town" type="text" class="regular-text" value="%s"></td></tr>',
+			esc_attr( ANPA_Socios_Config::default_town() )
+		);
+		echo '</tbody></table>';
+		submit_button( 'Gardar localización' );
+		echo '</form>';
+
+		// Idioma: the plugin follows the WordPress site language. No custom
+		// selector — WordPress is the single source of truth.
+		echo '<h2>Idioma</h2>';
+		$locale = get_locale();
+		$names  = array(
+			'gl_ES' => 'Galego',
+			'es_ES' => 'Español',
+			'en_US' => 'English (United States)',
+			'en_GB' => 'English (UK)',
+			'pt_PT' => 'Português',
+			'ca'    => 'Català',
+			'eu'    => 'Euskara',
+		);
+		$native = $names[ $locale ] ?? $locale;
+		echo '<table class="form-table" role="presentation"><tbody>';
+		printf(
+			'<tr><th scope="row">Idioma actual do sitio</th><td><strong>%s</strong> <code>%s</code></td></tr>',
+			esc_html( (string) $native ),
+			esc_html( $locale )
+		);
+		echo '</tbody></table>';
+		printf(
+			'<p class="description" style="max-width:720px">O plugin usa o idioma do sitio WordPress. Cámbiao en <a href="%s">Axustes → Xerais → Idioma do sitio</a>. As traducións do plugin engádense como ficheiros <code>.mo</code> en <code>/languages</code> (idioma orixe: galego); mentres non existan, os textos amósanse en galego.</p>',
+			esc_url( admin_url( 'options-general.php' ) )
+		);
+	}
+
+	/**
+	 * admin-post: save the localization + language options. Isolated from the
+	 * general settings save so a partial form never clears other options.
+	 *
+	 * @return void
+	 */
+	public static function handle_save_location(): void {
+		self::guard( 'anpa_socios_save_location' );
+
+		update_option( ANPA_Socios_Config::OPTION_COUNTRY, sanitize_text_field( (string) wp_unslash( $_POST['country'] ?? '' ) ) );
+		update_option( ANPA_Socios_Config::OPTION_PROVINCE, sanitize_text_field( (string) wp_unslash( $_POST['default_province'] ?? '' ) ) );
+		update_option( ANPA_Socios_Config::OPTION_TOWN, sanitize_text_field( (string) wp_unslash( $_POST['default_town'] ?? '' ) ) );
+
+		self::redirect_msg( 'settings_saved' );
+	}
+
+	/**
 	 * Tab "Verificación": read-only status of the email-verification flow.
 	 * The full module absorption + controls arrive in fase13b.
 	 *
@@ -454,17 +534,12 @@ final class ANPA_Socios_Admin_Settings {
 	private static function render_tab_actualizacions(): void {
 		$post_url  = esc_url( admin_url( 'admin-post.php' ) );
 		$version   = defined( 'ANPA_SOCIOS_VERSION' ) ? ANPA_SOCIOS_VERSION : '?';
-		$repo      = 'https://gitea.casabetty.mywire.org/nando/wp-anpa-socios';
-		$has_token = defined( 'ANPA_SOCIOS_GITEA_TOKEN' ) && ANPA_SOCIOS_GITEA_TOKEN;
+		$repo      = ANPA_Socios_Updater::REPO_URL;
 
 		echo '<h2>Actualizacións</h2>';
 		echo '<table class="widefat striped" style="max-width:680px"><tbody>';
 		printf( '<tr><td style="width:260px"><strong>Versión instalada</strong></td><td>%s</td></tr>', esc_html( (string) $version ) );
-		printf( '<tr><td><strong>Orixe das actualizacións</strong></td><td><a href="%s/releases" target="_blank" rel="noreferrer">%s</a></td></tr>', esc_url( $repo ), esc_html( 'nando/wp-anpa-socios' ) );
-		printf(
-			'<tr><td><strong>Token de lectura (wp-config)</strong></td><td>%s</td></tr>',
-			$has_token ? '✅ configurado' : '❌ non configurado'
-		);
+		printf( '<tr><td><strong>Orixe das actualizacións</strong></td><td><a href="%s/releases" target="_blank" rel="noreferrer">%s</a></td></tr>', esc_url( $repo . '/releases' ), esc_html( 'anpaventin/wp-anpa-socios' ) );
 
 		$pending = get_site_transient( 'update_plugins' );
 		$slug    = 'anpa-socios/anpa-socios.php';
@@ -479,10 +554,6 @@ final class ANPA_Socios_Admin_Settings {
 				: '✅ ao día'
 		);
 		echo '</tbody></table>';
-
-		if ( ! $has_token ) {
-			echo '<div class="notice notice-warning inline"><p>Para recibir actualizacións, engade ao <code>wp-config.php</code>: <code>define(\'ANPA_SOCIOS_GITEA_TOKEN\', \'&lt;token de só-lectura&gt;\');</code></p></div>';
-		}
 
 		echo '<form method="post" action="' . $post_url . '">';
 		echo '<input type="hidden" name="action" value="anpa_socios_check_updates">';
@@ -568,7 +639,7 @@ final class ANPA_Socios_Admin_Settings {
 	 */
 	private static function eye_button( string $target ): string {
 		return sprintf(
-			' <button type="button" class="button anpa-eye" data-target="%s" aria-label="Mostrar/ocultar" title="Mostrar/ocultar">👁</button>',
+			'<button type="button" class="anpa-eye" data-target="%s" aria-label="Mostrar/ocultar" title="Mostrar/ocultar">👁</button>',
 			esc_attr( $target )
 		);
 	}
@@ -582,17 +653,33 @@ final class ANPA_Socios_Admin_Settings {
 		return '<style>
 			.anpa-cfg h1 { margin-bottom: .3em; }
 			.anpa-cfg .nav-tab-wrapper { margin: 1em 0 1.4em; }
-			.anpa-cfg h2:not(.nav-tab-wrapper) { margin: 2em 0 .6em; padding: .55em .8em; background: #fbfbfc;
+			.anpa-cfg h2:not(.nav-tab-wrapper) { margin: 2em 0 .6em; padding: .6em 1em; background: #fbfbfc;
 				border-left: 5px solid #e67e22; border-radius: 4px; font-size: 1.15em;
 				box-shadow: 0 1px 2px rgba(0,0,0,.05); }
 			.anpa-cfg h3 { margin: 1.2em 0 .3em; color: #2c3338; font-size: 1em; }
 			.anpa-cfg .form-table, .anpa-cfg .widefat { background: #fff; border: 1px solid #e2e4e7;
-				border-radius: 6px; padding: .3em 1em; margin: .4em 0 1.2em; max-width: 780px; }
-			.anpa-cfg .form-table th { width: 240px; }
-			.anpa-cfg .description { color: #646970; }
+				border-radius: 6px; padding: .6em 1.4em; margin: .4em 0 1.2em; max-width: 820px; }
+			/* Comfortable breathing room so text is never glued to the box edge. */
+			.anpa-cfg .form-table th { width: 260px; padding: 1em 1.2em 1em .4em; vertical-align: top; }
+			.anpa-cfg .form-table td { padding: .9em 1em; }
+			.anpa-cfg .widefat td, .anpa-cfg .widefat th { padding: .7em 1em; }
+			.anpa-cfg .form-table input.regular-text,
+			.anpa-cfg .form-table input[type="email"],
+			.anpa-cfg .form-table input[type="text"],
+			.anpa-cfg .form-table input[type="date"],
+			.anpa-cfg .form-table select,
+			.anpa-cfg .form-table textarea { padding: .5em .7em; }
+			.anpa-cfg .description { color: #646970; margin-top: .5em; }
 			.anpa-cfg hr { margin: 2.6em 0 0; border: 0; border-top: 1px dashed #c3c4c7; }
 			.anpa-cfg form { margin: 0 0 .6em; }
-			.anpa-cfg .anpa-eye { vertical-align: middle; padding: 0 .4em; }
+			/* Reveal "eye": transparent icon overlaid inside the field, not a grey button. */
+			.anpa-cfg .anpa-eye { background: transparent; border: 0; box-shadow: none; outline: 0;
+				cursor: pointer; padding: 0; margin: 0 0 0 -2.2em; position: relative; font-size: 1.15em;
+				line-height: 1; opacity: .6; vertical-align: middle; }
+			.anpa-cfg .anpa-eye:hover, .anpa-cfg .anpa-eye:focus { opacity: 1; }
+			.anpa-cfg .anpa-eye + .description { margin-left: 0; }
+			/* leave room on the right so the text never runs under the eye */
+			.anpa-cfg input.regular-text { padding-right: 2.6em; }
 			.anpa-cfg h2[style*="b32d2e"] { border-left-color: #b32d2e; background: #fcf0f1; }
 		</style>';
 	}

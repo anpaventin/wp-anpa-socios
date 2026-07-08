@@ -12,8 +12,8 @@ use PHPUnit\Framework\TestCase;
 
 class Test_ANPA_Socios_Roles extends TestCase {
 
-	private const MASTER_EMAIL = 'xunta.directiva@anpaventin.es';
-	private const OTHER_EMAIL  = 'outro@anpaventin.es';
+	private const MASTER_EMAIL = 'admin@example.com';
+	private const OTHER_EMAIL  = 'someone.else@example.org';
 
 	// ──────────────────────────────────────────────
 	// es_master (data-driven: any email + rol='master' → true)
@@ -94,7 +94,7 @@ class Test_ANPA_Socios_Roles extends TestCase {
 	 */
 	public function test_is_protected_admin_true_mixed_case(): void {
 		$this->assertTrue(
-			ANPA_Socios_Roles::is_protected_admin( 'Xunta.Directiva@AnpaVentin.Es' )
+			ANPA_Socios_Roles::is_protected_admin( 'Admin@Example.Com' )
 		);
 	}
 

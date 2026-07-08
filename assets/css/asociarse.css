@@ -343,3 +343,25 @@
 #anpa-asociarse input.anpa-valid {
 	border-color: #2d6a4f;
 }
+
+/* Fillo row fields: each control carries a small visible caption so the
+   boxes are never unlabelled (fase: alta form usability fix). */
+#anpa-asociarse .anpa-fillo-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.2rem;
+	flex: 1 1 8rem;
+	min-width: 0;
+}
+
+#anpa-asociarse .anpa-fillo-field-label {
+	font-size: 0.78rem;
+	font-weight: 600;
+	color: var(--anpa-text-body, #374151);
+}
+
+#anpa-asociarse .anpa-fillo-field input,
+#anpa-asociarse .anpa-fillo-field select {
+	width: 100%;
+	box-sizing: border-box;
+}

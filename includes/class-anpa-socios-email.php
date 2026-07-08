@@ -1,6 +1,11 @@
 <?php
 /**
- * Email sending for ANPA Socios signup verification codes.
+ * Email sending for ANPA Socios verification codes and notices.
+ *
+ * All sender identity (association name, From/Reply-To address, recipient
+ * for junta notices) is resolved from ANPA_Socios_Config so the plugin is
+ * multi-tenant: any ANPA/AMPA sets its own values via the setup wizard /
+ * Axustes. Nothing here is hardcoded to a single association.
  *
  * @since  1.0.0
  * @package ANPA_Socios
@@ -23,12 +28,30 @@ if ( ! defined( 'ABSPATH' ) ) {
 class ANPA_Socios_Email {
 
 	/**
-	 * Junta directiva inbox for operational notifications (baixa requests, …).
+	 * From/Reply-To headers built from the configurable association identity.
 	 *
-	 * @since 1.8.0
-	 * @var string
+	 * @since  1.27.0
+	 * @return string[]
 	 */
-	const JUNTA_EMAIL = 'xunta.directiva@anpaventin.es';
+	private static function notice_headers(): array {
+		$assoc = ANPA_Socios_Config::association_name();
+		$from  = ANPA_Socios_Config::master_email();
+
+		return array(
+			'From: ' . $assoc . ' <' . $from . '>',
+			'Reply-To: ' . $assoc . ' <' . $from . '>',
+		);
+	}
+
+	/**
+	 * Recipient inbox for operational junta notices (baixa requests, …).
+	 *
+	 * @since  1.27.0
+	 * @return string
+	 */
+	private static function junta_email(): string {
+		return ANPA_Socios_Config::master_email();
+	}
 
 	/**
 	 * Sends a verification code email to the given address.
@@ -40,7 +63,6 @@ class ANPA_Socios_Email {
 	 */
 	public static function enviar_codigo( string $email, string $codigo, string $context = 'alta' ): bool {
 		$assoc = ANPA_Socios_Config::association_name();
-		$from  = ANPA_Socios_Config::master_email();
 
 		if ( 'verificacion' === $context ) {
 			$asunto = wp_specialchars_decode( 'O teu código de verificación — ' . $assoc, ENT_QUOTES );
@@ -53,10 +75,7 @@ class ANPA_Socios_Email {
 		// Append the configurable signature (if any) before </body>.
 		$corpo = str_replace( '</body>', self::signature_html() . '</body>', $corpo );
 
-		$headers = array(
-			'From: ' . $assoc . ' <' . $from . '>',
-			'Reply-To: ' . $assoc . ' <' . $from . '>',
-		);
+		$headers = self::notice_headers();
 
 		add_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
 
@@ -112,19 +131,20 @@ class ANPA_Socios_Email {
 	}
 
 	/**
-	 * Builds the HTML body for the verification email.
+	 * Builds the HTML body for the alta verification email.
 	 *
 	 * @param  string $codigo Plain-text 6-digit code.
 	 * @return string         HTML body.
 	 */
 	private static function crear_corpo_html( string $codigo ): string {
 		$codigo_seguro = esc_html( $codigo );
+		$assoc         = esc_html( ANPA_Socios_Config::association_name() );
 
 		return '<!DOCTYPE html>'
 			. '<html>'
 			. '<head><meta charset="UTF-8"></head>'
 			. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
-			. '<h2>Alta na ANPA As Brañas</h2>'
+			. '<h2>Alta na ' . $assoc . '</h2>'
 			. '<p>O teu código para continuar coa alta é:</p>'
 			. '<p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; text-align: center;'
 			. ' background: #f0f0f0; padding: 15px; border-radius: 8px;">'
@@ -160,7 +180,8 @@ class ANPA_Socios_Email {
 	 * @return bool                True if wp_mail() accepted the message.
 	 */
 	public static function enviar_aviso_baixa_socio( string $email_socio, string $nome, string $apelidos ): bool {
-		$asunto        = wp_specialchars_decode( 'Solicitude de baixa de socio/a — ANPA As Brañas', ENT_QUOTES );
+		$assoc         = ANPA_Socios_Config::association_name();
+		$asunto        = wp_specialchars_decode( 'Solicitude de baixa de socio/a — ' . $assoc, ENT_QUOTES );
 		$nome_completo = trim( $nome . ' ' . $apelidos );
 
 		$corpo = '<!DOCTYPE html>'
@@ -168,7 +189,7 @@ class ANPA_Socios_Email {
 			. '<head><meta charset="UTF-8"></head>'
 			. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
 			. '<h2>Solicitude de baixa de socio/a</h2>'
-			. '<p>Un/unha socio/a solicitou a baixa na ANPA As Brañas:</p>'
+			. '<p>Un/unha socio/a solicitou a baixa en ' . esc_html( $assoc ) . ':</p>'
 			. '<ul>'
 			. '<li><strong>Nome:</strong> ' . esc_html( $nome_completo ) . '</li>'
 			. '<li><strong>Email:</strong> ' . esc_html( $email_socio ) . '</li>'
@@ -178,15 +199,12 @@ class ANPA_Socios_Email {
 			. '</body>'
 			. '</html>';
 
-		$headers = array(
-			'From: ANPA As Brañas <xunta.directiva@anpaventin.es>',
-			'Reply-To: ANPA As Brañas <xunta.directiva@anpaventin.es>',
-		);
+		$headers = self::notice_headers();
 
 		add_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
 
 		try {
-			return wp_mail( self::JUNTA_EMAIL, $asunto, $corpo, $headers );
+			return wp_mail( self::junta_email(), $asunto, $corpo, $headers );
 		} finally {
 			remove_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
 		}
@@ -202,7 +220,7 @@ class ANPA_Socios_Email {
 	 * @return bool                True if wp_mail() accepted the message.
 	 */
 	public static function enviar_aviso_reactivacion( string $email_socio ): bool {
-		$asunto = wp_specialchars_decode( 'Solicitude de reactivación de socio/a — ANPA As Brañas', ENT_QUOTES );
+		$asunto = wp_specialchars_decode( 'Solicitude de reactivación de socio/a — ' . ANPA_Socios_Config::association_name(), ENT_QUOTES );
 
 		$corpo = '<!DOCTYPE html>'
 			. '<html>'
@@ -217,15 +235,12 @@ class ANPA_Socios_Email {
 			. '</body>'
 			. '</html>';
 
-		$headers = array(
-			'From: ANPA As Brañas <xunta.directiva@anpaventin.es>',
-			'Reply-To: ANPA As Brañas <xunta.directiva@anpaventin.es>',
-		);
+		$headers = self::notice_headers();
 
 		add_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
 
 		try {
-			return wp_mail( self::JUNTA_EMAIL, $asunto, $corpo, $headers );
+			return wp_mail( self::junta_email(), $asunto, $corpo, $headers );
 		} finally {
 			remove_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
 		}
@@ -243,7 +258,7 @@ class ANPA_Socios_Email {
 	 * @return bool
 	 */
 	public static function enviar_aviso_baixa_extraescolar( string $email_socio, string $alumno, string $actividade ): bool {
-		$asunto = wp_specialchars_decode( 'Solicitude de baixa nunha extraescolar — ANPA As Brañas', ENT_QUOTES );
+		$asunto = wp_specialchars_decode( 'Solicitude de baixa nunha extraescolar — ' . ANPA_Socios_Config::association_name(), ENT_QUOTES );
 
 		$corpo = '<!DOCTYPE html>'
 			. '<html><head><meta charset="UTF-8"></head>'
@@ -258,13 +273,10 @@ class ANPA_Socios_Email {
 			. '<p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p>'
 			. '</body></html>';
 
-		$headers = array(
-			'From: ANPA As Brañas <xunta.directiva@anpaventin.es>',
-			'Reply-To: ANPA As Brañas <xunta.directiva@anpaventin.es>',
-		);
+		$headers = self::notice_headers();
 		add_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
 		try {
-			return wp_mail( self::JUNTA_EMAIL, $asunto, $corpo, $headers );
+			return wp_mail( self::junta_email(), $asunto, $corpo, $headers );
 		} finally {
 			remove_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
 		}
@@ -283,7 +295,7 @@ class ANPA_Socios_Email {
 	 * @return bool
 	 */
 	public static function enviar_oferta_extraescolar( string $email_socio, string $actividade, int $dias_prazo ): bool {
-		$asunto = wp_specialchars_decode( 'Hai unha praza dispoñible nunha extraescolar — ANPA As Brañas', ENT_QUOTES );
+		$asunto = wp_specialchars_decode( 'Hai unha praza dispoñible nunha extraescolar — ' . ANPA_Socios_Config::association_name(), ENT_QUOTES );
 
 		$corpo = '<!DOCTYPE html>'
 			. '<html><head><meta charset="UTF-8"></head>'
@@ -297,10 +309,7 @@ class ANPA_Socios_Email {
 			. '<p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p>'
 			. '</body></html>';
 
-		$headers = array(
-			'From: ANPA As Brañas <xunta.directiva@anpaventin.es>',
-			'Reply-To: ANPA As Brañas <xunta.directiva@anpaventin.es>',
-		);
+		$headers = self::notice_headers();
 		add_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
 		try {
 			return wp_mail( $email_socio, $asunto, $corpo, $headers );
@@ -320,14 +329,8 @@ class ANPA_Socios_Email {
 	 * @return bool
 	 */
 	private static function send_from_master( string $to, string $subject, string $body ): bool {
-		$assoc = ANPA_Socios_Config::association_name();
-		$from  = ANPA_Socios_Config::master_email();
-
 		$body    = str_replace( '</body>', self::signature_html() . '</body>', $body );
-		$headers = array(
-			'From: ' . $assoc . ' <' . $from . '>',
-			'Reply-To: ' . $assoc . ' <' . $from . '>',
-		);
+		$headers = self::notice_headers();
 
 		add_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
 		try {
@@ -410,7 +413,7 @@ class ANPA_Socios_Email {
 	 */
 	public static function enviar_rexeitamento( string $email_socio ): bool {
 		$assoc   = ANPA_Socios_Config::association_name();
-		$contact = ANPA_Socios_Config::master_email();
+		$contact = ANPA_Socios_Config::contact_email();
 
 		$asunto = 'Sobre a túa solicitude de alta — ' . $assoc;
 		$corpo  = '<!DOCTYPE html>'

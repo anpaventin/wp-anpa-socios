@@ -16,11 +16,16 @@ class Test_ANPA_Socios_Settings_Tabs extends TestCase {
 		$this->assertSame( 'xeral', ANPA_Socios_Settings_Tabs::default_tab() );
 	}
 
-	public function test_all_has_the_four_expected_tabs_in_order(): void {
+	public function test_all_has_the_expected_tabs_in_order(): void {
 		$this->assertSame(
-			array( 'xeral', 'verificacion', 'actualizacions', 'mantemento' ),
+			array( 'xeral', 'localizacion', 'verificacion', 'actualizacions', 'mantemento' ),
 			array_keys( ANPA_Socios_Settings_Tabs::all() )
 		);
+	}
+
+	public function test_localizacion_tab_is_valid(): void {
+		$this->assertTrue( ANPA_Socios_Settings_Tabs::is_valid( 'localizacion' ) );
+		$this->assertSame( 'Localización e idioma', ANPA_Socios_Settings_Tabs::label( 'localizacion' ) );
 	}
 
 	public function test_is_valid_accepts_known_and_rejects_unknown(): void {

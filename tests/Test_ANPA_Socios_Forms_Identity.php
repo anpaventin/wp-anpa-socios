@@ -91,6 +91,22 @@ final class Test_ANPA_Socios_Forms_Identity extends TestCase {
 	}
 
 	/**
+	 * @return array<string,array{0:string}>
+	 */
+	public function invalidPhoneProvider(): array {
+		return array(
+			'starts with 5'      => array( '512345678' ),
+			'starts with 0'      => array( '012345678' ),
+			'too short (8)'      => array( '66655544' ),
+			'too long (10)'      => array( '6665554443' ),
+			'letters in body'    => array( '666abc444' ),
+			'+34 wrong body'     => array( '+34 123456789' ),
+			'empty'              => array( '' ),
+			'spaces only'        => array( '   ' ),
+		);
+	}
+
+	/**
 	 * @dataProvider validIbanProvider
 	 */
 	public function test_valid_iban_returns_canonical( string $input, string $expected ): void {
