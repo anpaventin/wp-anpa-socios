@@ -26,6 +26,7 @@
 			root: root,
 			preflightUrl: root.dataset.preflightUrl,
 			requestCodeUrl: root.dataset.requestCodeUrl,
+			requestCodeAltaUrl: root.dataset.requestCodeAltaUrl,
 			verifyCodeUrl: root.dataset.verifyCodeUrl,
 			sessionUrl: root.dataset.sessionUrl,
 			sessionStatusUrl: root.dataset.sessionStatusUrl,
@@ -289,9 +290,14 @@
 		}
 
 		// Alta flow (new member or unknown email).
+		// IMPORTANT: use the alta code endpoint, which issues a code to ANY
+		// valid email. The login endpoint (requestCodeUrl = anpa/v1/solicitar-codigo)
+		// only sends codes to already-registered active socios, so using it here
+		// left new applicants without a code ("no llega el correo").
 		try { localStorage.setItem('anpa_unified_flow', 'alta'); } catch (_) {}
 
-		var result = await apiPost(cfg.requestCodeUrl, {
+		var altaCodeUrl = cfg.requestCodeAltaUrl || cfg.requestCodeUrl;
+		var result = await apiPost(altaCodeUrl, {
 			email: email,
 			_ts: ts,
 		});
@@ -418,9 +424,26 @@
 					return;
 				}
 
-				// Alta flow (new member). Use the configured signup page; never
-				// hardcode a path (that used to 301 to /socios-old/). If there is
-				// no dedicated signup page, stay on the members page.
+				// Alta flow (new member). The full alta form is embedded on THIS
+				// page (#anpa-alta-form-host). Reveal it and hand off the verified
+				// token so the applicant completes the alta here — no cross-page
+				// redirect (that handoff proved fragile). asociarse.js exposes
+				// window.AnpaAlta.initAltaForm(formEl, { email, token }).
+				var altaHost = document.getElementById('anpa-alta-form-host');
+				var altaForm = document.getElementById('anpa-asociarse');
+				if (altaHost && altaForm && window.AnpaAlta && typeof window.AnpaAlta.initAltaForm === 'function') {
+					hideNotice(cfg);
+					// Hide the unified entry steps and show the alta form in place.
+					cfg.root.querySelectorAll('[data-step]').forEach(function (el) { el.hidden = true; });
+					altaHost.hidden = false;
+					window.AnpaAlta.initAltaForm(altaForm, { email: email, token: result.token });
+					try { altaForm.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {}
+					verifyBtn.disabled = false;
+					return;
+				}
+
+				// Fallback (embedded form not present): use the configured signup
+				// page if any, else stay on the members page.
 				var altaDest = (cfg.altaPageUrl && cfg.altaPageUrl.length) ? cfg.altaPageUrl : '';
 				if (altaDest) {
 					showNotice(cfg, 'Código verificado. Redirixíndoche ao formulario de alta...');

@@ -38,17 +38,53 @@ class ANPA_Socios_Socios_Page {
 	 * @return string     The form HTML.
 	 */
 	public static function render( $atts ): string {
-		$crear_socio_url      = rest_url( 'anpa-socios/v1/crear-socio' );
+		// The alta form now lives ON the unified socios page so that alta and
+		// login share a single, simple flow. This shortcode renders only a CTA
+		// button that sends the visitor to that page. The full form markup is
+		// available via render_alta_form() (embedded by the unified page).
+		$unified_url = ANPA_Socios_Hub_Page::find_page_url( 'anpa_socios_area_unified' );
+		if ( '' === (string) $unified_url ) {
+			$unified_url = ANPA_Socios_Admin_Settings::landing_page_url();
+		}
+		if ( '' === (string) $unified_url ) {
+			$unified_url = home_url( '/socios/' );
+		}
+
+		ob_start();
+		?>
+		<div class="anpa-area-access anpa-alta-cta">
+			<p class="anpa-area-access-title">Facerte socio/a da <?php echo esc_html( ANPA_Socios_Config::association_name() ); ?></p>
+			<p>A alta e o inicio de sesión fanse desde a Área de socios. Preme o botón para comezar: introduces o teu correo, recibes un código de verificación e completas a alta na mesma páxina.</p>
+			<a class="anpa-area-access-btn" href="<?php echo esc_url( $unified_url ); ?>">Ir á Área de socios</a>
+		</div>
+		<?php
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Renders the full alta form markup (email → codigo → datos → ok).
+	 *
+	 * Embedded by the unified socios page so the entire alta happens on one
+	 * page, driven by unified.js + asociarse.js (window.AnpaAlta.initAltaForm).
+	 *
+	 * @since  1.27.0
+	 * @return string The form HTML.
+	 */
+	public static function render_alta_form(): string {
 		$alta_url             = rest_url( 'anpa-socios/v1/alta' );
 		$solicitar_codigo_url = rest_url( 'anpa-socios/v1/solicitar-codigo-alta' );
 		$preflight_url        = rest_url( 'anpa-socios/v1/area/preflight' );
 		$area_page_url        = ANPA_Socios_Hub_Page::find_page_url( 'anpa_socios_area' );
 		$unified_page_url     = ANPA_Socios_Hub_Page::find_page_url( 'anpa_socios_area_unified' );
 
+		// Configurable association identity (generic, multi-tenant).
+		$assoc        = esc_html( ANPA_Socios_Config::association_name() );
+		$fee          = esc_html( ANPA_Socios_Config::membership_fee() );
+		$assoc_addr   = trim( ANPA_Socios_Config::association_address() );
+
 		ob_start();
 		?>
 		<form id="anpa-asociarse"
-		      data-anpasocio-url="<?php echo esc_attr( $crear_socio_url ); ?>"
 		      data-anpasocio-alta-url="<?php echo esc_attr( $alta_url ); ?>"
 		      data-anpasocio-request-url="<?php echo esc_attr( $solicitar_codigo_url ); ?>"
 		      data-anpasocio-preflight-url="<?php echo esc_attr( $preflight_url ); ?>"
@@ -114,13 +150,13 @@ class ANPA_Socios_Socios_Page {
 				<fieldset class="anpa-fieldset">
 					<legend>Fillos e fillas</legend>
 					<p class="anpa-muted">Engade os teus fillos/as. Completa os datos e preme «Gardar fillo/a»; despois poderás engadir outro ou modificar/quitar os xa gardados. O curso e o grupo escóllense das listas.</p>
-					<p class="anpa-consent-text">AUTORIZO á ANPA As Brañas do CEP de Ventín á toma de imaxes (fotos ou vídeos) nas que apareza o meu fillo/a. En ningún caso a ANPA divulgará as imaxes e vídeos de forma pública. Marca a casa de cada fillo/a para autorizalo.</p>
+					<p class="anpa-consent-text">AUTORIZO á <?php echo $assoc; ?> á toma de imaxes (fotos ou vídeos) nas que apareza o meu fillo/a. En ningún caso a asociación divulgará as imaxes e vídeos de forma pública. Marca a casa de cada fillo/a para autorizalo.</p>
 					<div data-fillos-container></div>
 				</fieldset>
 
 				<fieldset class="anpa-fieldset">
 					<legend>Datos bancarios (domiciliación)</legend>
-					<p class="anpa-muted">A alta como socio/a implica domiciliación bancaria. A cota é de 15 € por familia e curso. Os datos bancarios gárdanse cifrados e só os ve a directiva.</p>
+					<p class="anpa-muted">A alta como socio/a implica domiciliación bancaria. A cota é de <?php echo $fee; ?> € por familia e curso. Os datos bancarios gárdanse cifrados e só os ve a directiva.</p>
 					<p class="anpa-muted">A baixa como socio/a debe solicitarse desde a área persoal e será efectiva a fin de curso, tras a confirmación da directiva. A cota anual do curso xa xerada non se devolve, aínda que se solicite a baixa durante o ano.</p>
 					<div class="anpa-rgpd-text">Mediante a presente orde de domiciliación o debedor autoriza (A) ao acredor a enviar instrucións á entidade do debedor para cargar na súa conta e (B) á entidade para efectuar os cargos na súa conta seguindo as instrucións do acredor. Como parte dos seus dereitos, o debedor está lexitimado ao reembolso pola súa entidade nos termos e condicións do contrato subscrito con ela. A solicitude de reembolso deberá efectuarse dentro das oito semanas seguintes á data de cargo en conta. Pode obter información adicional sobre os seus dereitos na súa entidade bancaria.</div>
 					<label for="anpa-sepa-titular-nome">Nome do titular da conta</label>
@@ -136,14 +172,10 @@ class ANPA_Socios_Socios_Page {
 					<input id="anpa-sepa-enderezo" type="text" autocomplete="off" data-validate="sepa_enderezo">
 					<span class="anpa-field-error" data-error="sepa_enderezo" hidden></span>
 					<label for="anpa-sepa-provincia">Provincia</label>
-					<select id="anpa-sepa-provincia" data-validate="sepa_provincia">
-						<option value="">-- Cargando... --</option>
-					</select>
+					<input id="anpa-sepa-provincia" type="text" autocomplete="address-level1" data-validate="sepa_provincia" value="<?php echo esc_attr( ANPA_Socios_Config::default_province() ); ?>">
 					<span class="anpa-field-error" data-error="sepa_provincia" hidden></span>
 					<label for="anpa-sepa-poboacion">Poboación</label>
-					<select id="anpa-sepa-poboacion" data-validate="sepa_poboacion">
-						<option value="">-- Selecciona provincia --</option>
-					</select>
+					<input id="anpa-sepa-poboacion" type="text" autocomplete="address-level2" data-validate="sepa_poboacion" value="<?php echo esc_attr( ANPA_Socios_Config::default_town() ); ?>">
 					<span class="anpa-field-error" data-error="sepa_poboacion" hidden></span>
 					<label for="anpa-sepa-cp">Código postal</label>
 					<input id="anpa-sepa-cp" type="text" inputmode="numeric" maxlength="5" autocomplete="off" data-validate="sepa_cp">
@@ -161,7 +193,7 @@ class ANPA_Socios_Socios_Page {
 
 				<fieldset class="anpa-fieldset">
 					<legend>Protección de datos de carácter persoal</legend>
-					<div class="anpa-rgpd-text">De conformidade co Reglamento (UE) 2016/679 de 27 de Abril (RGPD), os datos suministrados para a solicitude de alta quedarán incorporados no ficheiro inscrito no rexistro da Axencia Española de Protección de Datos con titularidade da ANPA As Brañas, sendo utilizados exclusivamente por esta asociación para a prestación dos seus servizos. Estes datos recolleranse a través dos correspondentes formularios, os cales só conterán os campos imprescindibles para poder prestar o servizo solicitado. Os datos de carácter persoal serán tratados co grao de protección adecuado para evitar a súa alteración, perda, tratamento ou acceso non autorizado por parte de terceiros que os poidan utilizar para finalidades distintas daquelas para as que foron recabados. Pode exercer os seus dereitos de acceso, rectificación, cancelación e oposición, en cumprimento co establecido na RGPD, ante a ANPA As Brañas na seguinte dirección: CEP Ventín, Ventín s/n, Biduído, 15895 Ames (A Coruña).</div>
+					<div class="anpa-rgpd-text">De conformidade co Reglamento (UE) 2016/679 de 27 de Abril (RGPD), os datos suministrados para a solicitude de alta quedarán incorporados nun ficheiro con titularidade da <?php echo $assoc; ?>, sendo utilizados exclusivamente por esta asociación para a prestación dos seus servizos. Estes datos recolleranse a través dos correspondentes formularios, os cales só conterán os campos imprescindibles para poder prestar o servizo solicitado. Os datos de carácter persoal serán tratados co grao de protección adecuado para evitar a súa alteración, perda, tratamento ou acceso non autorizado por parte de terceiros que os poidan utilizar para finalidades distintas daquelas para as que foron recabados. Pode exercer os seus dereitos de acceso, rectificación, cancelación e oposición, en cumprimento co establecido na RGPD, ante a <?php echo $assoc; ?><?php echo '' !== $assoc_addr ? ' na seguinte dirección: ' . esc_html( $assoc_addr ) : ''; ?>.</div>
 					<label class="anpa-check"><input type="checkbox" id="anpa-rgpd" required> Acepto a política de protección de datos *</label>
 				</fieldset>
 
@@ -176,44 +208,6 @@ class ANPA_Socios_Socios_Page {
 		</form>
 		<?php
 		return (string) ob_get_clean();
-	}
-
-	/**
-	 * Returns the permalink of the published page that hosts the
-	 * [anpa_socios_area] shortcode, or '' if none is found.
-	 *
-	 * The lookup scans published pages once and caches the result for an
-	 * hour so the asociarse page can link to the personal area without
-	 * hardcoding a slug. The transient is short-lived so moving/renaming
-	 * the area page is picked up quickly.
-	 *
-	 * @since  1.8.0
-	 * @return string Permalink URL, or '' when not found.
-	 */
-	private static function area_page_url(): string {
-		$cached = get_transient( 'anpa_socios_area_page_url' );
-		if ( is_string( $cached ) ) {
-			return $cached;
-		}
-
-		$url   = '';
-		$pages = get_posts( array(
-			'post_type'      => 'page',
-			'post_status'    => 'publish',
-			'posts_per_page' => -1,
-			'fields'         => 'ids',
-		) );
-		foreach ( $pages as $pid ) {
-			$content = (string) get_post_field( 'post_content', $pid );
-			if ( has_shortcode( $content, 'anpa_socios_area' ) ) {
-				$url = (string) get_permalink( $pid );
-				break;
-			}
-		}
-
-		set_transient( 'anpa_socios_area_page_url', $url, HOUR_IN_SECONDS );
-
-		return $url;
 	}
 
 	/**

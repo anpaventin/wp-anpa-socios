@@ -446,9 +446,11 @@ final class ANPA_Socios_Fillos_REST {
 		return new WP_Error(
 			'anpa_fillos_duplicate',
 			sprintf(
-				'O usuario con conta de correo %s e o nome %s xa ten ese fillo dado de alta. Se consideras que isto é un erro, ponte en contacto co ANPA no correo xunta.directiva@anpaventin.es',
+				/* translators: 1: masked email, 2: masked child name, 3: contact email */
+				'O usuario con conta de correo %1$s e o nome %2$s xa ten ese fillo dado de alta. Se consideras que isto é un erro, ponte en contacto co ANPA no correo %3$s',
 				$masked_email,
-				$masked_full
+				$masked_full,
+				ANPA_Socios_Config::contact_email()
 			),
 			array( 'status' => 409 )
 		);

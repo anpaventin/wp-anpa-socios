@@ -68,35 +68,15 @@ class ANPA_Socios_REST {
 			)
 		);
 
-		register_rest_route(
-			self::REST_NAMESPACE,
-			'/crear-socio',
-			array(
-				'methods'             => WP_REST_Server::CREATABLE,
-				'callback'            => array( __CLASS__, 'handle_crear_socio' ),
-				'permission_callback' => '__return_true',
-				'args'                => array(
-					'token'    => array(
-						'required'          => true,
-						'type'              => 'string',
-						'sanitize_callback' => 'sanitize_text_field',
-						'validate_callback' => static function ( $value ) {
-							return is_string( $value ) && strlen( $value ) <= 64;
-						},
-					),
-					'nome'     => array(
-						'required'          => true,
-						'type'              => 'string',
-						'sanitize_callback' => 'sanitize_text_field',
-					),
-					'apelidos' => array(
-						'required'          => true,
-						'type'              => 'string',
-						'sanitize_callback' => 'sanitize_text_field',
-					),
-				),
-			)
-		);
+		// NOTE: the legacy `/crear-socio` route (a minimal upsert with only
+		// nome + apelidos) is intentionally NO LONGER registered. It could
+		// create a partial socio row before the full form was completed, which
+		// violates the rule that a socio is only inserted once the whole alta
+		// form (with all required minimum data) is submitted. The only public
+		// alta write path is now `/alta` (handle_alta), which validates the
+		// entire payload (RGPD + parent1 nome/apelidos/NIF/teléfono + fillos +
+		// optional SEPA) inside a single transaction before inserting anything.
+		// The old handle_crear_socio() method has been removed entirely.
 
 		register_rest_route(
 			self::REST_NAMESPACE,
@@ -307,141 +287,6 @@ class ANPA_Socios_REST {
 		}
 
 		return self::resposta_xenerica();
-	}
-
-	/**
-	 * Handler for POST /wp-json/anpa-socios/v1/crear-socio.
-	 *
-	 * 12-step call sequence:
-	 *   1.  Sanitise token
-	 *   2.  Sanitise nome
-	 *   3.  Sanitise apelidos
-	 *   4.  Validate nome (pure logic)
-	 *   5.  Validate apelidos (pure logic)
-	 *   6.  Look up get_transient('anpa_token_' . $token)
-	 *   7.  If transient is false -> 400
-	 *   8.  Build SQL (INSERT ... ON DUPLICATE KEY UPDATE)
-	 *   9.  Execute via $wpdb->query
-	 *   10. Check $wpdb->last_error
-	 *         - duplicate-key (1062) -> continue (silent no-op)
-	 *         - other error          -> 500 (DO NOT delete_transient)
-	 *   11. delete_transient (single-use)
-	 *   12. Return 200
-	 *
-	 * The order of steps 9-12 is the critical user-confirmed
-	 * contract: delete_transient MUST NOT run if the DB write
-	 * failed.
-	 *
-	 * @since  1.0.0
-	 * @param  WP_REST_Request $request The incoming request.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public static function handle_crear_socio( WP_REST_Request $request ) {
-		// Steps 1-3: sanitise.
-		$token    = sanitize_text_field( (string) $request->get_param( 'token' ) );
-		$nome     = sanitize_text_field( (string) $request->get_param( 'nome' ) );
-		$apelidos = sanitize_text_field( (string) $request->get_param( 'apelidos' ) );
-
-		// Steps 4-5: pure-logic validation.
-		$nome_validado     = ANPA_Socios_Payload::validar_nome( $nome );
-		$apelidos_validado = ANPA_Socios_Payload::validar_apelidos( $apelidos );
-
-		if ( null === $nome_validado || null === $apelidos_validado ) {
-			return new WP_Error(
-				'anpa_socios_invalid',
-				'Datos inválidos',
-				array( 'status' => 400 )
-			);
-		}
-
-		// Step 6: transient lookup. The Fase 1 plugin stored this
-		// transient with the email as the value.
-		$email = get_transient( 'anpa_token_' . $token );
-
-		// Step 7: token expired, missing, or already consumed.
-		// Note: we do NOT call delete_transient here (a no-op
-		// wouldn't help, and the user must re-issue
-		// solicitar-codigo for a fresh token).
-		if ( false === $email || ! is_string( $email ) || '' === $email ) {
-			return new WP_Error(
-				'anpa_socios_invalid_token',
-				'Token inválido ou caducado',
-				array( 'status' => 400 )
-			);
-		}
-
-		// Step 8: build SQL.
-		global $wpdb;
-		$tabela        = $wpdb->prefix . 'anpa_socios';
-		$sql           = "INSERT INTO {$tabela} "
-			. '(email, nome, apelidos, estado, creado_en, actualizado_en) '
-			. 'VALUES (%s, %s, %s, %s, NOW(), NOW()) '
-			. "ON DUPLICATE KEY UPDATE "
-			. "actualizado_en = NOW(), "
-			. "estado         = 'activo', "
-			. 'nome           = VALUES(nome), '
-			. 'apelidos       = VALUES(apelidos)';
-		$sql_prepared  = $wpdb->prepare(
-			$sql,
-			$email,
-			$nome_validado,
-			$apelidos_validado,
-			'activo'
-		);
-
-		// Step 9: execute.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- direct query is intentional (the
-		// upsert is the documented contract; wpdb::insert does not
-		// support ON DUPLICATE KEY UPDATE).
-		$wpdb->query( $sql_prepared ); // phpcs:ignore
-
-		// Step 10: check the result. If the query failed with
-		// anything other than the duplicate-key silent no-op, return
-		// 500 WITHOUT deleting the transient. The user can retry.
-		$last_error = $wpdb->last_error;
-		if ( '' !== $last_error ) {
-			// MySQL error code 1062 is the duplicate-key silent
-			// no-op (the ON DUPLICATE KEY UPDATE clause handled it).
-			// Anything else is a real DB error.
-			if ( false === strpos( $last_error, '1062' ) ) {
-				return new WP_Error(
-					'anpa_socios_db_error',
-					'Erro interno',
-					array( 'status' => 500 )
-				);
-			}
-			// Duplicate-key path: the upsert succeeded; continue
-			// to step 11.
-		}
-
-		// Step 11: delete the transient (single-use enforcement).
-		// Called ONLY after a successful DB write (step 9 returned
-		// without a non-1062 error). The user MUST NOT be able to
-		// reuse this token.
-		delete_transient( 'anpa_token_' . $token );
-
-		// Step 11b: ensure the configured master email gets the master role.
-		if ( strtolower( $email ) === ANPA_Socios_Config::master_email() ) {
-			global $wpdb;
-			$wpdb->update(
-				$wpdb->prefix . 'anpa_socios',
-				array( 'rol' => 'master' ),
-				array( 'email' => $email ),
-				array( '%s' ),
-				array( '%s' )
-			);
-		}
-
-		// Step 12: success response. Identical for fresh insert,
-		// duplicate-update, and reactivación (R14) so that no
-		// email enumeration is possible.
-		return new WP_REST_Response(
-			array(
-				'success' => true,
-				'message' => 'Alta completada',
-			),
-			200
-		);
 	}
 
 	/**

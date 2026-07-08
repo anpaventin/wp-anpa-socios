@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="assets/img/anpa-socios-logo.png" alt="ANPA Socios" width="160">
-</p>
-
 <h1 align="center">ANPA Socios</h1>
 
 <p align="center">
@@ -11,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.23.0-blue">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.27.0-blue">
   <img alt="WordPress" src="https://img.shields.io/badge/WordPress-6.0%2B-21759b">
   <img alt="PHP" src="https://img.shields.io/badge/PHP-7.4%2B-777bb4">
   <img alt="Tests" src="https://img.shields.io/badge/PHPUnit-strict%20TDD-2eac68">
@@ -28,9 +24,8 @@ wp-anpa-socios/
 │   ├── class-anpa-socios-*.php  # DB, REST, area, admin handlers, email, backup…
 │   └── lib/                     # Pure, unit-tested logic (payload, crypto, flow, season…)
 ├── assets/
-│   ├── css/                     # unified.css, area.css
-│   ├── js/                      # unified.js, area.js, asociarse.js, admin-table.js…
-│   └── img/                     # logo and static images
+│   ├── css/                     # unified.css, area.css, asociarse.css, admin-compact.css…
+│   └── js/                      # unified.js, area.js, asociarse.js, admin-table.js…
 ├── tests/                       # PHPUnit tests for the pure-logic classes
 ├── composer.json                # Dev dependencies (PHPUnit); no runtime deps
 ├── phpunit.xml                  # Test suite configuration
@@ -85,22 +80,23 @@ content and secrets strictly separated.
 
 ## 🤝 Community Support
 
-This is a purpose-built plugin for **ANPA As Brañas (CEP Ventín, Ames)**. Issues and
-suggestions are welcome via the repository's issue tracker. For association matters,
-contact the *xunta directiva* at the email configured in the plugin.
+This plugin is built to be reused by **any parents' association (ANPA/AMPA)**. Every
+association-specific value — name, contact email, address, membership fee — is
+configured from *ANPA Socios → Axustes*; nothing is hardcoded. Issues and suggestions
+are welcome via the repository's issue tracker.
 
 ## 🙌 Shout Outs
 
 - [YahnisElsts/plugin-update-checker](https://github.com/YahnisElsts/plugin-update-checker)
   — the mature library powering self-hosted updates.
 - The WordPress **Settings API** and coding standards.
-- Built for and with the families of **ANPA As Brañas**.
+- Built for and with volunteer-run parents' associations.
 
 ## 🔌 Canonical Plugin
 
-`anpa-socios` is the **canonical member-management plugin** for the ANPA Ventín site.
-It absorbs the former `anpa-verificacion` (email verification) module and supersedes the
-`anpa-manager` prototype. The design-system and social-auto plugins remain separate.
+`anpa-socios` is a self-contained **member-management plugin**. It includes the
+email-verification module (formerly the standalone `anpa-verificacion` plugin) built in,
+so no companion plugin is required.
 
 ## 🛠 Privacy & Telemetry
 
@@ -114,4 +110,4 @@ It absorbs the former `anpa-verificacion` (email verification) module and supers
 
 ---
 
-<p align="center"><sub>Made for families, by families · ANPA As Brañas — CEP Ventín, Ames</sub></p>
+<p align="center"><sub>Made for families, by families · for any ANPA/AMPA</sub></p>

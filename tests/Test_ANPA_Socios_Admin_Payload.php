@@ -64,7 +64,7 @@ class Test_ANPA_Socios_Admin_Payload extends TestCase {
 	public function test_validar_empresa_ok(): void {
 		$result = ANPA_Socios_Admin_Payload::validar_empresa( array(
 			'nome'         => 'Escola de Teatro',
-			'email'        => 'teatro@anpaventin.es',
+			'email'        => 'teatro@example.org',
 			'responsable'  => 'Ana López',
 			'telefono'     => '666111222',
 			'url_web'      => 'https://teatro.example.com',
@@ -77,7 +77,7 @@ class Test_ANPA_Socios_Admin_Payload extends TestCase {
 	public function test_validar_empresa_url_web_optional(): void {
 		$result = ANPA_Socios_Admin_Payload::validar_empresa( array(
 			'nome'         => 'Escola de Teatro',
-			'email'        => 'teatro@anpaventin.es',
+			'email'        => 'teatro@example.org',
 			'responsable'  => 'Ana López',
 			'telefono'     => '666111222',
 		) );
@@ -231,14 +231,14 @@ class Test_ANPA_Socios_Admin_Payload extends TestCase {
 
 	public function test_audit_row_returns_canonical_shape(): void {
 		$row = ANPA_Socios_Admin_Payload::audit_row(
-			'master@anpaventin.es',
+			'master@example.com',
 			'master',
 			'socio',
 			'42',
 			'update',
 			'2026-06-16T10:00:00Z'
 		);
-		$this->assertSame( 'master@anpaventin.es', $row['actor_email'] );
+		$this->assertSame( 'master@example.com', $row['actor_email'] );
 		$this->assertSame( 'master', $row['actor_tipo'] );
 		$this->assertSame( 'socio', $row['target_tipo'] );
 		$this->assertSame( '42', $row['target_id'] );

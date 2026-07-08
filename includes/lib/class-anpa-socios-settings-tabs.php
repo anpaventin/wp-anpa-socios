@@ -27,6 +27,7 @@ final class ANPA_Socios_Settings_Tabs {
 	 */
 	const TABS = array(
 		'xeral'          => 'Xeral',
+		'localizacion'   => 'Localización e idioma',
 		'verificacion'   => 'Verificación',
 		'actualizacions' => 'Actualizacións',
 		'mantemento'     => 'Copias & Mantemento',

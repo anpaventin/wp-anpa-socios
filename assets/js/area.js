@@ -1108,31 +1108,9 @@
 		});
 
 		// ── Banking / Modificación IBAN (fase 1.20.0) ──────────────────
-		var _bankingReferenciasLoaded = false;
-
-		async function loadBankingReferencias() {
-			if (_bankingReferenciasLoaded) { return; }
-			var url = root.dataset.referenciasUrl;
-			if (!url) { return; }
-			try {
-				var resp = await fetch(url);
-				var data = await resp.json();
-				if (data && data.provincias) {
-					var provSelect = root.querySelector('#anpa-bank-provincia');
-					if (provSelect) {
-						provSelect.innerHTML = '<option value="">-- Selecciona provincia --</option>';
-						data.provincias.forEach(function(p) {
-							var opt = document.createElement('option');
-							opt.value = p;
-							opt.textContent = p;
-							provSelect.appendChild(opt);
-						});
-						provSelect.value = (data.defaults && data.defaults.provincia) || '';
-					}
-				}
-				_bankingReferenciasLoaded = true;
-			} catch (_) {}
-		}
+		// Provincia/Poboación are free-text inputs (generic: no municipality
+		// dataset, no server round-trip). No-op kept so callers don't change.
+		async function loadBankingReferencias() {}
 
 		bind('[data-action="toggle-banking"]', 'click', async () => {
 			showMessage(root, '', 'info');
@@ -1158,6 +1136,8 @@
 				setVal('anpa-bank-titular-nif', banking.titular_nif_mask);
 				setVal('anpa-bank-entidade', banking.entidade_bancaria);
 				setVal('anpa-bank-enderezo', banking.enderezo);
+				setVal('anpa-bank-provincia', banking.provincia);
+				setVal('anpa-bank-poboacion', banking.poboacion);
 				setVal('anpa-bank-cp', banking.codigo_postal);
 				setVal('anpa-bank-lugar-data', banking.lugar_data);
 
@@ -1173,34 +1153,6 @@
 			}
 		});
 
-		// Provincia change → load concellos
-		root.addEventListener('change', function(ev) {
-			var target = ev.target;
-			if (target && target.id === 'anpa-bank-provincia') {
-				var provincia = target.value;
-				var pobSelect = root.querySelector('#anpa-bank-poboacion');
-				if (!pobSelect) { return; }
-				var url = root.dataset.referenciasUrl;
-				if (!url || !provincia) {
-					pobSelect.innerHTML = '<option value="">-- Selecciona provincia --</option>';
-					return;
-				}
-				fetch(url).then(function(resp) { return resp.json(); }).then(function(data) {
-					pobSelect.innerHTML = '<option value="">-- Selecciona --</option>';
-					if (data && data.concellos && data.concellos[provincia]) {
-						var defaultPob = (data.defaults && data.defaults.poboacion) || '';
-						data.concellos[provincia].forEach(function(c) {
-							var opt = document.createElement('option');
-							opt.value = c;
-							opt.textContent = c;
-							if (c === defaultPob) { opt.selected = true; }
-							pobSelect.appendChild(opt);
-						});
-					}
-				}).catch(function() {});
-			}
-		});
-
 		bind('[data-action="save-banking"]', 'click', async () => {
 			showMessage(root, '', 'info');
 			if (!areaToken) {
@@ -1210,10 +1162,6 @@
 			}
 
 			var q = function(id) { return (root.querySelector('#' + id) || {}).value || ''; };
-			var s = function(id) {
-				var el = root.querySelector('#' + id);
-				return el ? (el.options[el.selectedIndex] ? el.options[el.selectedIndex].value : '') : '';
-			};
 
 			var payload = {
 				titular_nome: q('anpa-bank-titular-nome'),
@@ -1222,8 +1170,8 @@
 				iban: q('anpa-bank-iban'),
 				entidade_bancaria: q('anpa-bank-entidade'),
 				enderezo: q('anpa-bank-enderezo'),
-				provincia: s('anpa-bank-provincia'),
-				poboacion: s('anpa-bank-poboacion'),
+				provincia: q('anpa-bank-provincia'),
+				poboacion: q('anpa-bank-poboacion'),
 				codigo_postal: q('anpa-bank-cp'),
 				autorizacion: !!(root.querySelector('#anpa-bank-autorizacion') || {}).checked,
 			};

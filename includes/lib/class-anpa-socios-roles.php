@@ -18,17 +18,18 @@ declare(strict_types=1);
 final class ANPA_Socios_Roles {
 
 	/**
-	 * Email of the master (directiva) socio.
+	 * Generic placeholder for the master (directiva) admin email.
 	 *
-	 * Used by permission callbacks that require admin access. The constant
-	 * is duplicated here as a fallback so the helper is testable without
-	 * WordPress; the runtime value in production is the same string
-	 * (see `ANPA_Socios_Roles::master_email()`).
+	 * This is only the LAST-RESORT fallback. The real master email is set per
+	 * installation via the ANPA_SOCIOS_MASTER_EMAIL wp-config constant or the
+	 * `anpa_socios_master_email` option (see ANPA_Socios_Config::master_email()).
+	 * A neutral placeholder keeps the published plugin free of any single
+	 * association's data so any ANPA/AMPA can use it.
 	 *
 	 * @since 1.2.0
 	 * @var string
 	 */
-	const MASTER_EMAIL = 'xunta.directiva@anpaventin.es';
+	const MASTER_EMAIL = 'admin@example.com';
 
 	/**
 	 * Allowed socio roles.

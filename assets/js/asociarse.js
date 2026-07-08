@@ -426,8 +426,8 @@
 		const form = formEl;
 		const errEl = form.querySelector('[data-anpasocio-error]');
 
-		// Read anpa-socios URLs once at init time.
-		const crearSocioUrl = form.dataset.anpasocioUrl;
+		// Read anpa-socios URLs once at init time. The full alta submits to
+		// altaUrl (/alta), which validates the whole payload before inserting.
 		const altaUrl = form.dataset.anpasocioAltaUrl;
 		const solicitarCodigoUrl = form.dataset.anpasocioRequestUrl;
 		const preflightUrl = form.dataset.anpasocioPreflightUrl;
@@ -508,6 +508,7 @@
 			const data = document.createElement('input');
 			data.type = 'date';
 			data.dataset.f = 'data_nacemento';
+			data.title = 'Data de nacemento';
 
 			const curso = document.createElement('select');
 			curso.dataset.f = 'curso';
@@ -559,7 +560,27 @@
 				ensureTrailingEmptyRow();
 			});
 
-			[nome, apelidos, data, curso, aula, consentLabel, save, edit, remove].forEach((el) => row.appendChild(el));
+			// Each field gets a visible caption so the boxes are never unlabelled.
+			var field = function (caption, control) {
+				var wrap = document.createElement('label');
+				wrap.className = 'anpa-fillo-field';
+				var cap = document.createElement('span');
+				cap.className = 'anpa-fillo-field-label';
+				cap.textContent = caption;
+				control.title = caption;
+				wrap.appendChild(cap);
+				wrap.appendChild(control);
+				return wrap;
+			};
+
+			[
+				field('Nome', nome),
+				field('Apelidos', apelidos),
+				field('Data de nacemento', data),
+				field('Curso', curso),
+				field('Grupo', aula),
+			].forEach((el) => row.appendChild(el));
+			[consentLabel, save, edit, remove].forEach((el) => row.appendChild(el));
 			return row;
 		}
 
@@ -635,10 +656,6 @@
 
 		function readSepa() {
 			const q = (sel) => (form.querySelector(sel) || {}).value || '';
-			const s = (sel) => {
-				var el = form.querySelector(sel);
-				return el ? el.options[el.selectedIndex] ? el.options[el.selectedIndex].value : '' : '';
-			};
 			const iban = q('#anpa-sepa-iban').trim();
 			const titularNome = q('#anpa-sepa-titular-nome').trim();
 			const titularNif = q('#anpa-sepa-nif').trim();
@@ -651,8 +668,8 @@
 				titular_apelidos: q('#anpa-sepa-titular-apelidos').trim(),
 				titular_nif: titularNif,
 				enderezo: q('#anpa-sepa-enderezo').trim(),
-				provincia: s('#anpa-sepa-provincia'),
-				poboacion: s('#anpa-sepa-poboacion'),
+				provincia: q('#anpa-sepa-provincia').trim(),
+				poboacion: q('#anpa-sepa-poboacion').trim(),
 				codigo_postal: q('#anpa-sepa-cp').trim(),
 				entidade_bancaria: q('#anpa-sepa-entidade').trim(),
 				lugar_data: q('#anpa-sepa-lugar').trim(),
@@ -687,73 +704,25 @@
 			}
 		}
 
-		// ── Referencias (provincias + concellos) ─────────────────────────
+		// ── Address helpers ──────────────────────────────────────────────
+		// Provincia/Poboación are free-text inputs (generic: no municipality
+		// dataset, no server round-trip). We only keep the read-only
+		// "lugar e data" SEPA field in sync with the entered town + today.
 
-		var _referenciasLoaded = false;
-
-		async function loadReferencias() {
-			if (_referenciasLoaded || !referenciasUrl) { return; }
-			try {
-				var resp = await fetch(referenciasUrl);
-				var data = await resp.json();
-				if (data && data.provincias) {
-					var provSelect = form.querySelector('#anpa-sepa-provincia');
-					provSelect.innerHTML = '<option value="">-- Selecciona provincia --</option>';
-					data.provincias.forEach(function(p) {
-						var opt = document.createElement('option');
-						opt.value = p;
-						opt.textContent = p;
-						provSelect.appendChild(opt);
-					});
-					// Default: A Coruña
-					provSelect.value = 'A Coruña';
-					provSelect.dispatchEvent(new Event('change'));
-				}
-				_referenciasLoaded = true;
-			} catch (_) {
-				// Silently fail — dropdowns stay with loading text
-			}
+		function loadReferencias() {
+			autoFillLugarData();
 		}
 
-		// Provincia change → load municipalities
-		var provSelect = form.querySelector('#anpa-sepa-provincia');
-		if (provSelect) {
-			provSelect.addEventListener('change', async function() {
-				var pobSelect = form.querySelector('#anpa-sepa-poboacion');
-				if (!pobSelect) return;
-				var provincia = this.value;
-				if (!provincia) {
-					pobSelect.innerHTML = '<option value="">-- Selecciona provincia --</option>';
-					return;
-				}
-				try {
-					var resp = await fetch(referenciasUrl);
-					var data = await resp.json();
-					pobSelect.innerHTML = '<option value="">-- Selecciona --</option>';
-					if (data && data.concellos && data.concellos[provincia]) {
-						data.concellos[provincia].forEach(function(c) {
-							var opt = document.createElement('option');
-							opt.value = c;
-							opt.textContent = c;
-							if (c === 'Ames' && provincia === 'A Coruña') { opt.selected = true; }
-							pobSelect.appendChild(opt);
-						});
-					}
-				} catch (_) {}
-				autoFillLugarData();
-			});
-		}
-
-		var pobSelect = form.querySelector('#anpa-sepa-poboacion');
-		if (pobSelect) {
-			pobSelect.addEventListener('change', autoFillLugarData);
+		var pobInput = form.querySelector('#anpa-sepa-poboacion');
+		if (pobInput) {
+			pobInput.addEventListener('input', autoFillLugarData);
 		}
 
 		function autoFillLugarData() {
 			var lugarEl = form.querySelector('#anpa-sepa-lugar');
 			if (!lugarEl) return;
 			var pobEl = form.querySelector('#anpa-sepa-poboacion');
-			var lugar = pobEl ? pobEl.options[pobEl.selectedIndex] ? pobEl.options[pobEl.selectedIndex].text : '' : '';
+			var lugar = pobEl ? (pobEl.value || '').trim() : '';
 			var today = new Date();
 			var dd = String(today.getDate()).padStart(2, '0');
 			var mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -764,15 +733,30 @@
 		// State machine.
 		let state = { email: null, token: null };
 
-		// Pre-fill email from URL (T5: unified flow redirects here)
-		try {
-			var params = new URLSearchParams(window.location.search);
-			var prefilled = params.get('email');
-			if (prefilled) {
-				var emailInput = form.querySelector('#anpa-email');
-				if (emailInput) { emailInput.value = prefilled; }
-			}
-		} catch (_) {}
+		// Entry point. Two ways in:
+		//  (1) Driven by the unified /socios/ flow: `options` carries an
+		//      ALREADY-verified token + email. Jump straight to the datos form
+		//      (no email/code steps) — one single page, no fragile redirect.
+		//  (2) Standalone (legacy): prefill the email from the URL, if present.
+		if (options && options.token && options.email) {
+			state.email = options.email;
+			state.token = options.token;
+			var em = form.querySelector('#anpa-email');
+			if (em) { em.value = options.email; }
+			showStep(form, 'datos');
+			loadReferencias();
+			autoCopyTitular();
+			autoFillLugarData();
+		} else {
+			try {
+				var params = new URLSearchParams(window.location.search);
+				var prefilled = params.get('email');
+				if (prefilled) {
+					var emailInput = form.querySelector('#anpa-email');
+					if (emailInput) { emailInput.value = prefilled; }
+				}
+			} catch (_) {}
+		}
 
 		// ── email step ──
 		form.querySelector('[data-step="email"] button')
@@ -916,7 +900,13 @@
 
 		// ── DOMContentLoaded ──────────────────────────────────
 		document.addEventListener('DOMContentLoaded', function () {
-			initAsociarseForm(document.getElementById('anpa-asociarse'));
+			var el = document.getElementById('anpa-asociarse');
+			// On the unified /socios/ page the form is embedded but driven by
+			// unified.js (which calls AnpaAlta.initAltaForm with a verified
+			// token). Don't self-init there, or we'd reset it to the email step.
+			if (el && !document.getElementById('anpa-unified')) {
+				initAsociarseForm(el);
+			}
 		});
 
 		// ── Public API for unified flow (T5) ──────────────────

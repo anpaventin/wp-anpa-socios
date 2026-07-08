@@ -271,10 +271,10 @@ class ANPA_Socios_Area_Page {
 				<input id="anpa-bank-enderezo" type="text" required>
 				<span class="anpa-field-error" data-error="enderezo" hidden></span>
 				<label for="anpa-bank-provincia">Provincia</label>
-				<select id="anpa-bank-provincia" required></select>
+				<input id="anpa-bank-provincia" type="text" autocomplete="address-level1" required value="<?php echo esc_attr( ANPA_Socios_Config::default_province() ); ?>">
 				<span class="anpa-field-error" data-error="provincia" hidden></span>
 				<label for="anpa-bank-poboacion">Poboación</label>
-				<select id="anpa-bank-poboacion" required></select>
+				<input id="anpa-bank-poboacion" type="text" autocomplete="address-level2" required value="<?php echo esc_attr( ANPA_Socios_Config::default_town() ); ?>">
 				<span class="anpa-field-error" data-error="poboacion" hidden></span>
 				<label for="anpa-bank-cp">Código postal</label>
 				<input id="anpa-bank-cp" type="text" inputmode="numeric" maxlength="5" required>

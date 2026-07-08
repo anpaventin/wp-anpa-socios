@@ -1,19 +1,16 @@
 <?php
 /**
- * Self-hosted update integration (fase13c).
+ * Self-hosted update integration.
  *
- * anpa-socios is distributed from a public Gitea repo (nando/wp-anpa-socios).
- * Gitea is NOT a VCS provider supported by plugin-update-checker (which only
- * knows GitHub/GitLab/BitBucket), so we use PUC's host-agnostic *self-hosted
- * metadata* mode: the plugin fetches a plain `details.json` and that JSON's
- * `download_url` points at the release asset ZIP.
+ * anpa-socios is distributed from a PUBLIC GitHub repo
+ * (anpaventin/wp-anpa-socios). GitHub is not a VCS provider natively wired
+ * into plugin-update-checker's simple mode here, so we use PUC's host-agnostic
+ * *self-hosted metadata* mode: the plugin fetches a plain `details.json` (raw
+ * from the repo) and that JSON's `download_url` points at the release asset ZIP.
  *
- * AUTH: the Gitea instance has "require sign-in to view" enabled, so anonymous
- * GETs are rejected even on public repos. Therefore the update check AND the
- * package download must send an `Authorization: token <...>` header. The token
- * is NEVER hardcoded here: it is read from the ANPA_SOCIOS_GITEA_TOKEN constant
- * defined in wp-config.php (a read-only token). If the instance is later made
- * anonymously readable, remove the constant and everything keeps working.
+ * The repo is public, so no authentication token is required. The metadata URL
+ * can still be overridden per install via the ANPA_SOCIOS_UPDATE_URL constant
+ * in wp-config.php (e.g. to point at a fork or mirror).
  *
  * @since  1.24.0
  * @package ANPA_Socios
@@ -31,7 +28,14 @@ final class ANPA_Socios_Updater {
 	 *
 	 * @var string
 	 */
-	const METADATA_URL = 'https://gitea.casabetty.mywire.org/nando/wp-anpa-socios/raw/branch/main/details.json';
+	const METADATA_URL = 'https://raw.githubusercontent.com/anpaventin/wp-anpa-socios/main/details.json';
+
+	/**
+	 * Public repository URL (for the admin "update source" link).
+	 *
+	 * @var string
+	 */
+	const REPO_URL = 'https://github.com/anpaventin/wp-anpa-socios';
 
 	/**
 	 * Plugin folder slug (must match the installed directory name).
@@ -39,13 +43,6 @@ final class ANPA_Socios_Updater {
 	 * @var string
 	 */
 	const SLUG = 'anpa-socios';
-
-	/**
-	 * Host that update/download requests get the auth header injected for.
-	 *
-	 * @var string
-	 */
-	private static $auth_host = '';
 
 	/**
 	 * Builds the update checker. Safe to call once during bootstrap.
@@ -71,65 +68,6 @@ final class ANPA_Socios_Updater {
 			? (string) ANPA_SOCIOS_UPDATE_URL
 			: self::METADATA_URL;
 
-		// If a token is configured, inject it as an Authorization header for
-		// every request to the Gitea host — this covers BOTH the details.json
-		// fetch (PUC via wp_remote_get) and the package ZIP download (WP core).
-		$token = self::token();
-		if ( '' !== $token ) {
-			$host = wp_parse_url( $url, PHP_URL_HOST );
-			if ( is_string( $host ) && '' !== $host ) {
-				self::$auth_host = strtolower( $host );
-				add_filter( 'http_request_args', array( __CLASS__, 'add_auth_header' ), 10, 2 );
-			}
-		}
-
-		$checker = call_user_func( array( $factory, 'buildUpdateChecker' ), $url, ANPA_SOCIOS_PLUGIN_FILE, self::SLUG );
-
-		// Also set PUC's own auth (used by VCS providers; harmless for self-hosted).
-		if ( '' !== $token && is_object( $checker ) && method_exists( $checker, 'setAuthentication' ) ) {
-			$checker->setAuthentication( $token );
-		}
-	}
-
-	/**
-	 * Resolves the optional read token from wp-config (never hardcoded).
-	 *
-	 * @return string Empty string when no token is configured.
-	 */
-	private static function token(): string {
-		if ( defined( 'ANPA_SOCIOS_GITEA_TOKEN' ) && ANPA_SOCIOS_GITEA_TOKEN ) {
-			return (string) ANPA_SOCIOS_GITEA_TOKEN;
-		}
-
-		return '';
-	}
-
-	/**
-	 * http_request_args filter: adds the Gitea token to requests aimed at the
-	 * configured Gitea host only. Scoped by host so no credentials leak to any
-	 * other endpoint.
-	 *
-	 * @param  array<string,mixed> $args HTTP request args.
-	 * @param  string              $url  Request URL.
-	 * @return array<string,mixed>
-	 */
-	public static function add_auth_header( $args, $url ) {
-		if ( '' === self::$auth_host ) {
-			return $args;
-		}
-		$host = wp_parse_url( (string) $url, PHP_URL_HOST );
-		if ( ! is_string( $host ) || strtolower( $host ) !== self::$auth_host ) {
-			return $args;
-		}
-		$token = self::token();
-		if ( '' === $token ) {
-			return $args;
-		}
-		if ( empty( $args['headers'] ) || ! is_array( $args['headers'] ) ) {
-			$args['headers'] = array();
-		}
-		$args['headers']['Authorization'] = 'token ' . $token;
-
-		return $args;
+		call_user_func( array( $factory, 'buildUpdateChecker' ), $url, ANPA_SOCIOS_PLUGIN_FILE, self::SLUG );
 	}
 }

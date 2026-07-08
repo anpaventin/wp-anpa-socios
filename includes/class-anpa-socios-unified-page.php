@@ -37,6 +37,11 @@ class ANPA_Socios_Unified_Page {
 	public static function render( $atts ): string {
 		$preflight_url        = rest_url( 'anpa-socios/v1/area/preflight' );
 		$solicitar_codigo_url = rest_url( 'anpa/v1/solicitar-codigo' );
+		// Alta (new member) code endpoint: issues a code to ANY valid email.
+		// The login endpoint above (anpa/v1/solicitar-codigo) only sends codes
+		// to already-registered active socios, so the alta branch MUST use this
+		// one — otherwise a new applicant never receives a code.
+		$solicitar_codigo_alta_url = rest_url( 'anpa-socios/v1/solicitar-codigo-alta' );
 		$verificar_codigo_url = rest_url( 'anpa/v1/verificar-codigo' );
 		$session_url          = rest_url( 'anpa-socios/v1/area/session' );
 		$session_status_url   = rest_url( 'anpa-socios/v1/area/session-status' );
@@ -79,6 +84,7 @@ class ANPA_Socios_Unified_Page {
 		<div id="anpa-unified"
 			data-preflight-url="<?php echo esc_attr( $preflight_url ); ?>"
 			data-request-code-url="<?php echo esc_attr( $solicitar_codigo_url ); ?>"
+			data-request-code-alta-url="<?php echo esc_attr( $solicitar_codigo_alta_url ); ?>"
 			data-verify-code-url="<?php echo esc_attr( $verificar_codigo_url ); ?>"
 			data-session-url="<?php echo esc_attr( $session_url ); ?>"
 			data-session-status-url="<?php echo esc_attr( $session_status_url ); ?>"
@@ -116,7 +122,7 @@ class ANPA_Socios_Unified_Page {
 
 			<!-- STEP: alta -- email input for new members -->
 			<div data-step="alta" hidden>
-				<h2>Acceder ó Área de socios/as da ANPA As Brañas</h2>
+				<h2>Acceder ó Área de socios/as da <?php echo esc_html( ANPA_Socios_Config::association_name() ); ?></h2>
 				<p>O formulario de alta require cubrir todos os campos obrigatorios e aceptar a política de privacidade. Recibirás un código de verificación no teu correo para confirmar a identidade.</p>
 				<label for="anpa-unified-email">Email</label>
 				<input id="anpa-unified-email" type="email" autocomplete="email" required>
@@ -175,6 +181,16 @@ class ANPA_Socios_Unified_Page {
 				</div>
 			</div>
 		</div>
+
+		<!-- Embedded alta form. Hidden until the alta flow verifies the code;
+		     unified.js then reveals it and calls AnpaAlta.initAltaForm() with
+		     the verified token, so the whole alta happens on this one page. -->
+		<div id="anpa-alta-form-host" hidden>
+			<?php
+			// render_alta_form() returns pre-built, escaped markup.
+			echo ANPA_Socios_Socios_Page::render_alta_form(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			?>
+		</div>
 		<?php
 		return (string) ob_get_clean();
 	}
@@ -213,6 +229,27 @@ class ANPA_Socios_Unified_Page {
 			plugins_url( 'assets/css/unified.css', ANPA_SOCIOS_PLUGIN_FILE ),
 			array(),
 			$css_version
+		);
+
+		// The embedded alta form is driven by asociarse.js (window.AnpaAlta)
+		// and styled by asociarse.css, so both must load on the unified page.
+		$alta_js_path  = ANPA_SOCIOS_PLUGIN_DIR . 'assets/js/asociarse.js';
+		$alta_css_path = ANPA_SOCIOS_PLUGIN_DIR . 'assets/css/asociarse.css';
+		$alta_js_ver   = file_exists( $alta_js_path ) ? (int) filemtime( $alta_js_path ) : ANPA_SOCIOS_VERSION;
+		$alta_css_ver  = file_exists( $alta_css_path ) ? (int) filemtime( $alta_css_path ) : ANPA_SOCIOS_VERSION;
+
+		wp_enqueue_script(
+			'anpa-socios-asociarse',
+			plugins_url( 'assets/js/asociarse.js', ANPA_SOCIOS_PLUGIN_FILE ),
+			array(),
+			$alta_js_ver,
+			true
+		);
+		wp_enqueue_style(
+			'anpa-socios-asociarse',
+			plugins_url( 'assets/css/asociarse.css', ANPA_SOCIOS_PLUGIN_FILE ),
+			array(),
+			$alta_css_ver
 		);
 	}
 }

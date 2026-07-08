@@ -73,13 +73,15 @@ final class ANPA_Socios_Hub_Page {
 	public static function render( $atts ): string {
 		$area_url = self::find_page_url( 'anpa_socios_area' );
 		$alta_url = self::find_page_url( 'anpa_socios_asociarse' );
+		$assoc    = esc_html( ANPA_Socios_Config::association_name() );
+		$fee      = esc_html( ANPA_Socios_Config::membership_fee() );
 
 		ob_start();
 		?>
 		<div class="anpa-hub">
 			<div class="anpa-hub-card anpa-hub-alta">
 				<h3>Facerme socio/a</h3>
-				<p>Dáte de alta na ANPA As Brañas. A cota é de 15 € por familia e curso.</p>
+				<p>Dáte de alta na <?php echo $assoc; ?>. A cota é de <?php echo $fee; ?> € por familia e curso.</p>
 				<?php if ( '' !== $alta_url ) : ?>
 					<a class="anpa-hub-btn" href="<?php echo esc_url( $alta_url ); ?>">Asociarme</a>
 				<?php endif; ?>
