@@ -423,9 +423,42 @@ final class ANPA_Socios_Admin_Settings {
 	 * @return void
 	 */
 	private static function render_tab_cursos(): void {
+		global $wpdb;
 		$post_url = esc_url( admin_url( 'admin-post.php' ) );
-		$season   = ANPA_Socios_Season_Service::current_course_row();
+		$self_url = esc_url( admin_url( 'admin.php' ) );
 		$aula_max = ANPA_Socios_Config::aula_max();
+		$cursos_t = ANPA_Socios_DB::tabela_cursos();
+
+		// All stored courses (current + past + any future already created).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only course list for the selector.
+		$rows = $wpdb->get_results( "SELECT curso_escolar, estado, data_inicio, data_peche FROM {$cursos_t}", ARRAY_A );
+		$known = array();
+		foreach ( (array) $rows as $r ) {
+			if ( ANPA_Socios_Curso_Escolar::is_valid( (string) $r['curso_escolar'] ) ) {
+				$known[ (string) $r['curso_escolar'] ] = $r;
+			}
+		}
+		// Always offer the date-based current course and the following one, so a
+		// new course can be created/activated with no code changes.
+		$current = ANPA_Socios_Curso_Escolar::current();
+		$next    = ANPA_Socios_Curso_Escolar::next( $current );
+		foreach ( array( $current, $next ) as $c ) {
+			if ( ! array_key_exists( $c, $known ) ) { $known[ $c ] = null; }
+		}
+		krsort( $known ); // newest first.
+
+		// Selected course: ?curso= if valid & offered, else the date-based current.
+		$sel = isset( $_GET['curso'] ) ? sanitize_text_field( wp_unslash( $_GET['curso'] ) ) : '';
+		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $sel ) || ! array_key_exists( $sel, $known ) ) {
+			$sel = array_key_exists( $current, $known ) ? $current : (string) array_key_first( $known );
+		}
+
+		// Selected course fields (stored row or computed defaults for a new one).
+		$srow = is_array( $known[ $sel ] ) ? $known[ $sel ] : array(
+			'estado'      => ANPA_Socios_Season::estado_for( date( 'Y-m-d' ), ANPA_Socios_Season::default_data_inicio( $sel ), ANPA_Socios_Season::default_data_peche( $sel ) ),
+			'data_inicio' => ANPA_Socios_Season::default_data_inicio( $sel ),
+			'data_peche'  => ANPA_Socios_Season::default_data_peche( $sel ),
+		);
 
 		$estados = array(
 			ANPA_Socios_Season::ESTADO_PENDENTE => __( 'Pendente (pre-temporada)', 'anpa-socios' ),
@@ -434,32 +467,44 @@ final class ANPA_Socios_Admin_Settings {
 		);
 
 		echo '<h2>' . esc_html__( 'Curso escolar', 'anpa-socios' ) . '</h2>';
+
+		// --- Course selector (GET, auto-submits so the editor reloads) ---
+		echo '<form method="get" action="' . $self_url . '">';
+		echo '<input type="hidden" name="page" value="' . esc_attr( self::SETTINGS_SLUG ) . '">';
+		echo '<input type="hidden" name="tab" value="cursos">';
+		echo '<table class="form-table" role="presentation"><tbody>';
+		echo '<tr><th scope="row"><label for="cfg-curso-sel">' . esc_html__( 'Curso a xestionar', 'anpa-socios' ) . '</label></th><td>';
+		echo '<select name="curso" id="cfg-curso-sel" onchange="this.form.submit()">';
+		foreach ( array_keys( $known ) as $c ) {
+			$extra = is_array( $known[ $c ] ) ? '' : ' — ' . __( 'novo', 'anpa-socios' );
+			printf( '<option value="%1$s"%2$s>%1$s%3$s</option>', esc_attr( $c ), selected( $c, $sel, false ), esc_html( $extra ) );
+		}
+		echo '</select>';
+		echo '<p class="description">' . esc_html__( 'Escolle un curso existente (o actual e os pasados con datos) para editar o seu estado e datas. Os marcados como «novo» crearanse ao gardar.', 'anpa-socios' ) . '</p>';
+		echo '</td></tr></tbody></table></form>';
+
+		// --- Editor for the selected course (POST) ---
 		echo '<form method="post" action="' . $post_url . '">';
 		echo '<input type="hidden" name="action" value="anpa_socios_save_cursos">';
 		wp_nonce_field( 'anpa_socios_save_cursos' );
+		echo '<input type="hidden" name="curso_escolar" value="' . esc_attr( $sel ) . '">';
 		echo '<table class="form-table" role="presentation"><tbody>';
-
-		printf( '<tr><th scope="row"><label for="cfg-curso">%s</label></th><td><input name="curso_escolar" id="cfg-curso" type="text" value="%s" pattern="\d{4}/\d{4}" class="regular-text"><p class="description">%s</p></td></tr>', esc_html__( 'Curso escolar actual', 'anpa-socios' ), esc_attr( (string) $season['curso_escolar'] ), esc_html__( 'Formato AAAA/AAAA+1.', 'anpa-socios' ) );
+		printf( '<tr><th scope="row">%s</th><td><strong>%s</strong></td></tr>', esc_html__( 'Curso seleccionado', 'anpa-socios' ), esc_html( $sel ) );
 
 		echo '<tr><th scope="row"><label for="cfg-estado">' . esc_html__( 'Estado do curso', 'anpa-socios' ) . '</label></th><td><select name="estado" id="cfg-estado">';
 		foreach ( $estados as $val => $label ) {
-			printf( '<option value="%s"%s>%s</option>', esc_attr( $val ), selected( (string) $season['estado'], $val, false ), esc_html( $label ) );
+			printf( '<option value="%s"%s>%s</option>', esc_attr( $val ), selected( (string) $srow['estado'], $val, false ), esc_html( $label ) );
 		}
 		echo '</select></td></tr>';
-		printf( '<tr><th scope="row"><label for="cfg-inicio">%s</label></th><td><input name="data_inicio" id="cfg-inicio" type="date" value="%s"></td></tr>', esc_html__( 'Comeza (data_inicio)', 'anpa-socios' ), esc_attr( (string) $season['data_inicio'] ) );
-		printf( '<tr><th scope="row"><label for="cfg-peche">%s</label></th><td><input name="data_peche" id="cfg-peche" type="date" value="%s"></td></tr>', esc_html__( 'Pecha (data_peche)', 'anpa-socios' ), esc_attr( (string) $season['data_peche'] ) );
+		printf( '<tr><th scope="row"><label for="cfg-inicio">%s</label></th><td><input name="data_inicio" id="cfg-inicio" type="date" value="%s"></td></tr>', esc_html__( 'Comeza (data_inicio)', 'anpa-socios' ), esc_attr( (string) $srow['data_inicio'] ) );
+		printf( '<tr><th scope="row"><label for="cfg-peche">%s</label></th><td><input name="data_peche" id="cfg-peche" type="date" value="%s"></td></tr>', esc_html__( 'Pecha (data_peche)', 'anpa-socios' ), esc_attr( (string) $srow['data_peche'] ) );
 
-		// Máximo de liñas por curso (aula máxima). Constrains the classroom
-		// letters offered in the fillo forms; storage still accepts A-H.
+		// Máximo de liñas por curso (aula máxima). Global option; storage accepts A-H.
 		echo '<tr><th scope="row"><label for="cfg-aula-max">';
 		esc_html_e( 'Liñas por curso (aula máxima)', 'anpa-socios' );
 		echo '</label></th><td><select name="aula_max" id="cfg-aula-max">';
 		foreach ( range( 'A', 'H' ) as $letter ) {
-			printf(
-				'<option value="%1$s"%2$s>%1$s</option>',
-				esc_attr( $letter ),
-				selected( $letter, $aula_max, false )
-			);
+			printf( '<option value="%1$s"%2$s>%1$s</option>', esc_attr( $letter ), selected( $letter, $aula_max, false ) );
 		}
 		echo '</select><p class="description">';
 		esc_html_e( 'Letra máxima de aula ofrecida ao asignar un fillo/a a un curso (por exemplo A–D ou A–E).', 'anpa-socios' );
@@ -467,6 +512,22 @@ final class ANPA_Socios_Admin_Settings {
 
 		echo '</tbody></table>';
 		submit_button( __( 'Gardar curso', 'anpa-socios' ) );
+		echo '</form>';
+
+		// --- Create a brand-new course (any future year, no code changes) ---
+		echo '<h2>' . esc_html__( 'Crear novo curso', 'anpa-socios' ) . '</h2>';
+		echo '<form method="post" action="' . $post_url . '">';
+		echo '<input type="hidden" name="action" value="anpa_socios_save_cursos">';
+		wp_nonce_field( 'anpa_socios_save_cursos' );
+		echo '<table class="form-table" role="presentation"><tbody>';
+		printf(
+			'<tr><th scope="row"><label for="cfg-curso-novo">%s</label></th><td><input name="curso_nuevo" id="cfg-curso-novo" type="text" pattern="\d{4}/\d{4}" placeholder="%s" class="regular-text"><p class="description">%s</p></td></tr>',
+			esc_html__( 'Novo curso (AAAA/AAAA+1)', 'anpa-socios' ),
+			esc_attr( $next ),
+			esc_html__( 'Créase como «pendente» e queda seleccionado arriba para editar o seu estado e datas.', 'anpa-socios' )
+		);
+		echo '</tbody></table>';
+		submit_button( __( 'Crear curso', 'anpa-socios' ), 'secondary' );
 		echo '</form>';
 	}
 
@@ -725,6 +786,9 @@ final class ANPA_Socios_Admin_Settings {
 			.anpa-cfg .form-table input[type="date"],
 			.anpa-cfg .form-table select,
 			.anpa-cfg .form-table textarea { padding: .5em .7em; }
+			/* Selects keep the native dropdown arrow: leave room on the right so
+			   the chosen value (e.g. a single letter) is never hidden under it. */
+			.anpa-cfg .form-table select { padding-right: 2.2em; min-width: 5em; min-height: 2.4em; }
 			.anpa-cfg .description { color: #646970; margin-top: .5em; }
 			.anpa-cfg hr { margin: 2.6em 0 0; border: 0; border-top: 1px dashed #c3c4c7; }
 			.anpa-cfg form { margin: 0 0 .6em; }
@@ -807,10 +871,23 @@ final class ANPA_Socios_Admin_Settings {
 	public static function handle_save_cursos(): void {
 		self::guard( 'anpa_socios_save_cursos' );
 
+		$nuevo  = sanitize_text_field( (string) wp_unslash( $_POST['curso_nuevo'] ?? '' ) );
 		$curso  = sanitize_text_field( (string) wp_unslash( $_POST['curso_escolar'] ?? '' ) );
 		$estado = sanitize_text_field( (string) wp_unslash( $_POST['estado'] ?? '' ) );
 		$inicio = sanitize_text_field( (string) wp_unslash( $_POST['data_inicio'] ?? '' ) );
 		$peche  = sanitize_text_field( (string) wp_unslash( $_POST['data_peche'] ?? '' ) );
+
+		// Create-new path (from the "Crear novo curso" form) takes precedence:
+		// create it as pendente with default season dates and select it.
+		if ( ANPA_Socios_Curso_Escolar::is_valid( $nuevo ) ) {
+			self::upsert_course(
+				$nuevo,
+				ANPA_Socios_Season::default_data_inicio( $nuevo ),
+				ANPA_Socios_Season::default_data_peche( $nuevo ),
+				ANPA_Socios_Season::ESTADO_PENDENTE
+			);
+			self::redirect_cursos( $nuevo );
+		}
 
 		if ( ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
 			$valid = array( ANPA_Socios_Season::ESTADO_PENDENTE, ANPA_Socios_Season::ESTADO_ACTIVO, ANPA_Socios_Season::ESTADO_PECHADO );
@@ -830,7 +907,22 @@ final class ANPA_Socios_Admin_Settings {
 			update_option( ANPA_Socios_Config::OPTION_AULA_MAX, $aula_max );
 		}
 
-		self::redirect_msg( 'settings_saved' );
+		self::redirect_cursos( $curso );
+	}
+
+	/**
+	 * PRG redirect back to the Cursos tab keeping the selected course.
+	 *
+	 * @param  string $curso Selected course to keep in the URL.
+	 * @return void
+	 */
+	private static function redirect_cursos( string $curso ): void {
+		$args = array( 'page' => self::SETTINGS_SLUG, 'tab' => 'cursos', 'anpa_msg' => 'settings_saved' );
+		if ( ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
+			$args['curso'] = $curso;
+		}
+		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
+		exit;
 	}
 
 	/**
