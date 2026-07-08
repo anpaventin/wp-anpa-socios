@@ -53,7 +53,7 @@ final class ANPA_Socios_Alta_Payload {
 	 * - `parent2` is optional. If present (non-empty), it requires a valid
 	 *   email, nome + apelidos + nif; telefono optional (validated if present).
 	 * - `fillos` is an optional list; each item must pass validar_fillo
-	 *   (curso 1-6, grupo A-D, nome/apelidos/data) and carries image_consent.
+	 *   (curso 1-6, grupo A-H, nome/apelidos/data) and carries image_consent.
 	 *
 	 * @since  1.7.0
 	 * @param  array<string,mixed> $body Raw decoded JSON body.

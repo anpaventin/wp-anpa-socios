@@ -49,11 +49,12 @@ class ANPA_Socios_DB {
 	 * 1.18.0 adds course season lifecycle — estado + season dates on cursos.
 	 * 1.19.0 adds 'pendente_aprobacion' to the wp_anpa_socios estado enum for
 	 *        the optional new-socio approval workflow.
+	 * 1.20.0 widens fillos_cursos.aula enum to A-H for larger schools.
 	 *
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.19.0';
+	const DB_VERSION = '1.20.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -180,6 +181,9 @@ class ANPA_Socios_DB {
 
 		// 1.19.0: add 'pendente_aprobacion' to the socios estado enum.
 		self::migrate_to_1_19_0();
+
+		// 1.20.0: widen the fillos_cursos.aula enum to A-H for larger schools.
+		self::migrate_to_1_20_0();
 
 		// Ensure the configured master email holds the master role so the
 		// admin surface is reachable right after migration. Idempotent.
@@ -1081,6 +1085,32 @@ class ANPA_Socios_DB {
 		if ( '' !== $type && false === strpos( $type, 'pendente_aprobacion' ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded enum migration.
 			$wpdb->query( "ALTER TABLE {$socios} MODIFY COLUMN estado enum('activo','pendiente_alta','pendente_aprobacion','baixa') NOT NULL DEFAULT 'activo'" );
+		}
+	}
+
+	/**
+	 * Migration to 1.20.0: widen the fillos_cursos.aula enum to A-H so larger
+	 * schools can offer more than four lines ("aula") per course.
+	 *
+	 * Idempotent: guarded by inspecting the current enum definition — the
+	 * ALTER only runs when the Type string does not already include 'H'.
+	 * Keeps the column NOT NULL with no default (unchanged otherwise).
+	 *
+	 * @since  1.30.0
+	 * @return void
+	 */
+	private static function migrate_to_1_20_0(): void {
+		global $wpdb;
+
+		$fillos_cursos = self::tabela_fillos_cursos();
+		$col           = $wpdb->get_row(
+			$wpdb->prepare( "SHOW COLUMNS FROM {$fillos_cursos} LIKE %s", 'aula' ),
+			ARRAY_A
+		);
+		$type = is_array( $col ) ? (string) ( $col['Type'] ?? '' ) : '';
+		if ( '' !== $type && false === strpos( $type, "'H'" ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded enum migration.
+			$wpdb->query( "ALTER TABLE {$fillos_cursos} MODIFY COLUMN aula enum('A','B','C','D','E','F','G','H') NOT NULL" );
 		}
 	}
 

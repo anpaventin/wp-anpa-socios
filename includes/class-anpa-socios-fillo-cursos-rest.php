@@ -130,7 +130,7 @@ final class ANPA_Socios_Fillo_Cursos_REST {
 		if ( ! in_array( $curso, array( '1', '2', '3', '4', '5', '6' ), true ) ) {
 			return self::invalid_payload_error( 'curso inválido' );
 		}
-		if ( ! in_array( $aula, array( 'A', 'B', 'C', 'D' ), true ) ) {
+		if ( ! in_array( $aula, ANPA_Socios_Admin_Payload::GRUPO_VALIDOS, true ) ) {
 			return self::invalid_payload_error( 'aula inválida' );
 		}
 
@@ -204,7 +204,7 @@ final class ANPA_Socios_Fillo_Cursos_REST {
 		if ( ! in_array( $curso, array( '1', '2', '3', '4', '5', '6' ), true ) ) {
 			return self::invalid_payload_error( 'curso inválido' );
 		}
-		if ( ! in_array( $aula, array( 'A', 'B', 'C', 'D' ), true ) ) {
+		if ( ! in_array( $aula, ANPA_Socios_Admin_Payload::GRUPO_VALIDOS, true ) ) {
 			return self::invalid_payload_error( 'aula inválida' );
 		}
 

@@ -38,6 +38,7 @@ final class ANPA_Socios_Admin_Settings {
 		add_filter( 'plugin_action_links_' . plugin_basename( ANPA_SOCIOS_PLUGIN_FILE ), array( __CLASS__, 'action_links' ) );
 		add_action( 'admin_post_anpa_socios_save_settings', array( __CLASS__, 'handle_save_settings' ) );
 		add_action( 'admin_post_anpa_socios_save_location', array( __CLASS__, 'handle_save_location' ) );
+		add_action( 'admin_post_anpa_socios_save_cursos', array( __CLASS__, 'handle_save_cursos' ) );
 		add_action( 'admin_post_anpa_socios_set_admin_password', array( __CLASS__, 'handle_set_admin_password' ) );
 		add_action( 'admin_post_anpa_socios_run_season', array( __CLASS__, 'handle_run_season' ) );
 		add_action( 'admin_post_anpa_socios_check_updates', array( __CLASS__, 'handle_check_updates' ) );
@@ -330,6 +331,9 @@ final class ANPA_Socios_Admin_Settings {
 
 		echo '<div class="anpa-tab-panel">';
 		switch ( $active ) {
+			case 'cursos':
+				self::render_tab_cursos();
+				break;
 			case 'localizacion':
 				self::render_tab_localizacion();
 				break;
@@ -358,7 +362,6 @@ final class ANPA_Socios_Admin_Settings {
 	 */
 	private static function render_tab_xeral(): void {
 		$post_url = esc_url( admin_url( 'admin-post.php' ) );
-		$season   = ANPA_Socios_Season_Service::current_course_row();
 		$master   = ANPA_Socios_Config::master_email();
 		$has_pw    = ANPA_Socios_Master_Auth::admin_password_exists();
 
@@ -370,11 +373,6 @@ final class ANPA_Socios_Admin_Settings {
 		printf( '<tr><td><strong>%s</strong></td><td>%s</td></tr>', esc_html__( 'Email do equipo administrador', 'anpa-socios' ), esc_html( $master ) );
 		echo '</tbody></table>';
 
-		$estados = array(
-			ANPA_Socios_Season::ESTADO_PENDENTE => __( 'Pendente (pre-temporada)', 'anpa-socios' ),
-			ANPA_Socios_Season::ESTADO_ACTIVO   => __( 'Activo', 'anpa-socios' ),
-			ANPA_Socios_Season::ESTADO_PECHADO  => __( 'Pechado', 'anpa-socios' ),
-		);
 		echo '<h2>' . esc_html__( 'Configuración', 'anpa-socios' ) . '</h2>';
 		echo '<form method="post" action="' . $post_url . '">';
 		echo '<input type="hidden" name="action" value="anpa_socios_save_settings">';
@@ -391,16 +389,6 @@ final class ANPA_Socios_Admin_Settings {
 			'option_none_value' => 0,
 		) );
 		echo '<p class="description">' . esc_html__( 'Páxina que contén a área de socios.', 'anpa-socios' ) . '</p></td></tr>';
-
-		printf( '<tr><th scope="row"><label for="cfg-curso">%s</label></th><td><input name="curso_escolar" id="cfg-curso" type="text" value="%s" pattern="\d{4}/\d{4}" class="regular-text"></td></tr>', esc_html__( 'Curso escolar actual', 'anpa-socios' ), esc_attr( (string) $season['curso_escolar'] ) );
-
-		echo '<tr><th scope="row"><label for="cfg-estado">' . esc_html__( 'Estado do curso', 'anpa-socios' ) . '</label></th><td><select name="estado" id="cfg-estado">';
-		foreach ( $estados as $val => $label ) {
-			printf( '<option value="%s"%s>%s</option>', esc_attr( $val ), selected( (string) $season['estado'], $val, false ), esc_html( $label ) );
-		}
-		echo '</select></td></tr>';
-		printf( '<tr><th scope="row"><label for="cfg-inicio">%s</label></th><td><input name="data_inicio" id="cfg-inicio" type="date" value="%s"></td></tr>', esc_html__( 'Comeza (data_inicio)', 'anpa-socios' ), esc_attr( (string) $season['data_inicio'] ) );
-		printf( '<tr><th scope="row"><label for="cfg-peche">%s</label></th><td><input name="data_peche" id="cfg-peche" type="date" value="%s"></td></tr>', esc_html__( 'Pecha (data_peche)', 'anpa-socios' ), esc_attr( (string) $season['data_peche'] ) );
 
 		printf(
 			'<tr><th scope="row"><label for="cfg-assoc">%s</label></th><td><input name="association_name" id="cfg-assoc" type="text" class="regular-text" value="%s"><p class="description">%s</p></td></tr>',
@@ -423,6 +411,62 @@ final class ANPA_Socios_Admin_Settings {
 
 		echo '</tbody></table>';
 		submit_button( __( 'Gardar configuración', 'anpa-socios' ) );
+		echo '</form>';
+	}
+
+	/**
+	 * Tab "Cursos": course-season lifecycle (curso escolar, estado, season
+	 * dates) plus the max classroom letter offered when assigning fillos.
+	 * Saved via an isolated admin-post handler so a partial form never clears
+	 * other options.
+	 *
+	 * @return void
+	 */
+	private static function render_tab_cursos(): void {
+		$post_url = esc_url( admin_url( 'admin-post.php' ) );
+		$season   = ANPA_Socios_Season_Service::current_course_row();
+		$aula_max = ANPA_Socios_Config::aula_max();
+
+		$estados = array(
+			ANPA_Socios_Season::ESTADO_PENDENTE => __( 'Pendente (pre-temporada)', 'anpa-socios' ),
+			ANPA_Socios_Season::ESTADO_ACTIVO   => __( 'Activo', 'anpa-socios' ),
+			ANPA_Socios_Season::ESTADO_PECHADO  => __( 'Pechado', 'anpa-socios' ),
+		);
+
+		echo '<h2>' . esc_html__( 'Curso escolar', 'anpa-socios' ) . '</h2>';
+		echo '<form method="post" action="' . $post_url . '">';
+		echo '<input type="hidden" name="action" value="anpa_socios_save_cursos">';
+		wp_nonce_field( 'anpa_socios_save_cursos' );
+		echo '<table class="form-table" role="presentation"><tbody>';
+
+		printf( '<tr><th scope="row"><label for="cfg-curso">%s</label></th><td><input name="curso_escolar" id="cfg-curso" type="text" value="%s" pattern="\d{4}/\d{4}" class="regular-text"><p class="description">%s</p></td></tr>', esc_html__( 'Curso escolar actual', 'anpa-socios' ), esc_attr( (string) $season['curso_escolar'] ), esc_html__( 'Formato AAAA/AAAA+1.', 'anpa-socios' ) );
+
+		echo '<tr><th scope="row"><label for="cfg-estado">' . esc_html__( 'Estado do curso', 'anpa-socios' ) . '</label></th><td><select name="estado" id="cfg-estado">';
+		foreach ( $estados as $val => $label ) {
+			printf( '<option value="%s"%s>%s</option>', esc_attr( $val ), selected( (string) $season['estado'], $val, false ), esc_html( $label ) );
+		}
+		echo '</select></td></tr>';
+		printf( '<tr><th scope="row"><label for="cfg-inicio">%s</label></th><td><input name="data_inicio" id="cfg-inicio" type="date" value="%s"></td></tr>', esc_html__( 'Comeza (data_inicio)', 'anpa-socios' ), esc_attr( (string) $season['data_inicio'] ) );
+		printf( '<tr><th scope="row"><label for="cfg-peche">%s</label></th><td><input name="data_peche" id="cfg-peche" type="date" value="%s"></td></tr>', esc_html__( 'Pecha (data_peche)', 'anpa-socios' ), esc_attr( (string) $season['data_peche'] ) );
+
+		// Máximo de liñas por curso (aula máxima). Constrains the classroom
+		// letters offered in the fillo forms; storage still accepts A-H.
+		echo '<tr><th scope="row"><label for="cfg-aula-max">';
+		esc_html_e( 'Liñas por curso (aula máxima)', 'anpa-socios' );
+		echo '</label></th><td><select name="aula_max" id="cfg-aula-max">';
+		foreach ( range( 'A', 'H' ) as $letter ) {
+			printf(
+				'<option value="%1$s"%2$s>%1$s</option>',
+				esc_attr( $letter ),
+				selected( $letter, $aula_max, false )
+			);
+		}
+		echo '</select><p class="description">';
+		esc_html_e( 'Letra máxima de aula ofrecida ao asignar un fillo/a a un curso (por exemplo A–D ou A–E).', 'anpa-socios' );
+		echo '</p></td></tr>';
+
+		echo '</tbody></table>';
+		submit_button( __( 'Gardar curso', 'anpa-socios' ) );
 		echo '</form>';
 	}
 
@@ -455,6 +499,7 @@ final class ANPA_Socios_Admin_Settings {
 			'<tr><th scope="row"><label for="loc-town">Poboación (por defecto)</label></th><td><input name="default_town" id="loc-town" type="text" class="regular-text" value="%s"></td></tr>',
 			esc_attr( ANPA_Socios_Config::default_town() )
 		);
+
 		echo '</tbody></table>';
 		submit_button( __( 'Gardar localización', 'anpa-socios' ) );
 		echo '</form>';
@@ -735,10 +780,6 @@ final class ANPA_Socios_Admin_Settings {
 
 		$email   = sanitize_email( (string) wp_unslash( $_POST['master_email'] ?? '' ) );
 		$landing = (int) ( $_POST['landing_page_id'] ?? 0 );
-		$curso   = sanitize_text_field( (string) wp_unslash( $_POST['curso_escolar'] ?? '' ) );
-		$estado  = sanitize_text_field( (string) wp_unslash( $_POST['estado'] ?? '' ) );
-		$inicio  = sanitize_text_field( (string) wp_unslash( $_POST['data_inicio'] ?? '' ) );
-		$peche   = sanitize_text_field( (string) wp_unslash( $_POST['data_peche'] ?? '' ) );
 
 		if ( is_email( $email ) ) {
 			update_option( 'anpa_socios_master_email', strtolower( $email ) );
@@ -753,6 +794,24 @@ final class ANPA_Socios_Admin_Settings {
 		update_option( ANPA_Socios_Config::OPTION_SIGNATURE, sanitize_textarea_field( (string) wp_unslash( $_POST['email_signature'] ?? '' ) ) );
 		update_option( ANPA_Socios_Config::OPTION_APPROVAL, ! empty( $_POST['require_approval'] ) ? '1' : '0' );
 
+		self::redirect_msg( 'settings_saved' );
+	}
+
+	/**
+	 * admin-post: save the "Cursos" tab — course season (curso escolar, estado,
+	 * data_inicio, data_peche) and the max classroom letter. Isolated so a
+	 * partial form never clears other options.
+	 *
+	 * @return void
+	 */
+	public static function handle_save_cursos(): void {
+		self::guard( 'anpa_socios_save_cursos' );
+
+		$curso  = sanitize_text_field( (string) wp_unslash( $_POST['curso_escolar'] ?? '' ) );
+		$estado = sanitize_text_field( (string) wp_unslash( $_POST['estado'] ?? '' ) );
+		$inicio = sanitize_text_field( (string) wp_unslash( $_POST['data_inicio'] ?? '' ) );
+		$peche  = sanitize_text_field( (string) wp_unslash( $_POST['data_peche'] ?? '' ) );
+
 		if ( ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
 			$valid = array( ANPA_Socios_Season::ESTADO_PENDENTE, ANPA_Socios_Season::ESTADO_ACTIVO, ANPA_Socios_Season::ESTADO_PECHADO );
 			if ( ! in_array( $estado, $valid, true ) ) {
@@ -761,6 +820,14 @@ final class ANPA_Socios_Admin_Settings {
 			$inicio = self::valid_date( $inicio, ANPA_Socios_Season::default_data_inicio( $curso ) );
 			$peche  = self::valid_date( $peche, ANPA_Socios_Season::default_data_peche( $curso ) );
 			self::upsert_course( $curso, $inicio, $peche, $estado );
+		}
+
+		// Maximum classroom letter ("aula"): only persist a single letter A..H;
+		// anything else leaves the option unchanged so the getter falls back to
+		// the neutral default.
+		$aula_max = strtoupper( substr( sanitize_text_field( (string) wp_unslash( $_POST['aula_max'] ?? '' ) ), 0, 1 ) );
+		if ( 1 === strlen( $aula_max ) && $aula_max >= 'A' && $aula_max <= 'H' ) {
+			update_option( ANPA_Socios_Config::OPTION_AULA_MAX, $aula_max );
 		}
 
 		self::redirect_msg( 'settings_saved' );

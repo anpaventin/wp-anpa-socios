@@ -79,12 +79,16 @@ final class ANPA_Socios_Admin_Payload {
 	const CURSO_VALIDOS = array( '1', '2', '3', '4', '5', '6' );
 
 	/**
-	 * Valid grupo/aula values for fillos (A–D). Case-sensitive.
+	 * Valid grupo/aula values for fillos (A–H). Case-sensitive.
+	 *
+	 * Storage/validation accept the full A–H range so imported or edited
+	 * fillos in classrooms E..H validate; the admin UI constrains the
+	 * offered options to the configured maximum (ANPA_Socios_Config::aula_max).
 	 *
 	 * @since 1.5.0
 	 * @var string[]
 	 */
-	const GRUPO_VALIDOS = array( 'A', 'B', 'C', 'D' );
+	const GRUPO_VALIDOS = array( 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' );
 
 	/**
 	 * Allowed socio/fillo estado values written by the admin REST.
@@ -117,7 +121,7 @@ final class ANPA_Socios_Admin_Payload {
 	/**
 	 * Validates and returns a canonical fillo payload.
 	 *
-	 * Required fields: nome, apelidos, data_nacemento, curso, aula.
+	 * Required fields: nome, apelidos, data_nacemento, curso (1-6), aula (A-H).
 	 * Returns null on missing or invalid data.
 	 *
 	 * @since  1.2.0

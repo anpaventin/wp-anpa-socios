@@ -650,6 +650,30 @@
 		const filloFormTitleEl = root.querySelector('[data-fillos-form-title]');
 		const cancelEditBtn = root.querySelector('[data-action="cancel-fillo-edit"]');
 
+		// Build the aula (classroom) options from the config-provided list on the
+		// area root (data-aulas JSON). Falls back to A-D when absent. Storage still
+		// accepts A-H; this only bounds what the form offers.
+		(function buildAulaOptions() {
+			const aulaSel = root.querySelector('#anpa-fillo-aula');
+			if (!aulaSel) { return; }
+			let aulas = ['A', 'B', 'C', 'D'];
+			try {
+				const parsed = JSON.parse(root.getAttribute('data-aulas') || '');
+				if (Array.isArray(parsed) && parsed.length) { aulas = parsed; }
+			} catch (e) { /* keep fallback */ }
+			aulaSel.textContent = '';
+			const placeholder = document.createElement('option');
+			placeholder.value = '';
+			placeholder.textContent = '-- Selecciona --';
+			aulaSel.appendChild(placeholder);
+			aulas.forEach(function (v) {
+				const o = document.createElement('option');
+				o.value = v;
+				o.textContent = v;
+				aulaSel.appendChild(o);
+			});
+		})();
+
 		function readFilloForm() {
 			return {
 				nome: (root.querySelector('#anpa-fillo-nome').value || '').trim(),
