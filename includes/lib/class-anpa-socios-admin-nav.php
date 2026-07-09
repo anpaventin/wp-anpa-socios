@@ -1,0 +1,223 @@
+<?php
+/**
+ * Pure helper for the native admin navigation map (fase17a).
+ *
+ * Keeps the planned admin information architecture outside WordPress glue so
+ * tabs, subsections and management sections can be unit-tested before the UI
+ * is wired to wp-admin.
+ *
+ * @since  1.32.0
+ * @package ANPA_Socios
+ */
+
+declare(strict_types=1);
+
+/**
+ * Admin navigation maps + active item resolution.
+ *
+ * @since 1.32.0
+ */
+final class ANPA_Socios_Admin_Nav {
+
+	/**
+	 * Settings top-level tabs. First entry is the default tab.
+	 *
+	 * @since 1.32.0
+	 * @var array<string,string>
+	 */
+	private const SETTINGS_TABS = array(
+		'xeral'        => 'Xeral',
+		'cursos'       => 'Cursos',
+		'localizacion' => 'Localización e idioma',
+		'mantemento'   => 'Mantemento',
+	);
+
+	/**
+	 * Settings tab sections. First entry per tab is the default section.
+	 *
+	 * @since 1.32.0
+	 * @var array<string,array<string,string>>
+	 */
+	private const SETTINGS_SECTIONS = array(
+		'xeral'        => array(
+			'estado'        => 'Estado',
+			'configuracion' => 'Configuración',
+			'paxinas'       => 'Páxinas e shortcodes',
+		),
+		'cursos'       => array(
+			'curso-escolar' => 'Curso escolar',
+			'matriculas'    => 'Matrículas',
+			'crear-novo'    => 'Crear novo curso',
+		),
+		'localizacion' => array(),
+		'mantemento'   => array(
+			'contrasinais'   => 'Contrasinais',
+			'copias'         => 'Copias',
+			'verificacion'   => 'Verificación',
+			'actualizacions' => 'Actualizacións',
+			'ferramentas'    => 'Ferramentas de mantemento',
+		),
+	);
+
+	/**
+	 * Native management sections. No standalone "listados" section by design.
+	 *
+	 * @since 1.32.0
+	 * @var array<string,string>
+	 */
+	private const MANAGEMENT_SECTIONS = array(
+		'inicio'             => 'Inicio',
+		'socios'             => 'Socios/as',
+		'aprobacions'        => 'Aprobacións',
+		'fillos'             => 'Fillos/as',
+		'empresas'           => 'Empresas',
+		'actividades'        => 'Actividades',
+		'cursos-matriculas'  => 'Cursos e matrículas',
+		'administradores'    => 'Administradores',
+		'importar-listados'  => 'Importar listados',
+		'auditoria'          => 'Auditoría',
+	);
+
+	/**
+	 * Native wp-admin management page metadata.
+	 *
+	 * @since 1.32.0
+	 * @var array<string,string>
+	 */
+	private const NATIVE_MANAGEMENT_PAGE = array(
+		'slug'       => 'anpa-socios-management',
+		'menu_label' => 'Xestión ANPA',
+		'page_title' => 'Xestión ANPA',
+	);
+
+	/**
+	 * Planned import targets. Kept read-only until real importers land.
+	 *
+	 * @since 1.32.0
+	 * @var array<string,string>
+	 */
+	private const IMPORT_TARGETS = array(
+		'socios'      => 'Socios/as',
+		'fillos'      => 'Fillos/as',
+		'empresas'    => 'Empresas',
+		'actividades' => 'Actividades',
+		'matriculas'  => 'Matrículas',
+	);
+
+	/**
+	 * Returns settings top-level tabs.
+	 *
+	 * @since  1.32.0
+	 * @return array<string,string>
+	 */
+	public static function settings_tabs(): array {
+		return self::SETTINGS_TABS;
+	}
+
+	/**
+	 * Whether the slug is a known settings tab.
+	 *
+	 * @since  1.32.0
+	 * @param  mixed $slug Candidate slug.
+	 * @return bool
+	 */
+	public static function is_settings_tab( $slug ): bool {
+		return is_string( $slug ) && array_key_exists( $slug, self::SETTINGS_TABS );
+	}
+
+	/**
+	 * Resolves the active settings tab.
+	 *
+	 * @since  1.32.0
+	 * @param  mixed $requested Raw requested slug.
+	 * @return string
+	 */
+	public static function active_settings_tab( $requested ): string {
+		if ( self::is_settings_tab( $requested ) ) {
+			return (string) $requested;
+		}
+
+		return self::first_key( self::SETTINGS_TABS );
+	}
+
+	/**
+	 * Returns sections for a tab. Unknown tabs have no sections.
+	 *
+	 * @since  1.32.0
+	 * @param  string $tab Settings tab slug.
+	 * @return array<string,string>
+	 */
+	public static function settings_sections( string $tab ): array {
+		return self::SETTINGS_SECTIONS[ $tab ] ?? array();
+	}
+
+	/**
+	 * Whether the section slug is valid for the tab.
+	 *
+	 * @since  1.32.0
+	 * @param  string $tab     Settings tab slug.
+	 * @param  mixed  $section Candidate section slug.
+	 * @return bool
+	 */
+	public static function is_settings_section( string $tab, $section ): bool {
+		return is_string( $section ) && array_key_exists( $section, self::settings_sections( $tab ) );
+	}
+
+	/**
+	 * Resolves the active section for a tab.
+	 *
+	 * @since  1.32.0
+	 * @param  string $tab       Settings tab slug.
+	 * @param  mixed  $requested Raw requested section slug.
+	 * @return string
+	 */
+	public static function active_settings_section( string $tab, $requested ): string {
+		$sections = self::settings_sections( $tab );
+		if ( array() === $sections ) {
+			return '';
+		}
+
+		if ( self::is_settings_section( $tab, $requested ) ) {
+			return (string) $requested;
+		}
+
+		return self::first_key( $sections );
+	}
+
+	/**
+	 * Returns native management sections.
+	 *
+	 * @since  1.32.0
+	 * @return array<string,string>
+	 */
+	public static function management_sections(): array {
+		return self::MANAGEMENT_SECTIONS;
+	}
+
+	public static function native_management_page(): array {
+		return self::NATIVE_MANAGEMENT_PAGE;
+	}
+
+	/**
+	 * Returns planned import targets.
+	 *
+	 * @since  1.32.0
+	 * @return array<string,string>
+	 */
+	public static function import_targets(): array {
+		return self::IMPORT_TARGETS;
+	}
+
+	/**
+	 * First key from a non-empty ordered map.
+	 *
+	 * @since  1.32.0
+	 * @param  array<string,string> $items Ordered map.
+	 * @return string
+	 */
+	private static function first_key( array $items ): string {
+		$keys = array_keys( $items );
+
+		return (string) $keys[0];
+	}
+}
