@@ -12,6 +12,26 @@
 out.txt
 *.log
 
+# Local planning / agent artefacts (not shipped in the public plugin ZIP/repo)
+/IDEA.md
+/openspec/
+/.hermes/
+/.agents/
+/.claude/
+/CLAUDE.md
+/AGENTS.local.md
+/TODO.local.md
+/notes.local.md
+/wp-content/
+
+# Future local development artefacts: keep SDDs, agent scratchpads, downloaded
+# WordPress trees, migration sandboxes and other non-plugin work outside GitHub.
+*.local.md
+*.scratch.md
+*.tmp.md
+*.bak
+*.zip
+
 # OS / editor
 .DS_Store
 Thumbs.db

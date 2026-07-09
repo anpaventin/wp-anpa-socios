@@ -68,6 +68,7 @@ final class ANPA_Socios_Admin_Settings {
 	 */
 	public static function register_menu(): void {
 		add_menu_page( 'ANPA Socios', 'ANPA Socios', self::CAP, self::SETTINGS_SLUG, array( __CLASS__, 'render_settings_page' ), 'dashicons-groups', 58 );
+		ANPA_Socios_Admin_Management_Page::register_menu( self::SETTINGS_SLUG, self::CAP );
 		add_submenu_page( self::SETTINGS_SLUG, 'Axustes ANPA Socios', 'Axustes', self::CAP, self::SETTINGS_SLUG, array( __CLASS__, 'render_settings_page' ) );
 		add_submenu_page( self::SETTINGS_SLUG, 'Documentación ANPA Socios', 'Docs', self::CAP, self::DOCS_SLUG, array( __CLASS__, 'render_docs_page' ) );
 	}
@@ -313,13 +314,21 @@ final class ANPA_Socios_Admin_Settings {
 	 * @return void
 	 */
 	private static function render_tabs(): void {
-		$active = ANPA_Socios_Settings_Tabs::active(
-			isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : ''
-		);
-		$base = admin_url( 'admin.php?page=' . self::SETTINGS_SLUG );
+		$requested_tab     = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
+		$requested_section = isset( $_GET['section'] ) ? sanitize_key( wp_unslash( $_GET['section'] ) ) : '';
+
+		// Backwards-compatible deep links from the old flat tabs.
+		if ( 'verificacion' === $requested_tab || 'actualizacions' === $requested_tab ) {
+			$requested_section = $requested_tab;
+			$requested_tab     = 'mantemento';
+		}
+
+		$active  = ANPA_Socios_Admin_Nav::active_settings_tab( $requested_tab );
+		$section = ANPA_Socios_Admin_Nav::active_settings_section( $active, $requested_section );
+		$base    = admin_url( 'admin.php?page=' . self::SETTINGS_SLUG );
 
 		echo '<h2 class="nav-tab-wrapper">';
-		foreach ( ANPA_Socios_Settings_Tabs::all() as $slug => $label ) {
+		foreach ( ANPA_Socios_Admin_Nav::settings_tabs() as $slug => $label ) {
 			printf(
 				'<a href="%s" class="nav-tab%s">%s</a>',
 				esc_url( add_query_arg( 'tab', $slug, $base ) ),
@@ -328,30 +337,54 @@ final class ANPA_Socios_Admin_Settings {
 			);
 		}
 		echo '</h2>';
+		self::render_section_nav( $active, $section, $base );
 
 		echo '<div class="anpa-tab-panel">';
 		switch ( $active ) {
 			case 'cursos':
-				self::render_tab_cursos();
+				self::render_tab_cursos( $section );
 				break;
 			case 'localizacion':
 				self::render_tab_localizacion();
 				break;
-			case 'verificacion':
-				self::render_tab_verificacion();
-				break;
-			case 'actualizacions':
-				self::render_tab_actualizacions();
-				break;
 			case 'mantemento':
-				self::render_tab_mantemento();
+				self::render_tab_mantemento( $section );
 				break;
 			case 'xeral':
 			default:
-				self::render_tab_xeral();
+				self::render_tab_xeral( $section );
 				break;
 		}
 		echo '</div>';
+	}
+
+	/**
+	 * Renders the second-level navigation for settings tabs with subsections.
+	 *
+	 * @param  string $tab     Active tab.
+	 * @param  string $section Active section.
+	 * @param  string $base    Base admin URL.
+	 * @return void
+	 */
+	private static function render_section_nav( string $tab, string $section, string $base ): void {
+		$sections = ANPA_Socios_Admin_Nav::settings_sections( $tab );
+		if ( array() === $sections ) {
+			return;
+		}
+
+		echo '<ul class="subsubsub anpa-section-nav">';
+		$links = array();
+		foreach ( $sections as $slug => $label ) {
+			$classes = $section === $slug ? ' class="current"' : '';
+			$links[] = sprintf(
+				'<li><a href="%s"%s>%s</a></li>',
+				esc_url( add_query_arg( array( 'tab' => $tab, 'section' => $slug ), $base ) ),
+				$classes,
+				esc_html( $label )
+			);
+		}
+		echo implode( '<li class="anpa-section-sep"> | </li>', $links ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- links are escaped above.
+		echo '</ul><div style="clear:both"></div>';
 	}
 
 	/**
@@ -360,36 +393,49 @@ final class ANPA_Socios_Admin_Settings {
 	 *
 	 * @return void
 	 */
-	private static function render_tab_xeral(): void {
+	private static function render_tab_xeral( string $section = 'estado' ): void {
 		$post_url = esc_url( admin_url( 'admin-post.php' ) );
 		$master   = ANPA_Socios_Config::master_email();
-		$has_pw    = ANPA_Socios_Master_Auth::admin_password_exists();
+		$has_pw   = ANPA_Socios_Master_Auth::admin_password_exists();
 
-		echo '<h2>' . esc_html__( 'Estado', 'anpa-socios' ) . '</h2>';
-		echo '<table class="widefat striped" style="max-width:680px"><tbody>';
-		printf( '<tr><td><strong>%s</strong></td><td>%s</td></tr>', esc_html__( 'Versión da base de datos', 'anpa-socios' ), esc_html( (string) get_option( 'anpa_socios_db_version', __( '(non instalada)', 'anpa-socios' ) ) ) );
-		printf( '<tr><td><strong>%s</strong></td><td>%s</td></tr>', esc_html__( 'Clave bancaria', 'anpa-socios' ), ANPA_Socios_Banking_Key::is_configured() ? '✅ ' . esc_html__( 'configurada', 'anpa-socios' ) : '❌ ' . esc_html__( 'sen configurar', 'anpa-socios' ) );
-		printf( '<tr><td><strong>%s</strong></td><td>%s</td></tr>', esc_html__( 'Contrasinal curto de admin', 'anpa-socios' ), $has_pw ? '✅ ' . esc_html__( 'definido', 'anpa-socios' ) : '❌ ' . esc_html__( 'sen definir', 'anpa-socios' ) );
-		printf( '<tr><td><strong>%s</strong></td><td>%s</td></tr>', esc_html__( 'Email do equipo administrador', 'anpa-socios' ), esc_html( $master ) );
-		echo '</tbody></table>';
+		if ( 'estado' === $section ) {
+			echo '<h2>' . esc_html__( 'Estado', 'anpa-socios' ) . '</h2>';
+			echo '<table class="widefat striped" style="max-width:680px"><tbody>';
+			printf( '<tr><td><strong>%s</strong></td><td>%s</td></tr>', esc_html__( 'Versión da base de datos', 'anpa-socios' ), esc_html( (string) get_option( 'anpa_socios_db_version', __( '(non instalada)', 'anpa-socios' ) ) ) );
+			printf( '<tr><td><strong>%s</strong></td><td>%s</td></tr>', esc_html__( 'Clave bancaria', 'anpa-socios' ), ANPA_Socios_Banking_Key::is_configured() ? '✅ ' . esc_html__( 'configurada', 'anpa-socios' ) : '❌ ' . esc_html__( 'sen configurar', 'anpa-socios' ) );
+			printf( '<tr><td><strong>%s</strong></td><td>%s</td></tr>', esc_html__( 'Contrasinal curto de admin', 'anpa-socios' ), $has_pw ? '✅ ' . esc_html__( 'definido', 'anpa-socios' ) : '❌ ' . esc_html__( 'sen definir', 'anpa-socios' ) );
+			printf( '<tr><td><strong>%s</strong></td><td>%s</td></tr>', esc_html__( 'Email do equipo administrador', 'anpa-socios' ), esc_html( $master ) );
+			echo '</tbody></table>';
+			return;
+		}
 
-		echo '<h2>' . esc_html__( 'Configuración', 'anpa-socios' ) . '</h2>';
 		echo '<form method="post" action="' . $post_url . '">';
 		echo '<input type="hidden" name="action" value="anpa_socios_save_settings">';
+		echo '<input type="hidden" name="tab" value="xeral">';
+		echo '<input type="hidden" name="section" value="' . esc_attr( $section ) . '">';
 		wp_nonce_field( 'anpa_socios_save_settings' );
 		echo '<table class="form-table" role="presentation"><tbody>';
+
+		if ( 'paxinas' === $section ) {
+			echo '<h2>' . esc_html__( 'Páxinas e shortcodes', 'anpa-socios' ) . '</h2>';
+			echo '<tr><th scope="row"><label for="cfg-landing">' . esc_html__( 'Páxina de socios', 'anpa-socios' ) . '</label></th><td>';
+			wp_dropdown_pages( array(
+				'name'              => 'landing_page_id',
+				'id'                => 'cfg-landing',
+				'selected'          => (int) get_option( self::LANDING_OPTION, 0 ),
+				'show_option_none'  => '— Detección automática —',
+				'option_none_value' => 0,
+			) );
+			echo '<p class="description">' . esc_html__( 'Páxina que contén a área de socios.', 'anpa-socios' ) . '</p></td></tr>';
+			echo '<tr><th scope="row">' . esc_html__( 'Shortcodes principais', 'anpa-socios' ) . '</th><td><code>[anpa_socios_area_unified]</code><br><code>[anpa_socios_asociarse]</code><br><code>[anpa_extraescolares_ofertadas]</code><br><code>[anpa_extraescolares_horario]</code></td></tr>';
+			echo '</tbody></table>';
+			submit_button( __( 'Gardar páxinas', 'anpa-socios' ) );
+			echo '</form>';
+			return;
+		}
+
+		echo '<h2>' . esc_html__( 'Configuración', 'anpa-socios' ) . '</h2>';
 		printf( '<tr><th scope="row"><label for="cfg-master">%s</label></th><td><input name="master_email" id="cfg-master" type="email" class="regular-text" value="%s"></td></tr>', esc_html__( 'Email do equipo administrador', 'anpa-socios' ), esc_attr( $master ) );
-
-		echo '<tr><th scope="row"><label for="cfg-landing">' . esc_html__( 'Páxina de socios', 'anpa-socios' ) . '</label></th><td>';
-		wp_dropdown_pages( array(
-			'name'              => 'landing_page_id',
-			'id'                => 'cfg-landing',
-			'selected'          => (int) get_option( self::LANDING_OPTION, 0 ),
-			'show_option_none'  => '— Detección automática —',
-			'option_none_value' => 0,
-		) );
-		echo '<p class="description">' . esc_html__( 'Páxina que contén a área de socios.', 'anpa-socios' ) . '</p></td></tr>';
-
 		printf(
 			'<tr><th scope="row"><label for="cfg-assoc">%s</label></th><td><input name="association_name" id="cfg-assoc" type="text" class="regular-text" value="%s"><p class="description">%s</p></td></tr>',
 			esc_html__( 'Nome da asociación', 'anpa-socios' ),
@@ -422,7 +468,7 @@ final class ANPA_Socios_Admin_Settings {
 	 *
 	 * @return void
 	 */
-	private static function render_tab_cursos(): void {
+	private static function render_tab_cursos( string $section = 'curso-escolar' ): void {
 		global $wpdb;
 		$post_url = esc_url( admin_url( 'admin-post.php' ) );
 		$self_url = esc_url( admin_url( 'admin.php' ) );
@@ -431,7 +477,7 @@ final class ANPA_Socios_Admin_Settings {
 
 		// All stored courses (current + past + any future already created).
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only course list for the selector.
-		$rows = $wpdb->get_results( "SELECT curso_escolar, estado, data_inicio, data_peche FROM {$cursos_t}", ARRAY_A );
+		$rows = $wpdb->get_results( "SELECT curso_escolar, matriculas_abertas, estado, data_inicio, data_peche FROM {$cursos_t}", ARRAY_A );
 		$known = array();
 		foreach ( (array) $rows as $r ) {
 			if ( ANPA_Socios_Curso_Escolar::is_valid( (string) $r['curso_escolar'] ) ) {
@@ -455,10 +501,12 @@ final class ANPA_Socios_Admin_Settings {
 
 		// Selected course fields (stored row or computed defaults for a new one).
 		$srow = is_array( $known[ $sel ] ) ? $known[ $sel ] : array(
+			'matriculas_abertas' => 1,
 			'estado'      => ANPA_Socios_Season::estado_for( date( 'Y-m-d' ), ANPA_Socios_Season::default_data_inicio( $sel ), ANPA_Socios_Season::default_data_peche( $sel ) ),
 			'data_inicio' => ANPA_Socios_Season::default_data_inicio( $sel ),
 			'data_peche'  => ANPA_Socios_Season::default_data_peche( $sel ),
 		);
+		$matriculas_abertas = ANPA_Socios_Course_Settings::matriculas_abertas_for_display( $srow );
 
 		$estados = array(
 			ANPA_Socios_Season::ESTADO_PENDENTE => __( 'Pendente (pre-temporada)', 'anpa-socios' ),
@@ -466,12 +514,14 @@ final class ANPA_Socios_Admin_Settings {
 			ANPA_Socios_Season::ESTADO_PECHADO  => __( 'Pechado', 'anpa-socios' ),
 		);
 
-		echo '<h2>' . esc_html__( 'Curso escolar', 'anpa-socios' ) . '</h2>';
+		if ( 'crear-novo' !== $section ) {
+			echo '<h2>' . esc_html__( 'Curso escolar', 'anpa-socios' ) . '</h2>';
 
 		// --- Course selector (GET, auto-submits so the editor reloads) ---
 		echo '<form method="get" action="' . $self_url . '">';
 		echo '<input type="hidden" name="page" value="' . esc_attr( self::SETTINGS_SLUG ) . '">';
 		echo '<input type="hidden" name="tab" value="cursos">';
+			echo '<input type="hidden" name="section" value="' . esc_attr( $section ) . '">';
 		echo '<table class="form-table" role="presentation"><tbody>';
 		echo '<tr><th scope="row"><label for="cfg-curso-sel">' . esc_html__( 'Curso a xestionar', 'anpa-socios' ) . '</label></th><td>';
 		echo '<select name="curso" id="cfg-curso-sel" onchange="this.form.submit()">';
@@ -483,9 +533,35 @@ final class ANPA_Socios_Admin_Settings {
 		echo '<p class="description">' . esc_html__( 'Escolle un curso existente (o actual e os pasados con datos) para editar o seu estado e datas. Os marcados como «novo» crearanse ao gardar.', 'anpa-socios' ) . '</p>';
 		echo '</td></tr></tbody></table></form>';
 
+		if ( 'matriculas' === $section ) {
+			echo '<h2>' . esc_html__( 'Matrículas', 'anpa-socios' ) . '</h2>';
+			echo '<form method="post" action="' . $post_url . '">';
+			echo '<input type="hidden" name="action" value="anpa_socios_save_cursos">';
+			echo '<input type="hidden" name="tab" value="cursos">';
+			echo '<input type="hidden" name="section" value="matriculas">';
+			echo '<input type="hidden" name="curso_escolar" value="' . esc_attr( $sel ) . '">';
+			wp_nonce_field( 'anpa_socios_save_cursos' );
+			echo '<table class="form-table" role="presentation"><tbody>';
+			printf( '<tr><th scope="row">%s</th><td><strong>%s</strong></td></tr>', esc_html__( 'Curso seleccionado', 'anpa-socios' ), esc_html( $sel ) );
+			echo '<tr><th scope="row">' . esc_html__( 'Novas matrículas', 'anpa-socios' ) . '</th><td>';
+			echo '<input type="hidden" name="matriculas_abertas" value="0">';
+			printf(
+				'<label><input type="checkbox" name="matriculas_abertas" value="1" %s> %s</label>',
+				checked( $matriculas_abertas, true, false ),
+				esc_html__( 'Permitir novas matrículas neste curso', 'anpa-socios' )
+			);
+			echo '<p class="description">' . esc_html__( 'Pechar matrículas impide novas inscricións sen cambiar o estado nin as datas do curso.', 'anpa-socios' ) . '</p>';
+			echo '</td></tr></tbody></table>';
+			submit_button( __( 'Gardar apertura de matrículas', 'anpa-socios' ) );
+			echo '</form>';
+			return;
+		}
+
 		// --- Editor for the selected course (POST) ---
 		echo '<form method="post" action="' . $post_url . '">';
 		echo '<input type="hidden" name="action" value="anpa_socios_save_cursos">';
+		echo '<input type="hidden" name="tab" value="cursos">';
+		echo '<input type="hidden" name="section" value="curso-escolar">';
 		wp_nonce_field( 'anpa_socios_save_cursos' );
 		echo '<input type="hidden" name="curso_escolar" value="' . esc_attr( $sel ) . '">';
 		echo '<table class="form-table" role="presentation"><tbody>';
@@ -513,11 +589,15 @@ final class ANPA_Socios_Admin_Settings {
 		echo '</tbody></table>';
 		submit_button( __( 'Gardar curso', 'anpa-socios' ) );
 		echo '</form>';
+			return;
+		}
 
 		// --- Create a brand-new course (any future year, no code changes) ---
 		echo '<h2>' . esc_html__( 'Crear novo curso', 'anpa-socios' ) . '</h2>';
 		echo '<form method="post" action="' . $post_url . '">';
 		echo '<input type="hidden" name="action" value="anpa_socios_save_cursos">';
+		echo '<input type="hidden" name="tab" value="cursos">';
+		echo '<input type="hidden" name="section" value="crear-novo">';
 		wp_nonce_field( 'anpa_socios_save_cursos' );
 		echo '<table class="form-table" role="presentation"><tbody>';
 		printf(
@@ -686,14 +766,83 @@ final class ANPA_Socios_Admin_Settings {
 	 *
 	 * @return void
 	 */
-	private static function render_tab_mantemento(): void {
+	private static function render_tab_mantemento( string $section = 'contrasinais' ): void {
+		if ( 'verificacion' === $section ) {
+			self::render_tab_verificacion();
+			return;
+		}
+		if ( 'actualizacions' === $section ) {
+			self::render_tab_actualizacions();
+			return;
+		}
+
 		$post_url = esc_url( admin_url( 'admin-post.php' ) );
 		$has_pw   = ANPA_Socios_Master_Auth::admin_password_exists();
+
+		if ( 'ferramentas' === $section ) {
+			echo '<h2>' . esc_html__( 'Ferramentas de mantemento', 'anpa-socios' ) . '</h2>';
+			echo '<form method="post" action="' . $post_url . '">';
+			echo '<input type="hidden" name="action" value="anpa_socios_run_season">';
+			echo '<input type="hidden" name="tab" value="mantemento">';
+			echo '<input type="hidden" name="section" value="ferramentas">';
+			wp_nonce_field( 'anpa_socios_run_season' );
+			submit_button( __( 'Executar comprobación de temporada agora', 'anpa-socios' ), 'secondary', 'submit', false );
+			echo '</form>';
+			return;
+		}
+
+		if ( 'copias' === $section ) {
+			// ── Copia de seguridade / restauración / borrado ──
+			echo '<h2>Copia de seguridade</h2>';
+			echo '<p class="description">A copia inclúe socios, fillos, actividades, cursos, matrículas, empresas e datos bancarios. NON inclúe o usuario master, as claves de cifrado nin o contrasinal de admin. O ficheiro cífrase co contrasinal de admin.</p>';
+			echo '<form method="post" action="' . $post_url . '">';
+			echo '<input type="hidden" name="action" value="anpa_socios_backup">';
+			echo '<input type="hidden" name="tab" value="mantemento">';
+			echo '<input type="hidden" name="section" value="copias">';
+			wp_nonce_field( 'anpa_socios_backup' );
+			echo '<table class="form-table" role="presentation"><tbody>';
+			echo '<tr><th scope="row"><label for="bk-admin">Contrasinal de admin</label></th><td><input name="admin_password" id="bk-admin" type="password" class="regular-text" autocomplete="off" required>' . self::eye_button( 'bk-admin' ) . '</td></tr>';
+			echo '<tr><th scope="row"><label for="bk-pass">Frase da clave bancaria</label></th><td><input name="banking_passphrase" id="bk-pass" type="text" class="regular-text code" autocomplete="off" required>' . self::eye_button( 'bk-pass' ) . '<p class="description">Necesaria para descifrar os datos bancarios e incluílos na copia.</p></td></tr>';
+			echo '</tbody></table>';
+			submit_button( __( 'Descargar copia de seguridade', 'anpa-socios' ), 'secondary', 'submit', false );
+			echo '</form>';
+
+			echo '<h2>Recuperar copia</h2>';
+			echo '<p class="description">Sube un ficheiro <code>.anpabak</code> e o contrasinal de admin co que se cifrou. Os datos bancarios recifraranse coa clave actual.</p>';
+			echo '<form method="post" action="' . $post_url . '" enctype="multipart/form-data">';
+			echo '<input type="hidden" name="action" value="anpa_socios_restore">';
+			echo '<input type="hidden" name="tab" value="mantemento">';
+			echo '<input type="hidden" name="section" value="copias">';
+			wp_nonce_field( 'anpa_socios_restore' );
+			echo '<table class="form-table" role="presentation"><tbody>';
+			echo '<tr><th scope="row"><label for="rs-file">Ficheiro de copia</label></th><td><input name="backup_file" id="rs-file" type="file" accept=".anpabak,application/json" required></td></tr>';
+			echo '<tr><th scope="row"><label for="rs-admin">Contrasinal do ficheiro</label></th><td><input name="admin_password" id="rs-admin" type="password" class="regular-text" autocomplete="off" required>' . self::eye_button( 'rs-admin' ) . '</td></tr>';
+			echo '</tbody></table>';
+			submit_button( __( 'Recuperar copia', 'anpa-socios' ), 'secondary', 'submit', false );
+			echo '</form>';
+
+			echo '<h2 style="color:#b32d2e">Borrar base de datos</h2>';
+			echo '<p class="description" style="color:#b32d2e"><strong>Irreversible.</strong> Borra TODOS os datos do plugin e volve ao asistente de instalación. Descarga primeiro unha copia de seguridade.</p>';
+			echo '<form method="post" action="' . $post_url . '" onsubmit="return confirm(\'Seguro? Esta acción borra TODOS os datos e non se pode desfacer.\');">';
+			echo '<input type="hidden" name="action" value="anpa_socios_wipe">';
+			echo '<input type="hidden" name="tab" value="mantemento">';
+			echo '<input type="hidden" name="section" value="copias">';
+			wp_nonce_field( 'anpa_socios_wipe' );
+			echo '<table class="form-table" role="presentation"><tbody>';
+			echo '<tr><th scope="row"><label for="wp-admin-pw">Contrasinal de admin</label></th><td><input name="admin_password" id="wp-admin-pw" type="password" class="regular-text" autocomplete="off" required>' . self::eye_button( 'wp-admin-pw' ) . '</td></tr>';
+			echo '<tr><th scope="row">Confirmación</th><td><label><input type="checkbox" name="confirm_wipe" value="1" required> Descarguei unha copia e entendo que esta acción é irreversible.</label></td></tr>';
+			echo '</tbody></table>';
+			submit_button( __( 'Borrar base de datos', 'anpa-socios' ), 'delete', 'submit', false );
+			echo '</form>';
+			return;
+		}
 
 		echo '<h2>' . esc_html__( 'Contrasinal curto de admin', 'anpa-socios' ) . '</h2>';
 		echo '<p class="description">' . esc_html__( 'Panel de admin (mín. 8 caracteres, unha maiúscula e un símbolo). A frase da clave bancaria non se cambia aquí (só reinstalando a BD).', 'anpa-socios' ) . '</p>';
 		echo '<form method="post" action="' . $post_url . '">';
 		echo '<input type="hidden" name="action" value="anpa_socios_set_admin_password">';
+		echo '<input type="hidden" name="tab" value="mantemento">';
+		echo '<input type="hidden" name="section" value="contrasinais">';
 		wp_nonce_field( 'anpa_socios_set_admin_password' );
 		echo '<table class="form-table" role="presentation"><tbody>';
 		echo '<tr><th scope="row"><label for="cfg-pw">' . ( $has_pw ? esc_html__( 'Novo contrasinal', 'anpa-socios' ) : esc_html__( 'Definir contrasinal', 'anpa-socios' ) ) . '</label></th><td>';
@@ -701,50 +850,6 @@ final class ANPA_Socios_Admin_Settings {
 		echo self::eye_button( 'cfg-pw' );
 		echo '</td></tr></tbody></table>';
 		submit_button( $has_pw ? __( 'Cambiar contrasinal', 'anpa-socios' ) : __( 'Definir contrasinal', 'anpa-socios' ), 'secondary' );
-		echo '</form>';
-
-		echo '<h2>Mantemento</h2>';
-		echo '<form method="post" action="' . $post_url . '">';
-		echo '<input type="hidden" name="action" value="anpa_socios_run_season">';
-		wp_nonce_field( 'anpa_socios_run_season' );
-		submit_button( __( 'Executar comprobación de temporada agora', 'anpa-socios' ), 'secondary', 'submit', false );
-		echo '</form>';
-
-		// ── Copia de seguridade / restauración / borrado ──
-		echo '<hr><h2>Copia de seguridade</h2>';
-		echo '<p class="description">A copia inclúe socios, fillos, actividades, cursos, matrículas, empresas e datos bancarios. NON inclúe o usuario master, as claves de cifrado nin o contrasinal de admin. O ficheiro cífrase co contrasinal de admin.</p>';
-		echo '<form method="post" action="' . $post_url . '">';
-		echo '<input type="hidden" name="action" value="anpa_socios_backup">';
-		wp_nonce_field( 'anpa_socios_backup' );
-		echo '<table class="form-table" role="presentation"><tbody>';
-		echo '<tr><th scope="row"><label for="bk-admin">Contrasinal de admin</label></th><td><input name="admin_password" id="bk-admin" type="password" class="regular-text" autocomplete="off" required>' . self::eye_button( 'bk-admin' ) . '</td></tr>';
-		echo '<tr><th scope="row"><label for="bk-pass">Frase da clave bancaria</label></th><td><input name="banking_passphrase" id="bk-pass" type="text" class="regular-text code" autocomplete="off" required>' . self::eye_button( 'bk-pass' ) . '<p class="description">Necesaria para descifrar os datos bancarios e incluílos na copia.</p></td></tr>';
-		echo '</tbody></table>';
-		submit_button( __( 'Descargar copia de seguridade', 'anpa-socios' ), 'secondary', 'submit', false );
-		echo '</form>';
-
-		echo '<h2>Recuperar copia</h2>';
-		echo '<p class="description">Sube un ficheiro <code>.anpabak</code> e o contrasinal de admin co que se cifrou. Os datos bancarios recifraranse coa clave actual.</p>';
-		echo '<form method="post" action="' . $post_url . '" enctype="multipart/form-data">';
-		echo '<input type="hidden" name="action" value="anpa_socios_restore">';
-		wp_nonce_field( 'anpa_socios_restore' );
-		echo '<table class="form-table" role="presentation"><tbody>';
-		echo '<tr><th scope="row"><label for="rs-file">Ficheiro de copia</label></th><td><input name="backup_file" id="rs-file" type="file" accept=".anpabak,application/json" required></td></tr>';
-		echo '<tr><th scope="row"><label for="rs-admin">Contrasinal do ficheiro</label></th><td><input name="admin_password" id="rs-admin" type="password" class="regular-text" autocomplete="off" required>' . self::eye_button( 'rs-admin' ) . '</td></tr>';
-		echo '</tbody></table>';
-		submit_button( __( 'Recuperar copia', 'anpa-socios' ), 'secondary', 'submit', false );
-		echo '</form>';
-
-		echo '<h2 style="color:#b32d2e">Borrar base de datos</h2>';
-		echo '<p class="description" style="color:#b32d2e"><strong>Irreversible.</strong> Borra TODOS os datos do plugin e volve ao asistente de instalación. Descarga primeiro unha copia de seguridade.</p>';
-		echo '<form method="post" action="' . $post_url . '" onsubmit="return confirm(\'Seguro? Esta acción borra TODOS os datos e non se pode desfacer.\');">';
-		echo '<input type="hidden" name="action" value="anpa_socios_wipe">';
-		wp_nonce_field( 'anpa_socios_wipe' );
-		echo '<table class="form-table" role="presentation"><tbody>';
-		echo '<tr><th scope="row"><label for="wp-admin-pw">Contrasinal de admin</label></th><td><input name="admin_password" id="wp-admin-pw" type="password" class="regular-text" autocomplete="off" required>' . self::eye_button( 'wp-admin-pw' ) . '</td></tr>';
-		echo '<tr><th scope="row">Confirmación</th><td><label><input type="checkbox" name="confirm_wipe" value="1" required> Descarguei unha copia e entendo que esta acción é irreversible.</label></td></tr>';
-		echo '</tbody></table>';
-		submit_button( __( 'Borrar base de datos', 'anpa-socios' ), 'delete', 'submit', false );
 		echo '</form>';
 	}
 
@@ -842,21 +947,32 @@ final class ANPA_Socios_Admin_Settings {
 	public static function handle_save_settings(): void {
 		self::guard( 'anpa_socios_save_settings' );
 
-		$email   = sanitize_email( (string) wp_unslash( $_POST['master_email'] ?? '' ) );
-		$landing = (int) ( $_POST['landing_page_id'] ?? 0 );
-
-		if ( is_email( $email ) ) {
-			update_option( 'anpa_socios_master_email', strtolower( $email ) );
+		if ( array_key_exists( 'master_email', $_POST ) ) {
+			$email = sanitize_email( (string) wp_unslash( $_POST['master_email'] ) );
+			if ( is_email( $email ) ) {
+				update_option( 'anpa_socios_master_email', strtolower( $email ) );
+			}
 		}
-		update_option( self::LANDING_OPTION, $landing > 0 ? $landing : 0 );
 
-		// fase12 identity/config (PR-12h).
-		$assoc = sanitize_text_field( (string) wp_unslash( $_POST['association_name'] ?? '' ) );
-		if ( '' !== $assoc ) {
-			update_option( ANPA_Socios_Config::OPTION_ASSOCIATION, $assoc );
+		if ( array_key_exists( 'landing_page_id', $_POST ) ) {
+			$landing = (int) $_POST['landing_page_id'];
+			update_option( self::LANDING_OPTION, $landing > 0 ? $landing : 0 );
 		}
-		update_option( ANPA_Socios_Config::OPTION_SIGNATURE, sanitize_textarea_field( (string) wp_unslash( $_POST['email_signature'] ?? '' ) ) );
-		update_option( ANPA_Socios_Config::OPTION_APPROVAL, ! empty( $_POST['require_approval'] ) ? '1' : '0' );
+
+		// fase12 identity/config (PR-12h). Each subsection form saves only
+		// submitted fields so partial settings screens never clear siblings.
+		if ( array_key_exists( 'association_name', $_POST ) ) {
+			$assoc = sanitize_text_field( (string) wp_unslash( $_POST['association_name'] ) );
+			if ( '' !== $assoc ) {
+				update_option( ANPA_Socios_Config::OPTION_ASSOCIATION, $assoc );
+			}
+		}
+		if ( array_key_exists( 'email_signature', $_POST ) ) {
+			update_option( ANPA_Socios_Config::OPTION_SIGNATURE, sanitize_textarea_field( (string) wp_unslash( $_POST['email_signature'] ) ) );
+		}
+		if ( array_key_exists( 'require_approval', $_POST ) || array_key_exists( 'association_name', $_POST ) ) {
+			update_option( ANPA_Socios_Config::OPTION_APPROVAL, ! empty( $_POST['require_approval'] ) ? '1' : '0' );
+		}
 
 		self::redirect_msg( 'settings_saved' );
 	}
@@ -876,6 +992,7 @@ final class ANPA_Socios_Admin_Settings {
 		$estado = sanitize_text_field( (string) wp_unslash( $_POST['estado'] ?? '' ) );
 		$inicio = sanitize_text_field( (string) wp_unslash( $_POST['data_inicio'] ?? '' ) );
 		$peche  = sanitize_text_field( (string) wp_unslash( $_POST['data_peche'] ?? '' ) );
+		$matriculas_abertas = ANPA_Socios_Course_Settings::matriculas_abertas_from_post( $_POST );
 
 		// Create-new path (from the "Crear novo curso" form) takes precedence:
 		// create it as pendente with default season dates and select it.
@@ -889,7 +1006,9 @@ final class ANPA_Socios_Admin_Settings {
 			self::redirect_cursos( $nuevo );
 		}
 
-		if ( ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
+		if ( ANPA_Socios_Curso_Escolar::is_valid( $curso ) && null !== $matriculas_abertas && ! array_key_exists( 'estado', $_POST ) ) {
+			self::upsert_course_gate( $curso, $matriculas_abertas );
+		} elseif ( ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
 			$valid = array( ANPA_Socios_Season::ESTADO_PENDENTE, ANPA_Socios_Season::ESTADO_ACTIVO, ANPA_Socios_Season::ESTADO_PECHADO );
 			if ( ! in_array( $estado, $valid, true ) ) {
 				$estado = ANPA_Socios_Season::ESTADO_ACTIVO;
@@ -917,7 +1036,11 @@ final class ANPA_Socios_Admin_Settings {
 	 * @return void
 	 */
 	private static function redirect_cursos( string $curso ): void {
-		$args = array( 'page' => self::SETTINGS_SLUG, 'tab' => 'cursos', 'anpa_msg' => 'settings_saved' );
+		$section = isset( $_POST['section'] ) ? sanitize_key( wp_unslash( $_POST['section'] ) ) : 'curso-escolar';
+		if ( ! ANPA_Socios_Admin_Nav::is_settings_section( 'cursos', $section ) ) {
+			$section = 'curso-escolar';
+		}
+		$args = array( 'page' => self::SETTINGS_SLUG, 'tab' => 'cursos', 'section' => $section, 'anpa_msg' => 'settings_saved' );
 		if ( ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
 			$args['curso'] = $curso;
 		}
@@ -960,7 +1083,7 @@ final class ANPA_Socios_Admin_Settings {
 			wp_update_plugins();
 		}
 		wp_safe_redirect( add_query_arg(
-			array( 'anpa_msg' => 'updates_checked', 'tab' => 'actualizacions' ),
+			array( 'anpa_msg' => 'updates_checked', 'tab' => 'mantemento', 'section' => 'actualizacions' ),
 			admin_url( 'admin.php?page=' . self::SETTINGS_SLUG )
 		) );
 		exit;
@@ -1204,13 +1327,51 @@ final class ANPA_Socios_Admin_Settings {
 	}
 
 	/**
+	 * Upserts only the enrolment gate for a course, preserving season fields on
+	 * existing rows.
+	 *
+	 * @param  string $curso Curso escolar.
+	 * @param  bool   $open  Whether new enrolments are open.
+	 * @return void
+	 */
+	private static function upsert_course_gate( string $curso, bool $open ): void {
+		global $wpdb;
+		$cursos = ANPA_Socios_DB::tabela_cursos();
+		$inicio = ANPA_Socios_Season::default_data_inicio( $curso );
+		$peche  = ANPA_Socios_Season::default_data_peche( $curso );
+		$estado = ANPA_Socios_Season::estado_for( date( 'Y-m-d' ), $inicio, $peche );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent course gate upsert.
+		$wpdb->query( $wpdb->prepare(
+			"INSERT INTO {$cursos} (curso_escolar, matriculas_abertas, estado, data_inicio, data_peche, creado_en, actualizado_en)
+			 VALUES (%s, %d, %s, %s, %s, NOW(), NOW())
+			 ON DUPLICATE KEY UPDATE matriculas_abertas = VALUES(matriculas_abertas), actualizado_en = NOW()",
+			$curso,
+			$open ? 1 : 0,
+			$estado,
+			$inicio,
+			$peche
+		) );
+	}
+
+	/**
 	 * Redirects back to the settings page with a message key.
 	 *
 	 * @param  string $key Message key.
 	 * @return void
 	 */
 	private static function redirect_msg( string $key ): void {
-		wp_safe_redirect( add_query_arg( 'anpa_msg', $key, admin_url( 'admin.php?page=' . self::SETTINGS_SLUG ) ) );
+		$args = array( 'anpa_msg' => $key );
+		$tab  = isset( $_POST['tab'] ) ? sanitize_key( wp_unslash( $_POST['tab'] ) ) : '';
+		if ( ANPA_Socios_Admin_Nav::is_settings_tab( $tab ) ) {
+			$args['tab'] = $tab;
+			$section     = isset( $_POST['section'] ) ? sanitize_key( wp_unslash( $_POST['section'] ) ) : '';
+			if ( ANPA_Socios_Admin_Nav::is_settings_section( $tab, $section ) ) {
+				$args['section'] = $section;
+			}
+		}
+
+		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php?page=' . self::SETTINGS_SLUG ) ) );
 		exit;
 	}
 
