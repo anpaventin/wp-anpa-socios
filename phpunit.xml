@@ -32,6 +32,9 @@
       <file>tests/Test_ANPA_Socios_Settings_Tabs.php</file>
       <file>tests/Test_ANPA_Socios_Admin_Nav.php</file>
       <file>tests/Test_ANPA_Socios_Verificacion_Guard.php</file>
+      <file>tests/Test_ANPA_Socios_Admin_Auth.php</file>
+      <file>tests/Test_ANPA_Socios_Master_Auth_Removed.php</file>
+      <file>tests/Test_ANPA_Socios_Security_Fase17.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

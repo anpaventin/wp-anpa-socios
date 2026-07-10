@@ -81,4 +81,32 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 			array_keys( ANPA_Socios_Admin_Nav::import_targets() )
 		);
 	}
+
+	public function test_export_actions_are_attached_to_domain_sections_not_listados(): void {
+		$actions = ANPA_Socios_Admin_Nav::management_export_actions();
+
+		$this->assertArrayHasKey( 'socios', $actions );
+		$this->assertSame( 'Socios/as CSV', $actions['socios']['csv']['label'] );
+		$this->assertSame( 'Descargar Socios IBAN', $actions['socios']['sensitive_full']['label'] );
+		$this->assertSame( true, $actions['socios']['sensitive_full']['requires_passphrase'] );
+		$this->assertArrayNotHasKey( 'listados', $actions );
+	}
+
+	public function test_docs_sections_cover_operator_help_topics(): void {
+		$this->assertSame(
+			array(
+				'posta-en-marcha',
+				'ciclo-curso',
+				'paxinas-shortcodes',
+				'extraescolares',
+				'exportacions-copias',
+				'privacidade-seguridade',
+			),
+			array_keys( ANPA_Socios_Admin_Nav::docs_sections() )
+		);
+
+		$sections = ANPA_Socios_Admin_Nav::docs_sections();
+		$this->assertSame( 'Posta en marcha', $sections['posta-en-marcha'] );
+		$this->assertSame( 'Privacidade e seguridade', $sections['privacidade-seguridade'] );
+	}
 }

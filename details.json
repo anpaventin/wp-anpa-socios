@@ -1,17 +1,17 @@
 {
     "name":  "ANPA Socios",
     "slug":  "anpa-socios",
-    "version":  "1.32.0",
-    "download_url":  "https://github.com/anpaventin/wp-anpa-socios/releases/download/v1.32.0/wp-anpa-socios-1.32.0.zip",
+    "version":  "1.33.0",
+    "download_url":  "https://github.com/anpaventin/wp-anpa-socios/releases/download/v1.33.0/wp-anpa-socios-1.33.0.zip",
     "homepage":  "https://github.com/anpaventin/wp-anpa-socios",
     "author":  "ANPA Socios",
     "author_homepage":  "https://github.com/anpaventin/wp-anpa-socios",
     "requires":  "6.0",
     "tested":  "6.7",
     "requires_php":  "7.4",
-    "last_updated":  "2026-07-09 14:53:54",
+    "last_updated":  "2026-07-10 16:31:01",
     "sections":  {
-                     "description":  "Member management for parents' associations (ANPA/AMPA) on WordPress: passwordless member area, children and extracurricular enrolment, encrypted SEPA banking, season lifecycle, native WordPress admin screens, and self-hosted updates from GitHub.",
-                     "changelog":  "<h4>1.32.0</h4><ul><li>Reorganiza Axustes en subseccións nativas para Xeral, Cursos e Mantemento.</li><li>Engade control de apertura/peche de matrículas por curso sen alterar estado nin datas.</li><li>Engade páxina nativa de wp-admin para Xestión ANPA, reutilizando o panel existente e mantendo a autenticación master forte.</li></ul><h4>1.31.0</h4><ul><li>Multi-tenant cleanup, localization settings, and GitHub self-updates.</li></ul><h4>1.24.0</h4><ul><li>Self-hosted updates from the public repository (plugin-update-checker, JSON metadata mode).</li></ul>"
+                     "description":  "Member management for parents\u0027 associations (ANPA/AMPA) on WordPress: passwordless member area, children and extracurricular enrolment, encrypted SEPA banking, season lifecycle, native WordPress admin screens, and self-hosted updates from GitHub.",
+                     "changelog":  "\u003ch4\u003e1.32.0\u003c/h4\u003e\u003cul\u003e\u003cli\u003eReorganiza Axustes en subsecciÃ³ns nativas para Xeral, Cursos e Mantemento.\u003c/li\u003e\u003cli\u003eEngade control de apertura/peche de matrÃ­culas por curso sen alterar estado nin datas.\u003c/li\u003e\u003cli\u003eEngade pÃ¡xina nativa de wp-admin para XestiÃ³n ANPA, reutilizando o panel existente e mantendo a autenticaciÃ³n master forte.\u003c/li\u003e\u003c/ul\u003e\u003ch4\u003e1.31.0\u003c/h4\u003e\u003cul\u003e\u003cli\u003eMulti-tenant cleanup, localization settings, and GitHub self-updates.\u003c/li\u003e\u003c/ul\u003e\u003ch4\u003e1.24.0\u003c/h4\u003e\u003cul\u003e\u003cli\u003eSelf-hosted updates from the public repository (plugin-update-checker, JSON metadata mode).\u003c/li\u003e\u003c/ul\u003e"
                  }
 }

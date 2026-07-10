@@ -4,15 +4,15 @@
  *
  * Backup container (.anpabak): a JSON dump of the domain tables, with banking
  * data DECRYPTED to plaintext (requires the 5-word banking passphrase), then the
- * whole payload is symmetrically encrypted under the ADMIN password
+ * whole payload is symmetrically encrypted under the SAME banking passphrase
  * (Argon2id + secretbox via ANPA_Socios_Crypto::wrap_secret).
  *
- * The backup EXCLUDES: the master socio row, the banking encryption keys, and
- * the admin password hash — those are (re)created at init/restore.
+ * The backup EXCLUDES: the banking encryption keys — those are (re)created at
+ * init/restore.
  *
- * Restore: decrypts with the admin password, wipes the domain tables, inserts
- * the backup rows preserving ids (for FK integrity), RE-SEALS banking with the
- * CURRENT public key, and re-creates the master socio.
+ * Restore: decrypts with the banking passphrase, wipes the domain tables,
+ * inserts the backup rows preserving ids (for FK integrity), and RE-SEALS
+ * banking data with the CURRENT public key.
  *
  * @since  1.22.0
  * @package ANPA_Socios
@@ -51,15 +51,17 @@ final class ANPA_Socios_Backup {
 	/**
 	 * Builds an encrypted backup blob.
 	 *
-	 * @param  string $admin_password     Admin password used to encrypt the container.
-	 * @param  string $banking_passphrase 5-word passphrase to decrypt banking data.
+	 * The 5-word banking passphrase serves as the SINGLE secret: it unlocks
+	 * the sealed banking data AND encrypts the resulting backup container.
+	 *
+	 * @param  string $banking_passphrase 5-word passphrase (decrypts banking data + encrypts container).
 	 * @return string|WP_Error Encrypted container bytes, or error.
 	 */
-	public static function build( string $admin_password, string $banking_passphrase ) {
+	public static function build( string $banking_passphrase ) {
 		global $wpdb;
 
-		if ( '' === $admin_password ) {
-			return new WP_Error( 'anpa_bak_no_pw', 'Falta o contrasinal de administración.', array( 'status' => 400 ) );
+		if ( '' === $banking_passphrase ) {
+			return new WP_Error( 'anpa_bak_no_pw', 'Falta a frase da clave bancaria.', array( 'status' => 400 ) );
 		}
 
 		$public  = ANPA_Socios_Banking_Key::public_key();
@@ -120,7 +122,7 @@ final class ANPA_Socios_Backup {
 			return new WP_Error( 'anpa_bak_encode', 'Non se puido serializar a copia.', array( 'status' => 500 ) );
 		}
 
-		$container = ANPA_Socios_Crypto::wrap_secret( $payload, $admin_password );
+		$container = ANPA_Socios_Crypto::wrap_secret( $payload, $banking_passphrase );
 		if ( null === $container ) {
 			return new WP_Error( 'anpa_bak_encrypt', 'Non se puido cifrar a copia.', array( 'status' => 500 ) );
 		}
@@ -137,11 +139,11 @@ final class ANPA_Socios_Backup {
 	/**
 	 * Restores a backup blob into a freshly-initialised install.
 	 *
-	 * @param  string $blob           Encrypted container bytes.
-	 * @param  string $admin_password Admin password used to encrypt it.
+	 * @param  string $blob               Encrypted container bytes.
+	 * @param  string $banking_passphrase  5-word passphrase used to encrypt the container.
 	 * @return true|WP_Error
 	 */
-	public static function restore( string $blob, string $admin_password ) {
+	public static function restore( string $blob, string $banking_passphrase ) {
 		global $wpdb;
 
 		$outer = json_decode( $blob, true );
@@ -153,9 +155,9 @@ final class ANPA_Socios_Backup {
 			return new WP_Error( 'anpa_bak_format', 'O ficheiro de copia está corrupto.', array( 'status' => 400 ) );
 		}
 
-		$json = ANPA_Socios_Crypto::unwrap_secret( (string) $c['blob'], (string) $c['salt'], (string) $c['nonce'], $admin_password );
+		$json = ANPA_Socios_Crypto::unwrap_secret( (string) $c['blob'], (string) $c['salt'], (string) $c['nonce'], $banking_passphrase );
 		if ( null === $json ) {
-			return new WP_Error( 'anpa_bak_bad_pw', 'Contrasinal incorrecto ou copia corrupta.', array( 'status' => 403 ) );
+			return new WP_Error( 'anpa_bak_bad_pw', 'Frase da clave bancaria incorrecta ou copia corrupta.', array( 'status' => 403 ) );
 		}
 		$payload = json_decode( $json, true );
 		if ( ! is_array( $payload ) || ( $payload['magic'] ?? '' ) !== self::MAGIC || empty( $payload['tables'] ) ) {
@@ -228,8 +230,8 @@ final class ANPA_Socios_Backup {
 			'anpa_socios_db_version',
 			'anpa_socios_banking_pubkey',
 			'anpa_socios_banking_seckey_wrapped',
-			ANPA_Socios_Master_Auth::ADMIN_PASSWORD_OPTION,
-			ANPA_Socios_Master_Auth::INIT_OPTION,
+			'anpa_socios_admin_password_hash',
+			'anpa_socios_master_initialized',
 			'anpa_socios_master_email',
 			ANPA_Socios_Config::OPTION_ASSOCIATION,
 			ANPA_Socios_Config::OPTION_SIGNATURE,

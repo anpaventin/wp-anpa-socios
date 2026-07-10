@@ -1540,3 +1540,135 @@ msgstr ""
 msgid "Código incorrecto ou caducado."
 msgstr ""
 
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "ANPA Socios — Documentación"
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "Guía rápida para a xunta: configuración, operación diaria, páxinas públicas, exportacións e seguridade."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "Índice"
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "Posta en marcha"
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "En Axustes → Xeral revisa o email do equipo administrador, a páxina da área de socios e as páxinas públicas creadas automaticamente."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "Garda a frase da clave bancaria e, se procede, configura o contrasinal curto de administración."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "Lanza a instalación só cando a configuración sexa correcta: créanse o socio administrador, a clave bancaria, a páxina de socios e a configuración inicial do curso."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "Accede á área de socios co email master para comprobar que chega o código por correo."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "Ciclo do curso escolar"
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "Cada curso vai do 1 de xullo ao 30 de xuño e usa formato <code>AAAA/AAAA+1</code>."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "O 20 de xuño péchase o curso activo e créase o seguinte en estado pendente."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "O curso pendente actívase automaticamente o 1 de setembro."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "En pretempada só o equipo administrador pode iniciar sesión; as familias quedan protexidas ata a apertura."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "En Axustes → Cursos → Matrículas podes abrir ou pechar novas matrículas sen tocar datas nin estado do curso."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "Páxinas automáticas e shortcodes"
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "A área pública principal amósase coa páxina configurada en Axustes e o shortcode:"
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "botón/enlace cara á área persoal."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "tarxetas coas actividades activas do curso actual."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "grella semanal de horarios e grupos activos."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "A instalación crea automaticamente unha páxina de extraescolares. As actividades visibles dependen do curso actual, do estado activo e dos grupos configurados."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "O icono da tarxeta pública escóllese no formulario de alta ou edición da actividade."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "O comedor ou avisos fixos deben manterse como contido editorial separado, non como actividade automática."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "Recoméndase engadir FAQ con prazos, prezos, autorizacións, baixas e contacto."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "Exportacións e copias"
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "Cada táboa de Xestión ANPA ten a súa propia exportación CSV filtrada pola busca visible."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "A exportación sensible “Descargar Socios IBAN” vive en Socios/as e require o contrasinal de descifrado."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "As copias de seguridade deben facerse con UpdraftPlus antes de cambios importantes, importacións ou actualizacións."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "A sección Importar listados é só unha guía nesta fase: non escribe CSV nin modifica a base de datos."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "Privacidade e seguridade"
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "Os datos bancarios están cifrados e só deben exportarse cando sexa imprescindible para a domiciliación."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "Non compartas o contrasinal de descifrado por correo nin o gardes en documentos públicos."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "A Xestión ANPA require sesión de administración válida; se caduca, hai que volver autenticarse."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:render_docs_page
+msgid "Antes de importar ou arquivar datos persoais, debe existir unha subfase con validación, vista previa, confirmación e auditoría."
+msgstr ""
+

@@ -42,7 +42,7 @@ class ANPA_Socios_Socios_Page {
 		// login share a single, simple flow. This shortcode renders only a CTA
 		// button that sends the visitor to that page. The full form markup is
 		// available via render_alta_form() (embedded by the unified page).
-		$unified_url = ANPA_Socios_Hub_Page::find_page_url( 'anpa_socios_area_unified' );
+		$unified_url = ANPA_Socios_Hub_Page::find_page_url( 'anpa_socios_area' );
 		if ( '' === (string) $unified_url ) {
 			$unified_url = ANPA_Socios_Admin_Settings::landing_page_url();
 		}
@@ -74,8 +74,8 @@ class ANPA_Socios_Socios_Page {
 		$alta_url             = rest_url( 'anpa-socios/v1/alta' );
 		$solicitar_codigo_url = rest_url( 'anpa-socios/v1/solicitar-codigo-alta' );
 		$preflight_url        = rest_url( 'anpa-socios/v1/area/preflight' );
-		$area_page_url        = ANPA_Socios_Hub_Page::find_page_url( 'anpa_socios_area' );
-		$unified_page_url     = ANPA_Socios_Hub_Page::find_page_url( 'anpa_socios_area_unified' );
+		$area_page_url        = ANPA_Socios_Hub_Page::find_page_url( 'anpa_socios_area_persoal' );
+		$unified_page_url     = ANPA_Socios_Hub_Page::find_page_url( 'anpa_socios_area' );
 
 		// Configurable association identity (generic, multi-tenant).
 		$assoc        = esc_html( ANPA_Socios_Config::association_name() );

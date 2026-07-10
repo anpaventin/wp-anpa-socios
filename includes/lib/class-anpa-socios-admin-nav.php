@@ -105,6 +105,65 @@ final class ANPA_Socios_Admin_Nav {
 	);
 
 	/**
+	 * Export actions attached to their domain sections.
+	 *
+	 * @since 1.32.0
+	 * @var array<string,array<string,array<string,mixed>>>
+	 */
+	private const MANAGEMENT_EXPORT_ACTIONS = array(
+		'socios'             => array(
+			'csv'            => array(
+				'label' => 'Socios/as CSV',
+			),
+			'sensitive_full' => array(
+				'label'               => 'Descargar Socios IBAN',
+				'requires_passphrase' => true,
+			),
+		),
+		'fillos'             => array(
+			'csv' => array(
+				'label' => 'Fillos/as CSV',
+			),
+		),
+		'empresas'           => array(
+			'csv' => array(
+				'label' => 'Empresas CSV',
+			),
+		),
+		'actividades'        => array(
+			'csv' => array(
+				'label' => 'Actividades CSV',
+			),
+		),
+		'cursos-matriculas'  => array(
+			'csv' => array(
+				'label' => 'Matrículas CSV',
+			),
+		),
+		'importar-listados'  => array(
+			'csv_preview_only' => array(
+				'label'      => 'Validación e vista previa',
+				'write_safe' => false,
+			),
+		),
+	);
+
+	/**
+	 * Documentation sections for the operator help page.
+	 *
+	 * @since 1.32.0
+	 * @var array<string,string>
+	 */
+	private const DOCS_SECTIONS = array(
+		'posta-en-marcha'        => 'Posta en marcha',
+		'ciclo-curso'            => 'Ciclo do curso escolar',
+		'paxinas-shortcodes'     => 'Páxinas automáticas e shortcodes',
+		'extraescolares'         => 'Extraescolares',
+		'exportacions-copias'    => 'Exportacións e copias',
+		'privacidade-seguridade' => 'Privacidade e seguridade',
+	);
+
+	/**
 	 * Returns settings top-level tabs.
 	 *
 	 * @since  1.32.0
@@ -206,6 +265,26 @@ final class ANPA_Socios_Admin_Nav {
 	 */
 	public static function import_targets(): array {
 		return self::IMPORT_TARGETS;
+	}
+
+	/**
+	 * Returns export/import actions attached to management domain sections.
+	 *
+	 * @since  1.32.0
+	 * @return array<string,array<string,array<string,mixed>>>
+	 */
+	public static function management_export_actions(): array {
+		return self::MANAGEMENT_EXPORT_ACTIONS;
+	}
+
+	/**
+	 * Returns documentation sections for the Docs admin page.
+	 *
+	 * @since  1.32.0
+	 * @return array<string,string>
+	 */
+	public static function docs_sections(): array {
+		return self::DOCS_SECTIONS;
 	}
 
 	/**
