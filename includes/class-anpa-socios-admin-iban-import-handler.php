@@ -104,7 +104,10 @@ final class ANPA_Socios_Admin_Iban_Import_Handler {
 
 		// Resolve familia_id from logical id_familia. Families must already
 		// exist from the socios import; unknown families are errors.
-		$resolved = self::resolve_families( $report['to_insert'] );
+		// SECURITY: use the strict `valid` set (rows with NO validation errors),
+		// never `to_insert` (which keeps error rows for the report) — we must
+		// not seal an invalid/empty IBAN/NIF.
+		$resolved = self::resolve_families( $report['valid'] );
 
 		if ( ! $commit ) {
 			return self::dry_run_response( $report, $resolved );

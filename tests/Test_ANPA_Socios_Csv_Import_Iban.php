@@ -257,6 +257,22 @@ final class Test_ANPA_Socios_Csv_Import_Iban extends TestCase {
 		$this->assertCount( 3, $result['to_insert'] );
 	}
 
+	// ─── strict `valid` excludes error rows (banking hardening) ─
+
+	public function test_analyze_socios_iban_valid_excludes_error_rows(): void {
+		$csv = "id_familia,titular_nome,titular_apelidos,titular_nif,iban,entidade_bancaria,autorizacion\n"
+			. "1,ANA,GARCIA,12345678Z,ES1234567890123456789012,Banco,1\n"   // valid
+			. "2,,,,,Banco,1\n";                                             // missing required → error
+		$rows   = ANPA_Socios_Csv_Import::parse( $csv );
+		$result = ANPA_Socios_Csv_Import::analyze( 'socios_iban', $rows );
+
+		$this->assertArrayHasKey( 'valid', $result );
+		// The error row stays in to_insert (for the report) but is NOT in valid.
+		$this->assertCount( 2, $result['to_insert'] );
+		$this->assertCount( 1, $result['valid'], 'valid must exclude rows with validation errors.' );
+		$this->assertSame( '1', $result['valid'][0]['id_familia'] );
+	}
+
 	// ─── titular_nif normalization ─────────────────────────────
 
 	public function test_analyze_socios_iban_normalizes_titular_nif(): void {
