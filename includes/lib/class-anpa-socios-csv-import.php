@@ -107,12 +107,13 @@ final class ANPA_Socios_Csv_Import {
 	 * @param  string $entity        Entity name (socios|fillos|empresas|actividades|matriculas).
 	 * @param  array  $rows          Parsed rows (from parse()).
 	 * @param  array  $existing_keys Array of existing natural keys for dedup.
-	 * @return array{rows:array,errors:array,duplicates:array,to_insert:array}
+	 * @return array{rows:array,errors:array,duplicates:array,to_insert:array,valid:array}
 	 */
 	public static function analyze( string $entity, array $rows, array $existing_keys = array() ): array {
 		$errors     = array();
 		$duplicates = array();
 		$to_insert  = array();
+		$valid      = array();
 		$seen_keys  = array();
 
 		$required = self::REQUIRED_FIELDS[ $entity ] ?? array();
@@ -180,6 +181,13 @@ final class ANPA_Socios_Csv_Import {
 			}
 
 			$to_insert[] = $row;
+
+			// Strict set: rows with NO validation errors AND not duplicate.
+			// Sensitive commits (e.g. IBAN sealing) MUST use `valid`, never
+			// `to_insert` (which keeps error rows for the report).
+			if ( empty( $row_errors ) ) {
+				$valid[] = $row;
+			}
 		}
 
 		return array(
@@ -187,6 +195,7 @@ final class ANPA_Socios_Csv_Import {
 			'errors'     => $errors,
 			'duplicates' => $duplicates,
 			'to_insert'  => $to_insert,
+			'valid'      => $valid,
 		);
 	}
 
