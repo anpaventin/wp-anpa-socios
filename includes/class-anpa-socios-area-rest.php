@@ -403,9 +403,8 @@ class ANPA_Socios_Area_REST {
 			$wpdb->prepare(
 				"SELECT COUNT(1) FROM {$mat_t} m
 				 INNER JOIN {$fil_t} f ON f.id = m.fillo_id
-				 WHERE ( f.socio_email = %s OR f.socio_email IN ( SELECT email FROM {$soc_t} WHERE familia_id = %d ) )
+				 WHERE f.familia_id = %d
 				   AND m.estado IN ( 'activo', 'lista_espera', 'oferta' )",
-				$email,
 				$fam_id
 			)
 		);
@@ -854,8 +853,19 @@ class ANPA_Socios_Area_REST {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function handle_update_me( WP_REST_Request $request ) {
-		$nome     = ANPA_Socios_Payload::validar_nome( sanitize_text_field( (string) $request->get_param( 'nome' ) ) );
-		$apelidos = ANPA_Socios_Payload::validar_apelidos( sanitize_text_field( (string) $request->get_param( 'apelidos' ) ) );
+		$raw_nome     = sanitize_text_field( (string) $request->get_param( 'nome' ) );
+		$raw_apelidos = sanitize_text_field( (string) $request->get_param( 'apelidos' ) );
+
+		// Normalize names before validation (Fase 18 — RF-7 consistency).
+		if ( '' !== trim( $raw_nome ) ) {
+			$raw_nome = ANPA_Socios_Normalize::title_case( $raw_nome );
+		}
+		if ( '' !== trim( $raw_apelidos ) ) {
+			$raw_apelidos = ANPA_Socios_Normalize::title_case( $raw_apelidos );
+		}
+
+		$nome     = ANPA_Socios_Payload::validar_nome( $raw_nome );
+		$apelidos = ANPA_Socios_Payload::validar_apelidos( $raw_apelidos );
 
 		if ( null === $nome || null === $apelidos ) {
 			return new WP_Error( 'anpa_area_invalid_payload', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
@@ -1038,7 +1048,7 @@ class ANPA_Socios_Area_REST {
 		self::clear_db_error();
 		$profile = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT email, nome, apelidos, estado, rol, baixa_estado, baixa_solicitada_en, creado_en, actualizado_en FROM {$table_name} WHERE email = %s LIMIT 1",
+				"SELECT id, email, nome, apelidos, estado, rol, familia_id, baixa_estado, baixa_solicitada_en, creado_en, actualizado_en FROM {$table_name} WHERE email = %s LIMIT 1",
 				$email
 			),
 			ARRAY_A

@@ -148,4 +148,81 @@ final class ANPA_Socios_Normalize {
 		// Re-uses the canonical mod-23 validator.
 		return ANPA_Socios_Sepa::validar_nif_nie( $v );
 	}
+
+	/**
+	 * Canonical IBAN: upper-case, all whitespace removed.
+	 *
+	 * Does NOT validate checksum — only produces the canonical form
+	 * (uppercase, no spaces) for consistent storage and comparison.
+	 * Empty input stays empty.
+	 *
+	 * Examples:
+	 *  - "es91 2100 0418 4502 0005 1332" → "ES9121000418450200051332"
+	 *  - "  GB29 NWBK 6016 1331 9268 19 " → "GB29NWBK60161331926819"
+	 *  - "" → ""
+	 *
+	 * @since  1.34.0
+	 * @param  string $value Raw IBAN input.
+	 * @return string Canonical IBAN (uppercase, no whitespace).
+	 */
+	public static function iban( string $value ): string {
+		$v = preg_replace( '/\s+/', '', trim( $value ) );
+		if ( '' === $v || null === $v ) {
+			return '';
+		}
+
+		return strtoupper( $v );
+	}
+
+	/**
+	 * Canonical school year: normalizes to YYYY/YYYY format.
+	 *
+	 * Accepts two 4-digit years separated by `/`, `-`, or spaces
+	 * (e.g. "2025-2026", "2025 / 2026", "2025/2026"). The second
+	 * year must be exactly first+1. Returns null if the input cannot
+	 * be parsed into two consecutive 4-digit years.
+	 *
+	 * Examples:
+	 *  - "2025-2026"    → "2025/2026"
+	 *  - "2025 / 2026"  → "2025/2026"
+	 *  - "2025/2026"    → "2025/2026"
+	 *  - "2025 2026"    → "2025/2026"
+	 *  - "2025-2027"    → null (not consecutive)
+	 *  - "abc"          → null
+	 *  - ""             → null
+	 *
+	 * @since  1.34.0
+	 * @param  string $value Raw school year input.
+	 * @return string|null Canonical "YYYY/YYYY" or null on failure.
+	 */
+	public static function curso_escolar( string $value ): ?string {
+		$v = trim( $value );
+		if ( '' === $v ) {
+			return null;
+		}
+
+		// Split on separators: /, -, or whitespace (possibly surrounded by spaces).
+		$parts = preg_split( '/\s*[\/\-]\s*|\s+/', $v );
+		if ( ! is_array( $parts ) || 2 !== count( $parts ) ) {
+			return null;
+		}
+
+		$year1 = $parts[0];
+		$year2 = $parts[1];
+
+		// Both must be exactly 4 digits.
+		if ( 1 !== preg_match( '/^\d{4}$/', $year1 ) || 1 !== preg_match( '/^\d{4}$/', $year2 ) ) {
+			return null;
+		}
+
+		$y1 = (int) $year1;
+		$y2 = (int) $year2;
+
+		// Second year must be exactly first + 1.
+		if ( $y2 !== $y1 + 1 ) {
+			return null;
+		}
+
+		return $year1 . '/' . $year2;
+	}
 }

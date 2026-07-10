@@ -138,10 +138,28 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 		}
 		$payload['socio_email'] = $email;
 
+		// Resolve familia_id from the owning socio (fase18 schema slice).
+		$soc_t   = ANPA_Socios_DB::tabela_socios();
+		$soc_row = $wpdb->get_row(
+			$wpdb->prepare( "SELECT id, familia_id FROM {$soc_t} WHERE email = %s", $email ),
+			ARRAY_A
+		);
+		if ( is_array( $soc_row ) ) {
+			$payload['familia_id'] = ANPA_Socios_Familia::resolve_familia_id(
+				null !== $soc_row['familia_id'] ? (int) $soc_row['familia_id'] : null,
+				(int) $soc_row['id']
+			);
+		}
+
+		$formats = array();
+		foreach ( $payload as $key => $value ) {
+			$formats[] = ( 'familia_id' === $key ) ? '%d' : '%s';
+		}
+
 		$inserted = $wpdb->insert(
 			$wpdb->prefix . 'anpa_fillos',
 			$payload,
-			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s' )
+			$formats
 		);
 		if ( false === $inserted ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );

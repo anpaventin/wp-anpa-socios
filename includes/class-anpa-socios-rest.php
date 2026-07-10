@@ -431,6 +431,7 @@ class ANPA_Socios_REST {
 				$fillos_table,
 				array(
 					'socio_email'   => $email,
+					'familia_id'    => $familia_id,
 					'nome'          => $fillo['nome'],
 					'apelidos'      => $fillo['apelidos'],
 					'data_nacemento' => $fillo['data_nacemento'],
@@ -439,7 +440,7 @@ class ANPA_Socios_REST {
 					'estado'        => 'activo',
 					'image_consent' => (int) $fillo['image_consent'],
 				),
-				array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d' )
+				array( '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d' )
 			);
 			if ( false === $inserted || self::has_db_error() ) {
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback on failed fillo insert.

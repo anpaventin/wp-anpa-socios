@@ -129,8 +129,18 @@ final class ANPA_Socios_Admin_Payload {
 	 * @return array<string,string>|null
 	 */
 	public static function validar_fillo( array $input ): ?array {
-		$nome           = self::sanitise_optional_string( $input['nome'] ?? null, self::NOME_MAX_LEN );
-		$apelidos       = self::sanitise_optional_string( $input['apelidos'] ?? null, self::APELIDOS_MAX_LEN );
+		$raw_nome     = $input['nome'] ?? null;
+		$raw_apelidos = $input['apelidos'] ?? null;
+		// Normalize names before sanitisation (Fase 18 — RF-7 consistency).
+		if ( null !== $raw_nome && '' !== trim( (string) $raw_nome ) ) {
+			$raw_nome = ANPA_Socios_Normalize::title_case( (string) $raw_nome );
+		}
+		if ( null !== $raw_apelidos && '' !== trim( (string) $raw_apelidos ) ) {
+			$raw_apelidos = ANPA_Socios_Normalize::title_case( (string) $raw_apelidos );
+		}
+
+		$nome           = self::sanitise_optional_string( $raw_nome, self::NOME_MAX_LEN );
+		$apelidos       = self::sanitise_optional_string( $raw_apelidos, self::APELIDOS_MAX_LEN );
 		$data_nacemento = self::sanitise_optional_string( $input['data_nacemento'] ?? null, 10 );
 		$curso          = self::sanitise_optional_string( $input['curso'] ?? null, 10 );
 		$aula           = self::sanitise_optional_string( $input['aula'] ?? null, 10 );

@@ -104,8 +104,8 @@ final class ANPA_Socios_Extraescolares_REST {
 
 		// R-F1: optional fillo_id filters out already-enrolled activities.
 		if ( $fillo_id > 0 ) {
-			$email = self::current_email( $request );
-			if ( '' !== $email && null !== self::fetch_owned_fillo( $fillo_id, $email ) ) {
+			$familia_id = self::current_familia_id( $request );
+			if ( $familia_id > 0 && null !== self::fetch_owned_fillo( $fillo_id, $familia_id ) ) {
 				$trimestre = ANPA_Socios_Trimestre::actual( (int) current_time( 'n' ) );
 				$sql      .= " AND NOT EXISTS (SELECT 1 FROM {$mat_t} WHERE activitad_id = a.id AND fillo_id = %d AND trimestre = %d AND estado <> 'baixa')";
 				$params[]  = $fillo_id;
@@ -213,8 +213,13 @@ final class ANPA_Socios_Extraescolares_REST {
 			return self::err( 'anpa_extra_invalid', 'Sesión inválida ou caducada', 401 );
 		}
 
+		$familia_id = self::current_familia_id( $request );
+		if ( 0 === $familia_id ) {
+			return self::err( 'anpa_extra_invalid', 'Sesión inválida ou caducada', 401 );
+		}
+
 		$fillo_id = (int) $request->get_param( 'id' );
-		$fillo    = self::fetch_owned_fillo( $fillo_id, $email );
+		$fillo    = self::fetch_owned_fillo( $fillo_id, $familia_id );
 		if ( null === $fillo ) {
 			return self::err( 'anpa_extra_not_found', 'Non atopado', 404 );
 		}
@@ -389,8 +394,8 @@ final class ANPA_Socios_Extraescolares_REST {
 	public static function list_minhas( WP_REST_Request $request ) {
 		global $wpdb;
 
-		$email = self::current_email( $request );
-		if ( '' === $email ) {
+		$familia_id = self::current_familia_id( $request );
+		if ( 0 === $familia_id ) {
 			return self::err( 'anpa_extra_invalid', 'Sesión inválida ou caducada', 401 );
 		}
 
@@ -407,8 +412,8 @@ final class ANPA_Socios_Extraescolares_REST {
 			 INNER JOIN {$fil_t} f ON f.id = m.fillo_id
 			 LEFT JOIN {$act_t} a ON a.id = m.activitad_id
 			 LEFT JOIN {$gru_t} g ON g.id = m.grupo_id
-			 WHERE f.socio_email = %s";
-		$params = array( $email );
+			 WHERE f.familia_id = %d";
+		$params = array( $familia_id );
 
 		if ( $curso_filter && ANPA_Socios_Curso_Escolar::is_valid( $curso_filter ) ) {
 			$sql    .= ' AND g.curso_escolar = %s';
@@ -424,7 +429,7 @@ final class ANPA_Socios_Extraescolares_REST {
 		$data = is_array( $rows ) ? $rows : array();
 
 
-		// Send only the current course plus school years where this socio has
+		// Send only the current course plus school years where this family has
 		// enrolments. Past years should be selectable only when there is actual
 		// history for the family.
 		$current = ANPA_Socios_Curso_Escolar::current();
@@ -434,9 +439,9 @@ final class ANPA_Socios_Extraescolares_REST {
 				 FROM {$mat_t} m
 				 INNER JOIN {$fil_t} f ON f.id = m.fillo_id
 				 LEFT JOIN {$gru_t} g ON g.id = m.grupo_id
-				 WHERE f.socio_email = %s AND g.curso_escolar IS NOT NULL AND g.curso_escolar <> ''
+				 WHERE f.familia_id = %d AND g.curso_escolar IS NOT NULL AND g.curso_escolar <> ''
 				 ORDER BY g.curso_escolar DESC",
-				$email
+				$familia_id
 			)
 		);
 		$cursos  = is_array( $cursos ) ? array_values( array_unique( array_merge( array( $current ), $cursos ) ) ) : array( $current );
@@ -474,7 +479,12 @@ final class ANPA_Socios_Extraescolares_REST {
 			return self::err( 'anpa_extra_invalid', 'Sesión inválida ou caducada', 401 );
 		}
 
-		$mat = self::fetch_owned_matricula( (int) $request->get_param( 'id' ), $email );
+		$familia_id = self::current_familia_id( $request );
+		if ( 0 === $familia_id ) {
+			return self::err( 'anpa_extra_invalid', 'Sesión inválida ou caducada', 401 );
+		}
+
+		$mat = self::fetch_owned_matricula( (int) $request->get_param( 'id' ), $familia_id );
 		if ( null === $mat ) {
 			return self::err( 'anpa_extra_not_found', 'Non atopado', 404 );
 		}
@@ -527,12 +537,12 @@ final class ANPA_Socios_Extraescolares_REST {
 	public static function cancel_baixa( WP_REST_Request $request ) {
 		global $wpdb;
 
-		$email = self::current_email( $request );
-		if ( '' === $email ) {
+		$familia_id = self::current_familia_id( $request );
+		if ( 0 === $familia_id ) {
 			return self::err( 'anpa_extra_invalid', 'Sesión inválida ou caducada', 401 );
 		}
 
-		$mat = self::fetch_owned_matricula( (int) $request->get_param( 'id' ), $email );
+		$mat = self::fetch_owned_matricula( (int) $request->get_param( 'id' ), $familia_id );
 		if ( null === $mat || 'baixa_solicitada' !== $mat['estado'] ) {
 			return self::err( 'anpa_extra_not_found', 'Non atopado', 404 );
 		}
@@ -564,12 +574,12 @@ final class ANPA_Socios_Extraescolares_REST {
 	public static function accept_oferta( WP_REST_Request $request ) {
 		global $wpdb;
 
-		$email = self::current_email( $request );
-		if ( '' === $email ) {
+		$familia_id = self::current_familia_id( $request );
+		if ( 0 === $familia_id ) {
 			return self::err( 'anpa_extra_invalid', 'Sesión inválida ou caducada', 401 );
 		}
 
-		$mat = self::fetch_owned_matricula( (int) $request->get_param( 'id' ), $email );
+		$mat = self::fetch_owned_matricula( (int) $request->get_param( 'id' ), $familia_id );
 		if ( null === $mat || 'oferta' !== $mat['estado'] ) {
 			return self::err( 'anpa_extra_not_found', 'Non atopado', 404 );
 		}
@@ -601,15 +611,15 @@ final class ANPA_Socios_Extraescolares_REST {
 	}
 
 	/**
-	 * Fetches a matrícula only if it belongs to the authenticated socio.
+	 * Fetches a matrícula only if it belongs to the authenticated socio's family.
 	 *
 	 * @since  1.9.0
-	 * @param  int    $id    Matrícula id.
-	 * @param  string $email Owning socio email.
+	 * @param  int $id         Matrícula id.
+	 * @param  int $familia_id Owning family id.
 	 * @return array<string,mixed>|null
 	 */
-	private static function fetch_owned_matricula( int $id, string $email ): ?array {
-		if ( $id <= 0 ) {
+	private static function fetch_owned_matricula( int $id, int $familia_id ): ?array {
+		if ( $id <= 0 || $familia_id <= 0 ) {
 			return null;
 		}
 
@@ -621,9 +631,9 @@ final class ANPA_Socios_Extraescolares_REST {
 				"SELECT m.id, m.fillo_id, m.activitad_id, m.grupo_id, m.trimestre, m.estado, m.oferta_expira, g.curso_escolar
 				 FROM {$mat_t} m INNER JOIN {$fil_t} f ON f.id = m.fillo_id
 				 LEFT JOIN " . ANPA_Socios_DB::tabela_grupos() . " g ON g.id = m.grupo_id
-				 WHERE m.id = %d AND f.socio_email = %s LIMIT 1",
+				 WHERE m.id = %d AND f.familia_id = %d LIMIT 1",
 				$id,
-				$email
+				$familia_id
 			),
 			ARRAY_A
 		);
@@ -752,15 +762,31 @@ final class ANPA_Socios_Extraescolares_REST {
 	}
 
 	/**
-	 * Fetches a fillo only if owned by the socio and not in baixa.
+	 * Returns the resolved familia_id for the authenticated socio.
+	 *
+	 * @since  1.21.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return int Resolved familia_id, or 0 when unavailable.
+	 */
+	private static function current_familia_id( WP_REST_Request $request ): int {
+		$profile = $request->get_param( '_anpa_area_profile' );
+		if ( ! is_array( $profile ) ) {
+			return 0;
+		}
+
+		return ANPA_Socios_Familia::resolve_from_profile( $profile );
+	}
+
+	/**
+	 * Fetches a fillo only if owned by the socio's family and not in baixa.
 	 *
 	 * @since  1.9.0
-	 * @param  int    $id    Fillo id.
-	 * @param  string $email Owning socio email.
+	 * @param  int $id         Fillo id.
+	 * @param  int $familia_id Owning family id.
 	 * @return array<string,mixed>|null
 	 */
-	private static function fetch_owned_fillo( int $id, string $email ): ?array {
-		if ( $id <= 0 ) {
+	private static function fetch_owned_fillo( int $id, int $familia_id ): ?array {
+		if ( $id <= 0 || $familia_id <= 0 ) {
 			return null;
 		}
 
@@ -768,9 +794,9 @@ final class ANPA_Socios_Extraescolares_REST {
 		$table = ANPA_Socios_DB::tabela_fillos();
 		$row   = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, curso FROM {$table} WHERE id = %d AND socio_email = %s AND estado <> 'baixa' LIMIT 1",
+				"SELECT id, curso FROM {$table} WHERE id = %d AND familia_id = %d AND estado <> 'baixa' LIMIT 1",
 				$id,
-				$email
+				$familia_id
 			),
 			ARRAY_A
 		);

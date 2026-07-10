@@ -50,11 +50,12 @@ class ANPA_Socios_DB {
 	 * 1.19.0 adds 'pendente_aprobacion' to the wp_anpa_socios estado enum for
 	 *        the optional new-socio approval workflow.
 	 * 1.20.0 widens fillos_cursos.aula enum to A-H for larger schools.
+	 * 1.21.0 adds fillos.familia_id (FK to socios family group) + backfill.
 	 *
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.20.0';
+	const DB_VERSION = '1.21.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -184,6 +185,9 @@ class ANPA_Socios_DB {
 
 		// 1.20.0: widen the fillos_cursos.aula enum to A-H for larger schools.
 		self::migrate_to_1_20_0();
+
+		// 1.21.0: add fillos.familia_id column + backfill from socios.
+		self::migrate_to_1_21_0();
 
 		// Ensure the configured master email holds the master role so the
 		// admin surface is reachable right after migration. Idempotent.
@@ -1115,6 +1119,41 @@ class ANPA_Socios_DB {
 	}
 
 	/**
+	 * Migration to 1.21.0: add familia_id column to fillos + backfill.
+	 *
+	 * The familia_id column links each fillo to the family group via the
+	 * socios.familia_id (or socios.id when familia_id is NULL/0). The
+	 * socio_email column is retained transitionally.
+	 *
+	 * Idempotent: guarded by column-existence check. Backfill only updates
+	 * rows where familia_id is NULL or 0.
+	 *
+	 * @since  1.21.0
+	 * @return void
+	 */
+	private static function migrate_to_1_21_0(): void {
+		global $wpdb;
+
+		$fillos = self::tabela_fillos();
+		$socios = self::tabela_socios();
+
+		if ( ! self::tem_columna( $fillos, 'familia_id' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			$wpdb->query( "ALTER TABLE {$fillos} ADD COLUMN familia_id bigint(20) unsigned NULL DEFAULT NULL AFTER socio_email, ADD KEY familia_id (familia_id)" );
+		}
+
+		// Backfill: resolve each fillo's familia_id from the owning socio.
+		// COALESCE(NULLIF(s.familia_id,0), s.id) mirrors the runtime resolver.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent data backfill.
+		$wpdb->query(
+			"UPDATE {$fillos} f
+			 INNER JOIN {$socios} s ON s.email = f.socio_email
+			 SET f.familia_id = COALESCE(NULLIF(s.familia_id, 0), s.id)
+			 WHERE f.familia_id IS NULL OR f.familia_id = 0"
+		);
+	}
+
+	/**
 	 * Returns the full anpa_audit_log table name.
 	 *
 	 * @since  1.3.0
@@ -1146,6 +1185,7 @@ class ANPA_Socios_DB {
 		$fillos_sql = 'CREATE TABLE ' . self::tabela_fillos() . " (
 			id bigint(20) unsigned not null auto_increment,
 			socio_email varchar(190) not null,
+			familia_id bigint(20) unsigned null default null,
 			nome varchar(50) not null,
 			apelidos varchar(100) not null,
 			data_nacemento date not null,
@@ -1156,6 +1196,7 @@ class ANPA_Socios_DB {
 			creado_en datetime not null default CURRENT_TIMESTAMP,
 			actualizado_en datetime not null default CURRENT_TIMESTAMP,
 			key socio_email (socio_email),
+			key familia_id (familia_id),
 			key estado (estado),
 			PRIMARY KEY  (id)
 		) {$charset_collate};";

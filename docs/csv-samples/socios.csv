@@ -1,0 +1,6 @@
+id_familia,rol_familia,email,nome,apelidos,nif,telefono,estado
+1,principal,maria.ficticia@example.com,María,García López,00000000T,600000001,activo
+1,secundario,pedro.ficticio@example.com,Pedro,García Martínez,11111111H,600000002,activo
+2,principal,ana.ficticia@example.com,Ana,Fernández Rodríguez,22222222J,600000003,activo
+2,secundario,,Xosé,Fernández Paz,,,activo
+3,principal,brais.ficticio@example.com,Brais,López Núñez,33333333P,600000004,activo

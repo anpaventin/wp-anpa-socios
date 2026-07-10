@@ -73,26 +73,26 @@ final class ANPA_Socios_Fillos_REST {
 	}
 
 	/**
-	 * GET /fillos — lists the current socio's active fillos.
+	 * GET /fillos — lists the current socio's family's active fillos.
 	 *
 	 * @since  1.4.0
 	 * @param  WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function list_fillos( WP_REST_Request $request ) {
-		$email = self::current_email( $request );
-		if ( '' === $email ) {
+		$familia_id = self::current_familia_id( $request );
+		if ( 0 === $familia_id ) {
 			return self::invalid_session_error();
 		}
 
 		global $wpdb;
 		$table = $wpdb->prefix . 'anpa_fillos';
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- scoped read of the authenticated socio's own children.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- scoped read of the authenticated family's children.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, nome, apelidos, data_nacemento, curso, aula, estado FROM {$table} WHERE socio_email = %s AND estado <> 'baixa' ORDER BY id ASC",
-				$email
+				"SELECT id, nome, apelidos, data_nacemento, curso, aula, estado FROM {$table} WHERE familia_id = %d AND estado <> 'baixa' ORDER BY id ASC",
+				$familia_id
 			),
 			ARRAY_A
 		);
@@ -113,13 +113,18 @@ final class ANPA_Socios_Fillos_REST {
 			return self::invalid_session_error();
 		}
 
+		$familia_id = self::current_familia_id( $request );
+		if ( 0 === $familia_id ) {
+			return self::invalid_session_error();
+		}
+
 		$payload = ANPA_Socios_Admin_Payload::validar_fillo( self::json_body( $request ) );
 		if ( null === $payload ) {
 			return self::invalid_payload_error();
 		}
 
 		// ── Fase 8b: Check for duplicate fillo by normalized name + apelidos ──
-		$dup_check = self::check_duplicate_fillo( $payload, $email );
+		$dup_check = self::check_duplicate_fillo( $payload, $familia_id );
 		if ( null !== $dup_check ) {
 			return $dup_check;
 		}
@@ -127,6 +132,7 @@ final class ANPA_Socios_Fillos_REST {
 		// A socio always creates an active fillo; estado is not client-controlled here.
 		$payload['estado']      = 'activo';
 		$payload['socio_email'] = $email;
+		$payload['familia_id']  = $familia_id;
 
 		global $wpdb;
 		$table = $wpdb->prefix . 'anpa_fillos';
@@ -135,13 +141,13 @@ final class ANPA_Socios_Fillos_REST {
 		$inserted = $wpdb->insert(
 			$table,
 			$payload,
-			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s' )
+			self::fillo_insert_formats( $payload )
 		);
 		if ( false === $inserted ) {
 			return self::db_error();
 		}
 
-		$row = self::fetch_owned_fillo( (int) $wpdb->insert_id, $email );
+		$row = self::fetch_owned_fillo( (int) $wpdb->insert_id, $familia_id );
 		if ( null !== $row ) {
 			self::sync_current_course_assignment( (int) $row['id'], (string) $row['curso'], (string) $row['aula'] );
 		}
@@ -157,13 +163,13 @@ final class ANPA_Socios_Fillos_REST {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function update_fillo( WP_REST_Request $request ) {
-		$email = self::current_email( $request );
-		if ( '' === $email ) {
+		$familia_id = self::current_familia_id( $request );
+		if ( 0 === $familia_id ) {
 			return self::invalid_session_error();
 		}
 
 		$id = (int) $request->get_param( 'id' );
-		if ( null === self::fetch_owned_fillo( $id, $email ) ) {
+		if ( null === self::fetch_owned_fillo( $id, $familia_id ) ) {
 			return self::not_found_error();
 		}
 
@@ -185,22 +191,22 @@ final class ANPA_Socios_Fillos_REST {
 		global $wpdb;
 		$table = $wpdb->prefix . 'anpa_fillos';
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- update scoped to id AND owning socio email.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- update scoped to id AND owning family.
 		$updated = $wpdb->update(
 			$table,
 			$update,
 			array(
-				'id'          => $id,
-				'socio_email' => $email,
+				'id'         => $id,
+				'familia_id' => $familia_id,
 			),
 			array( '%s', '%s', '%s', '%s', '%s', '%s' ),
-			array( '%d', '%s' )
+			array( '%d', '%d' )
 		);
 		if ( false === $updated ) {
 			return self::db_error();
 		}
 
-		$row = self::fetch_owned_fillo( $id, $email );
+		$row = self::fetch_owned_fillo( $id, $familia_id );
 		if ( null !== $row ) {
 			self::sync_current_course_assignment( (int) $row['id'], (string) $row['curso'], (string) $row['aula'] );
 		}
@@ -216,20 +222,20 @@ final class ANPA_Socios_Fillos_REST {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function delete_fillo( WP_REST_Request $request ) {
-		$email = self::current_email( $request );
-		if ( '' === $email ) {
+		$familia_id = self::current_familia_id( $request );
+		if ( 0 === $familia_id ) {
 			return self::invalid_session_error();
 		}
 
 		$id = (int) $request->get_param( 'id' );
-		if ( null === self::fetch_owned_fillo( $id, $email ) ) {
+		if ( null === self::fetch_owned_fillo( $id, $familia_id ) ) {
 			return self::not_found_error();
 		}
 
 		global $wpdb;
 		$table = $wpdb->prefix . 'anpa_fillos';
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- soft delete scoped to id AND owning socio email.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- soft delete scoped to id AND owning family.
 		$updated = $wpdb->update(
 			$table,
 			array(
@@ -237,11 +243,11 @@ final class ANPA_Socios_Fillos_REST {
 				'actualizado_en' => current_time( 'mysql' ),
 			),
 			array(
-				'id'          => $id,
-				'socio_email' => $email,
+				'id'         => $id,
+				'familia_id' => $familia_id,
 			),
 			array( '%s', '%s' ),
-			array( '%d', '%s' )
+			array( '%d', '%d' )
 		);
 		if ( false === $updated ) {
 			return self::db_error();
@@ -267,28 +273,44 @@ final class ANPA_Socios_Fillos_REST {
 	}
 
 	/**
-	 * Fetches a single fillo only if it belongs to the given socio and is
+	 * Returns the resolved familia_id for the authenticated socio.
+	 *
+	 * @since  1.21.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return int Resolved familia_id, or 0 when unavailable.
+	 */
+	private static function current_familia_id( WP_REST_Request $request ): int {
+		$profile = $request->get_param( '_anpa_area_profile' );
+		if ( ! is_array( $profile ) ) {
+			return 0;
+		}
+
+		return ANPA_Socios_Familia::resolve_from_profile( $profile );
+	}
+
+	/**
+	 * Fetches a single fillo only if it belongs to the given family and is
 	 * not soft-deleted. Returns null when missing, not owned, or in baixa.
 	 *
 	 * @since  1.4.0
-	 * @param  int    $id    Fillo id.
-	 * @param  string $email Owning socio email.
+	 * @param  int $id         Fillo id.
+	 * @param  int $familia_id Owning family id.
 	 * @return array<string,string>|null
 	 */
-	private static function fetch_owned_fillo( int $id, string $email ): ?array {
-		if ( $id <= 0 ) {
+	private static function fetch_owned_fillo( int $id, int $familia_id ): ?array {
+		if ( $id <= 0 || $familia_id <= 0 ) {
 			return null;
 		}
 
 		global $wpdb;
 		$table = $wpdb->prefix . 'anpa_fillos';
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- ownership check by id AND socio email.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- ownership check by id AND familia_id.
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, nome, apelidos, data_nacemento, curso, aula, estado FROM {$table} WHERE id = %d AND socio_email = %s AND estado <> 'baixa' LIMIT 1",
+				"SELECT id, nome, apelidos, data_nacemento, curso, aula, estado FROM {$table} WHERE id = %d AND familia_id = %d AND estado <> 'baixa' LIMIT 1",
 				$id,
-				$email
+				$familia_id
 			),
 			ARRAY_A
 		);
@@ -388,14 +410,14 @@ final class ANPA_Socios_Fillos_REST {
 
 	/**
 	 * Checks if a fillo with the same nome+apelidos already exists for another
-	 * active socio. Returns a WP_Error if found, null if safe to create.
+	 * active family. Returns a WP_Error if found, null if safe to create.
 	 *
 	 * @since  1.18.0
-	 * @param  array       $payload The fillo data being created.
-	 * @param  string      $email   The current socio's email.
+	 * @param  array  $payload    The fillo data being created.
+	 * @param  int    $familia_id The current socio's familia_id.
 	 * @return WP_Error|null
 	 */
-	private static function check_duplicate_fillo( array $payload, string $email ): ?WP_Error {
+	private static function check_duplicate_fillo( array $payload, int $familia_id ): ?WP_Error {
 		global $wpdb;
 		$table = $wpdb->prefix . 'anpa_fillos';
 
@@ -408,11 +430,11 @@ final class ANPA_Socios_Fillos_REST {
 				"SELECT f.socio_email, s.nome AS socio_nome, s.apelidos AS socio_apelidos
 				 FROM {$table} f
 				 JOIN {$wpdb->prefix}anpa_socios s ON s.email = f.socio_email
-				 WHERE LOWER(f.nome) = %s AND LOWER(f.apelidos) = %s AND f.socio_email <> %s AND f.estado <> 'baixa'
+				 WHERE LOWER(f.nome) = %s AND LOWER(f.apelidos) = %s AND f.familia_id <> %d AND f.estado <> 'baixa'
 				 LIMIT 1",
 				$nome_lc,
 				$apelidos_lc,
-				$email
+				$familia_id
 			),
 			ARRAY_A
 		);
@@ -454,5 +476,23 @@ final class ANPA_Socios_Fillos_REST {
 			),
 			array( 'status' => 409 )
 		);
+	}
+
+	/**
+	 * Builds the format array for a fillo insert payload.
+	 *
+	 * Accounts for the optional familia_id column added in 1.21.0.
+	 *
+	 * @since  1.21.0
+	 * @param  array<string,mixed> $payload Insert data.
+	 * @return string[]
+	 */
+	private static function fillo_insert_formats( array $payload ): array {
+		$formats = array();
+		foreach ( $payload as $key => $value ) {
+			$formats[] = in_array( $key, array( 'familia_id', 'image_consent' ), true ) ? '%d' : '%s';
+		}
+
+		return $formats;
 	}
 }

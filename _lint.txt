@@ -1,0 +1,26 @@
+En línea: 1 Carácter: 357
++ ... 06_PROYECTOS\Webs\ANPA Ventin\plugins\anpa-socios'; foreach ( 
+in ) {  ...
++                                                                  ~
+Falta el nombre de variable después de foreach.
+En línea: 1 Carácter: 3
++ & {  = 
+@('anpa-socios.php','includes\class-anpa-socios-area-rest.php' ...
++   ~
+Falta la llave de cierre "}" en el bloque de instrucciones o la 
+definición de tipo.
+En línea: 1 Carácter: 361
++ ... OYECTOS\Webs\ANPA Ventin\plugins\anpa-socios'; foreach ( in ) 
+{  = Jo ...
++                                                                 ~
+Token ')' inesperado en la expresión o la instrucción.
+En línea: 1 Carácter: 419
++ ... each ( in ) {  = Join-Path  ;  = php -l  2>&1; Write-Output \ 
+: \ } }
++                                                                    
+     ~
+Token '}' inesperado en la expresión o la instrucción.
+    + CategoryInfo          : ParserError: (:) [], ParentContainsErr 
+   orRecordException
+    + FullyQualifiedErrorId : MissingVariableNameAfterForeach
+ 
