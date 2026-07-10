@@ -2,7 +2,10 @@
 /**
  * Native wp-admin page for ANPA management operations.
  *
- * @since  1.32.0
+ * Renders the "Xestión ANPA" submenu page with section navigation and
+ * enqueues admin-management.js which drives the UI via WP REST + nonce.
+ *
+ * @since  1.33.0
  * @package ANPA_Socios
  */
 
@@ -11,12 +14,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Wires the existing protected management panel into wp-admin.
+ * Native wp-admin management page (post-fase17 rewrite).
  *
- * The REST security boundary remains unchanged: every admin operation still
- * goes through ANPA_Socios_Admin_Shared::permission_master().
- *
- * @since 1.32.0
+ * @since 1.33.0
  */
 final class ANPA_Socios_Admin_Management_Page {
 
@@ -59,6 +59,9 @@ final class ANPA_Socios_Admin_Management_Page {
 	/**
 	 * Renders the native management page.
 	 *
+	 * Outputs navigation tabs and an empty container that admin-management.js
+	 * populates via REST API calls with X-WP-Nonce authentication.
+	 *
 	 * @return void
 	 */
 	public static function render_page(): void {
@@ -66,40 +69,94 @@ final class ANPA_Socios_Admin_Management_Page {
 			wp_die( esc_html__( 'Acceso non permitido.', 'anpa-socios' ) );
 		}
 
-		$page = ANPA_Socios_Admin_Nav::native_management_page();
-		echo '<div class="wrap anpa-management-page">';
-		echo '<h1>' . esc_html( $page['page_title'] ) . '</h1>';
-		echo '<p class="description" style="max-width:820px">' . esc_html__( 'Panel operativo para a directiva. Esta pantalla carga o panel de xestión existente dentro de wp-admin; as operacións seguen protexidas polo mesmo token de área, rol master e contrasinal de administración que xa usa a área pública.', 'anpa-socios' ) . '</p>';
-		echo '<div class="notice notice-info inline"><p>' . esc_html__( 'Se aínda non tes unha sesión master aberta neste navegador, irás á páxina de socios para iniciar sesión e logo poderás volver aquí. Mantense a área pública como fallback durante a migración.', 'anpa-socios' ) . '</p></div>';
-		echo ANPA_Socios_Area_Page::render( array() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- renderer escapes its own markup.
+		$sections = ANPA_Socios_Admin_Nav::management_sections();
+
+		echo '<div class="wrap anpa-mgmt-wrap">';
+		echo '<h1>' . esc_html__( 'Xestión ANPA', 'anpa-socios' ) . '</h1>';
+		echo '<div id="anpa-mgmt-message" class="anpa-mgmt-message"></div>';
+
+		// Section navigation tabs.
+		echo '<nav class="anpa-mgmt-nav" aria-label="' . esc_attr__( 'Seccións de xestión', 'anpa-socios' ) . '">';
+		$first = true;
+		foreach ( $sections as $slug => $label ) {
+			// Skip 'inicio' — not a data section.
+			if ( 'inicio' === $slug ) {
+				continue;
+			}
+			printf(
+				'<button type="button" data-section="%s" aria-selected="%s">%s</button>',
+				esc_attr( $slug ),
+				$first ? 'true' : 'false',
+				esc_html( $label )
+			);
+			$first = false;
+		}
+		echo '</nav>';
+
+		echo '<div id="anpa-management-root"></div>';
 		echo '</div>';
 	}
 
 	/**
-	 * Enqueues existing area/admin assets only on the native management page.
+	 * Enqueues assets only on the native management page.
+	 *
+	 * Loads admin-table.js, anpa-utils.js, admin-management.js and
+	 * admin-management.css. Does NOT load area.js.
 	 *
 	 * @return void
 	 */
 	public static function enqueue_assets(): void {
-		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( ANPA_Socios_Admin_Nav::native_management_page()['slug'] !== $page ) {
 			return;
 		}
 
-		$area_js_path      = ANPA_SOCIOS_PLUGIN_DIR . 'assets/js/area.js';
-		$area_css_path     = ANPA_SOCIOS_PLUGIN_DIR . 'assets/css/area.css';
-		$table_path        = ANPA_SOCIOS_PLUGIN_DIR . 'assets/js/admin-table.js';
-		$normalize_path    = ANPA_SOCIOS_PLUGIN_DIR . 'assets/js/anpa-normalize.js';
-		$utils_path        = ANPA_SOCIOS_PLUGIN_DIR . 'assets/js/anpa-utils.js';
-		$compact_css_path  = ANPA_SOCIOS_PLUGIN_DIR . 'assets/css/admin-compact.css';
-		$admin_css_version = file_exists( $compact_css_path ) ? (int) filemtime( $compact_css_path ) : ANPA_SOCIOS_VERSION;
+		$plugin_url  = plugins_url( '', ANPA_SOCIOS_PLUGIN_FILE );
+		$plugin_dir  = ANPA_SOCIOS_PLUGIN_DIR;
 
-		wp_enqueue_script( 'anpa-socios-admin-table', plugins_url( 'assets/js/admin-table.js', ANPA_SOCIOS_PLUGIN_FILE ), array(), file_exists( $table_path ) ? (int) filemtime( $table_path ) : ANPA_SOCIOS_VERSION, true );
-		wp_enqueue_script( 'anpa-socios-normalize', plugins_url( 'assets/js/anpa-normalize.js', ANPA_SOCIOS_PLUGIN_FILE ), array(), file_exists( $normalize_path ) ? (int) filemtime( $normalize_path ) : ANPA_SOCIOS_VERSION, true );
-		wp_enqueue_script( 'anpa-socios-utils', plugins_url( 'assets/js/anpa-utils.js', ANPA_SOCIOS_PLUGIN_FILE ), array(), file_exists( $utils_path ) ? (int) filemtime( $utils_path ) : ANPA_SOCIOS_VERSION, true );
-		wp_enqueue_script( 'anpa-socios-area', plugins_url( 'assets/js/area.js', ANPA_SOCIOS_PLUGIN_FILE ), array( 'wp-i18n', 'anpa-socios-admin-table', 'anpa-socios-normalize', 'anpa-socios-utils' ), file_exists( $area_js_path ) ? (int) filemtime( $area_js_path ) : ANPA_SOCIOS_VERSION, true );
-		wp_set_script_translations( 'anpa-socios-area', 'anpa-socios', ANPA_SOCIOS_PLUGIN_DIR . 'languages' );
-		wp_enqueue_style( 'anpa-socios-area', plugins_url( 'assets/css/area.css', ANPA_SOCIOS_PLUGIN_FILE ), array(), file_exists( $area_css_path ) ? (int) filemtime( $area_css_path ) : ANPA_SOCIOS_VERSION );
-		wp_enqueue_style( 'anpa-socios-admin-compact', plugins_url( 'assets/css/admin-compact.css', ANPA_SOCIOS_PLUGIN_FILE ), array( 'anpa-socios-area' ), $admin_css_version );
+		// admin-table.js (sort + pagination helpers).
+		$table_path = $plugin_dir . 'assets/js/admin-table.js';
+		wp_enqueue_script(
+			'anpa-socios-admin-table',
+			$plugin_url . '/assets/js/admin-table.js',
+			array(),
+			file_exists( $table_path ) ? (string) filemtime( $table_path ) : ANPA_SOCIOS_VERSION,
+			true
+		);
+
+		// anpa-utils.js (labels, filter, CSV helpers).
+		$utils_path = $plugin_dir . 'assets/js/anpa-utils.js';
+		wp_enqueue_script(
+			'anpa-socios-utils',
+			$plugin_url . '/assets/js/anpa-utils.js',
+			array(),
+			file_exists( $utils_path ) ? (string) filemtime( $utils_path ) : ANPA_SOCIOS_VERSION,
+			true
+		);
+
+		// admin-management.js (main page driver).
+		$mgmt_path = $plugin_dir . 'assets/js/admin-management.js';
+		wp_enqueue_script(
+			'anpa-socios-admin-management',
+			$plugin_url . '/assets/js/admin-management.js',
+			array( 'wp-i18n', 'anpa-socios-admin-table', 'anpa-socios-utils' ),
+			file_exists( $mgmt_path ) ? (string) filemtime( $mgmt_path ) : ANPA_SOCIOS_VERSION,
+			true
+		);
+
+		// Localize: REST root + nonce.
+		wp_localize_script( 'anpa-socios-admin-management', 'anpaAdminMgmt', array(
+			'root'  => esc_url_raw( rest_url( 'anpa-socios/v1/admin/' ) ),
+			'nonce' => wp_create_nonce( 'wp_rest' ),
+		) );
+
+		// admin-management.css.
+		$css_path = $plugin_dir . 'assets/css/admin-management.css';
+		wp_enqueue_style(
+			'anpa-socios-admin-management',
+			$plugin_url . '/assets/css/admin-management.css',
+			array(),
+			file_exists( $css_path ) ? (string) filemtime( $css_path ) : ANPA_SOCIOS_VERSION
+		);
 	}
 }

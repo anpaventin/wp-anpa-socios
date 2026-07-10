@@ -1,0 +1,348 @@
+/**
+ * Styles for the native wp-admin "Xestión ANPA" management page.
+ *
+ * Builds on top of wp-admin defaults. Reuses class names from
+ * admin-compact.css for table action cells. Keeps the WP-native feel.
+ *
+ * @since  1.33.0
+ * @package ANPA_Socios
+ */
+
+/* ── Page layout ───────────────────────────────────────────────── */
+.anpa-mgmt-wrap {
+	max-width: 1200px;
+}
+
+.anpa-mgmt-wrap h1 {
+	margin-bottom: 0.5rem;
+}
+
+/* ── Section navigation (tab-like) ────────────────────────────── */
+.anpa-mgmt-nav {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0;
+	border-bottom: 1px solid #c3c4c7;
+	margin: 1rem 0 1.5rem;
+	padding: 0;
+}
+
+.anpa-mgmt-nav button {
+	background: none;
+	border: 1px solid transparent;
+	border-bottom: none;
+	padding: 0.5rem 1rem;
+	margin-bottom: -1px;
+	font-size: 13px;
+	font-weight: 500;
+	color: #50575e;
+	cursor: pointer;
+	border-radius: 3px 3px 0 0;
+	transition: background 0.15s, color 0.15s;
+}
+
+.anpa-mgmt-nav button:hover {
+	background: #f0f0f1;
+	color: #1d2327;
+}
+
+.anpa-mgmt-nav button[aria-selected="true"] {
+	background: #fff;
+	border-color: #c3c4c7;
+	color: #1d2327;
+	font-weight: 600;
+}
+
+/* ── Content root ──────────────────────────────────────────────── */
+#anpa-management-root {
+	min-height: 200px;
+}
+
+/* ── Status message ────────────────────────────────────────────── */
+.anpa-mgmt-message {
+	padding: 0.6rem 1rem;
+	border-radius: 4px;
+	margin-bottom: 1rem;
+	font-size: 13px;
+}
+
+.anpa-mgmt-message[data-type="success"] {
+	background: #d1e7dd;
+	color: #0f5132;
+	border: 1px solid #a3cfbb;
+}
+
+.anpa-mgmt-message[data-type="error"] {
+	background: #f8d7da;
+	color: #842029;
+	border: 1px solid #f5c2c7;
+}
+
+.anpa-mgmt-message[data-type="info"] {
+	background: #cfe2ff;
+	color: #084298;
+	border: 1px solid #b6d4fe;
+}
+
+.anpa-mgmt-message:empty {
+	display: none;
+}
+
+/* ── Tables (sortable) ─────────────────────────────────────────── */
+.anpa-mgmt-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 13px;
+	margin-top: 0.5rem;
+}
+
+.anpa-mgmt-table th,
+.anpa-mgmt-table td {
+	padding: 0.5rem 0.75rem;
+	text-align: left;
+	border-bottom: 1px solid #e2e4e7;
+	vertical-align: middle;
+}
+
+.anpa-mgmt-table th {
+	background: #f6f7f7;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.anpa-mgmt-table th.anpa-sortable {
+	cursor: pointer;
+	user-select: none;
+}
+
+.anpa-mgmt-table th.anpa-sortable:hover {
+	background: #e8eaec;
+}
+
+.anpa-mgmt-table tbody tr:hover {
+	background: #f9f9f9;
+}
+
+.anpa-mgmt-table .anpa-row-baixa td {
+	opacity: 0.55;
+}
+
+.anpa-mgmt-table .anpa-row-pendente td {
+	background: #fff3cd;
+}
+
+.anpa-mgmt-table .anpa-row-baixa-pending td {
+	background: #fef3e2;
+}
+
+/* ── Filter / toolbar bar ──────────────────────────────────────── */
+.anpa-mgmt-filter-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75rem;
+	margin-bottom: 0.75rem;
+}
+
+.anpa-mgmt-filter-bar input[type="text"] {
+	margin-left: auto;
+	max-width: 240px;
+	padding: 0.3rem 0.6rem;
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+	font-size: 13px;
+}
+
+.anpa-mgmt-filter-bar label {
+	font-size: 13px;
+	display: flex;
+	align-items: center;
+	gap: 0.3rem;
+}
+
+/* ── Pagination ────────────────────────────────────────────────── */
+.anpa-mgmt-pagination {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	margin-top: 0.75rem;
+	font-size: 13px;
+}
+
+.anpa-mgmt-pagination button {
+	padding: 0.25rem 0.6rem;
+	font-size: 12px;
+}
+
+.anpa-mgmt-pagination select {
+	font-size: 12px;
+	padding: 0.2rem 0.4rem;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+.anpa-mgmt-btn {
+	display: inline-block;
+	padding: 0.35rem 0.8rem;
+	font-size: 13px;
+	border-radius: 3px;
+	cursor: pointer;
+	border: 1px solid #2271b1;
+	background: #2271b1;
+	color: #fff;
+	text-decoration: none;
+	line-height: 1.4;
+}
+
+.anpa-mgmt-btn:hover {
+	background: #135e96;
+	border-color: #135e96;
+}
+
+.anpa-mgmt-btn-secondary {
+	background: #f6f7f7;
+	border-color: #8c8f94;
+	color: #2c3338;
+}
+
+.anpa-mgmt-btn-secondary:hover {
+	background: #e8eaec;
+}
+
+.anpa-mgmt-btn-danger {
+	background: #d63638;
+	border-color: #d63638;
+	color: #fff;
+}
+
+.anpa-mgmt-btn-danger:hover {
+	background: #a41e1e;
+	border-color: #a41e1e;
+}
+
+/* ── Action cells ──────────────────────────────────────────────── */
+.anpa-mgmt-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	align-items: center;
+}
+
+.anpa-mgmt-actions button {
+	padding: 0.25rem 0.55rem;
+	font-size: 12px;
+	border-radius: 3px;
+	cursor: pointer;
+}
+
+/* ── Forms (inline edit) ───────────────────────────────────────── */
+.anpa-mgmt-form {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 1.2rem 1.5rem;
+	margin: 1rem 0;
+	max-width: 600px;
+}
+
+.anpa-mgmt-form h3 {
+	margin-top: 0;
+}
+
+.anpa-mgmt-form label {
+	display: block;
+	font-weight: 500;
+	margin: 0.6rem 0 0.2rem;
+	font-size: 13px;
+}
+
+.anpa-mgmt-form input,
+.anpa-mgmt-form select,
+.anpa-mgmt-form textarea {
+	width: 100%;
+	max-width: 400px;
+	padding: 0.35rem 0.5rem;
+	font-size: 13px;
+	border: 1px solid #8c8f94;
+	border-radius: 3px;
+}
+
+.anpa-mgmt-form .anpa-mgmt-form-actions {
+	display: flex;
+	gap: 0.5rem;
+	margin-top: 1rem;
+}
+
+/* ── Empty state ───────────────────────────────────────────────── */
+.anpa-mgmt-empty {
+	padding: 1.5rem;
+	text-align: center;
+	color: #646970;
+	font-style: italic;
+	background: #f6f7f7;
+	border: 1px dashed #c3c4c7;
+	border-radius: 4px;
+}
+
+/* ── Section loading spinner ───────────────────────────────────── */
+.anpa-mgmt-loading {
+	padding: 2rem;
+	text-align: center;
+	color: #646970;
+}
+
+/* ── Passphrase modal overlay ──────────────────────────────────── */
+.anpa-mgmt-modal-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 100000;
+}
+
+.anpa-mgmt-modal {
+	background: #fff;
+	border-radius: 6px;
+	padding: 1.5rem 2rem;
+	max-width: 400px;
+	width: 90%;
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.anpa-mgmt-modal h3 {
+	margin-top: 0;
+}
+
+.anpa-mgmt-modal input {
+	width: 100%;
+	padding: 0.4rem 0.6rem;
+	margin: 0.5rem 0;
+	font-size: 14px;
+	border: 1px solid #8c8f94;
+	border-radius: 3px;
+}
+
+.anpa-mgmt-modal .anpa-mgmt-modal-actions {
+	display: flex;
+	gap: 0.5rem;
+	margin-top: 1rem;
+}
+
+/* ── Responsive ────────────────────────────────────────────────── */
+@media (max-width: 782px) {
+	.anpa-mgmt-nav {
+		gap: 0;
+	}
+	.anpa-mgmt-nav button {
+		font-size: 12px;
+		padding: 0.4rem 0.6rem;
+	}
+	.anpa-mgmt-table {
+		font-size: 12px;
+	}
+	.anpa-mgmt-table th,
+	.anpa-mgmt-table td {
+		padding: 0.35rem 0.5rem;
+	}
+}

@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Renders the [anpa_socios_area_unified] shortcode and loads its assets.
+ * Renders the [anpa_socios_area] shortcode and loads its assets.
  *
  * @since 1.21.0
  */
@@ -67,7 +67,7 @@ class ANPA_Socios_Unified_Page {
 
 		// Prefer the new child area page under /socios/ so existing members
 		// land on a real area page after verification, not back on this entry.
-		$area_page_url = ANPA_Socios_Hub_Page::find_page_url( 'anpa_socios_area' );
+		$area_page_url = ANPA_Socios_Hub_Page::find_page_url( 'anpa_socios_area_persoal' );
 		$new_area      = get_page_by_path( 'socios/area-persoal' );
 		if ( $new_area ) {
 			$area_page_url = (string) get_permalink( $new_area->ID );
@@ -207,7 +207,7 @@ class ANPA_Socios_Unified_Page {
 		}
 
 		global $post;
-		if ( ! ( $post instanceof WP_Post ) || ! has_shortcode( (string) $post->post_content, 'anpa_socios_area_unified' ) ) {
+		if ( ! ( $post instanceof WP_Post ) || ! has_shortcode( (string) $post->post_content, 'anpa_socios_area' ) ) {
 			return;
 		}
 

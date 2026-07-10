@@ -2,10 +2,9 @@
 /**
  * Plugin onboarding surface (fase12): Plugins-page action links + an admin
  * settings screen that (a) runs a first-run setup wizard on a clean install
- * (master email + banking passphrase + optional admin password → creates the
- * master socio, the sealed-box banking key, the socios page, and configures the
- * season), (b) lets admins edit the config afterwards, (c) exposes a short
- * admin-password change, and (d) an offline docs mini-wiki.
+ * (banking passphrase → creates the sealed-box banking key, the socios page,
+ * and configures the season), (b) lets admins edit the config afterwards,
+ * and (c) an offline docs mini-wiki.
  *
  * The setup is handled INLINE on the settings page (self-POST) so its result —
  * including the one-time escrow secret — renders inside the WordPress admin UI.
@@ -26,7 +25,7 @@ final class ANPA_Socios_Admin_Settings {
 	const DOCS_SLUG      = 'anpa-socios-docs';
 	const MIN_PASSPHRASE = 12;
 	const LANDING_OPTION = 'anpa_socios_landing_page_id';
-	const AREA_SHORTCODE = '[anpa_socios_area_unified]';
+	const AREA_SHORTCODE = '[anpa_socios_area]';
 
 	/**
 	 * Wires menu, action links and admin-post handlers.
@@ -39,7 +38,6 @@ final class ANPA_Socios_Admin_Settings {
 		add_action( 'admin_post_anpa_socios_save_settings', array( __CLASS__, 'handle_save_settings' ) );
 		add_action( 'admin_post_anpa_socios_save_location', array( __CLASS__, 'handle_save_location' ) );
 		add_action( 'admin_post_anpa_socios_save_cursos', array( __CLASS__, 'handle_save_cursos' ) );
-		add_action( 'admin_post_anpa_socios_set_admin_password', array( __CLASS__, 'handle_set_admin_password' ) );
 		add_action( 'admin_post_anpa_socios_run_season', array( __CLASS__, 'handle_run_season' ) );
 		add_action( 'admin_post_anpa_socios_check_updates', array( __CLASS__, 'handle_check_updates' ) );
 		add_action( 'admin_post_anpa_socios_backup', array( __CLASS__, 'handle_backup' ) );
@@ -79,7 +77,7 @@ final class ANPA_Socios_Admin_Settings {
 	 * @return bool
 	 */
 	private static function is_setup_done(): bool {
-		return ANPA_Socios_Master_Auth::is_initialized() && ANPA_Socios_Banking_Key::is_configured();
+		return ANPA_Socios_Banking_Key::is_configured();
 	}
 
 	/**
@@ -124,26 +122,19 @@ final class ANPA_Socios_Admin_Settings {
 	 */
 	private static function render_setup_wizard(): void {
 		$self_url    = esc_url( admin_url( 'admin.php?page=' . self::SETTINGS_SLUG ) );
-		$master      = ANPA_Socios_Config::master_email();
-		$suggested   = ANPA_Socios_Master_Auth::generate_banking_passphrase();
+		$suggested   = ANPA_Socios_Crypto::generate_passphrase();
 		$curso       = ANPA_Socios_Curso_Escolar::current();
 		$data_inicio = ANPA_Socios_Season::default_data_inicio( $curso );
 		$data_peche  = ANPA_Socios_Season::default_data_peche( $curso );
 		$detected    = get_page_by_path( 'socios' );
 		$sel_page    = $detected instanceof WP_Post ? $detected->ID : 0;
 
-		echo '<div class="notice notice-info"><p><strong>' . esc_html__( 'Instalación limpa.', 'anpa-socios' ) . '</strong> ' . esc_html__( 'Configura o equipo administrador, a clave bancaria e a páxina de socios para poñer en marcha o sistema. Este paso só se fai unha vez.', 'anpa-socios' ) . '</p></div>';
+		echo '<div class="notice notice-info"><p><strong>' . esc_html__( 'Instalación limpa.', 'anpa-socios' ) . '</strong> ' . esc_html__( 'Configura a clave bancaria e a páxina de socios para poñer en marcha o sistema. Este paso só se fai unha vez.', 'anpa-socios' ) . '</p></div>';
 
 		echo '<form method="post" action="' . $self_url . '">';
 		echo '<input type="hidden" name="anpa_action" value="setup">';
 		wp_nonce_field( 'anpa_socios_setup' );
 		echo '<table class="form-table" role="presentation"><tbody>';
-
-		printf(
-			'<tr><th scope="row"><label for="anpa-master-email">%s</label></th><td><input name="master_email" id="anpa-master-email" type="email" class="regular-text" value="%s" required></td></tr>',
-			esc_html__( 'Email do equipo administrador (master)', 'anpa-socios' ),
-			esc_attr( $master )
-		);
 
 		echo '<tr><th scope="row"><label for="anpa-passphrase">' . esc_html__( 'Frase da clave bancaria (mín. 5 palabras)', 'anpa-socios' ) . '</label></th><td>';
 		printf(
@@ -154,11 +145,6 @@ final class ANPA_Socios_Admin_Settings {
 		printf( ' <a class="button" href="%s">%s</a>', $self_url, esc_html__( 'Xerar outra', 'anpa-socios' ) );
 		echo '<p class="description"><strong>' . esc_html__( 'Garda esta frase nun lugar seguro.', 'anpa-socios' ) . '</strong> ' . esc_html__( 'Protexe os datos bancarios cifrados. Se a perdes, os datos serán irrecuperables e só se poderá cambiar reinstalando a base de datos.', 'anpa-socios' ) . '</p>';
 		echo '</td></tr>';
-
-		echo '<tr><th scope="row"><label for="anpa-admin-pw">' . esc_html__( 'Contrasinal de administración', 'anpa-socios' ) . '</label></th><td>';
-		echo '<input name="admin_password" id="anpa-admin-pw" type="password" class="regular-text" autocomplete="new-password" required>';
-		echo self::eye_button( 'anpa-admin-pw' );
-		echo '<p class="description">' . esc_html__( 'Obrigatorio. Os administradores deberán introducilo ao entrar en "Xestión ANPA". Mín. 8 caracteres, unha maiúscula e un símbolo.', 'anpa-socios' ) . '</p></td></tr>';
 
 		echo '<tr><th scope="row"><label for="anpa-socios-page">' . esc_html__( 'Páxina de socios', 'anpa-socios' ) . '</label></th><td>';
 		wp_dropdown_pages( array(
@@ -180,7 +166,7 @@ final class ANPA_Socios_Admin_Settings {
 		printf( '<tr><th scope="row"><label for="anpa-peche">%s</label></th><td><input name="data_peche" id="anpa-peche" type="date" value="%s"></td></tr>', esc_html__( 'Pecha (data_peche)', 'anpa-socios' ), esc_attr( $data_peche ) );
 
 		echo '</tbody></table>';
-		submit_button( __( 'Lanzar instalación e crear o equipo administrador', 'anpa-socios' ) );
+		submit_button( __( 'Lanzar instalación', 'anpa-socios' ) );
 		echo '</form>';
 	}
 
@@ -192,9 +178,7 @@ final class ANPA_Socios_Admin_Settings {
 	private static function process_setup_inline(): void {
 		check_admin_referer( 'anpa_socios_setup' );
 
-		$email       = sanitize_email( (string) wp_unslash( $_POST['master_email'] ?? '' ) );
 		$passphrase  = (string) wp_unslash( $_POST['passphrase'] ?? '' );
-		$admin_pw    = (string) wp_unslash( $_POST['admin_password'] ?? '' );
 		$socios_page = sanitize_text_field( (string) wp_unslash( $_POST['socios_page'] ?? 'new' ) );
 		$curso       = sanitize_text_field( (string) wp_unslash( $_POST['curso_escolar'] ?? '' ) );
 		$inicio      = sanitize_text_field( (string) wp_unslash( $_POST['data_inicio'] ?? '' ) );
@@ -202,15 +186,9 @@ final class ANPA_Socios_Admin_Settings {
 
 		// Validation — on error, show notice and re-render the wizard.
 		$error = '';
-		if ( ! is_email( $email ) ) {
-			$error = __( 'Email do master non válido.', 'anpa-socios' );
-		} elseif ( strlen( $passphrase ) < self::MIN_PASSPHRASE ) {
+		if ( strlen( $passphrase ) < self::MIN_PASSPHRASE ) {
 			/* translators: %d: minimum character count for the passphrase */
 			$error = sprintf( __( 'A frase da clave debe ter polo menos %d caracteres.', 'anpa-socios' ), self::MIN_PASSPHRASE );
-		} elseif ( '' === $admin_pw ) {
-			$error = __( 'O contrasinal de administración é obrigatorio.', 'anpa-socios' );
-		} elseif ( true !== ANPA_Socios_Master_Auth::validate_admin_password( $admin_pw ) ) {
-			$error = (string) ANPA_Socios_Master_Auth::validate_admin_password( $admin_pw );
 		}
 		if ( '' !== $error ) {
 			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html( $error ) );
@@ -224,31 +202,22 @@ final class ANPA_Socios_Admin_Settings {
 		$inicio = self::valid_date( $inicio, ANPA_Socios_Season::default_data_inicio( $curso ) );
 		$peche  = self::valid_date( $peche, ANPA_Socios_Season::default_data_peche( $curso ) );
 
-		// 1) Master email + schema.
-		update_option( 'anpa_socios_master_email', strtolower( $email ) );
+		// 1) Schema.
 		ANPA_Socios_DB::crear_tabelas();
 
-		// 2) Master socio (active + master) so it can log in.
-		self::ensure_master_socio( strtolower( $email ) );
-
-		// 3) Optional short admin password.
-		if ( '' !== $admin_pw ) {
-			ANPA_Socios_Master_Auth::set_admin_password( $admin_pw );
-		}
-
-		// 4) Season config.
+		// 2) Season config.
 		self::upsert_course( $curso, $inicio, $peche );
 
-		// 5) Socios page (create or overwrite) with the area shortcode.
+		// 3) Socios page (create or overwrite) with the area shortcode.
 		$page_id = self::ensure_socios_page( $socios_page );
 
-		// 5b) Ensure the signup (asociarse) and extraescolares pages exist so the
+		// 3b) Ensure the signup (asociarse) and extraescolares pages exist so the
 		// alta flow and the public activities/timetable work out of the box.
 		self::ensure_page_by_shortcode( 'anpa_socios_asociarse', 'asociarse', 'Asociarse', '[anpa_socios_asociarse]' );
 		// Extraescolares: create only if absent; NEVER overwrite an existing page.
 		self::ensure_page_by_shortcode( 'anpa_extraescolares_ofertadas', 'extraescolares', 'Extraescolares', self::extraescolares_page_content(), false );
 
-		// 6) Sealed-box banking key (once).
+		// 4) Sealed-box banking key (once).
 		$secret_key = null;
 		if ( ! ANPA_Socios_Banking_Key::is_configured() && null === ANPA_Socios_Banking_Key::wrapped_secret() ) {
 			$keypair = ANPA_Socios_Crypto::generate_keypair();
@@ -262,10 +231,7 @@ final class ANPA_Socios_Admin_Settings {
 			$secret_key = (string) $keypair['secret'];
 		}
 
-		// 7) Mark initialized.
-		ANPA_Socios_Master_Auth::mark_initialized();
-
-		self::render_setup_result( strtolower( $email ), $passphrase, $secret_key, $page_id );
+		self::render_setup_result( $passphrase, $secret_key, $page_id );
 	}
 
 	/**
@@ -277,17 +243,16 @@ final class ANPA_Socios_Admin_Settings {
 	 * @param  int         $page_id    Socios page id.
 	 * @return void
 	 */
-	private static function render_setup_result( string $email, string $passphrase, ?string $secret_key, int $page_id ): void {
+	private static function render_setup_result( string $passphrase, ?string $secret_key, int $page_id ): void {
 		nocache_headers();
 		$area_url     = $page_id > 0 ? (string) get_permalink( $page_id ) : self::landing_page_url();
 		$settings_url = admin_url( 'admin.php?page=' . self::SETTINGS_SLUG );
 
-		echo '<div class="notice notice-success"><p><strong>' . esc_html__( 'Instalación completada.', 'anpa-socios' ) . '</strong> ' . esc_html__( 'O equipo administrador, a clave bancaria e a páxina de socios quedaron configurados.', 'anpa-socios' ) . '</p></div>';
+		echo '<div class="notice notice-success"><p><strong>' . esc_html__( 'Instalación completada.', 'anpa-socios' ) . '</strong> ' . esc_html__( 'A clave bancaria e a páxina de socios quedaron configurados.', 'anpa-socios' ) . '</p></div>';
 
 		echo '<div class="notice notice-warning" style="padding:8px 12px"><p><strong>' . esc_html__( 'Garda esta información AGORA. Non se volverá amosar.', 'anpa-socios' ) . '</strong></p>';
 		echo '<table class="widefat" style="max-width:760px"><tbody>';
-		printf( '<tr><td style="width:220px"><strong>%s</strong></td><td><code>%s</code></td></tr>', esc_html__( 'Email do master', 'anpa-socios' ), esc_html( $email ) );
-		printf( '<tr><td><strong>%s</strong></td><td><code>%s</code></td></tr>', esc_html__( 'Frase da clave bancaria', 'anpa-socios' ), esc_html( $passphrase ) );
+		printf( '<tr><td style="width:220px"><strong>%s</strong></td><td><code>%s</code></td></tr>', esc_html__( 'Frase da clave bancaria', 'anpa-socios' ), esc_html( $passphrase ) );
 		if ( null !== $secret_key && '' !== $secret_key ) {
 			printf( '<tr><td><strong>%s</strong></td><td><code style="word-break:break-all">%s</code></td></tr>', esc_html__( 'Clave privada (escrow)', 'anpa-socios' ), esc_html( $secret_key ) );
 		} else {
@@ -297,8 +262,7 @@ final class ANPA_Socios_Admin_Settings {
 		echo '<p>' . esc_html__( 'Sen a frase e a clave privada, os datos bancarios cifrados serán irrecuperables.', 'anpa-socios' ) . '</p></div>';
 
 		echo '<h2>' . esc_html__( 'Seguintes pasos', 'anpa-socios' ) . '</h2><ol>';
-		printf( '<li>' . esc_html__( 'Vai á %1$spáxina de socios%2$s e inicia sesión co email do master (%3$s). Recibirás un código de acceso por correo.', 'anpa-socios' ) . '</li>', '<a href="' . esc_url( $area_url ) . '">', '</a>', '<code>' . esc_html( $email ) . '</code>' );
-		echo '<li>' . esc_html__( 'Podes editar a configuración e o contrasinal de admin en calquera momento desde esta páxina de Axustes.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . esc_html__( 'Podes editar a configuración en calquera momento desde esta páxina de Axustes.', 'anpa-socios' ) . '</li>';
 		printf(
 			'<li>' . esc_html__( 'Para amosar as actividades extraescolares e o horario, consulta a %1$sdocumentación%2$s co código a pegar na páxina de extraescolares (e suxestións de FAQ e cabeceira).', 'anpa-socios' ) . '</li>',
 			'<a href="' . esc_url( admin_url( 'admin.php?page=' . self::DOCS_SLUG ) ) . '">',
@@ -327,16 +291,18 @@ final class ANPA_Socios_Admin_Settings {
 		$section = ANPA_Socios_Admin_Nav::active_settings_section( $active, $requested_section );
 		$base    = admin_url( 'admin.php?page=' . self::SETTINGS_SLUG );
 
-		echo '<h2 class="nav-tab-wrapper">';
+		echo '<nav class="nav-tab-wrapper" aria-label="' . esc_attr__( 'Pestañas de axustes', 'anpa-socios' ) . '">';
 		foreach ( ANPA_Socios_Admin_Nav::settings_tabs() as $slug => $label ) {
+			$is_active = ( $active === $slug );
 			printf(
-				'<a href="%s" class="nav-tab%s">%s</a>',
+				'<a href="%s" class="nav-tab%s"%s>%s</a>',
 				esc_url( add_query_arg( 'tab', $slug, $base ) ),
-				$active === $slug ? ' nav-tab-active' : '',
+				$is_active ? ' nav-tab-active' : '',
+				$is_active ? ' aria-current="page"' : '',
 				esc_html( $label )
 			);
 		}
-		echo '</h2>';
+		echo '</nav>';
 		self::render_section_nav( $active, $section, $base );
 
 		echo '<div class="anpa-tab-panel">';
@@ -372,19 +338,20 @@ final class ANPA_Socios_Admin_Settings {
 			return;
 		}
 
-		echo '<ul class="subsubsub anpa-section-nav">';
+		echo '<nav class="anpa-section-nav" aria-label="' . esc_attr__( 'Subseccións', 'anpa-socios' ) . '">';
 		$links = array();
 		foreach ( $sections as $slug => $label ) {
-			$classes = $section === $slug ? ' class="current"' : '';
+			$is_active = ( $section === $slug );
 			$links[] = sprintf(
-				'<li><a href="%s"%s>%s</a></li>',
+				'<a href="%s" class="anpa-section-link%s"%s>%s</a>',
 				esc_url( add_query_arg( array( 'tab' => $tab, 'section' => $slug ), $base ) ),
-				$classes,
+				$is_active ? ' current' : '',
+				$is_active ? ' aria-current="page"' : '',
 				esc_html( $label )
 			);
 		}
-		echo implode( '<li class="anpa-section-sep"> | </li>', $links ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- links are escaped above.
-		echo '</ul><div style="clear:both"></div>';
+		echo implode( '', $links ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- links are escaped above.
+		echo '</nav>';
 	}
 
 	/**
@@ -396,14 +363,12 @@ final class ANPA_Socios_Admin_Settings {
 	private static function render_tab_xeral( string $section = 'estado' ): void {
 		$post_url = esc_url( admin_url( 'admin-post.php' ) );
 		$master   = ANPA_Socios_Config::master_email();
-		$has_pw   = ANPA_Socios_Master_Auth::admin_password_exists();
 
 		if ( 'estado' === $section ) {
 			echo '<h2>' . esc_html__( 'Estado', 'anpa-socios' ) . '</h2>';
 			echo '<table class="widefat striped" style="max-width:680px"><tbody>';
 			printf( '<tr><td><strong>%s</strong></td><td>%s</td></tr>', esc_html__( 'Versión da base de datos', 'anpa-socios' ), esc_html( (string) get_option( 'anpa_socios_db_version', __( '(non instalada)', 'anpa-socios' ) ) ) );
 			printf( '<tr><td><strong>%s</strong></td><td>%s</td></tr>', esc_html__( 'Clave bancaria', 'anpa-socios' ), ANPA_Socios_Banking_Key::is_configured() ? '✅ ' . esc_html__( 'configurada', 'anpa-socios' ) : '❌ ' . esc_html__( 'sen configurar', 'anpa-socios' ) );
-			printf( '<tr><td><strong>%s</strong></td><td>%s</td></tr>', esc_html__( 'Contrasinal curto de admin', 'anpa-socios' ), $has_pw ? '✅ ' . esc_html__( 'definido', 'anpa-socios' ) : '❌ ' . esc_html__( 'sen definir', 'anpa-socios' ) );
 			printf( '<tr><td><strong>%s</strong></td><td>%s</td></tr>', esc_html__( 'Email do equipo administrador', 'anpa-socios' ), esc_html( $master ) );
 			echo '</tbody></table>';
 			return;
@@ -427,7 +392,13 @@ final class ANPA_Socios_Admin_Settings {
 				'option_none_value' => 0,
 			) );
 			echo '<p class="description">' . esc_html__( 'Páxina que contén a área de socios.', 'anpa-socios' ) . '</p></td></tr>';
-			echo '<tr><th scope="row">' . esc_html__( 'Shortcodes principais', 'anpa-socios' ) . '</th><td><code>[anpa_socios_area_unified]</code><br><code>[anpa_socios_asociarse]</code><br><code>[anpa_extraescolares_ofertadas]</code><br><code>[anpa_extraescolares_horario]</code></td></tr>';
+			echo '<tr><th scope="row">' . esc_html__( 'Shortcodes principais', 'anpa-socios' ) . '</th><td>';
+			echo '<code>[anpa_socios_area]</code> — ' . esc_html__( 'Área principal de socios (login, perfil, fillos, extraescolares).', 'anpa-socios' ) . '<br>';
+			echo '<code>[anpa_socios_area_persoal]</code> — ' . esc_html__( 'Área persoal do socio (perfil e fillos).', 'anpa-socios' ) . '<br>';
+			echo '<code>[anpa_socios_asociarse]</code> — ' . esc_html__( 'Formulario de alta de socios.', 'anpa-socios' ) . '<br>';
+			echo '<code>[anpa_extraescolares_ofertadas]</code> — ' . esc_html__( 'Tarxetas de actividades ofertadas no curso actual.', 'anpa-socios' ) . '<br>';
+			echo '<code>[anpa_extraescolares_horario]</code> — ' . esc_html__( 'Grella semanal con horarios e grupos activos.', 'anpa-socios' ) . '<br>';
+			echo '</td></tr>';
 			echo '</tbody></table>';
 			submit_button( __( 'Gardar páxinas', 'anpa-socios' ) );
 			echo '</form>';
@@ -777,7 +748,6 @@ final class ANPA_Socios_Admin_Settings {
 		}
 
 		$post_url = esc_url( admin_url( 'admin-post.php' ) );
-		$has_pw   = ANPA_Socios_Master_Auth::admin_password_exists();
 
 		if ( 'ferramentas' === $section ) {
 			echo '<h2>' . esc_html__( 'Ferramentas de mantemento', 'anpa-socios' ) . '</h2>';
@@ -794,21 +764,20 @@ final class ANPA_Socios_Admin_Settings {
 		if ( 'copias' === $section ) {
 			// ── Copia de seguridade / restauración / borrado ──
 			echo '<h2>Copia de seguridade</h2>';
-			echo '<p class="description">A copia inclúe socios, fillos, actividades, cursos, matrículas, empresas e datos bancarios. NON inclúe o usuario master, as claves de cifrado nin o contrasinal de admin. O ficheiro cífrase co contrasinal de admin.</p>';
+			echo '<p class="description">A copia inclúe socios, fillos, actividades, cursos, matrículas, empresas e datos bancarios. O ficheiro cífrase coa frase da clave bancaria.</p>';
 			echo '<form method="post" action="' . $post_url . '">';
 			echo '<input type="hidden" name="action" value="anpa_socios_backup">';
 			echo '<input type="hidden" name="tab" value="mantemento">';
 			echo '<input type="hidden" name="section" value="copias">';
 			wp_nonce_field( 'anpa_socios_backup' );
 			echo '<table class="form-table" role="presentation"><tbody>';
-			echo '<tr><th scope="row"><label for="bk-admin">Contrasinal de admin</label></th><td><input name="admin_password" id="bk-admin" type="password" class="regular-text" autocomplete="off" required>' . self::eye_button( 'bk-admin' ) . '</td></tr>';
 			echo '<tr><th scope="row"><label for="bk-pass">Frase da clave bancaria</label></th><td><input name="banking_passphrase" id="bk-pass" type="text" class="regular-text code" autocomplete="off" required>' . self::eye_button( 'bk-pass' ) . '<p class="description">Necesaria para descifrar os datos bancarios e incluílos na copia.</p></td></tr>';
 			echo '</tbody></table>';
 			submit_button( __( 'Descargar copia de seguridade', 'anpa-socios' ), 'secondary', 'submit', false );
 			echo '</form>';
 
 			echo '<h2>Recuperar copia</h2>';
-			echo '<p class="description">Sube un ficheiro <code>.anpabak</code> e o contrasinal de admin co que se cifrou. Os datos bancarios recifraranse coa clave actual.</p>';
+			echo '<p class="description">Sube un ficheiro <code>.anpabak</code> e a frase da clave bancaria co que se cifrou. Os datos bancarios recifraranse coa clave actual.</p>';
 			echo '<form method="post" action="' . $post_url . '" enctype="multipart/form-data">';
 			echo '<input type="hidden" name="action" value="anpa_socios_restore">';
 			echo '<input type="hidden" name="tab" value="mantemento">';
@@ -816,7 +785,7 @@ final class ANPA_Socios_Admin_Settings {
 			wp_nonce_field( 'anpa_socios_restore' );
 			echo '<table class="form-table" role="presentation"><tbody>';
 			echo '<tr><th scope="row"><label for="rs-file">Ficheiro de copia</label></th><td><input name="backup_file" id="rs-file" type="file" accept=".anpabak,application/json" required></td></tr>';
-			echo '<tr><th scope="row"><label for="rs-admin">Contrasinal do ficheiro</label></th><td><input name="admin_password" id="rs-admin" type="password" class="regular-text" autocomplete="off" required>' . self::eye_button( 'rs-admin' ) . '</td></tr>';
+			echo '<tr><th scope="row"><label for="rs-pass">Frase da clave bancaria</label></th><td><input name="banking_passphrase" id="rs-pass" type="text" class="regular-text code" autocomplete="off" required>' . self::eye_button( 'rs-pass' ) . '</td></tr>';
 			echo '</tbody></table>';
 			submit_button( __( 'Recuperar copia', 'anpa-socios' ), 'secondary', 'submit', false );
 			echo '</form>';
@@ -829,7 +798,6 @@ final class ANPA_Socios_Admin_Settings {
 			echo '<input type="hidden" name="section" value="copias">';
 			wp_nonce_field( 'anpa_socios_wipe' );
 			echo '<table class="form-table" role="presentation"><tbody>';
-			echo '<tr><th scope="row"><label for="wp-admin-pw">Contrasinal de admin</label></th><td><input name="admin_password" id="wp-admin-pw" type="password" class="regular-text" autocomplete="off" required>' . self::eye_button( 'wp-admin-pw' ) . '</td></tr>';
 			echo '<tr><th scope="row">Confirmación</th><td><label><input type="checkbox" name="confirm_wipe" value="1" required> Descarguei unha copia e entendo que esta acción é irreversible.</label></td></tr>';
 			echo '</tbody></table>';
 			submit_button( __( 'Borrar base de datos', 'anpa-socios' ), 'delete', 'submit', false );
@@ -837,20 +805,9 @@ final class ANPA_Socios_Admin_Settings {
 			return;
 		}
 
-		echo '<h2>' . esc_html__( 'Contrasinal curto de admin', 'anpa-socios' ) . '</h2>';
-		echo '<p class="description">' . esc_html__( 'Panel de admin (mín. 8 caracteres, unha maiúscula e un símbolo). A frase da clave bancaria non se cambia aquí (só reinstalando a BD).', 'anpa-socios' ) . '</p>';
-		echo '<form method="post" action="' . $post_url . '">';
-		echo '<input type="hidden" name="action" value="anpa_socios_set_admin_password">';
-		echo '<input type="hidden" name="tab" value="mantemento">';
-		echo '<input type="hidden" name="section" value="contrasinais">';
-		wp_nonce_field( 'anpa_socios_set_admin_password' );
-		echo '<table class="form-table" role="presentation"><tbody>';
-		echo '<tr><th scope="row"><label for="cfg-pw">' . ( $has_pw ? esc_html__( 'Novo contrasinal', 'anpa-socios' ) : esc_html__( 'Definir contrasinal', 'anpa-socios' ) ) . '</label></th><td>';
-		echo '<input name="admin_password" id="cfg-pw" type="password" class="regular-text" autocomplete="new-password" required>';
-		echo self::eye_button( 'cfg-pw' );
-		echo '</td></tr></tbody></table>';
-		submit_button( $has_pw ? __( 'Cambiar contrasinal', 'anpa-socios' ) : __( 'Definir contrasinal', 'anpa-socios' ), 'secondary' );
-		echo '</form>';
+		echo '<h2>' . esc_html__( 'Autenticación de administración', 'anpa-socios' ) . '</h2>';
+		echo '<p class="description">' . esc_html__( 'O acceso de administración usa as credenciais de WordPress (usuario + contrasinal). Para cambiar o teu contrasinal, accede ao teu perfil de WordPress.', 'anpa-socios' ) . '</p>';
+		printf( '<p><a class="button" href="%s">%s</a></p>', esc_url( admin_url( 'profile.php' ) ), esc_html__( 'Ir ao meu perfil', 'anpa-socios' ) );
 	}
 
 	/**
@@ -874,14 +831,25 @@ final class ANPA_Socios_Admin_Settings {
 	private static function admin_styles(): string {
 		return '<style>
 			.anpa-cfg h1 { margin-bottom: .3em; }
-			.anpa-cfg .nav-tab-wrapper { margin: 1em 0 1.4em; }
-			.anpa-cfg h2:not(.nav-tab-wrapper) { margin: 2em 0 .6em; padding: .6em 1em; background: #fbfbfc;
-				border-left: 5px solid #e67e22; border-radius: 4px; font-size: 1.15em;
-				box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+			.anpa-cfg .nav-tab-wrapper { margin: 1em 0 0; border-bottom: 1px solid #c3c4c7; }
+			.anpa-cfg .nav-tab { font-size: .95em; padding: .6em 1.1em; }
+			.anpa-cfg .nav-tab:focus-visible { outline: 2px solid #2271b1; outline-offset: -2px; }
+			.anpa-cfg .anpa-tab-panel { margin-top: .4em; }
+			.anpa-cfg h2:not(.nav-tab-wrapper) { margin: 1.6em 0 .6em; padding: .5em .9em; background: #fbfbfc;
+				border-left: 4px solid #e67e22; border-radius: 3px; font-size: 1.1em;
+				box-shadow: 0 1px 2px rgba(0,0,0,.04); color: #1d2327; }
 			.anpa-cfg h3 { margin: 1.2em 0 .3em; color: #2c3338; font-size: 1em; }
+			/* Section sub-nav (pill/underline style, visually secondary to top tabs) */
+			.anpa-cfg .anpa-section-nav { display: flex; flex-wrap: wrap; gap: .3em; margin: .9em 0 1.2em;
+				padding: .4em 0; border-bottom: 1px solid #e2e4e7; }
+			.anpa-cfg .anpa-section-link { display: inline-block; padding: .35em .85em; border-radius: 3px;
+				text-decoration: none; font-size: .875em; color: #2c3338; transition: background .15s; }
+			.anpa-cfg .anpa-section-link:hover { background: #f0f0f1; color: #1d2327; }
+			.anpa-cfg .anpa-section-link.current { background: #2271b1; color: #fff; font-weight: 500; }
+			.anpa-cfg .anpa-section-link:focus-visible { outline: 2px solid #2271b1; outline-offset: 2px; }
+			/* Cards and form tables */
 			.anpa-cfg .form-table, .anpa-cfg .widefat { background: #fff; border: 1px solid #e2e4e7;
 				border-radius: 6px; padding: .6em 1.4em; margin: .4em 0 1.2em; max-width: 820px; }
-			/* Comfortable breathing room so text is never glued to the box edge. */
 			.anpa-cfg .form-table th { width: 260px; padding: 1em 1.2em 1em .4em; vertical-align: top; }
 			.anpa-cfg .form-table td { padding: .9em 1em; }
 			.anpa-cfg .widefat td, .anpa-cfg .widefat th { padding: .7em 1em; }
@@ -891,21 +859,31 @@ final class ANPA_Socios_Admin_Settings {
 			.anpa-cfg .form-table input[type="date"],
 			.anpa-cfg .form-table select,
 			.anpa-cfg .form-table textarea { padding: .5em .7em; }
-			/* Selects keep the native dropdown arrow: leave room on the right so
-			   the chosen value (e.g. a single letter) is never hidden under it. */
 			.anpa-cfg .form-table select { padding-right: 2.2em; min-width: 5em; min-height: 2.4em; }
 			.anpa-cfg .description { color: #646970; margin-top: .5em; }
 			.anpa-cfg hr { margin: 2.6em 0 0; border: 0; border-top: 1px dashed #c3c4c7; }
 			.anpa-cfg form { margin: 0 0 .6em; }
-			/* Reveal "eye": transparent icon overlaid inside the field, not a grey button. */
+			/* All interactive elements: visible keyboard focus */
+			.anpa-cfg a:focus-visible,
+			.anpa-cfg button:focus-visible,
+			.anpa-cfg input:focus-visible,
+			.anpa-cfg select:focus-visible,
+			.anpa-cfg textarea:focus-visible { outline: 2px solid #2271b1; outline-offset: 1px; }
+			/* Reveal "eye": transparent icon overlaid inside the field */
 			.anpa-cfg .anpa-eye { background: transparent; border: 0; box-shadow: none; outline: 0;
 				cursor: pointer; padding: 0; margin: 0 0 0 -2.2em; position: relative; font-size: 1.15em;
 				line-height: 1; opacity: .6; vertical-align: middle; }
-			.anpa-cfg .anpa-eye:hover, .anpa-cfg .anpa-eye:focus { opacity: 1; }
+			.anpa-cfg .anpa-eye:hover, .anpa-cfg .anpa-eye:focus-visible { opacity: 1; }
 			.anpa-cfg .anpa-eye + .description { margin-left: 0; }
-			/* leave room on the right so the text never runs under the eye */
 			.anpa-cfg input.regular-text { padding-right: 2.6em; }
 			.anpa-cfg h2[style*="b32d2e"] { border-left-color: #b32d2e; background: #fcf0f1; }
+			/* Responsive: sub-nav wraps naturally via flex-wrap */
+			@media (max-width: 782px) {
+				.anpa-cfg .form-table th { width: auto; display: block; padding-bottom: .2em; }
+				.anpa-cfg .form-table td { display: block; padding-left: .4em; }
+				.anpa-cfg .anpa-section-nav { gap: .2em; }
+				.anpa-cfg .anpa-section-link { font-size: .8125em; padding: .3em .6em; }
+			}
 		</style>';
 	}
 
@@ -932,7 +910,7 @@ final class ANPA_Socios_Admin_Settings {
 			}
 		}
 
-		return (string) ANPA_Socios_Hub_Page::find_page_url( 'anpa_socios_area_unified' );
+		return (string) ANPA_Socios_Hub_Page::find_page_url( 'anpa_socios_area' );
 	}
 
 	// ─────────────────────────────────────────────────────────────
@@ -1049,18 +1027,6 @@ final class ANPA_Socios_Admin_Settings {
 	}
 
 	/**
-	 * admin-post: set/change the short admin password.
-	 *
-	 * @return void
-	 */
-	public static function handle_set_admin_password(): void {
-		self::guard( 'anpa_socios_set_admin_password' );
-		$pw     = (string) wp_unslash( $_POST['admin_password'] ?? '' );
-		$result = ANPA_Socios_Master_Auth::set_admin_password( $pw );
-		self::redirect_msg( true === $result ? 'pw_ok' : 'pw_bad' );
-	}
-
-	/**
 	 * admin-post: run the season check now.
 	 *
 	 * @return void
@@ -1096,13 +1062,12 @@ final class ANPA_Socios_Admin_Settings {
 	 */
 	public static function handle_backup(): void {
 		self::guard( 'anpa_socios_backup' );
-		$admin_pw = (string) wp_unslash( $_POST['admin_password'] ?? '' );
 		$pass     = (string) wp_unslash( $_POST['banking_passphrase'] ?? '' );
 
-		if ( ! ANPA_Socios_Master_Auth::verify_admin_password( $admin_pw ) ) {
-			self::redirect_msg( 'bak_bad_pw' );
+		if ( '' === $pass ) {
+			self::redirect_msg( 'bak_err' );
 		}
-		$blob = ANPA_Socios_Backup::build( $admin_pw, $pass );
+		$blob = ANPA_Socios_Backup::build( $pass );
 		if ( is_wp_error( $blob ) ) {
 			self::redirect_msg( 'bak_err' );
 		}
@@ -1123,13 +1088,13 @@ final class ANPA_Socios_Admin_Settings {
 	 */
 	public static function handle_restore(): void {
 		self::guard( 'anpa_socios_restore' );
-		$admin_pw = (string) wp_unslash( $_POST['admin_password'] ?? '' );
+		$pass = (string) wp_unslash( $_POST['banking_passphrase'] ?? '' );
 
 		if ( empty( $_FILES['backup_file']['tmp_name'] ) || ! is_uploaded_file( (string) $_FILES['backup_file']['tmp_name'] ) ) {
 			self::redirect_msg( 'restore_nofile' );
 		}
 		$blob = (string) file_get_contents( (string) $_FILES['backup_file']['tmp_name'] );
-		$res  = ANPA_Socios_Backup::restore( $blob, $admin_pw );
+		$res  = ANPA_Socios_Backup::restore( $blob, $pass );
 		if ( is_wp_error( $res ) ) {
 			self::redirect_msg( 'restore_err' );
 		}
@@ -1143,13 +1108,9 @@ final class ANPA_Socios_Admin_Settings {
 	 */
 	public static function handle_wipe(): void {
 		self::guard( 'anpa_socios_wipe' );
-		$admin_pw = (string) wp_unslash( $_POST['admin_password'] ?? '' );
 
 		if ( empty( $_POST['confirm_wipe'] ) ) {
 			self::redirect_msg( 'wipe_noconfirm' );
-		}
-		if ( ! ANPA_Socios_Master_Auth::verify_admin_password( $admin_pw ) ) {
-			self::redirect_msg( 'bak_bad_pw' );
 		}
 		ANPA_Socios_Backup::wipe();
 		self::redirect_msg( 'wiped' );
@@ -1183,24 +1144,6 @@ final class ANPA_Socios_Admin_Settings {
 		$dt = DateTimeImmutable::createFromFormat( '!Y-m-d', $value );
 
 		return ( false !== $dt && $dt->format( 'Y-m-d' ) === $value ) ? $value : $fallback;
-	}
-
-	/**
-	 * Creates or promotes the master socio (active + master role).
-	 *
-	 * @param  string $email Lowercased master email.
-	 * @return void
-	 */
-	private static function ensure_master_socio( string $email ): void {
-		global $wpdb;
-		$socios = ANPA_Socios_DB::tabela_socios();
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent master bootstrap on setup.
-		$wpdb->query( $wpdb->prepare(
-			"INSERT INTO {$socios} (email, nome, apelidos, rol, estado, creado_en, actualizado_en)
-			 VALUES (%s, 'Equipo', 'Directiva', 'master', 'activo', NOW(), NOW())
-			 ON DUPLICATE KEY UPDATE rol = 'master', estado = 'activo', actualizado_en = NOW()",
-			$email
-		) );
 	}
 
 	/**
@@ -1406,7 +1349,7 @@ final class ANPA_Socios_Admin_Settings {
 	}
 
 	/**
-	 * Renders the offline docs mini-wiki.
+	 * Renders the offline docs mini-wiki with an index driven by Admin_Nav.
 	 *
 	 * @return void
 	 */
@@ -1415,36 +1358,102 @@ final class ANPA_Socios_Admin_Settings {
 			wp_die( esc_html__( 'Acceso non permitido.', 'anpa-socios' ) );
 		}
 
-		echo '<div class="wrap"><h1>ANPA Socios — Documentación</h1><div style="max-width:820px">';
-		echo '<h2>Que fai este plugin</h2>';
-		echo '<p>Xestiona a área de socios: altas, fillos/as, actividades extraescolares, empresas e datos bancarios cifrados. A área pública amósase coa páxina que contén <code>' . esc_html( self::AREA_SHORTCODE ) . '</code>.</p>';
-		echo '<h2>Posta en marcha (instalación limpa)</h2><ol>';
-		echo '<li>En Axustes, introduce o email do equipo administrador, garda a frase da clave bancaria, define (opcionalmente) o contrasinal curto e escolle a páxina de socios.</li>';
-		echo '<li>Lanza a instalación: créase o socio administrador, a clave bancaria, a páxina de socios e a configuración do curso.</li>';
-		echo '<li>Vai á páxina de socios e inicia sesión co email do master (chega un código por correo).</li>';
-		echo '</ol>';
-		echo '<h2>Ciclo do curso escolar</h2><ul style="list-style:disc;margin-left:20px">';
-		echo '<li>Curso do 1 de xullo ao 30 de xuño (<code>AAAA/AAAA+1</code>).</li>';
-		echo '<li>O 20 de xuño péchase o curso e créase o seguinte en estado <em>pendente</em>.</li>';
-		echo '<li>O curso pendente actívase automaticamente o 1 de setembro.</li>';
-		echo '<li>En pre-temporada só o equipo administrador pode iniciar sesión.</li>';
-		echo '</ul>';
+		$sections = ANPA_Socios_Admin_Nav::docs_sections();
 
-		echo '<h2>Amosar as actividades extraescolares e o horario</h2>';
-		echo '<p>A instalación crea automaticamente a páxina de extraescolares. Se precisas amosalas noutra páxina, copia estes bloques:</p>';
-		echo '<h3>Actividades ofertadas</h3>';
-		echo '<p>As actividades amósanse automaticamente a partir das actividades dadas de alta e activas para o curso actual. O icono escóllese no formulario de alta ou edición da actividade.</p>';
-		echo '<p><code>[anpa_extraescolares_ofertadas]</code></p>';
-		echo '<h3>Horario semanal</h3>';
-		echo '<p>Comedor: as franxas de comedor mantéñense como información estática separada. As actividades extraescolares activas amósanse automaticamente na grella seguinte.</p>';
-		echo '<p><code>[anpa_extraescolares_horario]</code></p>';
+		echo '<div class="wrap anpa-docs">';
+		echo self::docs_styles();
+		echo '<h1>' . esc_html__( 'ANPA Socios — Documentación', 'anpa-socios' ) . '</h1>';
+		echo '<p>' . esc_html__( 'Guía rápida para a xunta: configuración, operación diaria, páxinas públicas, exportacións e seguridade.', 'anpa-socios' ) . '</p>';
 
-		echo '<h3>Suxestións para a páxina de extraescolares</h3>';
-		echo '<ul style="list-style:disc;margin-left:20px">';
-		echo '<li><strong>Cabeceira de exemplo</strong> cunha ligazón á área de socios: <code>[anpa_socios_area_link]</code> (mostra un botón/enlace á área persoal, coma na cabeceira actual).</li>';
-		echo '<li><strong>Preguntas frecuentes (FAQ)</strong>: engade unha sección ao final da páxina coas dúbidas habituais (prazos, prezos, autorizacións de comedor/tarde, baixas por trimestre).</li>';
-		echo '</ul>';
+		// Section index navigation.
+		echo '<nav class="card anpa-docs-index" aria-label="' . esc_attr__( 'Índice de documentación', 'anpa-socios' ) . '">';
+		echo '<h2>' . esc_html__( 'Índice', 'anpa-socios' ) . '</h2><ol>';
+		foreach ( $sections as $slug => $label ) {
+			printf( '<li><a href="#%s">%s</a></li>', esc_attr( $slug ), esc_html( $label ) );
+		}
+		echo '</ol></nav>';
+
+		echo '<div class="anpa-docs-content">';
+
+		echo '<section id="posta-en-marcha" class="card"><h2>' . esc_html( $sections['posta-en-marcha'] ) . '</h2><ol>';
+		echo '<li>' . esc_html__( 'En Axustes → Xeral revisa o email do equipo administrador, a páxina da área de socios e as páxinas públicas creadas automaticamente.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . esc_html__( 'Garda a frase da clave bancaria nun lugar seguro e accesible só para a xunta.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . esc_html__( 'Lanza a instalación só cando a configuración sexa correcta: créanse a clave bancaria, a páxina de socios e a configuración inicial do curso.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . esc_html__( 'Accede á área de socios para comprobar que chega o código por correo electrónico.', 'anpa-socios' ) . '</li>';
+		echo '</ol></section>';
+
+		echo '<section id="ciclo-curso" class="card"><h2>' . esc_html( $sections['ciclo-curso'] ) . '</h2><ul>';
+		echo '<li>' . wp_kses_post( __( 'Cada curso vai do 1 de xullo ao 30 de xuño e usa formato <code>AAAA/AAAA+1</code>.', 'anpa-socios' ) ) . '</li>';
+		echo '<li>' . esc_html__( 'O 20 de xuño péchase o curso activo e créase o seguinte en estado pendente.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . esc_html__( 'O curso pendente actívase automaticamente o 1 de setembro.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . esc_html__( 'En pretempada só o equipo administrador pode iniciar sesión; as familias quedan protexidas ata a apertura.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . esc_html__( 'En Axustes → Cursos → Matrículas podes abrir ou pechar novas matrículas sen tocar datas nin estado do curso.', 'anpa-socios' ) . '</li>';
+		echo '</ul></section>';
+
+		echo '<section id="paxinas-shortcodes" class="card"><h2>' . esc_html( $sections['paxinas-shortcodes'] ) . '</h2>';
+		echo '<p>' . esc_html__( 'A área pública principal amósase coa páxina configurada en Axustes e o shortcode:', 'anpa-socios' ) . ' <code>[anpa_socios_area]</code></p>';
+		echo '<h3>' . esc_html__( 'Shortcodes dispoñibles', 'anpa-socios' ) . '</h3>';
+		echo '<table class="widefat striped"><tbody>';
+		echo '<tr><td><code>[anpa_socios_area]</code></td><td>' . esc_html__( 'Área principal de socios (login, perfil, fillos, extraescolares, banking).', 'anpa-socios' ) . '</td></tr>';
+		echo '<tr><td><code>[anpa_socios_area_persoal]</code></td><td>' . esc_html__( 'Área persoal do socio (perfil e fillos, sen menú completo).', 'anpa-socios' ) . '</td></tr>';
+		echo '<tr><td><code>[anpa_socios_asociarse]</code></td><td>' . esc_html__( 'Formulario de alta de socios.', 'anpa-socios' ) . '</td></tr>';
+		echo '<tr><td><code>[anpa_socios_area_link]</code></td><td>' . esc_html__( 'Botón/enlace cara á área persoal.', 'anpa-socios' ) . '</td></tr>';
+		echo '<tr><td><code>[anpa_extraescolares_ofertadas]</code></td><td>' . esc_html__( 'Tarxetas coas actividades activas do curso actual.', 'anpa-socios' ) . '</td></tr>';
+		echo '<tr><td><code>[anpa_extraescolares_horario]</code></td><td>' . esc_html__( 'Grella semanal de horarios e grupos activos.', 'anpa-socios' ) . '</td></tr>';
+		echo '</tbody></table></section>';
+
+		echo '<section id="extraescolares" class="card"><h2>' . esc_html( $sections['extraescolares'] ) . '</h2>';
+		echo '<p>' . esc_html__( 'A instalación crea automaticamente unha páxina de extraescolares. As actividades visibles dependen do curso actual, do estado activo e dos grupos configurados.', 'anpa-socios' ) . '</p>';
+		echo '<ul>';
+		echo '<li>' . esc_html__( 'O icono da tarxeta pública escóllese no formulario de alta ou edición da actividade.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . esc_html__( 'O comedor ou avisos fixos deben manterse como contido editorial separado, non como actividade automática.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . esc_html__( 'Recoméndase engadir FAQ con prazos, prezos, autorizacións, baixas e contacto.', 'anpa-socios' ) . '</li>';
+		echo '</ul></section>';
+
+		echo '<section id="exportacions-copias" class="card"><h2>' . esc_html( $sections['exportacions-copias'] ) . '</h2><ul>';
+		echo '<li>' . esc_html__( 'Cada táboa de Xestión ANPA ten a súa propia exportación CSV filtrada pola busca visible.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . esc_html__( 'A exportación sensible “Descargar Socios IBAN” vive en Socios/as e require o contrasinal de descifrado.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . esc_html__( 'As copias de seguridade deben facerse con UpdraftPlus antes de cambios importantes, importacións ou actualizacións.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . esc_html__( 'A sección Importar listados é só unha guía nesta fase: non escribe CSV nin modifica a base de datos.', 'anpa-socios' ) . '</li>';
+		echo '</ul></section>';
+
+		echo '<section id="privacidade-seguridade" class="card"><h2>' . esc_html( $sections['privacidade-seguridade'] ) . '</h2><ul>';
+		echo '<li>' . esc_html__( 'Os datos bancarios están cifrados e só deben exportarse cando sexa imprescindible para a domiciliación.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . esc_html__( 'Non compartas o contrasinal de descifrado por correo nin o gardes en documentos públicos.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . esc_html__( 'A Xestión ANPA require sesión de administración válida; se caduca, hai que volver autenticarse.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . esc_html__( 'Antes de importar ou arquivar datos persoais, debe existir unha subfase con validación, vista previa, confirmación e auditoría.', 'anpa-socios' ) . '</li>';
+		echo '</ul></section>';
 
 		echo '</div></div>';
+	}
+
+	/**
+	 * Scoped styles for the docs page.
+	 *
+	 * @return string
+	 */
+	private static function docs_styles(): string {
+		return '<style>
+			.anpa-docs { max-width: 960px; }
+			.anpa-docs h1 { margin-bottom: .4em; }
+			.anpa-docs .anpa-docs-index { padding: 1em 1.6em; }
+			.anpa-docs .anpa-docs-index ol { margin: .6em 0 0 1.4em; }
+			.anpa-docs .anpa-docs-index a { text-decoration: none; }
+			.anpa-docs .anpa-docs-index a:hover { text-decoration: underline; }
+			.anpa-docs .anpa-docs-index a:focus-visible { outline: 2px solid #2271b1; outline-offset: 2px; }
+			.anpa-docs .anpa-docs-content .card { padding: 1em 1.6em; margin-bottom: 1.2em; }
+			.anpa-docs .anpa-docs-content h2 { margin: 0 0 .5em; font-size: 1.15em; color: #1d2327;
+				border-bottom: 2px solid #e67e22; padding-bottom: .3em; }
+			.anpa-docs .anpa-docs-content h3 { margin: 1em 0 .4em; font-size: 1em; color: #2c3338; }
+			.anpa-docs .anpa-docs-content ul, .anpa-docs .anpa-docs-content ol { margin-left: 1.4em; }
+			.anpa-docs .anpa-docs-content ul { list-style: disc; }
+			.anpa-docs .anpa-docs-content ol { list-style: decimal; }
+			.anpa-docs .anpa-docs-content li { margin-bottom: .35em; line-height: 1.5; }
+			.anpa-docs .anpa-docs-content code { background: #f6f7f7; padding: .15em .4em; border-radius: 3px; font-size: .9em; }
+			.anpa-docs .widefat { margin: .6em 0; }
+			.anpa-docs .widefat td { padding: .5em .8em; vertical-align: top; }
+			.anpa-docs .widefat td:first-child { white-space: nowrap; width: 280px; }
+			.anpa-docs a:focus-visible { outline: 2px solid #2271b1; outline-offset: 2px; }
+		</style>';
 	}
 }

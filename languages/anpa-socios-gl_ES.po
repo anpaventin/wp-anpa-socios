@@ -1156,3 +1156,102 @@ msgstr "Introduce un correo electrónico."
 msgid "Código incorrecto ou caducado."
 msgstr "Código incorrecto ou caducado."
 
+msgid "ANPA Socios — Documentación"
+msgstr "ANPA Socios — Documentación"
+
+msgid "Guía rápida para a xunta: configuración, operación diaria, páxinas públicas, exportacións e seguridade."
+msgstr "Guía rápida para a xunta: configuración, operación diaria, páxinas públicas, exportacións e seguridade."
+
+msgid "Índice"
+msgstr "Índice"
+
+msgid "Posta en marcha"
+msgstr "Posta en marcha"
+
+msgid "En Axustes → Xeral revisa o email do equipo administrador, a páxina da área de socios e as páxinas públicas creadas automaticamente."
+msgstr "En Axustes → Xeral revisa o email do equipo administrador, a páxina da área de socios e as páxinas públicas creadas automaticamente."
+
+msgid "Garda a frase da clave bancaria e, se procede, configura o contrasinal curto de administración."
+msgstr "Garda a frase da clave bancaria e, se procede, configura o contrasinal curto de administración."
+
+msgid "Lanza a instalación só cando a configuración sexa correcta: créanse o socio administrador, a clave bancaria, a páxina de socios e a configuración inicial do curso."
+msgstr "Lanza a instalación só cando a configuración sexa correcta: créanse o socio administrador, a clave bancaria, a páxina de socios e a configuración inicial do curso."
+
+msgid "Accede á área de socios co email master para comprobar que chega o código por correo."
+msgstr "Accede á área de socios co email master para comprobar que chega o código por correo."
+
+msgid "Ciclo do curso escolar"
+msgstr "Ciclo do curso escolar"
+
+msgid "Cada curso vai do 1 de xullo ao 30 de xuño e usa formato <code>AAAA/AAAA+1</code>."
+msgstr "Cada curso vai do 1 de xullo ao 30 de xuño e usa formato <code>AAAA/AAAA+1</code>."
+
+msgid "O 20 de xuño péchase o curso activo e créase o seguinte en estado pendente."
+msgstr "O 20 de xuño péchase o curso activo e créase o seguinte en estado pendente."
+
+msgid "O curso pendente actívase automaticamente o 1 de setembro."
+msgstr "O curso pendente actívase automaticamente o 1 de setembro."
+
+msgid "En pretempada só o equipo administrador pode iniciar sesión; as familias quedan protexidas ata a apertura."
+msgstr "En pretempada só o equipo administrador pode iniciar sesión; as familias quedan protexidas ata a apertura."
+
+msgid "En Axustes → Cursos → Matrículas podes abrir ou pechar novas matrículas sen tocar datas nin estado do curso."
+msgstr "En Axustes → Cursos → Matrículas podes abrir ou pechar novas matrículas sen tocar datas nin estado do curso."
+
+msgid "Páxinas automáticas e shortcodes"
+msgstr "Páxinas automáticas e shortcodes"
+
+msgid "A área pública principal amósase coa páxina configurada en Axustes e o shortcode:"
+msgstr "A área pública principal amósase coa páxina configurada en Axustes e o shortcode:"
+
+msgid "botón/enlace cara á área persoal."
+msgstr "botón/enlace cara á área persoal."
+
+msgid "tarxetas coas actividades activas do curso actual."
+msgstr "tarxetas coas actividades activas do curso actual."
+
+msgid "grella semanal de horarios e grupos activos."
+msgstr "grella semanal de horarios e grupos activos."
+
+msgid "A instalación crea automaticamente unha páxina de extraescolares. As actividades visibles dependen do curso actual, do estado activo e dos grupos configurados."
+msgstr "A instalación crea automaticamente unha páxina de extraescolares. As actividades visibles dependen do curso actual, do estado activo e dos grupos configurados."
+
+msgid "O icono da tarxeta pública escóllese no formulario de alta ou edición da actividade."
+msgstr "O icono da tarxeta pública escóllese no formulario de alta ou edición da actividade."
+
+msgid "O comedor ou avisos fixos deben manterse como contido editorial separado, non como actividade automática."
+msgstr "O comedor ou avisos fixos deben manterse como contido editorial separado, non como actividade automática."
+
+msgid "Recoméndase engadir FAQ con prazos, prezos, autorizacións, baixas e contacto."
+msgstr "Recoméndase engadir FAQ con prazos, prezos, autorizacións, baixas e contacto."
+
+msgid "Exportacións e copias"
+msgstr "Exportacións e copias"
+
+msgid "Cada táboa de Xestión ANPA ten a súa propia exportación CSV filtrada pola busca visible."
+msgstr "Cada táboa de Xestión ANPA ten a súa propia exportación CSV filtrada pola busca visible."
+
+msgid "A exportación sensible “Descargar Socios IBAN” vive en Socios/as e require o contrasinal de descifrado."
+msgstr "A exportación sensible “Descargar Socios IBAN” vive en Socios/as e require o contrasinal de descifrado."
+
+msgid "As copias de seguridade deben facerse con UpdraftPlus antes de cambios importantes, importacións ou actualizacións."
+msgstr "As copias de seguridade deben facerse con UpdraftPlus antes de cambios importantes, importacións ou actualizacións."
+
+msgid "A sección Importar listados é só unha guía nesta fase: non escribe CSV nin modifica a base de datos."
+msgstr "A sección Importar listados é só unha guía nesta fase: non escribe CSV nin modifica a base de datos."
+
+msgid "Privacidade e seguridade"
+msgstr "Privacidade e seguridade"
+
+msgid "Os datos bancarios están cifrados e só deben exportarse cando sexa imprescindible para a domiciliación."
+msgstr "Os datos bancarios están cifrados e só deben exportarse cando sexa imprescindible para a domiciliación."
+
+msgid "Non compartas o contrasinal de descifrado por correo nin o gardes en documentos públicos."
+msgstr "Non compartas o contrasinal de descifrado por correo nin o gardes en documentos públicos."
+
+msgid "A Xestión ANPA require sesión de administración válida; se caduca, hai que volver autenticarse."
+msgstr "A Xestión ANPA require sesión de administración válida; se caduca, hai que volver autenticarse."
+
+msgid "Antes de importar ou arquivar datos persoais, debe existir unha subfase con validación, vista previa, confirmación e auditoría."
+msgstr "Antes de importar ou arquivar datos persoais, debe existir unha subfase con validación, vista previa, confirmación e auditoría."
+

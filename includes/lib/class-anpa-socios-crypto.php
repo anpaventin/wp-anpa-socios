@@ -336,4 +336,33 @@ final class ANPA_Socios_Crypto {
 	private static function valid_key( string $key ): bool {
 		return strlen( $key ) === SODIUM_CRYPTO_SECRETBOX_KEYBYTES;
 	}
+
+	/**
+	 * Generates a random 5-word passphrase in Galician.
+	 *
+	 * Used by the setup wizard to suggest a banking key passphrase.
+	 *
+	 * @since  1.32.0
+	 * @return string Hyphen-separated words.
+	 */
+	public static function generate_passphrase(): string {
+		$words = array(
+			'ceu', 'mar', 'sol', 'lua', 'nube', 'monte', 'rio', 'ponte',
+			'casa', 'horta', 'rosa', 'pino', 'carvalho', 'nogueira', 'salgueiro',
+			'pomba', 'gaivota', 'andoriña', 'paxaro', 'grilo',
+			'mazá', 'pera', 'uvas', 'froita', 'millo',
+			'auga', 'lume', 'vento', 'neve', 'brétema',
+			'verde', 'azul', 'branco', 'negro', 'roxo',
+			'música', 'danza', 'canto', 'risa', 'soño',
+			'amor', 'paz', 'ben', 'luz', 'vida',
+		);
+
+		$selected = array();
+		$keys     = array_rand( $words, 5 );
+		foreach ( (array) $keys as $k ) {
+			$selected[] = $words[ $k ];
+		}
+
+		return implode( '-', $selected );
+	}
 }

@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Renders the [anpa_socios_area] shortcode and loads its assets.
+ * Renders the [anpa_socios_area_persoal] shortcode and loads its assets.
  *
  * @since 1.1.0
  */
@@ -56,19 +56,6 @@ class ANPA_Socios_Area_Page {
 		$empresa_export_url       = rest_url( 'anpa-socios/v1/empresa/me/export' );
 		$empresa_request_code_url = rest_url( 'anpa-socios/v1/empresa/solicitar-codigo' );
 
-		// Admin endpoints (fase5 hub). All gated server-side by permission_master;
-		// the area token doubles as the admin token (master role checked per call).
-		$admin_base_url = rest_url( 'anpa-socios/v1/admin/' );
-
-		// Initial master email (public junta inbox) — used by the UI to lock the
-		// protected master account. The server is the real boundary.
-		$master_email = ANPA_Socios_Config::master_email();
-
-		// Master auth & admin password endpoints (1.21.0).
-		$master_init_url       = rest_url( 'anpa-socios/v1/area/master/init-status' );
-		$master_init_post_url  = rest_url( 'anpa-socios/v1/area/master/init' );
-		$admin_auth_url        = rest_url( 'anpa-socios/v1/area/me/admin-auth' );
-		$admin_password_url    = rest_url( 'anpa-socios/v1/area/me/admin-password' );
 
 		ob_start();
 		?>
@@ -99,12 +86,6 @@ class ANPA_Socios_Area_Page {
 			data-empresa-me-url="<?php echo esc_attr( $empresa_me_url ); ?>"
 			data-empresa-logout-url="<?php echo esc_attr( $empresa_logout_url ); ?>"
 			data-empresa-export-url="<?php echo esc_attr( $empresa_export_url ); ?>"
-			data-admin-base-url="<?php echo esc_attr( $admin_base_url ); ?>"
-			data-master-email="<?php echo esc_attr( $master_email ); ?>"
-			data-master-init-url="<?php echo esc_attr( $master_init_url ); ?>"
-			data-master-init-post-url="<?php echo esc_attr( $master_init_post_url ); ?>"
-			data-admin-auth-url="<?php echo esc_attr( $admin_auth_url ); ?>"
-			data-admin-password-url="<?php echo esc_attr( $admin_password_url ); ?>"
 			data-aulas="<?php echo esc_attr( (string) wp_json_encode( ANPA_Socios_Config::aulas() ) ); ?>"
 			data-login-url="<?php echo esc_attr( class_exists( 'ANPA_Socios_Admin_Settings' ) ? ANPA_Socios_Admin_Settings::landing_page_url() : '' ); ?>">
 			<div class="anpa-area-notice" data-area-message hidden></div>
@@ -118,9 +99,7 @@ class ANPA_Socios_Area_Page {
 					<summary class="anpa-session-summary"><span class="anpa-area-session-who"><?php esc_html_e( 'Conectada/o como', 'anpa-socios' ); ?> <strong data-session-email></strong></span></summary>
 					<div class="anpa-session-menu-body">
 						<button type="button" class="anpa-area-secondary" data-action="header-area"><?php esc_html_e( 'Os meus datos', 'anpa-socios' ); ?></button>
-						<button type="button" class="anpa-area-secondary anpa-admin-action" data-action="header-admin" data-admin-entry hidden><?php esc_html_e( 'Xestión ANPA', 'anpa-socios' ); ?></button>
-						<button type="button" class="anpa-area-secondary anpa-admin-action" data-action="header-exports" data-admin-entry hidden><?php esc_html_e( 'Listados', 'anpa-socios' ); ?></button>
-						<button type="button" class="anpa-area-secondary anpa-admin-action" data-action="header-fullexport" data-admin-entry hidden><?php esc_html_e( 'Descargar Socios IBAN', 'anpa-socios' ); ?></button>
+
 						<button type="button" class="anpa-area-secondary anpa-area-danger" data-action="header-logout"><?php esc_html_e( 'Pechar sesión', 'anpa-socios' ); ?></button>
 					</div>
 				</details>
@@ -191,38 +170,10 @@ class ANPA_Socios_Area_Page {
 					<button type="button" class="anpa-area-secondary" data-action="manage-extraescolares"><?php esc_html_e( 'Extraescolares', 'anpa-socios' ); ?></button>
 					<button type="button" class="anpa-area-secondary" data-action="toggle-proxenitor2"><?php esc_html_e( 'Engadir outro proxenitor/titor', 'anpa-socios' ); ?></button>
 					<button type="button" class="anpa-area-secondary" data-action="toggle-banking"><?php esc_html_e( 'Modificación IBAN', 'anpa-socios' ); ?></button>
-					<button type="button" class="anpa-area-secondary anpa-admin-action" data-action="open-admin" data-admin-entry hidden><?php esc_html_e( 'Xestión ANPA', 'anpa-socios' ); ?></button>
 					<button type="button" class="anpa-area-secondary anpa-area-danger" data-action="request-baixa" data-baixa-btn hidden><?php esc_html_e( 'Solicitar baixa de socio/a', 'anpa-socios' ); ?></button>
 					<button type="button" class="anpa-area-secondary" data-action="cancel-baixa" data-baixa-cancel-btn hidden><?php esc_html_e( 'Anular solicitude de baixa', 'anpa-socios' ); ?></button>
 					<button type="button" class="anpa-area-secondary" data-action="logout"><?php esc_html_e( 'Pechar sesión', 'anpa-socios' ); ?></button>
 
-				</div>
-			</div>
-
-			<!-- ── Master init wizard (1.21.0): shown on first login when not initialized ── -->
-			<div class="anpa-area-card" data-step="master-init" hidden>
-				<div class="anpa-area-alert anpa-area-alert-warning" data-master-aviso role="alert"></div>
-				<h2>Inicialización da base de datos</h2>
-				<p>É a túa primeira vez como administrador/a. Para protexer os datos bancarios dos socios, xerase un par de claves asimétricas. O contrasinal de descifrado debe ter <strong>polo menos 5 palabras</strong> separadas por guións.</p>
-				<p>Podes usar o suxerido ou escribir o teu propio.</p>
-				<label for="anpa-master-passphrase">Contrasinal (5+ palabras separadas por guións)</label>
-				<input id="anpa-master-passphrase" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" required>
-				<p class="anpa-area-muted" data-passphrase-hint></p>
-				<button type="button" data-action="regenerate-passphrase">Outra combinación</button>
-				<div class="anpa-area-actions">
-					<button type="button" data-action="master-init-confirm">Inicializar base de datos</button>
-				</div>
-			</div>
-
-			<!-- ── Admin password gate (1.21.0): short password for panel access ── -->
-			<div class="anpa-area-card" data-step="admin-auth" hidden>
-				<h2>Contrasinal de administración</h2>
-				<p>Para acceder ao panel de Xestión ANPA, introduce o contrasinal de administración.</p>
-				<label for="anpa-admin-auth-pass">Contrasinal</label>
-				<input id="anpa-admin-auth-pass" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" required>
-				<div class="anpa-area-actions">
-					<button type="button" data-action="admin-auth-submit">Acceder</button>
-					<button type="button" class="anpa-area-secondary" data-action="back-profile">Volver</button>
 				</div>
 			</div>
 
@@ -341,52 +292,6 @@ class ANPA_Socios_Area_Page {
 				</div>
 			</div>
 
-			<div class="anpa-area-card anpa-admin-card" data-step="admin" hidden>
-				<h2><?php esc_html_e( 'Xestión ANPA', 'anpa-socios' ); ?></h2>
-				<p class="anpa-area-muted"><?php esc_html_e( 'Panel de administración. Só accesible para a directiva (rol master). Cada consulta valídase no servidor.', 'anpa-socios' ); ?></p>
-				<div class="anpa-admin-toolbar">
-					<nav class="anpa-admin-nav" aria-label="Seccións de xestión">
-						<button type="button" class="anpa-area-secondary anpa-admin-action" data-admin-section="socios">Socios/as</button>
-						<button type="button" class="anpa-area-secondary anpa-admin-action" data-admin-section="approvals">Aprobacións</button>
-						<button type="button" class="anpa-area-secondary anpa-admin-action" data-admin-section="fillos">Fillos/as</button>
-						<button type="button" class="anpa-area-secondary anpa-admin-action" data-admin-section="empresas">Empresas</button>
-						<button type="button" class="anpa-area-secondary anpa-admin-action" data-admin-section="actividades">Actividades</button>
-						<button type="button" class="anpa-area-secondary anpa-admin-action" data-admin-section="cursos">Cursos</button>
-						<button type="button" class="anpa-area-secondary anpa-admin-action" data-admin-section="matriculas">Matrículas</button>
-						<button type="button" class="anpa-area-secondary anpa-admin-action" data-admin-section="admins">Administradores</button>
-						<button type="button" class="anpa-area-secondary anpa-admin-action" data-admin-section="audit">Auditoría</button>
-					</nav>
-					<div class="anpa-admin-tools">
-						<button type="button" class="anpa-area-secondary" data-action="toggle-exports" aria-expanded="false" aria-controls="anpa-admin-panel-exports">Listados ▾</button>
-						<button type="button" class="anpa-area-secondary" data-action="toggle-fullexport" aria-expanded="false" aria-controls="anpa-admin-panel-fullexport">Descargar Socios IBAN ▾</button>
-					</div>
-				</div>
-				<div class="anpa-admin-panel" id="anpa-admin-panel-exports" data-panel="exports" hidden>
-					<h3>Listados</h3>
-					<p class="anpa-area-muted">Preme unha sección para visualizar os datos como un listado. Cada listado ten a súa propia caixa de busca, ordenación por columnas e botón para exportar a CSV.</p>
-					<div class="anpa-admin-exports">
-						<button type="button" class="anpa-area-secondary" data-admin-export="socios">Socios/as</button>
-						<button type="button" class="anpa-area-secondary" data-admin-export="fillos">Fillos/as</button>
-						<button type="button" class="anpa-area-secondary" data-admin-export="empresas">Empresas</button>
-						<button type="button" class="anpa-area-secondary" data-admin-export="actividades">Actividades</button>
-						<button type="button" class="anpa-area-secondary" data-admin-export="matriculas">Matrículas</button>
-						<button type="button" class="anpa-area-secondary" data-admin-export="alumnos">Alumnos (todas)</button>
-					</div>
-				</div>
-				<div class="anpa-admin-panel" id="anpa-admin-panel-fullexport" data-panel="fullexport" hidden>
-					<h3>Descargar Socios IBAN</h3>
-					<p class="anpa-area-muted">Exporta todos os socios/as nun único CSV con datos para domiciliación bancaria. Require sempre o contrasinal de descifrado. Marca a caixa só se precisas incluír os datos bancarios descifrados (IBAN, NIF do titular).</p>
-					<label for="anpa-admin-export-pass">Contrasinal de descifrado</label>
-					<input id="anpa-admin-export-pass" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
-					<label class="anpa-admin-check"><input type="checkbox" id="anpa-admin-export-banking"> Incluír datos bancarios descifrados</label>
-					<button type="button" data-action="admin-export-full">Descargar Socios IBAN</button>
-				</div>
-				<div data-admin-content></div>
-				<div class="anpa-area-actions">
-					<button type="button" class="anpa-area-secondary" data-action="back-profile-admin">Volver aos meus datos</button>
-				</div>
-			</div>
-
 			<div class="anpa-area-card" data-step="empresa" hidden>
 				<h2><?php esc_html_e( 'Panel da empresa', 'anpa-socios' ); ?></h2>
 				<p class="anpa-area-muted"><strong>Empresa:</strong> <span data-empresa-nome></span></p>
@@ -402,7 +307,7 @@ class ANPA_Socios_Area_Page {
 	}
 
 	/**
-	 * Enqueues assets only for pages containing [anpa_socios_area].
+	 * Enqueues assets only for pages containing [anpa_socios_area_persoal].
 	 *
 	 * @since  1.1.0
 	 * @return void
@@ -413,7 +318,7 @@ class ANPA_Socios_Area_Page {
 		}
 
 		global $post;
-		if ( ! ( $post instanceof WP_Post ) || ! has_shortcode( (string) $post->post_content, 'anpa_socios_area' ) ) {
+		if ( ! ( $post instanceof WP_Post ) || ! has_shortcode( (string) $post->post_content, 'anpa_socios_area_persoal' ) ) {
 			return;
 		}
 
@@ -422,44 +327,10 @@ class ANPA_Socios_Area_Page {
 		$js_version  = file_exists( $js_path ) ? (int) filemtime( $js_path ) : ANPA_SOCIOS_VERSION;
 		$css_version = file_exists( $css_path ) ? (int) filemtime( $css_path ) : ANPA_SOCIOS_VERSION;
 
-		$table_path    = ANPA_SOCIOS_PLUGIN_DIR . 'assets/js/admin-table.js';
-		$table_version = file_exists( $table_path ) ? (int) filemtime( $table_path ) : ANPA_SOCIOS_VERSION;
-		wp_enqueue_script(
-			'anpa-socios-admin-table',
-			plugins_url( 'assets/js/admin-table.js', ANPA_SOCIOS_PLUGIN_FILE ),
-			array(),
-			$table_version,
-			true
-		);
-
-		// Normalize helpers (title_case, email, telefono, nif).
-		// Loaded BEFORE area.js so AnpaNormalize is available at parse time.
-		$norm_path    = ANPA_SOCIOS_PLUGIN_DIR . 'assets/js/anpa-normalize.js';
-		$norm_version = file_exists( $norm_path ) ? (int) filemtime( $norm_path ) : ANPA_SOCIOS_VERSION;
-		wp_enqueue_script(
-			'anpa-socios-normalize',
-			plugins_url( 'assets/js/anpa-normalize.js', ANPA_SOCIOS_PLUGIN_FILE ),
-			array(),
-			$norm_version,
-			true
-		);
-
-		// Pure utility functions (colLabel, filterRows, buildCsvString…).
-		// Loaded BEFORE area.js so AnpaUtils is available at parse time.
-		$utils_path    = ANPA_SOCIOS_PLUGIN_DIR . 'assets/js/anpa-utils.js';
-		$utils_version = file_exists( $utils_path ) ? (int) filemtime( $utils_path ) : ANPA_SOCIOS_VERSION;
-		wp_enqueue_script(
-			'anpa-socios-utils',
-			plugins_url( 'assets/js/anpa-utils.js', ANPA_SOCIOS_PLUGIN_FILE ),
-			array(),
-			$utils_version,
-			true
-		);
-
 		wp_enqueue_script(
 			'anpa-socios-area',
 			plugins_url( 'assets/js/area.js', ANPA_SOCIOS_PLUGIN_FILE ),
-			array( 'wp-i18n', 'anpa-socios-admin-table', 'anpa-socios-normalize', 'anpa-socios-utils' ),
+			array( 'wp-i18n' ),
 			$js_version,
 			true
 		);
@@ -470,17 +341,6 @@ class ANPA_Socios_Area_Page {
 			plugins_url( 'assets/css/area.css', ANPA_SOCIOS_PLUGIN_FILE ),
 			array(),
 			$css_version
-		);
-
-		// Compact admin UI (smaller buttons, gap between them, scroll
-		// anchor for the edit form, copy-to-current button styling).
-		$compact_path    = ANPA_SOCIOS_PLUGIN_DIR . 'assets/css/admin-compact.css';
-		$compact_version = file_exists( $compact_path ) ? (int) filemtime( $compact_path ) : ANPA_SOCIOS_VERSION;
-		wp_enqueue_style(
-			'anpa-socios-admin-compact',
-			plugins_url( 'assets/css/admin-compact.css', ANPA_SOCIOS_PLUGIN_FILE ),
-			array( 'anpa-socios-area' ),
-			$compact_version
 		);
 	}
 }

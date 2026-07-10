@@ -41,88 +41,57 @@ final class ANPA_Socios_Admin_Shared {
 	const REQ_PARAM_ROL = '_anpa_admin_rol';
 
 	/**
-	 * Shared master gate: session + master role + CSRF.
+	 * Admin gate — delegates to the WordPress-native authorization (fase17 R6a).
 	 *
-	 * @since  1.21.0
-	 * @param  WP_REST_Request $request The incoming request.
-	 * @param  bool            $require_admin_password Whether to enforce the admin-password transient gate.
-	 * @return true|WP_Error
-	 */
-	private static function permission_master_core( WP_REST_Request $request, bool $require_admin_password ) {
-		$auth = ANPA_Socios_Area_REST::authenticate_area_session( $request, 'anpa_admin_rl_' );
-		if ( is_wp_error( $auth ) ) {
-			return $auth;
-		}
-
-		$email = strtolower( trim( (string) $auth['profile']['email'] ) );
-		$rol   = self::resolve_socio_rol( $email );
-		if ( ! ANPA_Socios_Roles::es_master( $email, $rol, ANPA_Socios_Roles::MASTER_EMAIL ) ) {
-			return new WP_Error( 'anpa_admin_forbidden', 'Acción non permitida', array( 'status' => 403 ) );
-		}
-
-		// Double-submit CSRF: for state-changing methods, verify the
-		// _csrf query param matches the header token.
-		$method = strtoupper( $request->get_method() );
-		if ( in_array( $method, array( 'POST', 'PUT', 'PATCH', 'DELETE' ), true ) ) {
-			$header_token = (string) $request->get_header( 'X-Anpa-Area-Token' );
-			$csrf_param   = (string) $request->get_param( '_csrf' );
-			if ( '' === $header_token || '' === $csrf_param || $header_token !== $csrf_param ) {
-				return new WP_Error( 'anpa_csrf_invalid', 'Solicitude rexeitada (CSRF)', array( 'status' => 403 ) );
-			}
-		}
-
-		$request->set_param( self::REQ_PARAM_EMAIL, $email );
-		$request->set_param( self::REQ_PARAM_ROL, $rol );
-
-		if ( $require_admin_password && ANPA_Socios_Master_Auth::admin_password_exists() ) {
-			// Resolve the token with the SAME resolver used by handle_admin_auth
-			// when marking the session authorized (sanitized + underscore-header
-			// fallback), otherwise the mark and the check can diverge under proxy
-			// header transforms and loop "password required".
-			$header_token = ANPA_Socios_Area_REST::get_session_token( $request, 'X-Anpa-Area-Token' );
-			if ( '' === $header_token || ! ANPA_Socios_Master_Auth::is_admin_session_authorized( $header_token ) ) {
-				return new WP_Error( 'anpa_admin_auth_required', 'Contrasinal de administración necesario. Usa /area/me/admin-auth.', array( 'status' => 403 ) );
-			}
-		}
-
-		return true;
-	}
-
-	/**
-	 * Checks that the caller's area session belongs to a master.
+	 * Historically this validated a front-end area session + master role +
+	 * admin password. As of fase17 the sole gate is
+	 * `current_user_can('manage_options')` + WP REST nonce, implemented in
+	 * `ANPA_Socios_Admin_Auth`. This method is kept as a compatibility bridge
+	 * so the 14 admin handlers keep referencing `permission_master` while the
+	 * migration completes; it will be inlined/removed in a later step.
 	 *
-	 * Delegates session validation to the canonical authenticator
-	 * (`ANPA_Socios_Area_REST::authenticate_area_session`), so the admin
-	 * surface inherits the SAME guarantees as the member area: rate limit,
-	 * HMAC digest, User-Agent binding, active socio state, TTL/usage cap,
-	 * and atomic usage increment. On top of that it requires the caller to
-	 * be the master (rol='master' AND the master email).
-	 *
-	 * On success, stashes the email and rol on the request object so
-	 * downstream handlers can reuse them without re-querying the DB.
+	 * On success the WP user email is stashed on the request (audit identity)
+	 * by the delegated gate; here we tag the audit rol as `admin_wp`.
 	 *
 	 * @since  1.3.0
 	 * @param  WP_REST_Request $request The incoming request.
 	 * @return true|WP_Error
 	 */
 	public static function permission_master( WP_REST_Request $request ) {
-		return self::permission_master_core( $request, true );
+		return self::bridge_admin( $request );
 	}
 
 	/**
-	 * Master-only permission without the admin-password gate.
+	 * Admin gate for the (soon-removed) one-time init endpoint.
 	 *
-	 * Used exclusively for the one-time /area/master/init endpoint, where
-	 * the admin password does not exist yet. It enforces the same session,
-	 * CSRF and master checks as permission_master() but skips the transient
-	 * password verification.
+	 * Behaves identically to `permission_master()` now that the admin-password
+	 * distinction no longer exists.
 	 *
 	 * @since  1.21.0
 	 * @param  WP_REST_Request $request The incoming request.
 	 * @return true|WP_Error
 	 */
 	public static function permission_master_init( WP_REST_Request $request ) {
-		return self::permission_master_core( $request, false );
+		return self::bridge_admin( $request );
+	}
+
+	/**
+	 * Shared bridge to the WordPress-native admin gate.
+	 *
+	 * @since  1.31.0
+	 * @param  WP_REST_Request $request The incoming request.
+	 * @return true|WP_Error
+	 */
+	private static function bridge_admin( WP_REST_Request $request ) {
+		$ok = ANPA_Socios_Admin_Auth::permission_admin( $request );
+		if ( is_wp_error( $ok ) ) {
+			return $ok;
+		}
+		// Admin_Auth::REQ_PARAM_EMAIL === self::REQ_PARAM_EMAIL ('_anpa_admin_email'),
+		// so write_audit() reads the WP user email set by the gate. Tag the rol.
+		$request->set_param( self::REQ_PARAM_ROL, 'admin_wp' );
+
+		return true;
 	}
 
 	/**

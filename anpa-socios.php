@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ANPA Socios
  * Description: Xestión de socios para asociacións de nais e pais (ANPA/AMPA): área de socios sen contrasinal, fillos e actividades extraescolares, domiciliación SEPA cifrada, ciclo de curso, panel de administración e actualizacións self-hosted. Configurable para calquera asociación.
- * Version: 1.32.0
+ * Version: 1.33.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: ANPA Socios
@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ANPA_SOCIOS_VERSION', '1.32.0' );
+define( 'ANPA_SOCIOS_VERSION', '1.33.0' );
 define( 'ANPA_SOCIOS_DB_VERSION', '1.20.0' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
@@ -35,8 +35,8 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-domiciliacion.
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-codigo-generator.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-rate-limiter.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-area-session.php';
-require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-master-auth.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-roles.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-admin-auth.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-config.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-flow.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-admin-payload.php';
@@ -137,12 +137,12 @@ add_action( 'admin_notices', function () {
 	}
 } );
 add_shortcode( 'anpa_socios_asociarse', array( 'ANPA_Socios_Socios_Page', 'render' ) );
-add_shortcode( 'anpa_socios_area', array( 'ANPA_Socios_Area_Page', 'render' ) );
+add_shortcode( 'anpa_socios_area_persoal', array( 'ANPA_Socios_Area_Page', 'render' ) );
 add_shortcode( 'anpa_socios_hub', array( 'ANPA_Socios_Hub_Page', 'render' ) );
 add_shortcode( 'anpa_socios_area_link', array( 'ANPA_Socios_Hub_Page', 'render_area_link' ) );
 add_shortcode( 'anpa_extraescolares_horario', array( 'ANPA_Socios_Extraescolares_Page', 'render' ) );
 add_shortcode( 'anpa_extraescolares_ofertadas', array( 'ANPA_Socios_Extraescolares_Page', 'render_ofertadas' ) );
-add_shortcode( 'anpa_socios_area_unified', array( 'ANPA_Socios_Unified_Page', 'render' ) );
+add_shortcode( 'anpa_socios_area', array( 'ANPA_Socios_Unified_Page', 'render' ) );
 add_action( 'wp_enqueue_scripts', array( 'ANPA_Socios_Socios_Page', 'enqueue_assets' ) );
 add_action( 'wp_enqueue_scripts', array( 'ANPA_Socios_Area_Page', 'enqueue_assets' ) );
 add_action( 'wp_enqueue_scripts', array( 'ANPA_Socios_Extraescolares_Page', 'enqueue_assets' ) );

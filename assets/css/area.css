@@ -2,7 +2,7 @@
  *
  * Uses Blocksy theme CSS custom properties (--theme-*) so the app
  * inherits the site's design system. Semantic colours (errors,
- * warnings, admin-only actions) are defined as plugin-level CSS
+ * warnings) are defined as plugin-level CSS
  * custom properties so they can be overridden from the theme or a
  * child theme without editing the CSS file.
  *
@@ -18,12 +18,6 @@
 	--anpa-warning-bg: #fffbeb;
 	--anpa-warning-text: #7c2d12;
 	--anpa-warning-border: #d97706;
-	--anpa-admin-action-bg: #fff7ed;
-	--anpa-admin-action-border: #d97706;
-	--anpa-admin-action-text: #9a3412;
-	--anpa-admin-action-hover-bg: #fed7aa;
-	--anpa-admin-action-hover-border: #b45309;
-	--anpa-admin-action-hover-text: #7c2d12;
 	--anpa-danger-bg: #b42318;
 	--anpa-danger-hover-bg: #7a271a;
 	--anpa-pendente-bg: #e6f0fb;
@@ -50,10 +44,6 @@
 	font-family: inherit;
 }
 
-/* Admin panel needs more room: widen on larger screens to avoid scroll. */
-#anpa-area.anpa-area-wide {
-	max-width: min(1180px, 96vw);
-}
 
 #anpa-area .anpa-area-card {
 	display: flex;
@@ -124,19 +114,6 @@
 	background: var(--theme-palette-color-7);
 }
 
-/* fase10: admin-only actions are orange so master users can distinguish them. */
-#anpa-area .anpa-area-secondary.anpa-admin-action {
-	background: #fff7ed;
-	border-color: #d97706;
-	color: #9a3412;
-}
-
-#anpa-area .anpa-area-secondary.anpa-admin-action:hover,
-#anpa-area .anpa-area-secondary.anpa-admin-action:focus {
-	background: #fed7aa;
-	border-color: #b45309;
-	color: #7c2d12;
-}
 
 #anpa-area .anpa-area-actions {
 	display: flex;
@@ -148,7 +125,7 @@
 	color: var(--theme-text-color);
 }
 
-/* Role-aware warning (admin) inside "Os teus datos". */
+/* Role-aware warning inside "Os teus datos". */
 #anpa-area .anpa-area-muted.anpa-area-warning {
 	color: #7a271a;
 	background: #fff1f0;
@@ -197,50 +174,6 @@
 	min-width: 12rem;
 }
 
-/* fase5/fase6 hub — admin panel */
-#anpa-area .anpa-admin-toolbar {
-	display: flex;
-	flex-wrap: wrap;
-	justify-content: space-between;
-	align-items: flex-start;
-	gap: 0.75rem;
-	margin: 0.25rem 0 0.5rem;
-	padding: 0.5rem 0;
-	border-bottom: 1px solid var(--theme-border-color);
-	position: sticky;
-	top: 0;
-	z-index: 15;
-	background: var(--theme-palette-color-8);
-}
-
-#anpa-area .anpa-admin-nav,
-#anpa-area .anpa-admin-tools,
-#anpa-area .anpa-admin-exports {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.5rem;
-}
-
-#anpa-area .anpa-admin-tools {
-	margin-left: auto;
-}
-
-#anpa-area .anpa-admin-panel {
-	margin: 0 0 0.85rem;
-	padding: 0.85rem 1rem;
-	border: 1px solid var(--theme-border-color);
-	border-radius: 10px;
-	background: var(--theme-palette-color-7);
-}
-
-#anpa-area .anpa-admin-panel[hidden] {
-	display: none;
-}
-
-#anpa-area .anpa-admin-panel h3 {
-	margin: 0 0 0.6rem;
-	font-size: 0.95rem;
-}
 
 #anpa-area .anpa-admin-check {
 	display: flex;
@@ -254,60 +187,8 @@
 	width: auto;
 }
 
-#anpa-area [data-admin-content] {
-	overflow-x: auto;
-}
 
-#anpa-area .anpa-admin-table {
-	width: 100%;
-	border-collapse: collapse;
-	font-size: 0.9rem;
-}
 
-#anpa-area .anpa-admin-table th,
-#anpa-area .anpa-admin-table td {
-	border: 1px solid var(--theme-border-color);
-	padding: 0.45rem 0.6rem;
-	text-align: left;
-	vertical-align: top;
-}
-
-#anpa-area .anpa-admin-table th {
-	background: var(--theme-palette-color-6);
-	white-space: nowrap;
-}
-
-#anpa-area .anpa-socio-edit {
-	display: flex;
-	flex-direction: column;
-	gap: 0.6rem;
-	margin-top: 0.75rem;
-	padding: 0.85rem 1rem;
-	border: 1px solid var(--theme-border-color);
-	border-radius: 10px;
-	background: var(--theme-palette-color-7);
-}
-
-#anpa-area .anpa-socio-edit h3 {
-	margin: 0;
-	font-size: 0.95rem;
-}
-
-#anpa-area .anpa-socio-edit input[type="text"],
-#anpa-area .anpa-socio-edit select {
-	width: 100%;
-	box-sizing: border-box;
-	padding: 0.6rem 0.75rem;
-	border: 1px solid var(--theme-border-color);
-	border-radius: 6px;
-	font-size: 1rem;
-	line-height: 1.4;
-	min-height: 2.7rem;
-	background: var(--theme-palette-color-8);
-	color: var(--theme-headings-color);
-	appearance: auto;
-	-webkit-appearance: auto;
-}
 
 /* fase6 PR-6 — socio baixa workflow */
 #anpa-area .anpa-area-danger {
@@ -345,19 +226,6 @@
 	font-weight: 600;
 }
 
-/* Socios table row colouring by estado. */
-#anpa-area .anpa-admin-table tr.anpa-row-baixa-pending td {
-	background: #fffbeb; /* activo + baixa solicitada → amarelo */
-}
-
-#anpa-area .anpa-admin-table tr.anpa-row-baixa td {
-	background: #fde8e8; /* baixa efectiva → vermello suave */
-	color: #7a271a;
-}
-
-#anpa-area .anpa-admin-table tr.anpa-row-pendente td {
-	background: #e6f0fb; /* pendente_alta → azul */
-}
 
 /* Working overlay (shown while any area request is in flight). */
 #anpa-area {
@@ -392,35 +260,6 @@
 	to { transform: rotate(360deg); }
 }
 
-/* fase9 PR-9a — admin table sort + pagination */
-#anpa-area .anpa-admin-table th.anpa-sortable {
-	cursor: pointer;
-	user-select: none;
-	white-space: nowrap;
-}
-
-#anpa-area .anpa-admin-table th.anpa-sortable:hover {
-	background: var(--theme-palette-color-7);
-}
-
-#anpa-area .anpa-admin-pagination {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 0.6rem;
-	margin-top: 0.6rem;
-}
-
-#anpa-area .anpa-admin-pagination select {
-	padding: 0.3rem 0.5rem;
-	border: 1px solid var(--theme-border-color);
-	border-radius: 6px;
-}
-
-#anpa-area .anpa-admin-pagination button[disabled] {
-	opacity: 0.5;
-	cursor: default;
-}
 
 /* Idle session-timeout warning (fase8) */
 #anpa-area .anpa-area-idle {
@@ -578,26 +417,6 @@
 	margin: 0;
 }
 
-/* Filter bar for show/hide inactivos toggle */
-#anpa-area .anpa-filter-bar {
-	display: flex;
-	align-items: center;
-	gap: 0.75rem;
-	margin-bottom: 0.75rem;
-	font-size: 0.92rem;
-}
-#anpa-area .anpa-filter-check {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.35rem;
-	font-weight: 500;
-	cursor: pointer;
-}
-#anpa-area .anpa-filter-check input[type="checkbox"] {
-	width: auto;
-	margin: 0;
-	cursor: pointer;
-}
 
 /* Fase 8b: field-level validation errors */
 #anpa-area .anpa-field-error {
@@ -635,19 +454,6 @@
 	#anpa-area .anpa-area-actions button {
 		width: 100%;
 	}
-	#anpa-area .anpa-area-toolbar {
-		flex-direction: column;
-	}
-	#anpa-area .anpa-admin-tools {
-		margin-left: 0;
-	}
-	#anpa-area .anpa-admin-nav {
-		flex-direction: column;
-		width: 100%;
-	}
-	#anpa-area .anpa-admin-nav button {
-		width: 100%;
-	}
 	.anpa-fillo-row {
 		flex-direction: column;
 		align-items: flex-start;
@@ -663,33 +469,13 @@
 		max-width: 100%;
 		margin: 1rem 0;
 	}
-	#anpa-area.anpa-area-wide {
-		max-width: 100%;
-	}
 	#anpa-area .anpa-area-card {
 		padding: 1rem;
 	}
-	#anpa-area .anpa-admin-table {
-		font-size: 0.85rem;
-	}
-	#anpa-area .anpa-admin-table th,
-	#anpa-area .anpa-admin-table td {
-		padding: 0.35rem 0.4rem;
-	}
-	#anpa-area .anpa-socio-edit input[type="text"],
-	#anpa-area .anpa-socio-edit select,
 	#anpa-area input[type="email"],
 	#anpa-area input[type="text"],
 	#anpa-area input[type="password"] {
 		font-size: 16px; /* prevent iOS zoom on focus */
-	}
-}
-
-/* Prevent table overflow on small screens */
-@media (max-width: 640px) {
-	#anpa-area [data-admin-content] {
-		overflow-x: auto;
-		-webkit-overflow-scrolling: touch;
 	}
 }
 
@@ -705,9 +491,7 @@
 
 /* ── Session header dropdown menu (PR-12l part 2) ────────────────────────
    The green "Conectada/o como X" box hosts a <details> menu with the
-   account/admin shortcuts (Os meus datos, Xestión ANPA, Listados,
-   Descargar Socios IBAN, Pechar sesión). Replaces the old site-header
-   dropdown. */
+   account shortcuts (Os meus datos, Pechar sesión). */
 .anpa-area-session-header .anpa-session-menu {
 	position: relative;
 }
@@ -784,19 +568,6 @@
 	border-color: #2d6a4f;
 }
 
-/* Admin-only actions — amber, dark text (clearly distinct, readable) */
-#anpa-area .anpa-area-secondary.anpa-admin-action,
-#anpa-area .anpa-admin-action {
-	background: #fff4e5;
-	color: #8a4b00;
-	border: 1px solid #e0a45c;
-}
-#anpa-area .anpa-area-secondary.anpa-admin-action:hover,
-#anpa-area .anpa-admin-action:hover {
-	background: #ffe8cc;
-	color: #6b3a00;
-	border-color: #cf8a3a;
-}
 
 /* Danger (baixa, logout) — red */
 #anpa-area .anpa-area-secondary.anpa-area-danger,
