@@ -1,0 +1,6 @@
+id_familia,fillo_nome,fillo_apelidos,empresa_email,actividade_nome,curso_escolar,comedor,tarde,observaciones,estado
+1,Lúa,García López,deportes@example.com,Fútbol Sala,2025/2026,1,0,,activo
+1,Lúa,García López,musica@example.com,Piano,2025/2026,0,1,,activo
+1,Uxío,García López,idiomas@example.com,Inglés,2025/2026,1,0,,activo
+2,Noa,Fernández Rodríguez,deportes@example.com,Baloncesto,2025/2026,1,1,Alerxia ficticia ao gluten,activo
+3,Breixo,López Núñez,deportes@example.com,Fútbol Sala,2025/2026,0,0,,activo

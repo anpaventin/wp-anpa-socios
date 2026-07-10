@@ -45,7 +45,19 @@ final class ANPA_Socios_Domiciliacion {
 			);
 		}
 
-		$iban_sealed = ANPA_Socios_Crypto::seal( (string) $sepa['iban'], $public );
+		// Normalize titular names and IBAN before sealing (Fase 18 — RF-7).
+		$titular_nome     = (string) $sepa['titular_nome'];
+		$titular_apelidos = (string) $sepa['titular_apelidos'];
+		$iban_raw         = (string) $sepa['iban'];
+		if ( '' !== trim( $titular_nome ) ) {
+			$titular_nome = ANPA_Socios_Normalize::title_case( $titular_nome );
+		}
+		if ( '' !== trim( $titular_apelidos ) ) {
+			$titular_apelidos = ANPA_Socios_Normalize::title_case( $titular_apelidos );
+		}
+		$iban_canonical = ANPA_Socios_Normalize::iban( $iban_raw );
+
+		$iban_sealed = ANPA_Socios_Crypto::seal( $iban_canonical, $public );
 		$nif_sealed  = ANPA_Socios_Crypto::seal( (string) $sepa['titular_nif'], $public );
 		if ( null === $iban_sealed || null === $nif_sealed ) {
 			return new WP_Error( 'anpa_socios_db_error', 'Erro interno', array( 'status' => 500 ) );
@@ -74,8 +86,8 @@ final class ANPA_Socios_Domiciliacion {
 			$wpdb->prepare(
 				$sql,
 				$familia_id,
-				$sepa['titular_nome'],
-				$sepa['titular_apelidos'],
+				$titular_nome,
+				$titular_apelidos,
 				$nif_sealed,
 				'',
 				$nif_mask,
@@ -85,7 +97,7 @@ final class ANPA_Socios_Domiciliacion {
 				$sepa['entidade_bancaria'],
 				$iban_sealed,
 				'',
-				ANPA_Socios_Crypto::iban_last4( (string) $sepa['iban'] ),
+				ANPA_Socios_Crypto::iban_last4( $iban_canonical ),
 				(int) $sepa['autorizacion'],
 				$sepa['lugar_data']
 			)

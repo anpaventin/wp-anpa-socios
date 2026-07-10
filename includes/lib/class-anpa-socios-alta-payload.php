@@ -80,7 +80,10 @@ final class ANPA_Socios_Alta_Payload {
 				return null;
 			}
 
-			$email2 = self::validar_email( (string) ( $body['parent2']['email'] ?? '' ) );
+			// Normalize email before validation (Fase 18).
+			$raw_email2 = (string) ( $body['parent2']['email'] ?? '' );
+			$normalized_email2 = ANPA_Socios_Normalize::email( $raw_email2 );
+			$email2 = null !== $normalized_email2 ? $normalized_email2 : self::validar_email( $raw_email2 );
 			if ( null === $email2 ) {
 				self::$errors['p2_email'] = 'O correo do 2º proxenitor non é válido.';
 				return null;
@@ -149,10 +152,12 @@ final class ANPA_Socios_Alta_Payload {
 			return 'invalid';
 		}
 
-		$iban = ANPA_Socios_Sepa::validar_iban( (string) ( $raw['iban'] ?? '' ) );
+		$iban = ANPA_Socios_Sepa::validar_iban( ANPA_Socios_Normalize::iban( (string) ( $raw['iban'] ?? '' ) ) );
 		$nif  = ANPA_Socios_Sepa::validar_nif_nie( (string) ( $raw['titular_nif'] ?? '' ) );
-		$nome = ANPA_Socios_Payload::validar_nome( (string) ( $raw['titular_nome'] ?? '' ) );
-		$apel = ANPA_Socios_Payload::validar_apelidos( (string) ( $raw['titular_apelidos'] ?? '' ) );
+		$raw_tit_nome = (string) ( $raw['titular_nome'] ?? '' );
+		$raw_tit_apel = (string) ( $raw['titular_apelidos'] ?? '' );
+		$nome = ANPA_Socios_Payload::validar_nome( '' !== trim( $raw_tit_nome ) ? ANPA_Socios_Normalize::title_case( $raw_tit_nome ) : $raw_tit_nome );
+		$apel = ANPA_Socios_Payload::validar_apelidos( '' !== trim( $raw_tit_apel ) ? ANPA_Socios_Normalize::title_case( $raw_tit_apel ) : $raw_tit_apel );
 		if ( null === $iban || null === $nif || null === $nome || null === $apel ) {
 			if ( null === $iban ) { self::$errors['sepa_iban'] = 'O IBAN non é válido.'; }
 			if ( null === $nif ) { self::$errors['sepa_titular_nif'] = 'O NIF/NIE do titular non é válido.'; }
@@ -237,8 +242,14 @@ final class ANPA_Socios_Alta_Payload {
 			return null;
 		}
 
-		$nome     = ANPA_Socios_Payload::validar_nome( (string) ( $raw['nome'] ?? '' ) );
-		$apelidos = ANPA_Socios_Payload::validar_apelidos( (string) ( $raw['apelidos'] ?? '' ) );
+		// Normalize inputs before validation (Fase 18 — RF-7 consistency).
+		$raw_nome     = (string) ( $raw['nome'] ?? '' );
+		$raw_apelidos = (string) ( $raw['apelidos'] ?? '' );
+		$raw_nome     = '' !== trim( $raw_nome ) ? ANPA_Socios_Normalize::title_case( $raw_nome ) : $raw_nome;
+		$raw_apelidos = '' !== trim( $raw_apelidos ) ? ANPA_Socios_Normalize::title_case( $raw_apelidos ) : $raw_apelidos;
+
+		$nome     = ANPA_Socios_Payload::validar_nome( $raw_nome );
+		$apelidos = ANPA_Socios_Payload::validar_apelidos( $raw_apelidos );
 		if ( null === $nome ) {
 			self::$errors[ $prefix . 'nome' ] = 'O nome só pode conter letras e espazos.';
 		}
@@ -252,10 +263,17 @@ final class ANPA_Socios_Alta_Payload {
 		$telefono   = null;
 		$tel_raw    = trim( (string) ( $raw['telefono'] ?? '' ) );
 		if ( '' !== $tel_raw ) {
-			$telefono = ANPA_Socios_Payload::validar_telefono( $tel_raw );
-			if ( null === $telefono ) {
-				self::$errors[ $prefix . 'telefono' ] = 'O teléfono debe ter 9 díxitos.';
-				return null;
+			// Normalize before validation (Fase 18).
+			$tel_normalized = ANPA_Socios_Normalize::telefono( $tel_raw );
+			if ( null !== $tel_normalized ) {
+				$telefono = $tel_normalized;
+			} else {
+				// Normalize returned null (invalid) — let existing validator produce error.
+				$telefono = ANPA_Socios_Payload::validar_telefono( $tel_raw );
+				if ( null === $telefono ) {
+					self::$errors[ $prefix . 'telefono' ] = 'O teléfono debe ter 9 díxitos.';
+					return null;
+				}
 			}
 		} elseif ( $require_contact ) {
 			self::$errors[ $prefix . 'telefono' ] = 'O teléfono é obrigatorio.';
@@ -264,7 +282,8 @@ final class ANPA_Socios_Alta_Payload {
 
 		// NIF is always mandatory. Fase 8b: DNI obligatorio para ambos proxenitores.
 		$nif_raw = trim( (string) ( $raw['nif'] ?? '' ) );
-		$nif     = ANPA_Socios_Sepa::validar_nif_nie( $nif_raw );
+		// Normalize before validation (Fase 18).
+		$nif     = ANPA_Socios_Normalize::nif( $nif_raw );
 		if ( null === $nif ) {
 			self::$errors[ $prefix . 'nif' ] = '' === $nif_raw ? 'O NIF/NIE é obrigatorio.' : 'O NIF/NIE non superou a validación.';
 			return null;

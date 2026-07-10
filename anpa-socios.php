@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ANPA Socios
  * Description: Xestión de socios para asociacións de nais e pais (ANPA/AMPA): área de socios sen contrasinal, fillos e actividades extraescolares, domiciliación SEPA cifrada, ciclo de curso, panel de administración e actualizacións self-hosted. Configurable para calquera asociación.
- * Version: 1.33.0
+ * Version: 1.35.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: ANPA Socios
@@ -21,14 +21,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ANPA_SOCIOS_VERSION', '1.33.0' );
-define( 'ANPA_SOCIOS_DB_VERSION', '1.20.0' );
+define( 'ANPA_SOCIOS_VERSION', '1.35.0' );
+define( 'ANPA_SOCIOS_DB_VERSION', '1.21.0' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-payload.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-sepa.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-normalize.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-familia.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-crypto.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-banking-key.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-domiciliacion.php';
@@ -67,11 +68,14 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-admin-cursos-h
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-admin-matriculas-handler.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-admin-admins-handler.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-admin-export-handler.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-admin-import-handler.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-admin-iban-import-handler.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-admin-domiciliacion-handler.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-admin-banking-key-handler.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-admin-reports-handler.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-admin-eliminar-handler.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-csv.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-csv-import.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-antibot.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-alumnos-export.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-fillos-rest.php';
@@ -99,6 +103,14 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-updater.php';
 register_activation_hook( __FILE__, array( 'ANPA_Socios_DB', 'crear_tabelas' ) );
 register_activation_hook( __FILE__, array( 'ANPA_Socios_Extraescolar_Offers', 'programar' ) );
 register_activation_hook( __FILE__, array( 'ANPA_Socios_Season_Service', 'programar' ) );
+
+// Run schema migrations on plugin update (activation hook does not fire on auto-update).
+add_action( 'admin_init', static function () {
+	$installed = (string) get_option( ANPA_Socios_DB::VERSION_OPTION, '0.0.0' );
+	if ( version_compare( $installed, ANPA_Socios_DB::DB_VERSION, '<' ) ) {
+		ANPA_Socios_DB::crear_tabelas();
+	}
+} );
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_DB', 'desprogramar_limpeza_sesions' ) );
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Extraescolar_Offers', 'desprogramar' ) );
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Season_Service', 'desprogramar' ) );

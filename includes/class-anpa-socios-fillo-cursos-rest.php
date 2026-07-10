@@ -73,13 +73,13 @@ final class ANPA_Socios_Fillo_Cursos_REST {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function list_cursos( WP_REST_Request $request ) {
-		$email = self::current_email( $request );
-		if ( '' === $email ) {
+		$familia_id = self::current_familia_id( $request );
+		if ( 0 === $familia_id ) {
 			return self::invalid_session_error();
 		}
 
 		$fillo_id = (int) $request->get_param( 'id' );
-		if ( null === self::fetch_owned_fillo( $fillo_id, $email ) ) {
+		if ( null === self::fetch_owned_fillo( $fillo_id, $familia_id ) ) {
 			return self::not_found_error();
 		}
 
@@ -109,13 +109,13 @@ final class ANPA_Socios_Fillo_Cursos_REST {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function create_curso( WP_REST_Request $request ) {
-		$email = self::current_email( $request );
-		if ( '' === $email ) {
+		$familia_id = self::current_familia_id( $request );
+		if ( 0 === $familia_id ) {
 			return self::invalid_session_error();
 		}
 
 		$fillo_id = (int) $request->get_param( 'id' );
-		if ( null === self::fetch_owned_fillo( $fillo_id, $email ) ) {
+		if ( null === self::fetch_owned_fillo( $fillo_id, $familia_id ) ) {
 			return self::not_found_error();
 		}
 
@@ -174,13 +174,13 @@ final class ANPA_Socios_Fillo_Cursos_REST {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function update_curso( WP_REST_Request $request ) {
-		$email = self::current_email( $request );
-		if ( '' === $email ) {
+		$familia_id = self::current_familia_id( $request );
+		if ( 0 === $familia_id ) {
 			return self::invalid_session_error();
 		}
 
 		$fillo_id = (int) $request->get_param( 'id' );
-		if ( null === self::fetch_owned_fillo( $fillo_id, $email ) ) {
+		if ( null === self::fetch_owned_fillo( $fillo_id, $familia_id ) ) {
 			return self::not_found_error();
 		}
 
@@ -274,25 +274,41 @@ final class ANPA_Socios_Fillo_Cursos_REST {
 	 * @param  string $email Owning socio email.
 	 * @return array<string,string>|null
 	 */
-	private static function fetch_owned_fillo( int $id, string $email ): ?array {
-		if ( $id <= 0 ) {
+	private static function fetch_owned_fillo( int $id, int $familia_id ): ?array {
+		if ( $id <= 0 || $familia_id <= 0 ) {
 			return null;
 		}
 
 		global $wpdb;
 		$table = $wpdb->prefix . 'anpa_fillos';
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- ownership check by id AND socio email.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- ownership check by id AND familia_id.
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, nome, apelidos, data_nacemento, curso, aula, estado FROM {$table} WHERE id = %d AND socio_email = %s AND estado <> 'baixa' LIMIT 1",
+				"SELECT id, nome, apelidos, data_nacemento, curso, aula, estado FROM {$table} WHERE id = %d AND familia_id = %d AND estado <> 'baixa' LIMIT 1",
 				$id,
-				$email
+				$familia_id
 			),
 			ARRAY_A
 		);
 
 		return is_array( $row ) ? $row : null;
+	}
+
+	/**
+	 * Returns the resolved familia_id for the authenticated socio.
+	 *
+	 * @since  1.21.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return int Resolved familia_id, or 0 when unavailable.
+	 */
+	private static function current_familia_id( WP_REST_Request $request ): int {
+		$profile = $request->get_param( '_anpa_area_profile' );
+		if ( ! is_array( $profile ) ) {
+			return 0;
+		}
+
+		return ANPA_Socios_Familia::resolve_from_profile( $profile );
 	}
 
 	/**

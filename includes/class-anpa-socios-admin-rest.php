@@ -50,6 +50,8 @@ final class ANPA_Socios_Admin_REST {
 		ANPA_Socios_Admin_Matriculas_Handler::register_routes();
 		ANPA_Socios_Admin_Admins_Handler::register_routes();
 		ANPA_Socios_Admin_Export_Handler::register_routes();
+		ANPA_Socios_Admin_Import_Handler::register_routes();
+		ANPA_Socios_Admin_Iban_Import_Handler::register_routes();
 		ANPA_Socios_Admin_Domiciliacion_Handler::register_routes();
 		ANPA_Socios_Admin_Banking_Key_Handler::register_routes();
 		ANPA_Socios_Admin_Reports_Handler::register_routes();

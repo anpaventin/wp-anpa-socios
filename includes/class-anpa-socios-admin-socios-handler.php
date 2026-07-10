@@ -67,14 +67,50 @@ final class ANPA_Socios_Admin_Socios_Handler {
 	public static function list_socios(): WP_REST_Response {
 		global $wpdb;
 
+		$table = $wpdb->prefix . 'anpa_socios';
+
 		// Exclude the master account: it is an operational admin, not a socio,
 		// so it must not appear as "one more socio" in the listing.
 		$rows = $wpdb->get_results(
-			"SELECT email, nome, apelidos, telefono, nif, estado, rol, baixa_estado, baixa_solicitada_en, creado_en, actualizado_en FROM {$wpdb->prefix}anpa_socios WHERE rol <> 'master' ORDER BY email ASC",
+			"SELECT id, email, nome, apelidos, telefono, nif, estado, rol, familia_id, baixa_estado, baixa_solicitada_en, creado_en, actualizado_en FROM {$table} WHERE rol <> 'master' ORDER BY email ASC",
 			ARRAY_A
 		);
 
-		return new WP_REST_Response( is_array( $rows ) ? $rows : array(), 200 );
+		if ( ! is_array( $rows ) ) {
+			return new WP_REST_Response( array(), 200 );
+		}
+
+		// Build a familia_id → members index to attach second parent info.
+		$by_familia = array();
+		foreach ( $rows as $r ) {
+			$fam = ! empty( $r['familia_id'] ) ? (int) $r['familia_id'] : (int) $r['id'];
+			$by_familia[ $fam ][] = $r;
+		}
+
+		// Enrich each row with segundo_proxenitor (the other member of the family).
+		foreach ( $rows as &$row ) {
+			$fam = ! empty( $row['familia_id'] ) ? (int) $row['familia_id'] : (int) $row['id'];
+			$row['segundo_proxenitor'] = null;
+			if ( isset( $by_familia[ $fam ] ) && count( $by_familia[ $fam ] ) > 1 ) {
+				foreach ( $by_familia[ $fam ] as $member ) {
+					if ( (int) $member['id'] !== (int) $row['id'] ) {
+						$row['segundo_proxenitor'] = array(
+							'nome'     => $member['nome'],
+							'apelidos' => $member['apelidos'],
+							'email'    => $member['email'] ?: null,
+							'nif'      => $member['nif'] ?: null,
+							'telefono' => $member['telefono'] ?: null,
+						);
+						break;
+					}
+				}
+			}
+			// Remove internal id from response (no raw IDs shown).
+			unset( $row['id'], $row['familia_id'] );
+		}
+		unset( $row );
+
+		return new WP_REST_Response( $rows, 200 );
 	}
 
 	/**
@@ -135,6 +171,28 @@ final class ANPA_Socios_Admin_Socios_Handler {
 		$nif      = isset( $body['nif'] ) ? (string) $body['nif'] : null;
 		$estado   = isset( $body['estado'] ) ? (string) $body['estado'] : null;
 		$rol      = isset( $body['rol'] ) ? (string) $body['rol'] : null;
+
+		// Normalize names, telefono, and nif before storage (Fase 18 — RF-7).
+		if ( null !== $nome && '' !== $nome ) {
+			$nome = ANPA_Socios_Normalize::title_case( $nome );
+		}
+		if ( null !== $apelidos && '' !== $apelidos ) {
+			$apelidos = ANPA_Socios_Normalize::title_case( $apelidos );
+		}
+		if ( null !== $telefono && '' !== trim( $telefono ) ) {
+			$tel_norm = ANPA_Socios_Normalize::telefono( $telefono );
+			if ( null !== $tel_norm ) {
+				$telefono = $tel_norm;
+			}
+			// If Normalize returns null, keep original — let existing flow handle it.
+		}
+		if ( null !== $nif && '' !== trim( $nif ) ) {
+			$nif_norm = ANPA_Socios_Normalize::nif( $nif );
+			if ( null !== $nif_norm ) {
+				$nif = $nif_norm;
+			}
+			// If Normalize returns null (invalid), keep original raw value.
+		}
 
 		if ( null === $nome || null === $apelidos ) {
 			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );

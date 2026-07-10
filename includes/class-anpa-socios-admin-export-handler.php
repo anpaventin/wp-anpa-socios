@@ -42,16 +42,29 @@ final class ANPA_Socios_Admin_Export_Handler {
 	/**
 	 * Column definitions per entity — matches the admin list endpoints.
 	 *
+	 * Per RF-5, exports use natural keys only — no internal DB IDs.
+	 * Actividades includes empresa_email (natural key) instead of empresa_id.
+	 * Matriculas includes fillo/actividade natural-key columns instead of
+	 * fillo_id/activitad_id. Fillos drops socio_email (internal relation).
+	 *
 	 * @since 1.4.0
 	 * @var array<string,string[]>
 	 */
 	private const ENTITY_COLUMNS = array(
 		'socios'      => array( 'email', 'nome', 'apelidos', 'estado', 'rol', 'creado_en', 'actualizado_en' ),
-		'empresas'    => array( 'id', 'nome', 'email', 'responsable', 'telefono', 'estado', 'creado_en', 'actualizado_en' ),
-		'actividades' => array( 'id', 'empresa_id', 'nome', 'descripcion', 'curso_escolar', 'idade_min', 'idade_max', 'custo', 'estado' ),
-		'matriculas'  => array( 'id', 'fillo_id', 'activitad_id', 'estado', 'comedor', 'tarde', 'observaciones' ),
-		'fillos'      => array( 'id', 'socio_email', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'estado' ),
+		'empresas'    => array( 'nome', 'email', 'responsable', 'telefono', 'estado', 'creado_en', 'actualizado_en' ),
+		'actividades' => array( 'empresa_email', 'nome', 'descripcion', 'curso_escolar', 'idade_min', 'idade_max', 'custo', 'estado' ),
+		'matriculas'  => array( 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar', 'estado', 'comedor', 'tarde', 'observaciones' ),
+		'fillos'      => array( 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'estado' ),
 	);
+
+	/**
+	 * Entities that require a JOIN to resolve natural-key columns.
+	 *
+	 * @since 1.34.0
+	 * @var string[]
+	 */
+	private const JOIN_ENTITIES = array( 'actividades', 'matriculas' );
 
 	/**
 	 * Registers export admin routes.
@@ -196,13 +209,20 @@ final class ANPA_Socios_Admin_Export_Handler {
 	/**
 	 * Fetches all rows for the given entity.
 	 *
+	 * For simple entities, selects columns directly. For actividades
+	 * and matriculas, uses JOINs to resolve natural-key columns.
+	 *
 	 * @since  1.4.0
 	 * @param  string   $entity  Entity name.
-	 * @param  string[] $columns Columns to select.
+	 * @param  string[] $columns Columns to select (used for simple entities).
 	 * @return array[]|null Rows or null on DB error.
 	 */
 	private static function fetch_entity_rows( string $entity, array $columns ): ?array {
 		global $wpdb;
+
+		if ( in_array( $entity, self::JOIN_ENTITIES, true ) ) {
+			return self::fetch_joined_entity( $entity );
+		}
 
 		$cols  = implode( ', ', $columns );
 		$table = self::resolve_table( $entity );
@@ -210,6 +230,44 @@ final class ANPA_Socios_Admin_Export_Handler {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- dynamic table from strict whitelist.
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $cols and $table from constants.
 		$rows = $wpdb->get_results( "SELECT {$cols} FROM {$table} ORDER BY 1 ASC", ARRAY_A );
+
+		return is_array( $rows ) ? $rows : null;
+	}
+
+	/**
+	 * Fetches entity rows with JOINs to resolve natural-key columns.
+	 *
+	 * @since  1.34.0
+	 * @param  string $entity Entity name (actividades or matriculas).
+	 * @return array[]|null Rows or null on DB error.
+	 */
+	private static function fetch_joined_entity( string $entity ): ?array {
+		global $wpdb;
+
+		$prefix = $wpdb->prefix;
+
+		if ( 'actividades' === $entity ) {
+			$sql = "SELECT e.email AS empresa_email, a.nome, a.descripcion, a.curso_escolar,
+					a.idade_min, a.idade_max, a.custo, a.estado
+					FROM {$prefix}anpa_actividades a
+					LEFT JOIN {$prefix}anpa_empresas e ON e.id = a.empresa_id
+					ORDER BY e.email ASC, a.nome ASC";
+		} elseif ( 'matriculas' === $entity ) {
+			$sql = "SELECT f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
+					e.email AS empresa_email, act.nome AS actividade_nome,
+					act.curso_escolar, m.estado, m.comedor, m.tarde, m.observaciones
+					FROM {$prefix}anpa_matriculas m
+					LEFT JOIN {$prefix}anpa_fillos f ON f.id = m.fillo_id
+					LEFT JOIN {$prefix}anpa_actividades act ON act.id = m.activitad_id
+					LEFT JOIN {$prefix}anpa_empresas e ON e.id = act.empresa_id
+					ORDER BY f.nome ASC, f.apelidos ASC";
+		} else {
+			return null;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- JOIN query from strict whitelist entity.
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- no user input in query.
+		$rows = $wpdb->get_results( $sql, ARRAY_A );
 
 		return is_array( $rows ) ? $rows : null;
 	}
