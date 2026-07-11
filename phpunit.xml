@@ -39,6 +39,7 @@
       <file>tests/Test_ANPA_Socios_Familia.php</file>
       <file>tests/Test_ANPA_Socios_Csv_Import.php</file>
       <file>tests/Test_ANPA_Socios_Csv_Import_Iban.php</file>
+      <file>tests/Test_ANPA_Socios_Trimestre.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

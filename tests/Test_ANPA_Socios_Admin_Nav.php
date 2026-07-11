@@ -58,7 +58,6 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 		$this->assertArrayHasKey( 'empresas', $sections );
 		$this->assertArrayHasKey( 'actividades', $sections );
 		$this->assertArrayHasKey( 'cursos-matriculas', $sections );
-		$this->assertArrayHasKey( 'administradores', $sections );
 		$this->assertArrayHasKey( 'importar-listados', $sections );
 		$this->assertArrayHasKey( 'auditoria', $sections );
 		$this->assertArrayNotHasKey( 'listados', $sections );

@@ -51,11 +51,15 @@ class ANPA_Socios_DB {
 	 *        the optional new-socio approval workflow.
 	 * 1.20.0 widens fillos_cursos.aula enum to A-H for larger schools.
 	 * 1.21.0 adds fillos.familia_id (FK to socios family group) + backfill.
+	 * 1.22.0 adds socios.rol_familia enum('principal','secundario') + backfill.
+	 * 1.23.0 allows socios.email NULL for 2nd parent contact-without-login.
+	 * 1.24.0 renames actividades.idade_min/idade_max → curso_min/curso_max.
+	 * 1.25.0 adds baixa_en datetime NULL to matriculas (baixa date tracking).
 	 *
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.21.0';
+	const DB_VERSION = '1.25.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -189,10 +193,22 @@ class ANPA_Socios_DB {
 		// 1.21.0: add fillos.familia_id column + backfill from socios.
 		self::migrate_to_1_21_0();
 
+		// 1.22.0: add socios.rol_familia enum + backfill from familia_id.
+		self::migrate_to_1_22_0();
+
+		// 1.23.0: allow socios.email NULL for 2nd-parent contact-without-login.
+		self::migrate_to_1_23_0();
+
+		// 1.24.0: rename idade_min/idade_max → curso_min/curso_max.
+		self::migrate_to_1_24_0();
+
+		// 1.25.0: add baixa_en datetime NULL to matriculas.
+		self::migrate_to_1_25_0();
+
 		// Ensure the configured master email holds the master role so the
-		// admin surface is reachable right after migration. Idempotent.
-		// NOTE: Changing the configured master later does NOT auto-demote
-		// the old one — admins manage that via the /admin/admins endpoints.
+		// legacy master-only guards (root-baixa block + preseason preflight)
+		// keep resolving. Idempotent. The admin surface itself is gated by
+		// the manage_options capability since fase17, not by this role.
 		$master_email = ANPA_Socios_Config::master_email();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one-time idempotent role backfill on migration.
 		$wpdb->query( $wpdb->prepare(
@@ -1154,6 +1170,149 @@ class ANPA_Socios_DB {
 	}
 
 	/**
+	 * 1.22.0 — Add `rol_familia` enum to socios + idempotent backfill.
+	 *
+	 * Business rule:
+	 * - 'principal' when familia_id IS NULL / 0 / equals own id (head of family).
+	 * - 'secundario' for any other family member (linked to another's id).
+	 *
+	 * The legacy `rol` column is NOT dropped (rollback safety).
+	 *
+	 * @since  1.35.2
+	 * @return void
+	 */
+	private static function migrate_to_1_22_0(): void {
+		global $wpdb;
+
+		$socios = self::tabela_socios();
+
+		if ( ! self::tem_columna( $socios, 'rol_familia' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			$wpdb->query(
+				"ALTER TABLE {$socios} ADD COLUMN rol_familia enum('principal','secundario') NOT NULL DEFAULT 'principal' AFTER familia_id"
+			);
+		}
+
+		// Idempotent backfill: mark secundario members (familia_id != own id AND familia_id > 0).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent data backfill.
+		$wpdb->query(
+			"UPDATE {$socios}
+			 SET rol_familia = 'secundario'
+			 WHERE familia_id IS NOT NULL
+			   AND familia_id <> 0
+			   AND familia_id <> id
+			   AND rol_familia <> 'secundario'"
+		);
+
+		// Ensure head/unlinked members are marked principal (defensive, covers edge cases).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent data backfill.
+		$wpdb->query(
+			"UPDATE {$socios}
+			 SET rol_familia = 'principal'
+			 WHERE (familia_id IS NULL OR familia_id = 0 OR familia_id = id)
+			   AND rol_familia <> 'principal'"
+		);
+	}
+
+	/**
+	 * 1.23.0 — Allow socios.email NULL for 2nd-parent contact-without-login.
+	 *
+	 * The UNIQUE index on email stays — MySQL/MariaDB allows multiple NULLs
+	 * in a UNIQUE column (they are not considered equal). A 2nd parent
+	 * inserted without an email address can exist as a family contact
+	 * without login capability; if an email is later added they gain login.
+	 *
+	 * Idempotent: guarded by inspecting the current column Null attribute.
+	 *
+	 * @since  1.35.2
+	 * @return void
+	 */
+	private static function migrate_to_1_23_0(): void {
+		global $wpdb;
+
+		$socios = self::tabela_socios();
+		$col    = $wpdb->get_row(
+			$wpdb->prepare( "SHOW COLUMNS FROM {$socios} LIKE %s", 'email' ),
+			ARRAY_A
+		);
+		// If already nullable, nothing to do.
+		$is_nullable = is_array( $col ) && 'YES' === strtoupper( (string) ( $col['Null'] ?? 'NO' ) );
+		if ( $is_nullable ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+		$wpdb->query( "ALTER TABLE {$socios} MODIFY COLUMN email varchar(100) NULL DEFAULT NULL" );
+	}
+
+	/**
+	 * 1.24.0 — Rename idade_min/idade_max → curso_min/curso_max in actividades.
+	 *
+	 * The columns store an informative numeric grade range (not age). No data
+	 * exists in production so the rename is safe. Idempotent: guarded by
+	 * column-existence checks.
+	 *
+	 * @since  1.24.0
+	 * @return void
+	 */
+	private static function migrate_to_1_24_0(): void {
+		global $wpdb;
+
+		$actividades = self::tabela_actividades();
+
+		// If the new column already exists, nothing to do.
+		if ( self::tem_columna( $actividades, 'curso_min' ) ) {
+			return;
+		}
+
+		// If the old column exists, rename it.
+		if ( self::tem_columna( $actividades, 'idade_min' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			$wpdb->query( "ALTER TABLE {$actividades} CHANGE COLUMN idade_min curso_min tinyint(3) unsigned NULL DEFAULT NULL" );
+		} else {
+			// Fresh install or already dropped: add the new column.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			$wpdb->query( "ALTER TABLE {$actividades} ADD COLUMN curso_min tinyint(3) unsigned NULL DEFAULT NULL AFTER dias" );
+		}
+
+		if ( self::tem_columna( $actividades, 'curso_max' ) ) {
+			return;
+		}
+
+		if ( self::tem_columna( $actividades, 'idade_max' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			$wpdb->query( "ALTER TABLE {$actividades} CHANGE COLUMN idade_max curso_max tinyint(3) unsigned NULL DEFAULT NULL" );
+		} else {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			$wpdb->query( "ALTER TABLE {$actividades} ADD COLUMN curso_max tinyint(3) unsigned NULL DEFAULT NULL AFTER curso_min" );
+		}
+	}
+
+	/**
+	 * Migration 1.24.0 → 1.25.0: add `baixa_en` datetime NULL to matriculas.
+	 *
+	 * Tracks the exact date/time a matrícula is set to estado='baixa', enabling
+	 * computed trimester ranges (tri_alta..tri_baixa).
+	 *
+	 * Idempotent: checks column existence before ALTER.
+	 *
+	 * @since  1.25.0
+	 * @return void
+	 */
+	private static function migrate_to_1_25_0(): void {
+		global $wpdb;
+
+		$matriculas = self::tabela_matriculas();
+
+		if ( self::tem_columna( $matriculas, 'baixa_en' ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+		$wpdb->query( "ALTER TABLE {$matriculas} ADD COLUMN baixa_en datetime NULL DEFAULT NULL AFTER estado" );
+	}
+
+	/**
 	 * Returns the full anpa_audit_log table name.
 	 *
 	 * @since  1.3.0
@@ -1224,8 +1383,8 @@ class ANPA_Socios_DB {
 			curso_escolar varchar(20) not null default '',
 			min_pupilos smallint(5) unsigned not null default 10,
 			max_pupilos smallint(5) unsigned not null default 15,
-			idade_min tinyint(3) unsigned null,
-			idade_max tinyint(3) unsigned null,
+			curso_min tinyint(3) unsigned null,
+			curso_max tinyint(3) unsigned null,
 			custo decimal(8,2) not null default 0.00,
 			estado enum('activo','inactivo') not null default 'activo',
 			creado_en datetime not null default CURRENT_TIMESTAMP,

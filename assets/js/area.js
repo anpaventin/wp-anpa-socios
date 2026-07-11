@@ -113,10 +113,52 @@
 		root.querySelector('[data-profile-email]').textContent = profile.email || '';
 		root.querySelector('#anpa-area-nome').value = profile.nome || '';
 		root.querySelector('#anpa-area-apelidos').value = profile.apelidos || '';
+		// Reactivated fields: telefono, nif, email-edit (previously dead).
+		var telEl = root.querySelector('#anpa-area-telefono');
+		if (telEl) { telEl.value = profile.telefono || ''; }
+		var nifEl = root.querySelector('#anpa-area-nif');
+		if (nifEl) { nifEl.value = profile.nif || ''; }
+		var emailEditEl = root.querySelector('#anpa-area-email-edit');
+		if (emailEditEl) { emailEditEl.value = profile.email || ''; }
+
+		// Second parent inline display/edit.
+		var p2 = profile.segundo_proxenitor || null;
+		var p2Section = root.querySelector('[data-p2-inline]');
+		if (p2Section) {
+			if (p2) {
+				p2Section.hidden = false;
+				var setP2 = function(id, val) {
+					var el = root.querySelector('#' + id);
+					if (el) { el.value = val || ''; }
+				};
+				setP2('anpa-area-p2-nome', p2.nome);
+				setP2('anpa-area-p2-apelidos', p2.apelidos);
+				setP2('anpa-area-p2-email', p2.email);
+				setP2('anpa-area-p2-nif', p2.nif);
+				setP2('anpa-area-p2-telefono', p2.telefono);
+				// Update button label to "Gardar" instead of "Engadir".
+				var p2Btn = root.querySelector('[data-action="proxenitor2-save"]');
+				if (p2Btn) { p2Btn.textContent = __( 'Gardar 2º proxenitor', 'anpa-socios' ); }
+			} else {
+				p2Section.hidden = true;
+				// Clear fields.
+				['anpa-area-p2-nome','anpa-area-p2-apelidos','anpa-area-p2-email','anpa-area-p2-nif','anpa-area-p2-telefono'].forEach(function(id) {
+					var el = root.querySelector('#' + id);
+					if (el) { el.value = ''; }
+				});
+			}
+		}
+
+		// Toggle "Engadir proxenitor" button vs inline section.
+		var toggleP2Btn = root.querySelector('[data-action="toggle-proxenitor2"]');
+		if (toggleP2Btn) {
+			toggleP2Btn.textContent = p2 ? __( 'Editar 2º proxenitor/titor', 'anpa-socios' ) : __( 'Engadir outro proxenitor/titor', 'anpa-socios' );
+		}
+
 		// Role-aware help text describing exactly what the user can do.
 		const help = root.querySelector('[data-profile-help]');
 		if (help) {
-			help.textContent = 'Aquí podes actualizar o teu nome e apelidos, e xestionar os teus fillos/as (engadir, editar ou dar de baixa) co botón de abaixo.';
+			help.textContent = 'Aquí podes actualizar os teus datos persoais e os do segundo proxenitor/titor, e xestionar os teus fillos/as (engadir, editar ou dar de baixa) co botón de abaixo.';
 			help.classList.remove('anpa-area-warning');
 		}
 		// Baixa request indicator + button.
@@ -481,7 +523,35 @@
 
 			const nome = root.querySelector('#anpa-area-nome').value || '';
 			const apelidos = root.querySelector('#anpa-area-apelidos').value || '';
-			const profile = await tokenRequest('PUT', root.dataset.profileUrl, areaToken, { nome, apelidos }, root);
+			const telefono = (root.querySelector('#anpa-area-telefono') || {}).value || '';
+			const nif = (root.querySelector('#anpa-area-nif') || {}).value || '';
+			const emailEdit = (root.querySelector('#anpa-area-email-edit') || {}).value || '';
+
+			var payload = { nome, apelidos };
+			if (telefono.trim()) { payload.telefono = telefono; }
+			if (nif.trim()) { payload.nif = nif; }
+			if (emailEdit.trim()) { payload.email_edit = emailEdit; }
+
+			// Include 2nd parent if the inline section is visible and has data.
+			var p2Section = root.querySelector('[data-p2-inline]');
+			if (p2Section && !p2Section.hidden) {
+				var p2Nome = (root.querySelector('#anpa-area-p2-nome') || {}).value || '';
+				var p2Apelidos = (root.querySelector('#anpa-area-p2-apelidos') || {}).value || '';
+				var p2Email = (root.querySelector('#anpa-area-p2-email') || {}).value || '';
+				var p2Nif = (root.querySelector('#anpa-area-p2-nif') || {}).value || '';
+				var p2Telefono = (root.querySelector('#anpa-area-p2-telefono') || {}).value || '';
+				if (p2Nome.trim() || p2Apelidos.trim() || p2Email.trim() || p2Nif.trim() || p2Telefono.trim()) {
+					payload.segundo_proxenitor = {
+						nome: p2Nome,
+						apelidos: p2Apelidos,
+						email: p2Email,
+						nif: p2Nif,
+						telefono: p2Telefono,
+					};
+				}
+			}
+
+			const profile = await tokenRequest('PUT', root.dataset.profileUrl, areaToken, payload, root);
 			if (profile) {
 				fillProfile(root, profile);
 				showMessage(root, __( 'Datos gardados correctamente.', 'anpa-socios' ), 'success');
@@ -1000,51 +1070,20 @@
 			showMessage(root, '', 'info');
 		});
 
-		// ── Proxenitor2 (fase 1.20.0) ──────────────────────────────────
+		// ── Proxenitor2 (fase 1.20.0 → inline edit in profile, fase 20) ───
 		bind('[data-action="toggle-proxenitor2"]', 'click', () => {
 			showMessage(root, '', 'info');
-			showStep(root, 'proxenitor2');
+			var p2Section = root.querySelector('[data-p2-inline]');
+			if (p2Section) {
+				p2Section.hidden = !p2Section.hidden;
+			}
 		});
 
-		bind('[data-action="proxenitor2-add"]', 'click', async () => {
-			showMessage(root, '', 'info');
-			if (!areaToken) {
-				showStep(root, 'email');
-				showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
-				return;
-			}
-
-			var nome     = (root.querySelector('#anpa-area-p2-nome') || {}).value || '';
-			var apelidos = (root.querySelector('#anpa-area-p2-apelidos') || {}).value || '';
-			var email    = (root.querySelector('#anpa-area-p2-email') || {}).value || '';
-			var nif      = (root.querySelector('#anpa-area-p2-nif') || {}).value || '';
-			var telefono = (root.querySelector('#anpa-area-p2-telefono') || {}).value || '';
-
-			if (!nome || !apelidos) {
-				showMessage(root, __( 'Nome e apelidos son obrigatorios.', 'anpa-socios' ), 'error');
-				return;
-			}
-			if (!nif) {
-				showMessage(root, __( 'O NIF/NIE é obrigatorio.', 'anpa-socios' ), 'error');
-				return;
-			}
-
-			var result = await tokenRequest('POST', root.dataset.proxenitor2AddUrl, areaToken, {
-				nome: nome,
-				apelidos: apelidos,
-				email: email,
-				nif: nif,
-				telefono: telefono,
-			}, root);
-
-			if (result) {
-				showMessage(root, result.message || '2º proxenitor engadido correctamente.', 'success');
-				// Refresh profile to reflect new familia changes
-				var profile = await tokenRequest('GET', root.dataset.profileUrl, areaToken, null, root);
-				if (profile) {
-					fillProfile(root, profile);
-				}
-			}
+		// Dedicated save button for the 2nd parent section (convenience;
+		// also triggers the main save-profile which includes p2 data).
+		bind('[data-action="proxenitor2-save"]', 'click', () => {
+			var saveBtn = root.querySelector('[data-action="save-profile"]');
+			if (saveBtn) { saveBtn.click(); }
 		});
 
 		// ── Banking / Modificación IBAN (fase 1.20.0) ──────────────────

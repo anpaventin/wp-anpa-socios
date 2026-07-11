@@ -102,6 +102,25 @@ class ANPA_Socios_Area_REST {
 							'type'              => 'string',
 							'sanitize_callback' => 'sanitize_text_field',
 						),
+						'telefono' => array(
+							'required'          => false,
+							'type'              => 'string',
+							'sanitize_callback' => 'sanitize_text_field',
+						),
+						'nif' => array(
+							'required'          => false,
+							'type'              => 'string',
+							'sanitize_callback' => 'sanitize_text_field',
+						),
+						'email_edit' => array(
+							'required'          => false,
+							'type'              => 'string',
+							'sanitize_callback' => 'sanitize_email',
+						),
+						'segundo_proxenitor' => array(
+							'required'          => false,
+							'type'              => 'object',
+						),
 					),
 				),
 			)
@@ -848,6 +867,10 @@ class ANPA_Socios_Area_REST {
 	/**
 	 * Handles PUT /area/me.
 	 *
+	 * Saves principal fields (nome, apelidos, telefono, nif, email) and
+	 * optionally creates/updates the segundo proxenitor within the same
+	 * family. All writes are scoped to the caller's own familia_id.
+	 *
 	 * @since  1.1.0
 	 * @param  WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response|WP_Error
@@ -876,23 +899,80 @@ class ANPA_Socios_Area_REST {
 			return self::invalid_session_error();
 		}
 
+		// Resolve familia for scoping.
+		$fam = self::resolve_familia( (string) $profile['email'] );
+		if ( null === $fam ) {
+			return self::invalid_session_error();
+		}
+
 		global $wpdb;
 		$table_name = $wpdb->prefix . 'anpa_socios';
+
+		// ── Principal fields ───────────────────────────────────────────
+		$update_data = array(
+			'nome'           => $nome,
+			'apelidos'       => $apelidos,
+			'actualizado_en' => current_time( 'mysql' ),
+		);
+		$update_format = array( '%s', '%s', '%s' );
+
+		// Telefono (optional, normalize).
+		$raw_telefono = sanitize_text_field( (string) $request->get_param( 'telefono' ) );
+		if ( '' !== trim( $raw_telefono ) ) {
+			$telefono = ANPA_Socios_Normalize::telefono( $raw_telefono );
+			if ( null === $telefono ) {
+				return new WP_Error( 'anpa_area_invalid_payload', __( 'Teléfono non válido', 'anpa-socios' ), array( 'status' => 400 ) );
+			}
+			$update_data['telefono'] = $telefono;
+			$update_format[]         = '%s';
+		}
+
+		// NIF (optional, normalize).
+		$raw_nif = sanitize_text_field( (string) $request->get_param( 'nif' ) );
+		if ( '' !== trim( $raw_nif ) ) {
+			$nif = ANPA_Socios_Normalize::nif( $raw_nif );
+			if ( null === $nif ) {
+				return new WP_Error( 'anpa_area_invalid_payload', __( 'NIF/NIE non válido', 'anpa-socios' ), array( 'status' => 400 ) );
+			}
+			$update_data['nif'] = $nif;
+			$update_format[]    = '%s';
+		}
+
+		// Email change (optional, UNIQUE integrity enforced).
+		$raw_email_edit = sanitize_email( (string) $request->get_param( 'email_edit' ) );
+		if ( '' !== trim( $raw_email_edit ) ) {
+			$new_email = ANPA_Socios_Normalize::email( $raw_email_edit );
+			if ( null === $new_email ) {
+				return new WP_Error( 'anpa_area_invalid_payload', __( 'Email non válido', 'anpa-socios' ), array( 'status' => 400 ) );
+			}
+			// Only process if actually different from current.
+			if ( $new_email !== strtolower( (string) $profile['email'] ) ) {
+				// Check UNIQUE constraint before attempting update.
+				$existing = $wpdb->get_var(
+					$wpdb->prepare(
+						"SELECT id FROM {$table_name} WHERE email = %s AND id <> %d LIMIT 1",
+						$new_email,
+						(int) $profile['id']
+					)
+				);
+				if ( null !== $existing ) {
+					return new WP_Error( 'anpa_area_email_taken', __( 'Ese email xa está rexistrado por outro socio/a', 'anpa-socios' ), array( 'status' => 409 ) );
+				}
+				$update_data['email'] = $new_email;
+				$update_format[]      = '%s';
+			}
+		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- member profile update is scoped to the authenticated email.
 		self::clear_db_error();
 		$updated = $wpdb->update(
 			$table_name,
-			array(
-				'nome'           => $nome,
-				'apelidos'       => $apelidos,
-				'actualizado_en' => current_time( 'mysql' ),
-			),
+			$update_data,
 			array(
 				'email'  => $profile['email'],
 				'estado' => 'activo',
 			),
-			array( '%s', '%s', '%s' ),
+			$update_format,
 			array( '%s', '%s' )
 		);
 
@@ -900,7 +980,18 @@ class ANPA_Socios_Area_REST {
 			return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
-		$updated_profile = self::get_active_profile_by_email( $profile['email'] );
+		// ── Segundo proxenitor (optional) ──────────────────────────────
+		$p2_input = $request->get_param( 'segundo_proxenitor' );
+		if ( is_array( $p2_input ) && ! empty( array_filter( $p2_input ) ) ) {
+			$p2_result = self::save_segundo_proxenitor( $fam['familia_id'], (int) $fam['id'], $p2_input );
+			if ( is_wp_error( $p2_result ) ) {
+				return $p2_result;
+			}
+		}
+
+		// Re-fetch profile to include the updated data.
+		$lookup_email = isset( $update_data['email'] ) ? $update_data['email'] : $profile['email'];
+		$updated_profile = self::get_active_profile_by_email( $lookup_email );
 		if ( is_wp_error( $updated_profile ) ) {
 			return $updated_profile;
 		}
@@ -909,6 +1000,180 @@ class ANPA_Socios_Area_REST {
 		}
 
 		return new WP_REST_Response( self::format_profile( $updated_profile ), 200 );
+	}
+
+	/**
+	 * Creates or updates the 2nd parent within a family group.
+	 *
+	 * Security: all writes are scoped to the caller's familia_id. A socio
+	 * can never modify a member outside their own family.
+	 *
+	 * Business rule: NIF is mandatory if any 2nd-parent data is provided (RF-3).
+	 *
+	 * @since  1.35.2
+	 * @param  int   $familia_id Family group id.
+	 * @param  int   $caller_id  Caller's socio id (excluded from lookup).
+	 * @param  array $data       Input data (nome, apelidos, email, nif, telefono).
+	 * @return true|WP_Error
+	 */
+	private static function save_segundo_proxenitor( int $familia_id, int $caller_id, array $data ) {
+		// Normalize inputs.
+		$p2_nome     = isset( $data['nome'] ) ? sanitize_text_field( (string) $data['nome'] ) : '';
+		$p2_apelidos = isset( $data['apelidos'] ) ? sanitize_text_field( (string) $data['apelidos'] ) : '';
+		$p2_email    = isset( $data['email'] ) ? sanitize_text_field( (string) $data['email'] ) : '';
+		$p2_nif      = isset( $data['nif'] ) ? sanitize_text_field( (string) $data['nif'] ) : '';
+		$p2_telefono = isset( $data['telefono'] ) ? sanitize_text_field( (string) $data['telefono'] ) : '';
+
+		// Title-case names.
+		if ( '' !== trim( $p2_nome ) ) {
+			$p2_nome = ANPA_Socios_Normalize::title_case( $p2_nome );
+		}
+		if ( '' !== trim( $p2_apelidos ) ) {
+			$p2_apelidos = ANPA_Socios_Normalize::title_case( $p2_apelidos );
+		}
+
+		// NIF mandatory when any data is provided (RF-3).
+		$has_any_data = '' !== trim( $p2_nome ) || '' !== trim( $p2_apelidos ) || '' !== trim( $p2_email ) || '' !== trim( $p2_telefono );
+		if ( $has_any_data && '' === trim( $p2_nif ) ) {
+			return new WP_Error( 'anpa_area_p2_nif_required', __( 'O NIF/NIE do segundo proxenitor é obrigatorio', 'anpa-socios' ), array( 'status' => 400 ) );
+		}
+
+		// Validate NIF.
+		$nif = null;
+		if ( '' !== trim( $p2_nif ) ) {
+			$nif = ANPA_Socios_Normalize::nif( $p2_nif );
+			if ( null === $nif ) {
+				return new WP_Error( 'anpa_area_invalid_payload', __( 'NIF/NIE do segundo proxenitor non válido', 'anpa-socios' ), array( 'status' => 400 ) );
+			}
+		}
+
+		// Validate email (may be empty — contact-without-login).
+		$email = null;
+		if ( '' !== trim( $p2_email ) ) {
+			$email = ANPA_Socios_Normalize::email( $p2_email );
+			if ( null === $email ) {
+				return new WP_Error( 'anpa_area_invalid_payload', __( 'Email do segundo proxenitor non válido', 'anpa-socios' ), array( 'status' => 400 ) );
+			}
+		}
+
+		// Validate telefono (optional).
+		$telefono = null;
+		if ( '' !== trim( $p2_telefono ) ) {
+			$telefono = ANPA_Socios_Normalize::telefono( $p2_telefono );
+			if ( null === $telefono ) {
+				return new WP_Error( 'anpa_area_invalid_payload', __( 'Teléfono do segundo proxenitor non válido', 'anpa-socios' ), array( 'status' => 400 ) );
+			}
+		}
+
+		// Validate nome/apelidos.
+		$nome_val     = ANPA_Socios_Payload::validar_nome( $p2_nome );
+		$apelidos_val = ANPA_Socios_Payload::validar_apelidos( $p2_apelidos );
+		if ( null === $nome_val || null === $apelidos_val ) {
+			return new WP_Error( 'anpa_area_invalid_payload', __( 'Nome e apelidos do segundo proxenitor son obrigatorios', 'anpa-socios' ), array( 'status' => 400 ) );
+		}
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'anpa_socios';
+
+		// Check if 2nd parent already exists in this family.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- family-scoped lookup.
+		$existing = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, email FROM {$table} WHERE familia_id = %d AND id <> %d LIMIT 1",
+				$familia_id,
+				$caller_id
+			),
+			ARRAY_A
+		);
+
+		if ( is_array( $existing ) ) {
+			// Update existing 2nd parent row.
+			$p2_update = array(
+				'nome'           => $nome_val,
+				'apelidos'       => $apelidos_val,
+				'nif'            => $nif,
+				'actualizado_en' => current_time( 'mysql' ),
+			);
+			$p2_format = array( '%s', '%s', '%s', '%s' );
+
+			if ( null !== $telefono ) {
+				$p2_update['telefono'] = $telefono;
+				$p2_format[]           = '%s';
+			}
+
+			// Email update: check UNIQUE if non-null and different.
+			if ( null !== $email ) {
+				$current_email = $existing['email'] ?? null;
+				if ( null === $current_email || strtolower( (string) $current_email ) !== $email ) {
+					$dup = $wpdb->get_var(
+						$wpdb->prepare(
+							"SELECT id FROM {$table} WHERE email = %s AND id <> %d LIMIT 1",
+							$email,
+							(int) $existing['id']
+						)
+					);
+					if ( null !== $dup ) {
+						return new WP_Error( 'anpa_area_email_taken', __( 'Ese email xa está rexistrado por outro socio/a', 'anpa-socios' ), array( 'status' => 409 ) );
+					}
+				}
+				$p2_update['email'] = $email;
+				$p2_format[]        = '%s';
+			}
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- family-scoped update.
+			self::clear_db_error();
+			$wpdb->update(
+				$table,
+				$p2_update,
+				array( 'id' => (int) $existing['id'], 'familia_id' => $familia_id ),
+				$p2_format,
+				array( '%d', '%d' )
+			);
+			if ( '' !== (string) $wpdb->last_error ) {
+				return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+			}
+		} else {
+			// Create new 2nd parent row (secundario, email may be NULL).
+			// Check UNIQUE on email if provided.
+			if ( null !== $email ) {
+				$dup = $wpdb->get_var(
+					$wpdb->prepare( "SELECT id FROM {$table} WHERE email = %s LIMIT 1", $email )
+				);
+				if ( null !== $dup ) {
+					return new WP_Error( 'anpa_area_email_taken', __( 'Ese email xa está rexistrado por outro socio/a', 'anpa-socios' ), array( 'status' => 409 ) );
+				}
+			}
+
+			$insert_data = array(
+				'nome'           => $nome_val,
+				'apelidos'       => $apelidos_val,
+				'nif'            => $nif,
+				'telefono'       => $telefono,
+				'email'          => $email,
+				'familia_id'     => $familia_id,
+				'rol_familia'    => 'secundario',
+				'rol'            => 'socio',
+				'estado'         => 'activo',
+				'creado_en'      => current_time( 'mysql' ),
+				'actualizado_en' => current_time( 'mysql' ),
+			);
+			$insert_format = array( '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%s' );
+
+			// email may be NULL — handle null format.
+			if ( null === $email ) {
+				$insert_data['email'] = null;
+				// wpdb handles null values.
+			}
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- family-scoped insert.
+			self::clear_db_error();
+			$wpdb->insert( $table, $insert_data, $insert_format );
+			if ( '' !== (string) $wpdb->last_error ) {
+				return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+			}
+		}
+
+		return true;
 	}
 
 	/**
@@ -1048,7 +1313,7 @@ class ANPA_Socios_Area_REST {
 		self::clear_db_error();
 		$profile = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, email, nome, apelidos, estado, rol, familia_id, baixa_estado, baixa_solicitada_en, creado_en, actualizado_en FROM {$table_name} WHERE email = %s LIMIT 1",
+				"SELECT id, email, nome, apelidos, nif, telefono, estado, rol, familia_id, rol_familia, baixa_estado, baixa_solicitada_en, creado_en, actualizado_en FROM {$table_name} WHERE email = %s LIMIT 1",
 				$email
 			),
 			ARRAY_A
@@ -1108,18 +1373,80 @@ class ANPA_Socios_Area_REST {
 	 *
 	 * @since  1.1.0
 	 * @param  array<string,string> $profile Raw DB row.
-	 * @return array<string,string>
+	 * @return array<string,mixed>
 	 */
 	private static function format_profile( array $profile ): array {
-		return array(
+		$formatted = array(
 			'email'          => isset( $profile['email'] ) ? (string) $profile['email'] : '',
 			'nome'           => isset( $profile['nome'] ) ? (string) $profile['nome'] : '',
 			'apelidos'       => isset( $profile['apelidos'] ) ? (string) $profile['apelidos'] : '',
+			'telefono'       => isset( $profile['telefono'] ) ? (string) $profile['telefono'] : '',
+			'nif'            => isset( $profile['nif'] ) ? (string) $profile['nif'] : '',
 			'estado'         => isset( $profile['estado'] ) ? (string) $profile['estado'] : '',
 			'rol'            => isset( $profile['rol'] ) ? (string) $profile['rol'] : 'socio',
 			'baixa_estado'   => isset( $profile['baixa_estado'] ) ? (string) $profile['baixa_estado'] : 'none',
 			'creado_en'      => isset( $profile['creado_en'] ) ? (string) $profile['creado_en'] : '',
 			'actualizado_en' => isset( $profile['actualizado_en'] ) ? (string) $profile['actualizado_en'] : '',
+		);
+
+		// Resolve the 2nd parent from the same family.
+		$segundo = self::resolve_segundo_proxenitor( $profile );
+		$formatted['segundo_proxenitor'] = $segundo;
+
+		return $formatted;
+	}
+
+	/**
+	 * Resolves the second parent in the same family, or null if none exists.
+	 *
+	 * Family-scoped: looks for the OTHER member of the same familia_id.
+	 * Never exposes members outside the caller's family.
+	 *
+	 * @since  1.35.2
+	 * @param  array<string,string> $profile Caller's profile (must include id, familia_id).
+	 * @return array<string,string|null>|null
+	 */
+	private static function resolve_segundo_proxenitor( array $profile ): ?array {
+		$caller_id  = (int) ( $profile['id'] ?? 0 );
+		$familia_id = (int) ( $profile['familia_id'] ?? 0 );
+
+		if ( $caller_id <= 0 ) {
+			return null;
+		}
+		if ( $familia_id <= 0 ) {
+			$familia_id = $caller_id;
+		}
+
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'anpa_socios';
+
+		// The other family member: same familia_id but different id.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- family-scoped lookup.
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, nome, apelidos, email, nif, telefono
+				 FROM {$table}
+				 WHERE familia_id = %d
+				   AND id <> %d
+				 LIMIT 1",
+				$familia_id,
+				$caller_id
+			),
+			ARRAY_A
+		);
+
+		if ( ! is_array( $row ) ) {
+			return null;
+		}
+
+		return array(
+			'id'       => (string) $row['id'],
+			'nome'     => (string) ( $row['nome'] ?? '' ),
+			'apelidos' => (string) ( $row['apelidos'] ?? '' ),
+			'email'    => null !== $row['email'] ? (string) $row['email'] : null,
+			'nif'      => (string) ( $row['nif'] ?? '' ),
+			'telefono' => (string) ( $row['telefono'] ?? '' ),
 		);
 	}
 }

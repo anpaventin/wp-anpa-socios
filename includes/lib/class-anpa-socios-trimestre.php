@@ -61,4 +61,36 @@ final class ANPA_Socios_Trimestre {
 	public static function valido( int $trimestre ): bool {
 		return in_array( $trimestre, self::VALIDOS, true );
 	}
+
+	/**
+	 * Computes the set of trimesters a matrícula was active for.
+	 *
+	 * Given the enrolment trimester (tri_alta) and the baixa trimester
+	 * (tri_baixa, nullable), returns the list of trimesters the pupil
+	 * participated in.
+	 *
+	 * Rule:
+	 *  - start = tri_alta
+	 *  - end   = (tri_baixa === null) ? 3 : (tri_baixa - 1)
+	 *  - return range [start..end]; if end < start → [] (left within the
+	 *    enrolment trimester).
+	 *
+	 * NOTE: Trimester boundaries are derived from months via actual().
+	 * A future improvement could derive them from the configured course
+	 * dates (data_inicio/data_peche in Axustes). Do NOT block on it.
+	 *
+	 * @since  1.25.0
+	 * @param  int      $tri_alta  Enrolment trimester (1–3).
+	 * @param  int|null $tri_baixa Baixa trimester (1–3) or null if still active.
+	 * @return int[] Array of trimester numbers the matrícula covers.
+	 */
+	public static function rango( int $tri_alta, ?int $tri_baixa ): array {
+		$end = ( null === $tri_baixa ) ? 3 : ( $tri_baixa - 1 );
+
+		if ( $end < $tri_alta ) {
+			return array();
+		}
+
+		return range( $tri_alta, $end );
+	}
 }

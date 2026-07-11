@@ -44,13 +44,21 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		) );
 
 		// POST /admin/actividad/{id}/copy-to-current
-		// Copies an existing actividad (with all its settings) to the
-		// current school year, creating a NEW row. The original is not
-		// modified. Master-only.
+		// Legacy route kept for back-compat — uses current course.
 		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/actividad/(?P<id>\d+)/copy-to-current', array(
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
 				'callback'            => array( __CLASS__, 'copy_actividad_to_current' ),
+				'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+			),
+		) );
+
+		// POST /admin/actividad/{id}/duplicate
+		// Duplicates an activity into a chosen target school year.
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/actividad/(?P<id>\d+)/duplicate', array(
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'duplicate_actividad' ),
 				'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
 			),
 		) );
@@ -74,6 +82,8 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			        COALESCE(ac.max_pupilos, a.max_pupilos) AS max_pupilos,
 			        COALESCE(ac.custo, a.custo) AS custo,
 			        COALESCE(ac.estado, a.estado) AS estado,
+			        a.curso_min,
+			        a.curso_max,
 			        (SELECT COUNT(*) FROM {$mat_t} m LEFT JOIN {$gru_t} g ON g.id = m.grupo_id WHERE m.activitad_id = a.id AND m.estado = 'activo' AND (ac.curso_escolar IS NULL OR g.curso_escolar = ac.curso_escolar)) AS prazas_ocupadas,
 			        (SELECT COUNT(*) FROM {$mat_t} m LEFT JOIN {$gru_t} g ON g.id = m.grupo_id WHERE m.activitad_id = a.id AND m.estado = 'lista_espera' AND (ac.curso_escolar IS NULL OR g.curso_escolar = ac.curso_escolar)) AS prazas_espera
 			 FROM {$act_t} a
@@ -82,7 +92,31 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			ARRAY_A
 		);
 
-		return new WP_REST_Response( is_array( $rows ) ? $rows : array(), 200 );
+		$rows = is_array( $rows ) ? $rows : array();
+
+		// Attach the list of cursos (school years) each activity is offered in.
+		$all_ids = array();
+		foreach ( $rows as $r ) { $all_ids[ (int) $r['id'] ] = true; }
+		$cursos_map = array();
+		if ( ! empty( $all_ids ) ) {
+			$id_list = implode( ',', array_map( 'intval', array_keys( $all_ids ) ) );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
+			$cursos_rows = $wpdb->get_results(
+				"SELECT actividad_id, curso_escolar FROM {$acy_t} WHERE actividad_id IN ({$id_list}) ORDER BY curso_escolar ASC",
+				ARRAY_A
+			);
+			if ( is_array( $cursos_rows ) ) {
+				foreach ( $cursos_rows as $cr ) {
+					$cursos_map[ (int) $cr['actividad_id'] ][] = $cr['curso_escolar'];
+				}
+			}
+		}
+		foreach ( $rows as &$r ) {
+			$r['cursos'] = $cursos_map[ (int) $r['id'] ] ?? array();
+		}
+		unset( $r );
+
+		return new WP_REST_Response( $rows, 200 );
 	}
 
 	public static function create_actividad( WP_REST_Request $request ) {
@@ -107,10 +141,14 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		}
 
 		$actividad_id = (int) $wpdb->insert_id;
-		$year_saved   = self::upsert_year_payload( $actividad_id, $payload );
-		if ( is_wp_error( $year_saved ) ) {
-			return $year_saved;
+
+		// Multi-course sync: use cursos array if provided, else fall back to single curso_escolar.
+		$body   = ANPA_Socios_Admin_Shared::json_body( $request );
+		$cursos = isset( $body['cursos'] ) && is_array( $body['cursos'] ) ? $body['cursos'] : array();
+		if ( empty( $cursos ) ) {
+			$cursos = array( (string) $payload['curso_escolar'] );
 		}
+		self::sync_actividad_cursos( $actividad_id, $cursos, $payload );
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'actividad', (string) $actividad_id, 'create' );
 
@@ -142,10 +180,13 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
-		$year_saved = self::upsert_year_payload( $id, $payload );
-		if ( is_wp_error( $year_saved ) ) {
-			return $year_saved;
+		// Multi-course sync: use cursos array if provided, else fall back to single curso_escolar.
+		$body   = ANPA_Socios_Admin_Shared::json_body( $request );
+		$cursos = isset( $body['cursos'] ) && is_array( $body['cursos'] ) ? $body['cursos'] : array();
+		if ( empty( $cursos ) ) {
+			$cursos = array( (string) $payload['curso_escolar'] );
 		}
+		self::sync_actividad_cursos( $id, $cursos, $payload );
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'actividad', (string) $id, 'update' );
 
@@ -195,8 +236,8 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			'horarios'      => (string) $payload['horarios'],
 			'grupos'        => (string) $payload['grupos'],
 			'dias'          => (string) $payload['dias'],
-			'idade_min'     => $payload['idade_min'],
-			'idade_max'     => $payload['idade_max'],
+			'curso_min'     => $payload['curso_min'],
+			'curso_max'     => $payload['curso_max'],
 			'min_pupilos'   => (int) $payload['min_pupilos'],
 			'max_pupilos'   => (int) $payload['max_pupilos'],
 			'custo'         => (float) $payload['custo'],
@@ -304,35 +345,89 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 	}
 
 	/**
-	 * POST /admin/actividad/{id}/copy-to-current
+	 * Syncs the actividades_cursos rows for a given activity with the set
+	 * of selected school years. Inserts missing, removes unchecked.
 	 *
-	 * Duplicates an existing actividad into the current school year.
-	 *
-	 * Behaviour:
-	 *  - Reads the source actividad row from `anpa_actividades`.
-	 *  - Inserts a NEW row in `anpa_actividades` with the same identity
-	 *    fields (nome, descricion, entidade_id, icono, min_pupilos,
-	 *    max_pupilos, custo, franxa, dias, opcions).
-	 *  - If the source has a per-course-year entry in
-	 *    `anpa_actividades_cursos`, that entry is duplicated too, with
-	 *    the new `actividad_id` and `curso_escolar` set to current.
-	 *  - The original actividad row is NOT modified.
-	 *  - The original `anpa_actividades_cursos` row is NOT modified.
-	 *
-	 * Response:
-	 *  - 201 with the new actividad row (formatted as list_actividades).
-	 *  - 404 if the source does not exist.
-	 *  - 500 on DB error.
+	 * @since 1.24.0
+	 * @param int                  $actividad_id Activity id.
+	 * @param string[]             $cursos       List of curso_escolar values.
+	 * @param array<string,mixed>  $payload      Validated payload for year data.
+	 * @return void
+	 */
+	private static function sync_actividad_cursos( int $actividad_id, array $cursos, array $payload ): void {
+		global $wpdb;
+
+		$table = ANPA_Socios_DB::tabela_actividades_cursos();
+
+		// Filter to valid curso_escolar strings only.
+		$valid_cursos = array();
+		foreach ( $cursos as $c ) {
+			if ( ANPA_Socios_Curso_Escolar::is_valid( (string) $c ) ) {
+				$valid_cursos[] = (string) $c;
+			}
+		}
+		if ( empty( $valid_cursos ) ) {
+			$valid_cursos = array( (string) $payload['curso_escolar'] );
+		}
+
+		// Get existing rows for this activity.
+		$existing = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT curso_escolar FROM {$table} WHERE actividad_id = %d",
+				$actividad_id
+			)
+		);
+		$existing = is_array( $existing ) ? $existing : array();
+
+		// Remove rows for courses no longer selected.
+		$to_remove = array_diff( $existing, $valid_cursos );
+		foreach ( $to_remove as $rm ) {
+			$wpdb->delete( $table, array( 'actividad_id' => $actividad_id, 'curso_escolar' => $rm ) );
+		}
+
+		// Upsert rows for each selected course.
+		foreach ( $valid_cursos as $curso ) {
+			$row_payload = $payload;
+			$row_payload['curso_escolar'] = $curso;
+			self::upsert_year_payload( $actividad_id, $row_payload );
+		}
+	}
+
+	/**
+	 * POST /admin/actividad/{id}/copy-to-current (legacy — delegates to duplicate).
 	 *
 	 * @since 1.20.0
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function copy_actividad_to_current( WP_REST_Request $request ) {
+		// Delegate to the generalized duplicate logic using current course.
+		$request->set_body_params( array( 'target_curso' => ANPA_Socios_Curso_Escolar::current() ) );
+		return self::duplicate_actividad( $request );
+	}
+
+	/**
+	 * POST /admin/actividad/{id}/duplicate
+	 *
+	 * Duplicates an existing actividad into a chosen school year.
+	 *
+	 * Body: { target_curso: "2025/2026" }. If omitted, defaults to current.
+	 *
+	 * Creates a NEW actividad row copying descriptive data, associated with
+	 * the chosen target school year (its own actividades_cursos row).
+	 *
+	 * @since 1.24.0
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function duplicate_actividad( WP_REST_Request $request ) {
 		global $wpdb;
 
-		$src_id  = (int) $request->get_param( 'id' );
-		$current = ANPA_Socios_Curso_Escolar::current();
+		$src_id = (int) $request->get_param( 'id' );
+		$body   = is_array( $request->get_json_params() ) ? $request->get_json_params() : array();
+		$target = isset( $body['target_curso'] ) && ANPA_Socios_Curso_Escolar::is_valid( (string) $body['target_curso'] )
+			? (string) $body['target_curso']
+			: ANPA_Socios_Curso_Escolar::current();
 
 		$act_t = ANPA_Socios_DB::tabela_actividades();
 		$acy_t = ANPA_Socios_DB::tabela_actividades_cursos();
@@ -346,20 +441,19 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			return new WP_Error( 'anpa_admin_not_found', 'Actividade non atopada.', array( 'status' => 404 ) );
 		}
 
-		// Identity fields to copy, mirroring the real anpa_actividades columns
-		// (see base_payload). curso_escolar is set to the current course.
+		// Copy descriptive fields; curso_escolar set to target.
 		$copy = array(
 			'empresa_id'    => isset( $src['empresa_id'] ) ? (int) $src['empresa_id'] : 0,
 			'nome'          => (string) ( $src['nome'] ?? '' ),
 			'icono'         => (string) ( $src['icono'] ?? '' ),
 			'descripcion'   => (string) ( $src['descripcion'] ?? '' ),
-			'curso_escolar' => $current,
+			'curso_escolar' => $target,
 			'franxa'        => (string) ( $src['franxa'] ?? '' ),
 			'horarios'      => (string) ( $src['horarios'] ?? '' ),
 			'grupos'        => (string) ( $src['grupos'] ?? '' ),
 			'dias'          => (string) ( $src['dias'] ?? '' ),
-			'idade_min'     => isset( $src['idade_min'] ) && '' !== (string) $src['idade_min'] ? (int) $src['idade_min'] : null,
-			'idade_max'     => isset( $src['idade_max'] ) && '' !== (string) $src['idade_max'] ? (int) $src['idade_max'] : null,
+			'curso_min'     => isset( $src['curso_min'] ) && '' !== (string) $src['curso_min'] ? (int) $src['curso_min'] : null,
+			'curso_max'     => isset( $src['curso_max'] ) && '' !== (string) $src['curso_max'] ? (int) $src['curso_max'] : null,
 			'min_pupilos'   => isset( $src['min_pupilos'] ) ? (int) $src['min_pupilos'] : 10,
 			'max_pupilos'   => isset( $src['max_pupilos'] ) ? (int) $src['max_pupilos'] : 15,
 			'custo'         => isset( $src['custo'] ) ? (float) $src['custo'] : 0.0,
@@ -369,12 +463,11 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		$wpdb->last_error = '';
 		$ok = $wpdb->insert( $act_t, $copy );
 		if ( false === $ok ) {
-			return new WP_Error( 'anpa_socios_db_error', 'Erro ao crear a actividade copiada.', array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_socios_db_error', 'Erro ao crear a actividade duplicada.', array( 'status' => 500 ) );
 		}
 		$new_id = (int) $wpdb->insert_id;
 
-		// If a per-course-year entry exists for the source, duplicate it
-		// pointing at the new actividad and the current school year.
+		// Duplicate the per-course-year entry (if any) for the target year.
 		$src_acy = $wpdb->get_row(
 			$wpdb->prepare(
 				"SELECT * FROM {$acy_t} WHERE actividad_id = %d ORDER BY id ASC LIMIT 1",
@@ -382,26 +475,23 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			),
 			ARRAY_A
 		);
-		if ( is_array( $src_acy ) ) {
-			$acy_copy = array(
-				'actividad_id'   => $new_id,
-				'curso_escolar'  => $current,
-				'franxa'         => (string) ( $src_acy['franxa'] ?? $copy['franxa'] ),
-				'horarios'       => (string) ( $src_acy['horarios'] ?? $copy['horarios'] ),
-				'grupos'         => (string) ( $src_acy['grupos'] ?? $copy['grupos'] ),
-				'dias'           => (string) ( $src_acy['dias'] ?? $copy['dias'] ),
-				'min_pupilos'    => isset( $src_acy['min_pupilos'] ) ? (int) $src_acy['min_pupilos'] : $copy['min_pupilos'],
-				'max_pupilos'    => isset( $src_acy['max_pupilos'] ) ? (int) $src_acy['max_pupilos'] : $copy['max_pupilos'],
-				'custo'          => isset( $src_acy['custo'] ) ? (float) $src_acy['custo'] : $copy['custo'],
-				'estado'         => 'activo',
-				'actualizado_en' => current_time( 'mysql' ),
-			);
-			$wpdb->insert( $acy_t, $acy_copy );
-		}
+		$acy_copy = array(
+			'actividad_id'   => $new_id,
+			'curso_escolar'  => $target,
+			'franxa'         => is_array( $src_acy ) ? (string) ( $src_acy['franxa'] ?? $copy['franxa'] ) : $copy['franxa'],
+			'horarios'       => is_array( $src_acy ) ? (string) ( $src_acy['horarios'] ?? $copy['horarios'] ) : $copy['horarios'],
+			'grupos'         => is_array( $src_acy ) ? (string) ( $src_acy['grupos'] ?? $copy['grupos'] ) : $copy['grupos'],
+			'dias'           => is_array( $src_acy ) ? (string) ( $src_acy['dias'] ?? $copy['dias'] ) : $copy['dias'],
+			'min_pupilos'    => is_array( $src_acy ) && isset( $src_acy['min_pupilos'] ) ? (int) $src_acy['min_pupilos'] : $copy['min_pupilos'],
+			'max_pupilos'    => is_array( $src_acy ) && isset( $src_acy['max_pupilos'] ) ? (int) $src_acy['max_pupilos'] : $copy['max_pupilos'],
+			'custo'          => is_array( $src_acy ) && isset( $src_acy['custo'] ) ? (float) $src_acy['custo'] : $copy['custo'],
+			'estado'         => 'activo',
+			'actualizado_en' => current_time( 'mysql' ),
+		);
+		$wpdb->insert( $acy_t, $acy_copy );
 
-		// Audit.
-		ANPA_Socios_Admin_Shared::write_audit( $request, 'actividad', (string) $new_id, 'copy_from_' . $src_id . '_to_' . $current );
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'actividad', (string) $new_id, 'duplicate_from_' . $src_id . '_to_' . $target );
 
-		return new WP_REST_Response( self::get_row( $new_id, $current ), 201 );
+		return new WP_REST_Response( self::get_row( $new_id, $target ), 201 );
 	}
 }

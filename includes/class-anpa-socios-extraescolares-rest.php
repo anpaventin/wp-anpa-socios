@@ -334,6 +334,7 @@ final class ANPA_Socios_Extraescolares_REST {
 			'grupo_id'                   => $grupo_id,
 			'estado'                     => $estado,
 			'posicion'                   => $posicion,
+			'baixa_en'                   => null,
 			'autorizacion_comedor'       => $autorizacions['autorizacion_comedor'],
 			'tarde_transicion'           => $autorizacions['tarde_transicion'],
 			'tardes_divertidas_continua' => $autorizacions['tardes_divertidas_continua'],
@@ -510,7 +511,8 @@ final class ANPA_Socios_Extraescolares_REST {
 		if ( in_array( $mat['estado'], array( 'lista_espera', 'oferta' ), true ) ) {
 			$affected = $wpdb->query(
 				$wpdb->prepare(
-					"UPDATE {$mat_t} SET estado = 'baixa', oferta_token = NULL, oferta_expira = NULL, actualizado_en = %s WHERE id = %d AND estado IN ('lista_espera','oferta')",
+					"UPDATE {$mat_t} SET estado = 'baixa', baixa_en = %s, oferta_token = NULL, oferta_expira = NULL, actualizado_en = %s WHERE id = %d AND estado IN ('lista_espera','oferta')",
+					current_time( 'mysql' ),
 					current_time( 'mysql' ),
 					$id
 				)
