@@ -108,4 +108,50 @@ class Test_ANPA_Socios_Familia extends TestCase {
 		$profile = array( 'id' => '3', 'familia_id' => null, 'email' => 'e@example.com' );
 		$this->assertSame( 3, ANPA_Socios_Familia::resolve_from_profile( $profile ) );
 	}
+
+	// ──────────────────────────────────────────────
+	// rol_familia tests
+	// ──────────────────────────────────────────────
+
+	/**
+	 * Head of family (familia_id == socio_id) is principal.
+	 */
+	public function test_rol_familia_principal_when_equal(): void {
+		$this->assertSame( 'principal', ANPA_Socios_Familia::rol_familia( 5, 5 ) );
+	}
+
+	/**
+	 * Null familia_id → principal (single parent / unlinked).
+	 */
+	public function test_rol_familia_principal_when_null(): void {
+		$this->assertSame( 'principal', ANPA_Socios_Familia::rol_familia( null, 7 ) );
+	}
+
+	/**
+	 * Zero familia_id → principal (pre-linkage state).
+	 */
+	public function test_rol_familia_principal_when_zero(): void {
+		$this->assertSame( 'principal', ANPA_Socios_Familia::rol_familia( 0, 3 ) );
+	}
+
+	/**
+	 * Negative familia_id → principal (defensive).
+	 */
+	public function test_rol_familia_principal_when_negative(): void {
+		$this->assertSame( 'principal', ANPA_Socios_Familia::rol_familia( -1, 10 ) );
+	}
+
+	/**
+	 * Linked to another socio's id → secundario.
+	 */
+	public function test_rol_familia_secundario_when_linked(): void {
+		$this->assertSame( 'secundario', ANPA_Socios_Familia::rol_familia( 1, 2 ) );
+	}
+
+	/**
+	 * Different positive familia_id → secundario.
+	 */
+	public function test_rol_familia_secundario_large_ids(): void {
+		$this->assertSame( 'secundario', ANPA_Socios_Familia::rol_familia( 100, 200 ) );
+	}
 }

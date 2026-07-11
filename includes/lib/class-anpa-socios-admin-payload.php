@@ -235,7 +235,7 @@ final class ANPA_Socios_Admin_Payload {
 	 * Validates and returns a canonical actividad payload.
 	 *
 	 * Required: empresa_id, nome, descripcion, curso_escolar.
-	 * Optional: idade_min, idade_max, custo, estado.
+	 * Optional: curso_min, curso_max, custo, estado.
 	 *
 	 * @since  1.2.0
 	 * @param  array<string,mixed> $input Raw input.
@@ -247,8 +247,8 @@ final class ANPA_Socios_Admin_Payload {
 		$icono         = self::sanitise_optional_string( $input['icono'] ?? null, 20 );
 		$descripcion   = self::sanitise_optional_string( $input['descripcion'] ?? null, self::ACTIVIDAD_DESC_MAX_LEN );
 		$curso_escolar = self::sanitise_optional_string( $input['curso_escolar'] ?? null, 20 );
-		$idade_min     = isset( $input['idade_min'] ) && '' !== $input['idade_min'] ? (int) $input['idade_min'] : null;
-		$idade_max     = isset( $input['idade_max'] ) && '' !== $input['idade_max'] ? (int) $input['idade_max'] : null;
+		$curso_min     = isset( $input['curso_min'] ) && '' !== $input['curso_min'] ? (int) $input['curso_min'] : null;
+		$curso_max     = isset( $input['curso_max'] ) && '' !== $input['curso_max'] ? (int) $input['curso_max'] : null;
 		$custo         = self::parse_custo( $input['custo'] ?? null );
 		$franxa        = ANPA_Socios_Actividade_Options::normalize_franxa( $input['franxa'] ?? null );
 		$estado        = isset( $input['estado'] ) ? (string) $input['estado'] : 'activo';
@@ -280,7 +280,7 @@ final class ANPA_Socios_Admin_Payload {
 		if ( null === $custo ) {
 			return null;
 		}
-		if ( null !== $idade_min && null !== $idade_max && $idade_min > $idade_max ) {
+		if ( null !== $curso_min && null !== $curso_max && $curso_min > $curso_max ) {
 			return null;
 		}
 
@@ -300,8 +300,8 @@ final class ANPA_Socios_Admin_Payload {
 			'horarios'      => ANPA_Socios_Actividade_Options::serialize( $horarios, ANPA_Socios_Actividade_Options::HORARIOS ),
 			'grupos'        => ANPA_Socios_Actividade_Options::serialize( $grupos, ANPA_Socios_Actividade_Options::GRUPOS ),
 			'dias'          => ANPA_Socios_Actividade_Options::serialize( $dias, ANPA_Socios_Actividade_Options::DIAS ),
-			'idade_min'     => $idade_min,
-			'idade_max'     => $idade_max,
+			'curso_min'     => $curso_min,
+			'curso_max'     => $curso_max,
 			'min_pupilos'   => $min_pupilos,
 			'max_pupilos'   => $max_pupilos,
 			'custo'         => $custo,

@@ -148,16 +148,16 @@ final class ANPA_Socios_Admin_Import_Handler {
 			case 'fillos':
 				$table = ANPA_Socios_DB::tabela_fillos();
 				$rows  = $wpdb->get_results(
-					"SELECT nome, apelidos, familia_id FROM {$table}",
+					"SELECT nome, apelidos, socio_email FROM {$table}",
 					ARRAY_A
 				);
 				if ( is_array( $rows ) ) {
 					foreach ( $rows as $r ) {
 						$n  = mb_strtolower( $r['nome'] ?? '', 'UTF-8' );
 						$a  = mb_strtolower( $r['apelidos'] ?? '', 'UTF-8' );
-						$fam = $r['familia_id'] ?? '';
-						if ( '' !== $n && '' !== $a && '' !== $fam ) {
-							$keys[] = "fillos:{$fam}|{$n}|{$a}";
+						$pe = $r['socio_email'] ?? '';
+						if ( '' !== $n && '' !== $a && '' !== $pe ) {
+							$keys[] = "fillos:{$pe}|{$n}|{$a}";
 						}
 					}
 				}
@@ -189,8 +189,9 @@ final class ANPA_Socios_Admin_Import_Handler {
 				$fil_t = ANPA_Socios_DB::tabela_fillos();
 				$act_t = ANPA_Socios_DB::tabela_actividades();
 				$emp_t = ANPA_Socios_DB::tabela_empresas();
+				$soc_t = ANPA_Socios_DB::tabela_socios();
 				$rows  = $wpdb->get_results(
-					"SELECT f.familia_id, f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
+					"SELECT f.socio_email AS proxenitor_email, f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
 					        e.email AS empresa_email, a.nome AS actividade_nome, a.curso_escolar
 					 FROM {$mat_t} m
 					 JOIN {$fil_t} f ON f.id = m.fillo_id
@@ -200,14 +201,14 @@ final class ANPA_Socios_Admin_Import_Handler {
 				);
 				if ( is_array( $rows ) ) {
 					foreach ( $rows as $r ) {
-						$fam = $r['familia_id'] ?? '';
+						$pe  = $r['proxenitor_email'] ?? '';
 						$fn  = mb_strtolower( $r['fillo_nome'] ?? '', 'UTF-8' );
 						$fa  = mb_strtolower( $r['fillo_apelidos'] ?? '', 'UTF-8' );
 						$ee  = $r['empresa_email'] ?? '';
 						$an  = mb_strtolower( $r['actividade_nome'] ?? '', 'UTF-8' );
 						$ce  = $r['curso_escolar'] ?? '';
-						if ( '' !== $fam && '' !== $fn && '' !== $ee && '' !== $an && '' !== $ce ) {
-							$keys[] = "matriculas:{$fam}|{$fn}|{$fa}|{$ee}|{$an}|{$ce}";
+						if ( '' !== $pe && '' !== $fn && '' !== $ee && '' !== $an && '' !== $ce ) {
+							$keys[] = "matriculas:{$pe}|{$fn}|{$fa}|{$ee}|{$an}|{$ce}";
 						}
 					}
 				}
@@ -379,22 +380,10 @@ final class ANPA_Socios_Admin_Import_Handler {
 	}
 
 	/**
-	 * Commits fillos. Resolves real familia_id from the logical id.
+	 * Commits fillos. Resolves real familia_id from the parent email.
 	 *
-	 * The familia_map is rebuilt from the socios table (logical id =
-	 * the CSV grouping number is NOT stored in the DB; we match by
-	 * checking existing socios inserted in this batch via socio_email
-	 * or familia_id grouping).
-	 *
-	 * For fillos import, the logical id_familia must already be in the
-	 * socios table (socios imported first). We resolve via: look up all
-	 * socios grouped by familia_id, and the caller must have imported
-	 * socios first so that familia_id values exist in the DB.
-	 *
-	 * Since the CSV id_familia is LOGICAL (not stored), the handler
-	 * reads the socios table to build a reverse map. For this to work,
-	 * the import body may include an optional familia_map from the
-	 * socios import. Otherwise we query by principal email.
+	 * The CSV provides `proxenitor_email` which maps to a socio's email.
+	 * From the socio row we resolve the familia_id.
 	 *
 	 * @since  1.34.0
 	 * @param  array           $rows    Fillos rows.
@@ -409,58 +398,41 @@ final class ANPA_Socios_Admin_Import_Handler {
 		$skipped  = 0;
 		$errors   = array();
 
-		// Build logical→real familia map from existing socios.
-		// We group socios by familia_id and assign logical indices based
-		// on distinct familia_id values in insertion order.
-		// But since the CSV id_familia is operator-chosen, we need the
-		// caller to pass a familia_map or we rebuild it by matching the
-		// distinct familia_id values already in the DB.
-		$body = ANPA_Socios_Admin_Shared::json_body( $request );
-		$external_map = isset( $body['familia_map'] ) && is_array( $body['familia_map'] ) ? $body['familia_map'] : array();
-
-		// If no external map, build from DB: distinct familia_id values.
-		// For fillos, we need to resolve the logical id_familia to a real one.
-		// Strategy: query all distinct familia_id from socios and map by order.
-		// However, the logical id is arbitrary — so we rely on the UI sending
-		// the familia_map from the socios import. If not provided, we try to
-		// match by looking up a socio whose familia_id = logical (if it happens
-		// to be a real DB id — this covers re-import scenarios).
-		$familia_map = array();
-		foreach ( $external_map as $k => $v ) {
-			$familia_map[ (string) $k ] = (int) $v;
-		}
+		// Cache email → familia_id resolution.
+		$email_familia_cache = array();
 
 		foreach ( $rows as $idx => $row ) {
-			$logical_fam = (string) ( $row['id_familia'] ?? '' );
-			$nome        = $row['nome'] ?? '';
-			$apelidos    = $row['apelidos'] ?? '';
-			$nacemento   = $row['data_nacemento'] ?? '';
-			$curso       = $row['curso'] ?? '';
-			$aula        = $row['aula'] ?? '';
-			$consent     = $row['image_consent'] ?? '0';
-			$estado      = $row['estado'] ?? 'activo';
+			$proxenitor_email = (string) ( $row['proxenitor_email'] ?? '' );
+			$nome             = $row['nome'] ?? '';
+			$apelidos         = $row['apelidos'] ?? '';
+			$nacemento        = $row['data_nacemento'] ?? '';
+			$curso            = $row['curso'] ?? '';
+			$aula             = $row['aula'] ?? '';
+			$consent          = $row['image_consent'] ?? '0';
+			$estado           = $row['estado'] ?? 'activo';
 
-			// Resolve real familia_id.
+			// Resolve real familia_id from parent email.
 			$real_fam = null;
-			if ( '' !== $logical_fam ) {
-				if ( isset( $familia_map[ $logical_fam ] ) ) {
-					$real_fam = $familia_map[ $logical_fam ];
+			if ( '' !== $proxenitor_email ) {
+				if ( isset( $email_familia_cache[ $proxenitor_email ] ) ) {
+					$real_fam = $email_familia_cache[ $proxenitor_email ];
 				} else {
-					// Fallback: check if the logical value IS a real familia_id.
-					$check = $wpdb->get_var( $wpdb->prepare(
-						"SELECT COALESCE(NULLIF(familia_id, 0), id) FROM {$soc_t} WHERE id = %d OR familia_id = %d LIMIT 1",
-						(int) $logical_fam,
-						(int) $logical_fam
-					) );
-					if ( $check ) {
-						$real_fam = (int) $check;
-						$familia_map[ $logical_fam ] = $real_fam;
+					$soc_row = $wpdb->get_row( $wpdb->prepare(
+						"SELECT id, familia_id FROM {$soc_t} WHERE email = %s LIMIT 1",
+						$proxenitor_email
+					), ARRAY_A );
+					if ( is_array( $soc_row ) ) {
+						$fam_id = ( null !== $soc_row['familia_id'] && (int) $soc_row['familia_id'] > 0 )
+							? (int) $soc_row['familia_id']
+							: (int) $soc_row['id'];
+						$real_fam = $fam_id;
+						$email_familia_cache[ $proxenitor_email ] = $real_fam;
 					}
 				}
 			}
 
 			if ( null === $real_fam ) {
-				$errors[] = array( 'row' => $idx, 'msg' => "Cannot resolve familia for id_familia={$logical_fam}" );
+				$errors[] = array( 'row' => $idx, 'msg' => "Cannot resolve familia for proxenitor_email={$proxenitor_email}" );
 				continue;
 			}
 
@@ -476,15 +448,8 @@ final class ANPA_Socios_Admin_Import_Handler {
 				continue;
 			}
 
-			// Resolve socio_email for transitional compatibility.
-			$socio_email = $wpdb->get_var( $wpdb->prepare(
-				"SELECT email FROM {$soc_t} WHERE (familia_id = %d OR id = %d) AND email <> '' ORDER BY id ASC LIMIT 1",
-				$real_fam,
-				$real_fam
-			) );
-
 			$ok = $wpdb->insert( $table, array(
-				'socio_email'    => $socio_email ?: '',
+				'socio_email'    => $proxenitor_email,
 				'familia_id'     => $real_fam,
 				'nome'           => $nome,
 				'apelidos'       => $apelidos,
@@ -642,6 +607,10 @@ final class ANPA_Socios_Admin_Import_Handler {
 	/**
 	 * Commits matriculas. Resolves fillo and actividade by natural keys.
 	 *
+	 * Uses proxenitor_email to find the family, then looks up the fillo
+	 * by (familia_id + nome + apelidos). Never creates/updates fillos or
+	 * actividades — lookup only.
+	 *
 	 * @since  1.34.0
 	 * @param  array           $rows    Rows.
 	 * @param  WP_REST_Request $request For audit.
@@ -658,14 +627,6 @@ final class ANPA_Socios_Admin_Import_Handler {
 		$skipped  = 0;
 		$errors   = array();
 
-		// Build familia map from body if provided.
-		$body = ANPA_Socios_Admin_Shared::json_body( $request );
-		$external_map = isset( $body['familia_map'] ) && is_array( $body['familia_map'] ) ? $body['familia_map'] : array();
-		$familia_map = array();
-		foreach ( $external_map as $k => $v ) {
-			$familia_map[ (string) $k ] = (int) $v;
-		}
-
 		// Cache empresa email→id.
 		$empresa_cache = array();
 		$emp_rows = $wpdb->get_results( "SELECT id, email FROM {$emp_t}", ARRAY_A );
@@ -675,35 +636,45 @@ final class ANPA_Socios_Admin_Import_Handler {
 			}
 		}
 
-		foreach ( $rows as $idx => $row ) {
-			$logical_fam    = (string) ( $row['id_familia'] ?? '' );
-			$fillo_nome     = $row['fillo_nome'] ?? '';
-			$fillo_apelidos = $row['fillo_apelidos'] ?? '';
-			$empresa_email  = $row['empresa_email'] ?? '';
-			$act_nome       = $row['actividade_nome'] ?? '';
-			$curso_escolar  = $row['curso_escolar'] ?? '';
+		// Cache proxenitor_email → familia_id.
+		$email_familia_cache = array();
 
-			// Resolve real familia_id.
+		foreach ( $rows as $idx => $row ) {
+			$proxenitor_email = (string) ( $row['proxenitor_email'] ?? '' );
+			$fillo_nome       = $row['fillo_nome'] ?? '';
+			$fillo_apelidos   = $row['fillo_apelidos'] ?? '';
+			$empresa_email    = $row['empresa_email'] ?? '';
+			$act_nome         = $row['actividade_nome'] ?? '';
+			$curso_escolar    = $row['curso_escolar'] ?? '';
+
+			// Resolve real familia_id from proxenitor_email.
 			$real_fam = null;
-			if ( '' !== $logical_fam ) {
-				if ( isset( $familia_map[ $logical_fam ] ) ) {
-					$real_fam = $familia_map[ $logical_fam ];
+			if ( '' !== $proxenitor_email ) {
+				if ( isset( $email_familia_cache[ $proxenitor_email ] ) ) {
+					$real_fam = $email_familia_cache[ $proxenitor_email ];
 				} else {
-					$check = $wpdb->get_var( $wpdb->prepare(
-						"SELECT COALESCE(NULLIF(familia_id, 0), id) FROM {$soc_t} WHERE id = %d OR familia_id = %d LIMIT 1",
-						(int) $logical_fam,
-						(int) $logical_fam
-					) );
-					if ( $check ) {
-						$real_fam = (int) $check;
-						$familia_map[ $logical_fam ] = $real_fam;
+					$soc_row = $wpdb->get_row( $wpdb->prepare(
+						"SELECT id, familia_id FROM {$soc_t} WHERE email = %s LIMIT 1",
+						$proxenitor_email
+					), ARRAY_A );
+					if ( is_array( $soc_row ) ) {
+						$fam_id = ( null !== $soc_row['familia_id'] && (int) $soc_row['familia_id'] > 0 )
+							? (int) $soc_row['familia_id']
+							: (int) $soc_row['id'];
+						$real_fam = $fam_id;
+						$email_familia_cache[ $proxenitor_email ] = $real_fam;
 					}
 				}
 			}
 
-			// Resolve fillo_id by familia_id + nome + apelidos.
+			if ( null === $real_fam ) {
+				$errors[] = array( 'row' => $idx, 'msg' => "Cannot resolve familia for proxenitor_email={$proxenitor_email}" );
+				continue;
+			}
+
+			// Resolve fillo_id by familia_id + nome + apelidos (lookup only, never creates).
 			$fillo_id = null;
-			if ( null !== $real_fam && '' !== $fillo_nome ) {
+			if ( '' !== $fillo_nome ) {
 				$fillo_id = $wpdb->get_var( $wpdb->prepare(
 					"SELECT id FROM {$fil_t} WHERE familia_id = %d AND LOWER(nome) = %s AND LOWER(apelidos) = %s LIMIT 1",
 					$real_fam,
@@ -716,7 +687,7 @@ final class ANPA_Socios_Admin_Import_Handler {
 				continue;
 			}
 
-			// Resolve actividade_id by empresa_email + nome + curso_escolar.
+			// Resolve actividade_id by empresa_email + nome + curso_escolar (lookup only, never creates).
 			$empresa_id = $empresa_cache[ $empresa_email ] ?? null;
 			if ( ! $empresa_id ) {
 				$errors[] = array( 'row' => $idx, 'msg' => "Empresa non atopada: {$empresa_email}" );
@@ -747,11 +718,12 @@ final class ANPA_Socios_Admin_Import_Handler {
 			$ok = $wpdb->insert( $table, array(
 				'fillo_id'      => (int) $fillo_id,
 				'activitad_id'  => (int) $actividade_id,
+				'trimestre'     => ANPA_Socios_Trimestre::actual( (int) current_time( 'n' ) ),
 				'estado'        => in_array( $row['estado'] ?? '', array( 'activo', 'baixa' ), true ) ? $row['estado'] : 'activo',
 				'comedor'       => ( '1' === ( $row['comedor'] ?? '0' ) ) ? 1 : 0,
 				'tarde'         => ( '1' === ( $row['tarde'] ?? '0' ) ) ? 1 : 0,
 				'observaciones' => $row['observaciones'] ?? '',
-			), array( '%d', '%d', '%s', '%d', '%d', '%s' ) );
+			), array( '%d', '%d', '%d', '%s', '%d', '%d', '%s' ) );
 
 			if ( false === $ok ) {
 				$errors[] = array( 'row' => $idx, 'msg' => 'DB insert failed' );

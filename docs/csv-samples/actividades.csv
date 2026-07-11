@@ -1,5 +1,5 @@
-empresa_email,nome,descripcion,curso_escolar,min_pupilos,max_pupilos,idade_min,idade_max,custo,estado
-deportes@example.com,Fútbol Sala,Actividade ficticia de fútbol sala,2025/2026,8,20,5,12,25.00,activo
-deportes@example.com,Baloncesto,Actividade ficticia de baloncesto,2025/2026,8,18,6,12,25.00,activo
-musica@example.com,Piano,Actividade ficticia de piano,2025/2026,4,10,5,12,35.00,activo
-idiomas@example.com,Inglés,Actividade ficticia de inglés,2025/2026,6,15,5,12,30.00,activo
+empresa_email,nome,descripcion,curso_escolar,min_pupilos,max_pupilos,curso_min,curso_max,custo,estado
+deportes@example.com,Fútbol Sala,Actividade ficticia de fútbol sala,2025/2026,8,20,1,6,25.00,activo
+deportes@example.com,Baloncesto,Actividade ficticia de baloncesto,2025/2026,8,18,1,6,25.00,activo
+musica@example.com,Piano,Actividade ficticia de piano,2025/2026,4,10,1,6,35.00,activo
+idiomas@example.com,Inglés,Actividade ficticia de inglés,2025/2026,6,15,1,6,30.00,activo

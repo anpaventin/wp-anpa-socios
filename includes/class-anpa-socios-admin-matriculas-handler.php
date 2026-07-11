@@ -82,7 +82,7 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT m.id, m.estado, m.posicion, m.trimestre, m.grupo_id,
+				"SELECT m.id, m.estado, m.posicion, m.trimestre, m.grupo_id, m.creado_en, m.baixa_en,
 				        m.autorizacion_comedor, m.tarde_transicion, m.tardes_divertidas_continua,
 				        m.recollida_autorizada, m.cesion_datos_empresa,
 				        f.id AS fillo_id, f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
@@ -102,7 +102,19 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 			ARRAY_A
 		);
 
-		return new WP_REST_Response( is_array( $rows ) ? $rows : array(), 200 );
+		$rows = is_array( $rows ) ? $rows : array();
+
+		// Enrich each row with computed trimester range.
+		foreach ( $rows as &$row ) {
+			$tri_alta  = ANPA_Socios_Trimestre::actual( (int) gmdate( 'n', strtotime( (string) $row['creado_en'] ) ) );
+			$tri_baixa = ! empty( $row['baixa_en'] )
+				? ANPA_Socios_Trimestre::actual( (int) gmdate( 'n', strtotime( (string) $row['baixa_en'] ) ) )
+				: null;
+			$row['trimestres'] = implode( ' ', ANPA_Socios_Trimestre::rango( $tri_alta, $tri_baixa ) );
+		}
+		unset( $row );
+
+		return new WP_REST_Response( $rows, 200 );
 	}
 
 	public static function create_matricula( WP_REST_Request $request ) {
@@ -151,10 +163,11 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 			$mat_t,
 			array(
 				'estado'         => 'baixa',
+				'baixa_en'       => current_time( 'mysql' ),
 				'actualizado_en' => current_time( 'mysql' ),
 			),
 			array( 'id' => $id ),
-			array( '%s', '%s' ),
+			array( '%s', '%s', '%s' ),
 			array( '%d' )
 		);
 		if ( false === $updated ) {

@@ -323,7 +323,7 @@
 	}
 
 	// ── Section: Socios ──────────────────────────────────────────────
-	var SOCIOS_COLS = ['email', 'nome', 'apelidos', 'telefono', 'nif', 'segundo_proxenitor_nome', 'estado', 'rol'];
+	var SOCIOS_COLS = ['email', 'nome', 'apelidos', 'telefono', 'nif', 'segundo_proxenitor_nome', 'estado'];
 
 	function loadSocios() {
 		showLoading();
@@ -450,11 +450,6 @@
 		});
 		addField('Estado', estado);
 
-		var rolNote = document.createElement('p');
-		rolNote.style.color = '#646970'; rolNote.style.fontSize = '12px';
-		rolNote.textContent = 'Rol: ' + (socio.rol || 'socio') + ' (x\u00E9stionase desde Administradores).';
-		form.appendChild(rolNote);
-
 		var actions = document.createElement('div');
 		actions.className = 'anpa-mgmt-form-actions';
 		var saveBtn = document.createElement('button');
@@ -574,7 +569,7 @@
 	}
 
 	// ── Section: Fillos ──────────────────────────────────────────────
-	var FILLOS_COLS = ['proxenitor_apelidos', 'proxenitor_nome', 'fillo_apelidos', 'fillo_nome', 'data_nacemento', 'curso', 'aula', 'estado'];
+	var FILLOS_COLS = ['proxenitor_apelidos', 'proxenitor_nome', 'socio_email', 'apelidos', 'nome', 'data_nacemento', 'curso', 'aula', 'estado'];
 
 	function loadFillos() {
 		showLoading();
@@ -583,7 +578,7 @@
 
 	function renderFillos(rows) {
 		var allRows = Array.isArray(rows) ? rows : [];
-		var st = sectionState.fillos || (sectionState.fillos = { sort: { key: 'proxenitor_apelidos', dir: 'asc' } });
+		var st = sectionState.fillos || (sectionState.fillos = { sort: { key: 'apelidos', dir: 'asc' }, page: 1, size: 10 });
 		function render() {
 			root.textContent = '';
 			var bar = buildFilterBar('fillos', { onRefresh: render });
@@ -594,19 +589,120 @@
 			var filtered = filterRows(allRows, query, FILLOS_COLS);
 			var sorted = tbl.sortRows(filtered, st.sort.key, st.sort.dir);
 			if (!sorted.length) { root.appendChild(emptyEl('Sen fillos/as rexistrados.')); return; }
-			var table = buildTable(sorted, FILLOS_COLS, st.sort, render, null);
+			var paged = tbl.pageSlice(sorted, st.page, st.size || 0);
+			var table = buildTable(paged, FILLOS_COLS, st.sort, render, function (tr, row) {
+				if (row.estado === 'baixa') { tr.classList.add('anpa-row-baixa'); }
+			});
+
+			// Add edit buttons per fillo row
+			var tbodyRows = table.querySelectorAll('tbody tr');
+			paged.forEach(function (row, i) {
+				var actionsTd = tbodyRows[i] ? tbodyRows[i]._actionsCell || tbodyRows[i].lastElementChild : null;
+				if (!actionsTd) { return; }
+				var editBtn = document.createElement('button');
+				editBtn.type = 'button';
+				editBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
+				editBtn.textContent = 'Editar';
+				editBtn.addEventListener('click', function () { renderFilloEdit(row, allRows); });
+				actionsTd.appendChild(editBtn);
+			});
 			root.appendChild(table);
+
+			if (st.size > 0 && sorted.length > st.size) {
+				root.appendChild(buildPagination(sorted.length, st.page, st.size, function (p, s) {
+					st.page = p; st.size = s; render();
+				}));
+			}
+
 			var timer = null;
 			bar._searchInput.addEventListener('input', function () {
 				if (timer) { clearTimeout(timer); }
-				timer = setTimeout(render, 250);
+				timer = setTimeout(function () { st.page = 1; render(); }, 250);
 			});
 		}
 		render();
 	}
 
+	/**
+	 * Renders edit form for a fillo (PATCH /admin/fillo/<id>).
+	 * @param {object} fillo - The fillo row.
+	 * @param {Array} allRows - All fillos for returning to list.
+	 */
+	function renderFilloEdit(fillo, allRows) {
+		root.textContent = '';
+		var form = document.createElement('div');
+		form.className = 'anpa-mgmt-form';
+		form.setAttribute('role', 'form');
+		form.setAttribute('aria-label', 'Editar fillo/a');
+		var h3 = document.createElement('h3');
+		h3.textContent = 'Editar fillo/a: ' + (fillo.nome || '') + ' ' + (fillo.apelidos || '');
+		form.appendChild(h3);
+
+		function addField(id, labelText, input) {
+			var lbl = document.createElement('label');
+			lbl.setAttribute('for', id);
+			lbl.textContent = labelText;
+			input.id = id;
+			form.appendChild(lbl);
+			form.appendChild(input);
+		}
+
+		var nomeInput = document.createElement('input'); nomeInput.type = 'text'; nomeInput.value = fillo.nome || '';
+		addField('anpa-fillo-nome', 'Nome', nomeInput);
+		var apelidosInput = document.createElement('input'); apelidosInput.type = 'text'; apelidosInput.value = fillo.apelidos || '';
+		addField('anpa-fillo-apelidos', 'Apelidos', apelidosInput);
+		var nacementoInput = document.createElement('input'); nacementoInput.type = 'date'; nacementoInput.value = fillo.data_nacemento || '';
+		addField('anpa-fillo-nacemento', 'Data de nacemento', nacementoInput);
+		var cursoInput = document.createElement('input'); cursoInput.type = 'text'; cursoInput.value = fillo.curso || '';
+		addField('anpa-fillo-curso', 'Curso', cursoInput);
+		var aulaInput = document.createElement('input'); aulaInput.type = 'text'; aulaInput.value = fillo.aula || '';
+		addField('anpa-fillo-aula', 'Grupo', aulaInput);
+		var estadoSelect = document.createElement('select');
+		['activo', 'baixa'].forEach(function (v) {
+			var opt = document.createElement('option'); opt.value = v; opt.textContent = v;
+			if (fillo.estado === v) { opt.selected = true; }
+			estadoSelect.appendChild(opt);
+		});
+		addField('anpa-fillo-estado', 'Estado', estadoSelect);
+
+		var actions = document.createElement('div');
+		actions.className = 'anpa-mgmt-form-actions';
+		var saveBtn = document.createElement('button');
+		saveBtn.type = 'button'; saveBtn.className = 'anpa-mgmt-btn';
+		saveBtn.textContent = 'Gardar cambios';
+		saveBtn.addEventListener('click', function () {
+			clearMessage();
+			var payload = {
+				nome: (nomeInput.value || '').trim(),
+				apelidos: (apelidosInput.value || '').trim(),
+				data_nacemento: (nacementoInput.value || '').trim(),
+				curso: (cursoInput.value || '').trim(),
+				aula: (aulaInput.value || '').trim(),
+				estado: estadoSelect.value,
+			};
+			if (!payload.nome || !payload.apelidos) {
+				showMessage('Nome e apelidos son obrigatorios.', 'error'); return;
+			}
+			anpaAdminFetch('fillo/' + fillo.id, {
+				method: 'PATCH', body: payload,
+			}).then(function () {
+				showMessage('Fillo/a actualizado.', 'success');
+				loadFillos();
+			}).catch(function (e) { showMessage(e.message, 'error'); });
+		});
+		actions.appendChild(saveBtn);
+
+		var cancelBtn = document.createElement('button');
+		cancelBtn.type = 'button'; cancelBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
+		cancelBtn.textContent = 'Volver';
+		cancelBtn.addEventListener('click', function () { renderFillos(allRows); });
+		actions.appendChild(cancelBtn);
+		form.appendChild(actions);
+		root.appendChild(form);
+	}
+
 	// ── Section: Empresas ────────────────────────────────────────────
-	var EMPRESAS_COLS = ['nome', 'email', 'responsable', 'telefono', 'estado'];
+	var EMPRESAS_COLS = ['nome', 'email', 'responsable', 'telefono', 'url_web', 'estado'];
 
 	function loadEmpresas() {
 		showLoading();
@@ -615,7 +711,7 @@
 
 	function renderEmpresas(rows) {
 		var allRows = Array.isArray(rows) ? rows : [];
-		var st = sectionState.empresas || (sectionState.empresas = { sort: { key: 'nome', dir: 'asc' } });
+		var st = sectionState.empresas || (sectionState.empresas = { sort: { key: 'nome', dir: 'asc' }, page: 1, size: 10 });
 		function render() {
 			root.textContent = '';
 			var active = allRows.filter(function (r) { return r.estado !== 'inactivo'; });
@@ -637,13 +733,14 @@
 			var filtered = filterRows(visible, query, EMPRESAS_COLS);
 			var sorted = tbl.sortRows(filtered, st.sort.key, st.sort.dir);
 			if (!sorted.length) { root.appendChild(emptyEl('Sen empresas.')); return; }
-			var table = buildTable(sorted, EMPRESAS_COLS, st.sort, render, function (tr, row) {
+			var paged = tbl.pageSlice(sorted, st.page, st.size || 0);
+			var table = buildTable(paged, EMPRESAS_COLS, st.sort, render, function (tr, row) {
 				if (row.estado === 'inactivo') { tr.classList.add('anpa-row-baixa'); }
 			});
 
 			// Add edit + toggle buttons per row
 			var tbodyRows = table.querySelectorAll('tbody tr');
-			sorted.forEach(function (row, i) {
+			paged.forEach(function (row, i) {
 				var actionsTd = tbodyRows[i] ? tbodyRows[i]._actionsCell : null;
 				if (!actionsTd) { return; }
 				var editBtn = document.createElement('button');
@@ -669,10 +766,17 @@
 			});
 
 			root.appendChild(table);
+
+			if (st.size > 0 && sorted.length > st.size) {
+				root.appendChild(buildPagination(sorted.length, st.page, st.size, function (p, s) {
+					st.page = p; st.size = s; render();
+				}));
+			}
+
 			var timer = null;
 			bar._searchInput.addEventListener('input', function () {
 				if (timer) { clearTimeout(timer); }
-				timer = setTimeout(render, 250);
+				timer = setTimeout(function () { st.page = 1; render(); }, 250);
 			});
 		}
 		render();
@@ -783,7 +887,7 @@
 		empresaList.forEach(function (e) { empresaNome[String(e.id)] = e.nome; });
 		allRows.forEach(function (r) { r._empresa_nome = empresaNome[String(r.empresa_id)] || ''; });
 
-		var st = sectionState.actividades || (sectionState.actividades = { sort: { key: 'nome', dir: 'asc' } });
+		var st = sectionState.actividades || (sectionState.actividades = { sort: { key: 'nome', dir: 'asc' }, page: 1, size: 10 });
 		function render() {
 			root.textContent = '';
 			var active = allRows.filter(function (r) { return r.estado !== 'inactivo'; });
@@ -805,13 +909,14 @@
 			var filtered = filterRows(visible, query, ACTIV_COLS);
 			var sorted = tbl.sortRows(filtered, st.sort.key, st.sort.dir);
 			if (!sorted.length) { root.appendChild(emptyEl('Sen actividades.')); return; }
-			var table = buildTable(sorted, ACTIV_COLS, st.sort, render, function (tr, row) {
+			var paged = tbl.pageSlice(sorted, st.page, st.size || 0);
+			var table = buildTable(paged, ACTIV_COLS, st.sort, render, function (tr, row) {
 				if (row.estado === 'inactivo') { tr.classList.add('anpa-row-baixa'); }
 			});
 
 			// Add action buttons per row
 			var tbodyRows = table.querySelectorAll('tbody tr');
-			sorted.forEach(function (row, i) {
+			paged.forEach(function (row, i) {
 				var actionsTd = tbodyRows[i] ? tbodyRows[i]._actionsCell : null;
 				if (!actionsTd) { return; }
 				var editBtn = document.createElement('button');
@@ -831,13 +936,50 @@
 				var copyBtn = document.createElement('button');
 				copyBtn.type = 'button';
 				copyBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
-				copyBtn.textContent = 'Copiar ao actual';
+				copyBtn.textContent = 'Duplicar';
 				copyBtn.addEventListener('click', function () {
 					clearMessage();
-					anpaAdminFetch('actividad/' + row.id + '/copy-to-current', { method: 'POST' }).then(function () {
-						showMessage('Actividade copiada ao curso actual.', 'success');
-						loadActividades();
-					}).catch(function (e) { showMessage(e.message, 'error'); });
+					// Show a small dropdown to pick the target course.
+					var cursoRange = generateCursoRange(row.curso_escolar || '');
+					var sel = document.createElement('select');
+					cursoRange.forEach(function (yr) {
+						var opt = document.createElement('option');
+						opt.value = yr;
+						opt.textContent = yr;
+						sel.appendChild(opt);
+					});
+					// Default to the current school year (first option that matches).
+					var now = new Date();
+					var startYear = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+					var curActual = startYear + '/' + (startYear + 1);
+					sel.value = curActual;
+
+					var dialog = document.createElement('div');
+					dialog.className = 'anpa-mgmt-form';
+					dialog.style.padding = '1em';
+					var dlgLabel = document.createElement('label');
+					dlgLabel.textContent = 'Curso destino:';
+					dialog.appendChild(dlgLabel);
+					dialog.appendChild(sel);
+					var confirmBtn = document.createElement('button');
+					confirmBtn.type = 'button';
+					confirmBtn.className = 'anpa-mgmt-btn';
+					confirmBtn.textContent = 'Duplicar';
+					confirmBtn.addEventListener('click', function () {
+						anpaAdminFetch('actividad/' + row.id + '/duplicate', { method: 'POST', body: { target_curso: sel.value } }).then(function () {
+							showMessage('Actividade duplicada ao curso ' + sel.value + '.', 'success');
+							loadActividades();
+						}).catch(function (e) { showMessage(e.message, 'error'); });
+					});
+					dialog.appendChild(confirmBtn);
+					var cancelDlg = document.createElement('button');
+					cancelDlg.type = 'button';
+					cancelDlg.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
+					cancelDlg.textContent = 'Cancelar';
+					cancelDlg.addEventListener('click', function () { loadActividades(); });
+					dialog.appendChild(cancelDlg);
+					root.textContent = '';
+					root.appendChild(dialog);
 				});
 				actionsTd.appendChild(copyBtn);
 
@@ -852,7 +994,7 @@
 						descripcion: row.descripcion || '', curso_escolar: row.curso_escolar,
 						franxa: row.franxa || '', horarios: row.horarios || '',
 						grupos: row.grupos || '', dias: row.dias || '',
-						idade_min: row.idade_min, idade_max: row.idade_max,
+						curso_min: row.curso_min, curso_max: row.curso_max,
 						min_pupilos: row.min_pupilos, max_pupilos: row.max_pupilos,
 						custo: row.custo, estado: newEstado,
 					};
@@ -865,13 +1007,34 @@
 			});
 
 			root.appendChild(table);
+
+			if (st.size > 0 && sorted.length > st.size) {
+				root.appendChild(buildPagination(sorted.length, st.page, st.size, function (p, s) {
+					st.page = p; st.size = s; render();
+				}));
+			}
+
 			var timer = null;
 			bar._searchInput.addEventListener('input', function () {
 				if (timer) { clearTimeout(timer); }
-				timer = setTimeout(render, 250);
+				timer = setTimeout(function () { st.page = 1; render(); }, 250);
 			});
 		}
 		render();
+	}
+
+	/**
+	 * Generates a range of school years around the given one (or current).
+	 * Returns e.g. ['2024/2025', '2025/2026', '2026/2027'].
+	 */
+	function generateCursoRange(curso) {
+		var match = /^(\d{4})\/(\d{4})$/.exec(curso);
+		var start = match ? parseInt(match[1], 10) : new Date().getFullYear() - (new Date().getMonth() < 6 ? 1 : 0);
+		var out = [];
+		for (var y = start - 1; y <= start + 2; y++) {
+			out.push(y + '/' + (y + 1));
+		}
+		return out;
 	}
 
 	/**
@@ -925,7 +1088,30 @@
 		var cursoInput = document.createElement('input'); cursoInput.type = 'text';
 		cursoInput.placeholder = '2025/2026';
 		cursoInput.value = isEdit ? (act.curso_escolar || '') : '';
-		addField('anpa-act-curso', 'Curso escolar', cursoInput);
+		addField('anpa-act-curso', 'Curso escolar (primario)', cursoInput);
+
+		// Multi-course selector: checkboxes for available school years.
+		var cursosContainer = document.createElement('div');
+		cursosContainer.className = 'anpa-mgmt-multicurso';
+		var cursosLabel = document.createElement('label');
+		cursosLabel.textContent = 'Cursos nos que se oferta';
+		form.appendChild(cursosLabel);
+		var currentYear = cursoInput.value || '';
+		var yearList = generateCursoRange(currentYear);
+		var selectedCursos = isEdit && Array.isArray(act.cursos) ? act.cursos : (isEdit && act.curso_escolar ? [act.curso_escolar] : []);
+		yearList.forEach(function (yr) {
+			var chkLabel = document.createElement('label');
+			chkLabel.style.display = 'inline-block';
+			chkLabel.style.marginRight = '1em';
+			var chk = document.createElement('input');
+			chk.type = 'checkbox';
+			chk.value = yr;
+			chk.checked = selectedCursos.indexOf(yr) !== -1;
+			chkLabel.appendChild(chk);
+			chkLabel.appendChild(document.createTextNode(' ' + yr));
+			cursosContainer.appendChild(chkLabel);
+		});
+		form.appendChild(cursosContainer);
 
 		var franxaInput = document.createElement('input'); franxaInput.type = 'text';
 		franxaInput.placeholder = 'ma\u00F1\u00E1s / tardes';
@@ -956,12 +1142,12 @@
 		addField('anpa-act-maxpup', 'M\u00E1ximo de pupilos/as', maxPupInput);
 
 		var idadeMinInput = document.createElement('input'); idadeMinInput.type = 'number'; idadeMinInput.min = '0';
-		idadeMinInput.value = isEdit && act.idade_min != null ? act.idade_min : '';
-		addField('anpa-act-idademin', 'Idade m\u00EDnima (opcional)', idadeMinInput);
+		idadeMinInput.value = isEdit && act.curso_min != null ? act.curso_min : '';
+		addField('anpa-act-idademin', 'Curso m\u00EDnimo (opcional)', idadeMinInput);
 
 		var idadeMaxInput = document.createElement('input'); idadeMaxInput.type = 'number'; idadeMaxInput.min = '0';
-		idadeMaxInput.value = isEdit && act.idade_max != null ? act.idade_max : '';
-		addField('anpa-act-idademax', 'Idade m\u00E1xima (opcional)', idadeMaxInput);
+		idadeMaxInput.value = isEdit && act.curso_max != null ? act.curso_max : '';
+		addField('anpa-act-idademax', 'Curso m\u00E1ximo (opcional)', idadeMaxInput);
 
 		var custoInput = document.createElement('input'); custoInput.type = 'text';
 		custoInput.placeholder = '0.00';
@@ -983,6 +1169,12 @@
 		saveBtn.textContent = isEdit ? 'Gardar cambios' : 'Crear actividade';
 		saveBtn.addEventListener('click', function () {
 			clearMessage();
+			// Gather selected courses from checkboxes.
+			var selectedCursosArr = [];
+			var chks = cursosContainer.querySelectorAll('input[type="checkbox"]');
+			for (var ci = 0; ci < chks.length; ci++) {
+				if (chks[ci].checked) { selectedCursosArr.push(chks[ci].value); }
+			}
 			var payload = {
 				empresa_id: parseInt(empresaSelect.value, 10) || 0,
 				nome: (nomeInput.value || '').trim(),
@@ -993,12 +1185,13 @@
 				horarios: (horariosInput.value || '').trim(),
 				grupos: (gruposInput.value || '').trim(),
 				dias: (diasInput.value || '').trim(),
-				idade_min: idadeMinInput.value !== '' ? parseInt(idadeMinInput.value, 10) : null,
-				idade_max: idadeMaxInput.value !== '' ? parseInt(idadeMaxInput.value, 10) : null,
+				curso_min: idadeMinInput.value !== '' ? parseInt(idadeMinInput.value, 10) : null,
+				curso_max: idadeMaxInput.value !== '' ? parseInt(idadeMaxInput.value, 10) : null,
 				min_pupilos: parseInt(minPupInput.value, 10) || 10,
 				max_pupilos: parseInt(maxPupInput.value, 10) || 15,
 				custo: (custoInput.value || '').trim(),
 				estado: estadoSelect.value,
+				cursos: selectedCursosArr,
 			};
 			if (!payload.empresa_id || !payload.nome || !payload.descripcion || !payload.curso_escolar) {
 				showMessage('Empresa, nome, descrici\u00F3n e curso escolar son obrigatorios.', 'error'); return;
@@ -1383,14 +1576,10 @@
 		});
 		selLabel.appendChild(cursoSel);
 		root.appendChild(selLabel);
-		var loadBtn = document.createElement('button'); loadBtn.type = 'button';
-		loadBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary'; loadBtn.textContent = 'Ver matr\u00EDculas';
-		loadBtn.style.marginLeft = '0.5rem';
-		root.appendChild(loadBtn);
 		var matHost = document.createElement('div');
 		root.appendChild(matHost);
 
-		var MAT_COLS = ['fillo_apelidos', 'fillo_nome', 'actividade', 'curso_completo', 'estado', 'franxa', 'dias', 'trimestre'];
+		var MAT_COLS = ['fillo_apelidos', 'fillo_nome', 'actividade', 'curso_completo', 'estado', 'franxa', 'dias', 'trimestres', 'creado_en', 'posicion'];
 
 		function loadMat(curso) {
 			matHost.textContent = '';
@@ -1399,67 +1588,36 @@
 				matHost.textContent = '';
 				var matRows = Array.isArray(rows) ? rows : [];
 				if (!matRows.length) { matHost.appendChild(emptyEl('Sen matr\u00EDculas.')); return; }
-				var matSt = sectionState.matriculas || (sectionState.matriculas = { sort: { key: 'fillo_apelidos', dir: 'asc' } });
-				var bar = buildFilterBar('matriculas', { onRefresh: function () { loadMat(curso); } });
-				matHost.appendChild(bar);
-				addCsvExportBtn(bar, 'matriculas', matRows, MAT_COLS);
-				addCsvImportBtn(bar, 'matriculas');
-				var query = bar._searchInput.value || '';
-				var filtered = filterRows(matRows, query, MAT_COLS);
-				var sorted = tbl.sortRows(filtered, matSt.sort.key, matSt.sort.dir);
-				var matTable = buildTable(sorted, MAT_COLS, matSt.sort, function () { loadMat(curso); }, null);
-				matHost.appendChild(matTable);
+				var matSt = sectionState.matriculas || (sectionState.matriculas = { sort: { key: 'fillo_apelidos', dir: 'asc' }, page: 1, size: 10 });
+				function renderMat() {
+					matHost.textContent = '';
+					var bar = buildFilterBar('matriculas', { onRefresh: renderMat });
+					matHost.appendChild(bar);
+					addCsvExportBtn(bar, 'matriculas', matRows, MAT_COLS);
+					addCsvImportBtn(bar, 'matriculas');
+					var query = bar._searchInput.value || '';
+					var filtered = filterRows(matRows, query, MAT_COLS);
+					var sorted = tbl.sortRows(filtered, matSt.sort.key, matSt.sort.dir);
+					if (!sorted.length) { matHost.appendChild(emptyEl('Sen matr\u00EDculas.')); return; }
+					var paged = tbl.pageSlice(sorted, matSt.page, matSt.size || 0);
+					var matTable = buildTable(paged, MAT_COLS, matSt.sort, renderMat, null);
+					matHost.appendChild(matTable);
+					if (matSt.size > 0 && sorted.length > matSt.size) {
+						matHost.appendChild(buildPagination(sorted.length, matSt.page, matSt.size, function (p, s) {
+							matSt.page = p; matSt.size = s; renderMat();
+						}));
+					}
+					var timer = null;
+					bar._searchInput.addEventListener('input', function () {
+						if (timer) { clearTimeout(timer); }
+						timer = setTimeout(function () { matSt.page = 1; renderMat(); }, 250);
+					});
+				}
+				renderMat();
 			}).catch(function (e) { matHost.textContent = ''; showMessage(e.message, 'error'); });
 		}
-		loadBtn.addEventListener('click', function () { loadMat(cursoSel.value || current); });
+		cursoSel.addEventListener('change', function () { loadMat(cursoSel.value || current); });
 		loadMat(current);
-	}
-
-	// ── Section: Administradores ─────────────────────────────────────
-	var ADMIN_COLS = ['email', 'nome', 'apelidos', 'estado'];
-
-	function loadAdmins() {
-		showLoading();
-		anpaAdminFetch('admins').then(function (rows) { renderAdmins(rows); }).catch(sectionError);
-	}
-
-	function renderAdmins(rows) {
-		var allRows = Array.isArray(rows) ? rows : [];
-		var st = sectionState.admins || (sectionState.admins = { sort: { key: 'email', dir: 'asc' } });
-		function render() {
-			root.textContent = '';
-			var bar = buildFilterBar('admins', { onRefresh: render });
-			root.appendChild(bar);
-			var query = bar._searchInput.value || '';
-			var filtered = filterRows(allRows, query, ADMIN_COLS);
-			var sorted = tbl.sortRows(filtered, st.sort.key, st.sort.dir);
-			if (!sorted.length) { root.appendChild(emptyEl('Sen administradores.')); return; }
-			var table = buildTable(sorted, ADMIN_COLS, st.sort, render, null);
-			// Revoke buttons
-			var tbodyRows = table.querySelectorAll('tbody tr');
-			sorted.forEach(function (row, i) {
-				var cell = tbodyRows[i] ? tbodyRows[i]._actionsCell || tbodyRows[i].lastElementChild : null;
-				if (!cell) { return; }
-				var revokeBtn = document.createElement('button');
-				revokeBtn.type = 'button';
-				revokeBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-danger';
-				revokeBtn.textContent = 'Revogar';
-				revokeBtn.addEventListener('click', function () {
-					if (!window.confirm('Revogar permisos de ' + (row.email || '') + '?')) { return; }
-					anpaAdminFetch('admins/' + encodeURIComponent(row.email), { method: 'DELETE' })
-						.then(function () { showMessage('Administrador revogado.', 'success'); loadAdmins(); })
-						.catch(function (e) { showMessage(e.message, 'error'); });
-				});
-				cell.appendChild(revokeBtn);
-			});
-			root.appendChild(table);
-			var timer = null;
-			bar._searchInput.addEventListener('input', function () {
-				if (timer) { clearTimeout(timer); }
-				timer = setTimeout(render, 250);
-			});
-		}
-		render();
 	}
 
 	// ── Section: Auditoría ───────────────────────────────────────────
@@ -1472,7 +1630,7 @@
 
 	function renderAudit(rows) {
 		var allRows = Array.isArray(rows) ? rows : [];
-		var st = sectionState.audit || (sectionState.audit = { sort: { key: 'timestamp', dir: 'desc' } });
+		var st = sectionState.audit || (sectionState.audit = { sort: { key: 'timestamp', dir: 'desc' }, page: 1, size: 50 });
 		function render() {
 			root.textContent = '';
 			var bar = buildFilterBar('audit', { onRefresh: render });
@@ -1481,12 +1639,20 @@
 			var filtered = filterRows(allRows, query, AUDIT_COLS);
 			var sorted = tbl.sortRows(filtered, st.sort.key, st.sort.dir);
 			if (!sorted.length) { root.appendChild(emptyEl('Sen entradas de auditor\u00EDa.')); return; }
-			var table = buildTable(sorted, AUDIT_COLS, st.sort, render, null);
+			var paged = tbl.pageSlice(sorted, st.page, st.size || 0);
+			var table = buildTable(paged, AUDIT_COLS, st.sort, render, null);
 			root.appendChild(table);
+
+			if (st.size > 0 && sorted.length > st.size) {
+				root.appendChild(buildPagination(sorted.length, st.page, st.size, function (p, s) {
+					st.page = p; st.size = s; render();
+				}));
+			}
+
 			var timer = null;
 			bar._searchInput.addEventListener('input', function () {
 				if (timer) { clearTimeout(timer); }
-				timer = setTimeout(render, 250);
+				timer = setTimeout(function () { st.page = 1; render(); }, 250);
 			});
 		}
 		render();
@@ -1718,7 +1884,6 @@
 		'empresas': loadEmpresas,
 		'actividades': loadActividades,
 		'cursos-matriculas': loadCursos,
-		'administradores': loadAdmins,
 		'auditoria': loadAudit,
 		'importar-listados': loadImportar,
 	};

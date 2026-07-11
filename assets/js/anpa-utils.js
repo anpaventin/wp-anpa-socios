@@ -35,15 +35,18 @@
 		'nif': 'NIF',
 		'baixa_estado': '',
 		'baixa_solicitada_en': '',
+		// Segundo proxenitor (socios)
+		'segundo_proxenitor_nome': '2\u00BA proxenitor/titor',
 		// Empresas
 		'responsable': 'Responsable',
+		'url_web': 'URL web',
 		// Actividades
 		'empresa_id': '',
 		'empresa_nome': 'Empresa',
 		'descripcion': 'Descrici\u00F3n',
 		'curso_escolar': 'Curso escolar',
-		'idade_min': 'Idade m\u00EDn.',
-		'idade_max': 'Idade m\u00E1x.',
+		'curso_min': 'Curso m\u00EDn.',
+		'curso_max': 'Curso m\u00E1x.',
 		'custo': 'Custo',
 		// Matr\u00EDculas
 		'fillo_id': '',
@@ -56,7 +59,7 @@
 		// Cursos
 		'curso': 'Curso',
 		// Fillos / Audit
-		'socio_email': 'Socio',
+		'socio_email': 'Correo proxenitor',
 		'data_nacemento': 'Data nacemento',
 		'aula': 'Grupo',
 		'actor_email': 'Usuario',
@@ -79,6 +82,8 @@
 		'franxa': 'Franxa',
 		'dias': 'D\u00EDas',
 		'trimestre': 'Trim.',
+		'trimestres': 'Trimestres',
+		'posicion': 'Posici\u00F3n',
 		// fillos section
 		'proxenitor_apelidos': 'Apelidos prox.',
 		'proxenitor_nome': 'Nome prox.',

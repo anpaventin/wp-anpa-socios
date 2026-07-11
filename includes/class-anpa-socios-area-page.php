@@ -38,10 +38,6 @@ class ANPA_Socios_Area_Page {
 		$fillos_url            = rest_url( 'anpa-socios/v1/fillos' );
 		$fillo_url             = rest_url( 'anpa-socios/v1/fillo/' );
 		$referencias_url       = rest_url( 'anpa-socios/v1/area/referencias' );
-		$proxenitor2_search_url = rest_url( 'anpa-socios/v1/area/me/proxenitor2/search' );
-		$proxenitor2_link_url   = rest_url( 'anpa-socios/v1/area/me/proxenitor2/link' );
-		$proxenitor2_confirm_url = rest_url( 'anpa-socios/v1/area/me/proxenitor2/confirm' );
-		$proxenitor2_add_url    = rest_url( 'anpa-socios/v1/area/me/proxenitor2/add' );
 
 		// Extraescolares enrolment endpoints (fase7).
 		$extra_oferta_url      = rest_url( 'anpa-socios/v1/area/extraescolares' );
@@ -73,10 +69,6 @@ class ANPA_Socios_Area_Page {
 			data-fillos-url="<?php echo esc_attr( $fillos_url ); ?>"
 			data-fillo-url="<?php echo esc_attr( $fillo_url ); ?>"
 			data-referencias-url="<?php echo esc_attr( $referencias_url ); ?>"
-			data-proxenitor2-search-url="<?php echo esc_attr( $proxenitor2_search_url ); ?>"
-			data-proxenitor2-link-url="<?php echo esc_attr( $proxenitor2_link_url ); ?>"
-			data-proxenitor2-confirm-url="<?php echo esc_attr( $proxenitor2_confirm_url ); ?>"
-			data-proxenitor2-add-url="<?php echo esc_attr( $proxenitor2_add_url ); ?>"
 			data-extra-oferta-url="<?php echo esc_attr( $extra_oferta_url ); ?>"
 			data-extra-matriculas-url="<?php echo esc_attr( $extra_matriculas_url ); ?>"
 			data-extra-fillo-base-url="<?php echo esc_attr( $extra_fillo_base_url ); ?>"
@@ -163,6 +155,24 @@ class ANPA_Socios_Area_Page {
 				<label for="anpa-area-email-edit"><?php esc_html_e( 'Correo electrónico', 'anpa-socios' ); ?></label>
 				<input id="anpa-area-email-edit" type="email" autocomplete="email">
 				<span class="anpa-field-error" data-error="email" hidden></span>
+
+				<!-- ── Segundo proxenitor / inline edit (fase 20) ── -->
+				<div class="anpa-area-p2-inline" data-p2-inline hidden>
+					<h3><?php esc_html_e( 'Segundo proxenitor / titor', 'anpa-socios' ); ?></h3>
+					<p class="anpa-area-muted"><?php esc_html_e( 'Datos do outro proxenitor/titor da unidade familiar. O email é opcional; o NIF é obrigatorio.', 'anpa-socios' ); ?></p>
+					<label for="anpa-area-p2-nome"><?php esc_html_e( 'Nome', 'anpa-socios' ); ?></label>
+					<input id="anpa-area-p2-nome" type="text" autocomplete="off">
+					<label for="anpa-area-p2-apelidos"><?php esc_html_e( 'Apelidos', 'anpa-socios' ); ?></label>
+					<input id="anpa-area-p2-apelidos" type="text" autocomplete="off">
+					<label for="anpa-area-p2-email"><?php esc_html_e( 'Email (opcional)', 'anpa-socios' ); ?></label>
+					<input id="anpa-area-p2-email" type="email" autocomplete="off" placeholder="<?php esc_attr_e( 'Deixa baleiro se non quere recibir notificacións', 'anpa-socios' ); ?>">
+					<label for="anpa-area-p2-nif"><?php esc_html_e( 'NIF / NIE', 'anpa-socios' ); ?></label>
+					<input id="anpa-area-p2-nif" type="text" autocomplete="off">
+					<label for="anpa-area-p2-telefono"><?php esc_html_e( 'Teléfono (opcional)', 'anpa-socios' ); ?></label>
+					<input id="anpa-area-p2-telefono" type="tel" autocomplete="off" inputmode="numeric">
+					<button type="button" class="anpa-area-secondary" data-action="proxenitor2-save"><?php esc_html_e( 'Gardar 2º proxenitor', 'anpa-socios' ); ?></button>
+				</div>
+
 				<p class="anpa-area-baixa-status" data-baixa-status hidden></p>
 				<div class="anpa-area-actions">
 					<button type="button" data-action="save-profile"><?php esc_html_e( 'Gardar cambios', 'anpa-socios' ); ?></button>
@@ -174,28 +184,6 @@ class ANPA_Socios_Area_Page {
 					<button type="button" class="anpa-area-secondary" data-action="cancel-baixa" data-baixa-cancel-btn hidden><?php esc_html_e( 'Anular solicitude de baixa', 'anpa-socios' ); ?></button>
 					<button type="button" class="anpa-area-secondary" data-action="logout"><?php esc_html_e( 'Pechar sesión', 'anpa-socios' ); ?></button>
 
-				</div>
-			</div>
-
-			<!-- ── Proxenitor2 (fase 1.20.0) ── -->
-			<div class="anpa-area-card" data-step="proxenitor2" hidden>
-				<h2>Engadir outro proxenitor/titor</h2>
-				<p class="anpa-area-muted">Cubre os datos do outro proxenitor/titor para vinculalo á túa conta. O correo é opcional (pode ser o mesmo que o teu). Se o correo ou o DNI xa está rexistrado, vincularase automaticamente como proxenitor secundario.</p>
-				<div data-p2-error class="anpa-area-error" hidden></div>
-				<label for="anpa-area-p2-nome">Nome</label>
-				<input id="anpa-area-p2-nome" type="text" autocomplete="off">
-				<label for="anpa-area-p2-apelidos">Apelidos</label>
-				<input id="anpa-area-p2-apelidos" type="text" autocomplete="off">
-				<label for="anpa-area-p2-email">Email (opcional)</label>
-				<input id="anpa-area-p2-email" type="email" autocomplete="off" placeholder="Deixa baleiro se non quere recibir notificacións">
-				<label for="anpa-area-p2-nif">NIF / NIE</label>
-				<input id="anpa-area-p2-nif" type="text" autocomplete="off" placeholder="Ex: 12345678Z ou X1234567L">
-				<label for="anpa-area-p2-telefono">Teléfono (opcional)</label>
-				<input id="anpa-area-p2-telefono" type="tel" autocomplete="off" inputmode="numeric">
-				<button type="button" data-action="proxenitor2-add">Engadir como proxenitor secundario</button>
-				<div data-p2-result hidden></div>
-				<div class="anpa-area-actions">
-					<button type="button" class="anpa-area-secondary" data-action="back-profile">Volver aos meus datos</button>
 				</div>
 			</div>
 

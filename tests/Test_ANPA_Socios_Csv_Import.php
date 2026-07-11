@@ -167,7 +167,7 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 
 	public function test_analyze_fillos_required_fields(): void {
 		$rows = array(
-			array( 'id_familia' => '1', 'nome' => '', 'apelidos' => 'García', 'data_nacemento' => '2018-03-15', 'curso' => '1EP', 'aula' => 'A', 'image_consent' => '1', 'estado' => 'activo' ),
+			array( 'proxenitor_email' => 'socio1@example.com', 'nome' => '', 'apelidos' => 'García', 'data_nacemento' => '2018-03-15', 'curso' => '1EP', 'aula' => 'A', 'image_consent' => '1', 'estado' => 'activo' ),
 		);
 
 		$result = ANPA_Socios_Csv_Import::analyze( 'fillos', $rows );
@@ -197,7 +197,7 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 
 	public function test_analyze_actividades_required_fields(): void {
 		$rows = array(
-			array( 'empresa_email' => 'e@example.com', 'nome' => 'Futbol', 'descripcion' => '', 'curso_escolar' => '', 'min_pupilos' => '', 'max_pupilos' => '', 'idade_min' => '', 'idade_max' => '', 'custo' => '', 'estado' => 'activo' ),
+			array( 'empresa_email' => 'e@example.com', 'nome' => 'Futbol', 'descripcion' => '', 'curso_escolar' => '', 'min_pupilos' => '', 'max_pupilos' => '', 'curso_min' => '', 'curso_max' => '', 'custo' => '', 'estado' => 'activo' ),
 		);
 
 		$result = ANPA_Socios_Csv_Import::analyze( 'actividades', $rows );
@@ -212,7 +212,7 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 
 	public function test_analyze_matriculas_required_fields(): void {
 		$rows = array(
-			array( 'id_familia' => '1', 'fillo_nome' => 'Lúa', 'fillo_apelidos' => 'García', 'empresa_email' => 'e@example.com', 'actividade_nome' => '', 'curso_escolar' => '2025/2026', 'comedor' => '1', 'tarde' => '0', 'observaciones' => '', 'estado' => 'activo' ),
+			array( 'proxenitor_email' => 'parent@example.com', 'fillo_nome' => 'Lúa', 'fillo_apelidos' => 'García', 'empresa_email' => 'e@example.com', 'actividade_nome' => '', 'curso_escolar' => '2025/2026', 'comedor' => '1', 'tarde' => '0', 'observaciones' => '', 'estado' => 'activo' ),
 		);
 
 		$result = ANPA_Socios_Csv_Import::analyze( 'matriculas', $rows );
@@ -251,8 +251,8 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 
 	public function test_analyze_dedup_within_csv_fillos(): void {
 		$rows = array(
-			array( 'id_familia' => '1', 'nome' => 'Lúa', 'apelidos' => 'García', 'data_nacemento' => '2018-01-01', 'curso' => '1EP', 'aula' => 'A', 'image_consent' => '1', 'estado' => 'activo' ),
-			array( 'id_familia' => '1', 'nome' => 'LÚA', 'apelidos' => 'GARCÍA', 'data_nacemento' => '2018-06-15', 'curso' => '1EP', 'aula' => 'B', 'image_consent' => '0', 'estado' => 'activo' ),
+			array( 'proxenitor_email' => 'socio1@example.com', 'nome' => 'Lúa', 'apelidos' => 'García', 'data_nacemento' => '2018-01-01', 'curso' => '1EP', 'aula' => 'A', 'image_consent' => '1', 'estado' => 'activo' ),
+			array( 'proxenitor_email' => 'socio1@example.com', 'nome' => 'LÚA', 'apelidos' => 'GARCÍA', 'data_nacemento' => '2018-06-15', 'curso' => '1EP', 'aula' => 'B', 'image_consent' => '0', 'estado' => 'activo' ),
 		);
 
 		$result = ANPA_Socios_Csv_Import::analyze( 'fillos', $rows );
@@ -263,8 +263,8 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 
 	public function test_analyze_dedup_within_csv_matriculas(): void {
 		$rows = array(
-			array( 'id_familia' => '1', 'fillo_nome' => 'Lúa', 'fillo_apelidos' => 'García', 'empresa_email' => 'e@example.com', 'actividade_nome' => 'Futbol', 'curso_escolar' => '2025/2026', 'comedor' => '1', 'tarde' => '0', 'observaciones' => '', 'estado' => 'activo' ),
-			array( 'id_familia' => '1', 'fillo_nome' => 'LÚA', 'fillo_apelidos' => 'GARCÍA', 'empresa_email' => 'E@EXAMPLE.COM', 'actividade_nome' => 'FUTBOL', 'curso_escolar' => '2025/2026', 'comedor' => '0', 'tarde' => '1', 'observaciones' => 'test', 'estado' => 'activo' ),
+			array( 'proxenitor_email' => 'parent@example.com', 'fillo_nome' => 'Lúa', 'fillo_apelidos' => 'García', 'empresa_email' => 'e@example.com', 'actividade_nome' => 'Futbol', 'curso_escolar' => '2025/2026', 'comedor' => '1', 'tarde' => '0', 'observaciones' => '', 'estado' => 'activo' ),
+			array( 'proxenitor_email' => 'PARENT@EXAMPLE.COM', 'fillo_nome' => 'LÚA', 'fillo_apelidos' => 'GARCÍA', 'empresa_email' => 'E@EXAMPLE.COM', 'actividade_nome' => 'FUTBOL', 'curso_escolar' => '2025/2026', 'comedor' => '0', 'tarde' => '1', 'observaciones' => 'test', 'estado' => 'activo' ),
 		);
 
 		$result = ANPA_Socios_Csv_Import::analyze( 'matriculas', $rows );
@@ -339,7 +339,7 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 
 	public function test_analyze_normalizes_curso_escolar(): void {
 		$rows = array(
-			array( 'empresa_email' => 'e@example.com', 'nome' => 'Futbol', 'descripcion' => '', 'curso_escolar' => '2025 - 2026', 'min_pupilos' => '', 'max_pupilos' => '', 'idade_min' => '', 'idade_max' => '', 'custo' => '', 'estado' => 'activo' ),
+			array( 'empresa_email' => 'e@example.com', 'nome' => 'Futbol', 'descripcion' => '', 'curso_escolar' => '2025 - 2026', 'min_pupilos' => '', 'max_pupilos' => '', 'curso_min' => '', 'curso_max' => '', 'custo' => '', 'estado' => 'activo' ),
 		);
 
 		$result = ANPA_Socios_Csv_Import::analyze( 'actividades', $rows );
@@ -425,9 +425,9 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 	}
 
 	public function test_compute_natural_key_fillos(): void {
-		$row = array( 'nome' => 'Lúa', 'apelidos' => 'García', 'id_familia' => '7' );
+		$row = array( 'nome' => 'Lúa', 'apelidos' => 'García', 'proxenitor_email' => 'socio1@example.com' );
 		$key = ANPA_Socios_Csv_Import::compute_natural_key( 'fillos', $row );
-		$this->assertSame( 'fillos:7|lúa|garcía', $key );
+		$this->assertSame( 'fillos:socio1@example.com|lúa|garcía', $key );
 	}
 
 	public function test_compute_natural_key_actividades(): void {
@@ -438,17 +438,73 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 
 	public function test_compute_natural_key_matriculas(): void {
 		$row = array(
-			'id_familia' => '1', 'fillo_nome' => 'Lúa', 'fillo_apelidos' => 'García',
+			'proxenitor_email' => 'parent@example.com', 'fillo_nome' => 'Lúa', 'fillo_apelidos' => 'García',
 			'empresa_email' => 'e@example.com', 'actividade_nome' => 'Futbol', 'curso_escolar' => '2025/2026',
 		);
 		$key = ANPA_Socios_Csv_Import::compute_natural_key( 'matriculas', $row );
-		$this->assertSame( 'matriculas:1|lúa|garcía|e@example.com|futbol|2025/2026', $key );
+		$this->assertSame( 'matriculas:parent@example.com|lúa|garcía|e@example.com|futbol|2025/2026', $key );
 	}
 
 	public function test_compute_natural_key_returns_null_on_missing_fields(): void {
 		$this->assertNull( ANPA_Socios_Csv_Import::compute_natural_key( 'socios', array( 'nome' => 'Ana', 'apelidos' => '' ) ) );
 		$this->assertNull( ANPA_Socios_Csv_Import::compute_natural_key( 'empresas', array( 'email' => '' ) ) );
+		$this->assertNull( ANPA_Socios_Csv_Import::compute_natural_key( 'fillos', array( 'nome' => 'Ana', 'apelidos' => 'García', 'proxenitor_email' => '' ) ) );
 		$this->assertNull( ANPA_Socios_Csv_Import::compute_natural_key( 'unknown_entity', array() ) );
+	}
+
+	// ─── fillos import uses proxenitor_email (task 13) ────────────
+
+	public function test_fillos_required_fields_includes_proxenitor_email(): void {
+		$required = ANPA_Socios_Csv_Import::REQUIRED_FIELDS['fillos'];
+		$this->assertContains( 'proxenitor_email', $required );
+		$this->assertNotContains( 'id_familia', $required );
+	}
+
+	public function test_fillos_entity_headers_includes_proxenitor_email(): void {
+		$headers = ANPA_Socios_Csv_Import::ENTITY_HEADERS['fillos'];
+		$this->assertContains( 'proxenitor_email', $headers );
+		$this->assertNotContains( 'id_familia', $headers );
+	}
+
+	public function test_fillos_natural_key_uses_proxenitor_email(): void {
+		$row = array( 'proxenitor_email' => 'parent@example.com', 'nome' => 'Noa', 'apelidos' => 'López' );
+		$key = ANPA_Socios_Csv_Import::compute_natural_key( 'fillos', $row );
+		$this->assertSame( 'fillos:parent@example.com|noa|lópez', $key );
+	}
+
+	public function test_fillos_analyze_missing_proxenitor_email_errors(): void {
+		$rows = array(
+			array( 'proxenitor_email' => '', 'nome' => 'Lúa', 'apelidos' => 'García', 'data_nacemento' => '2018-01-01', 'curso' => '1EP', 'aula' => 'A', 'image_consent' => '1', 'estado' => 'activo' ),
+		);
+
+		$result = ANPA_Socios_Csv_Import::analyze( 'fillos', $rows );
+
+		$pe_errors = array_filter( $result['errors'], function ( $e ) {
+			return 'proxenitor_email' === $e['field'];
+		} );
+		$this->assertNotEmpty( $pe_errors );
+	}
+
+	public function test_fillos_analyze_normalizes_proxenitor_email(): void {
+		$rows = array(
+			array( 'proxenitor_email' => 'PARENT@EXAMPLE.COM', 'nome' => 'Breixo', 'apelidos' => 'López', 'data_nacemento' => '2019-01-30', 'curso' => 'EI5', 'aula' => 'A', 'image_consent' => '1', 'estado' => 'activo' ),
+		);
+
+		$result = ANPA_Socios_Csv_Import::analyze( 'fillos', $rows );
+
+		$this->assertSame( 'parent@example.com', $result['rows'][0]['proxenitor_email'] );
+	}
+
+	public function test_fillos_dedup_against_existing_uses_email_key(): void {
+		$rows = array(
+			array( 'proxenitor_email' => 'socio1@example.com', 'nome' => 'Lúa', 'apelidos' => 'García', 'data_nacemento' => '2018-01-01', 'curso' => '1EP', 'aula' => 'A', 'image_consent' => '1', 'estado' => 'activo' ),
+		);
+		$existing = array( 'fillos:socio1@example.com|lúa|garcía' );
+
+		$result = ANPA_Socios_Csv_Import::analyze( 'fillos', $rows, $existing );
+
+		$this->assertContains( 0, $result['duplicates'] );
+		$this->assertEmpty( $result['to_insert'] );
 	}
 
 	// ─── fillo_dedup_key() — for merge on family join (task 7) ─
@@ -469,5 +525,86 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 		$k1 = ANPA_Socios_Csv_Import::fillo_dedup_key( 'Ana', 'García', '2018-01-01' );
 		$k2 = ANPA_Socios_Csv_Import::fillo_dedup_key( 'Ana', 'García', '2019-01-01' );
 		$this->assertNotSame( $k1, $k2 );
+	}
+
+	// ─── matriculas uses proxenitor_email (task 16) ───────────────
+
+	public function test_matriculas_required_fields_includes_proxenitor_email(): void {
+		$required = ANPA_Socios_Csv_Import::REQUIRED_FIELDS['matriculas'];
+		$this->assertContains( 'proxenitor_email', $required );
+		$this->assertNotContains( 'id_familia', $required );
+	}
+
+	public function test_matriculas_entity_headers_includes_proxenitor_email(): void {
+		$headers = ANPA_Socios_Csv_Import::ENTITY_HEADERS['matriculas'];
+		$this->assertContains( 'proxenitor_email', $headers );
+		$this->assertNotContains( 'id_familia', $headers );
+	}
+
+	public function test_matriculas_natural_key_uses_proxenitor_email(): void {
+		$row = array(
+			'proxenitor_email' => 'parent@example.com',
+			'fillo_nome' => 'Noa',
+			'fillo_apelidos' => 'López',
+			'empresa_email' => 'empresa@example.com',
+			'actividade_nome' => 'Piano',
+			'curso_escolar' => '2025/2026',
+		);
+		$key = ANPA_Socios_Csv_Import::compute_natural_key( 'matriculas', $row );
+		$this->assertSame( 'matriculas:parent@example.com|noa|lópez|empresa@example.com|piano|2025/2026', $key );
+	}
+
+	public function test_matriculas_natural_key_null_when_proxenitor_email_empty(): void {
+		$row = array(
+			'proxenitor_email' => '',
+			'fillo_nome' => 'Noa',
+			'fillo_apelidos' => 'López',
+			'empresa_email' => 'empresa@example.com',
+			'actividade_nome' => 'Piano',
+			'curso_escolar' => '2025/2026',
+		);
+		$this->assertNull( ANPA_Socios_Csv_Import::compute_natural_key( 'matriculas', $row ) );
+	}
+
+	public function test_matriculas_analyze_missing_proxenitor_email_errors(): void {
+		$rows = array(
+			array( 'proxenitor_email' => '', 'fillo_nome' => 'Lúa', 'fillo_apelidos' => 'García', 'empresa_email' => 'e@example.com', 'actividade_nome' => 'Futbol', 'curso_escolar' => '2025/2026', 'comedor' => '1', 'tarde' => '0', 'observaciones' => '', 'estado' => 'activo' ),
+		);
+
+		$result = ANPA_Socios_Csv_Import::analyze( 'matriculas', $rows );
+
+		$pe_errors = array_filter( $result['errors'], function ( $e ) {
+			return 'proxenitor_email' === $e['field'];
+		} );
+		$this->assertNotEmpty( $pe_errors );
+	}
+
+	public function test_matriculas_dedup_against_existing_uses_proxenitor_email(): void {
+		$rows = array(
+			array( 'proxenitor_email' => 'parent@example.com', 'fillo_nome' => 'Lúa', 'fillo_apelidos' => 'García', 'empresa_email' => 'e@example.com', 'actividade_nome' => 'Futbol', 'curso_escolar' => '2025/2026', 'comedor' => '1', 'tarde' => '0', 'observaciones' => '', 'estado' => 'activo' ),
+		);
+		$existing = array( 'matriculas:parent@example.com|lúa|garcía|e@example.com|futbol|2025/2026' );
+
+		$result = ANPA_Socios_Csv_Import::analyze( 'matriculas', $rows, $existing );
+
+		$this->assertContains( 0, $result['duplicates'] );
+		$this->assertEmpty( $result['to_insert'] );
+	}
+
+	// ─── empresas url_web in headers (task 15) ────────────────────
+
+	public function test_empresas_entity_headers_includes_url_web(): void {
+		$headers = ANPA_Socios_Csv_Import::ENTITY_HEADERS['empresas'];
+		$this->assertContains( 'url_web', $headers );
+	}
+
+	// ─── actividades curso_min/curso_max in headers (task 18) ──────
+
+	public function test_actividades_entity_headers_uses_curso_min_max(): void {
+		$headers = ANPA_Socios_Csv_Import::ENTITY_HEADERS['actividades'];
+		$this->assertContains( 'curso_min', $headers );
+		$this->assertContains( 'curso_max', $headers );
+		$this->assertNotContains( 'idade_min', $headers );
+		$this->assertNotContains( 'idade_max', $headers );
 	}
 }

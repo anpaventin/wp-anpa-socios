@@ -72,7 +72,7 @@ final class ANPA_Socios_Admin_Socios_Handler {
 		// Exclude the master account: it is an operational admin, not a socio,
 		// so it must not appear as "one more socio" in the listing.
 		$rows = $wpdb->get_results(
-			"SELECT id, email, nome, apelidos, telefono, nif, estado, rol, familia_id, baixa_estado, baixa_solicitada_en, creado_en, actualizado_en FROM {$table} WHERE rol <> 'master' ORDER BY email ASC",
+			"SELECT id, email, nome, apelidos, telefono, nif, estado, familia_id, rol_familia, baixa_estado, baixa_solicitada_en, creado_en, actualizado_en FROM {$table} WHERE rol <> 'master' ORDER BY email ASC",
 			ARRAY_A
 		);
 
@@ -87,8 +87,14 @@ final class ANPA_Socios_Admin_Socios_Handler {
 			$by_familia[ $fam ][] = $r;
 		}
 
-		// Enrich each row with segundo_proxenitor (the other member of the family).
-		foreach ( $rows as &$row ) {
+		// Emit ONE row per family: the principal only, enriched with the secundario.
+		$result = array();
+		foreach ( $rows as $row ) {
+			// Only emit principals (head of family).
+			if ( $row['rol_familia'] !== 'principal' ) {
+				continue;
+			}
+
 			$fam = ! empty( $row['familia_id'] ) ? (int) $row['familia_id'] : (int) $row['id'];
 			$row['segundo_proxenitor'] = null;
 			if ( isset( $by_familia[ $fam ] ) && count( $by_familia[ $fam ] ) > 1 ) {
@@ -105,12 +111,12 @@ final class ANPA_Socios_Admin_Socios_Handler {
 					}
 				}
 			}
-			// Remove internal id from response (no raw IDs shown).
-			unset( $row['id'], $row['familia_id'] );
+			// Remove internal ids and legacy rol from response.
+			unset( $row['id'], $row['familia_id'], $row['rol_familia'] );
+			$result[] = $row;
 		}
-		unset( $row );
 
-		return new WP_REST_Response( $rows, 200 );
+		return new WP_REST_Response( $result, 200 );
 	}
 
 	/**

@@ -30,10 +30,10 @@ final class ANPA_Socios_Csv_Import {
 	 */
 	const REQUIRED_FIELDS = array(
 		'socios'      => array( 'id_familia', 'rol_familia', 'nome', 'apelidos' ),
-		'fillos'      => array( 'id_familia', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula' ),
+		'fillos'      => array( 'proxenitor_email', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula' ),
 		'empresas'    => array( 'nome', 'email' ),
 		'actividades' => array( 'empresa_email', 'nome', 'curso_escolar' ),
-		'matriculas'  => array( 'id_familia', 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar' ),
+		'matriculas'  => array( 'proxenitor_email', 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar' ),
 		'socios_iban' => array( 'id_familia', 'titular_nome', 'titular_apelidos', 'titular_nif', 'iban' ),
 	);
 
@@ -45,10 +45,10 @@ final class ANPA_Socios_Csv_Import {
 	 */
 	const ENTITY_HEADERS = array(
 		'socios'      => array( 'id_familia', 'rol_familia', 'email', 'nome', 'apelidos', 'nif', 'telefono', 'estado' ),
-		'fillos'      => array( 'id_familia', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'image_consent', 'estado' ),
+		'fillos'      => array( 'proxenitor_email', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'image_consent', 'estado' ),
 		'empresas'    => array( 'nome', 'email', 'responsable', 'telefono', 'url_web', 'estado' ),
-		'actividades' => array( 'empresa_email', 'nome', 'descripcion', 'curso_escolar', 'min_pupilos', 'max_pupilos', 'idade_min', 'idade_max', 'custo', 'estado' ),
-		'matriculas'  => array( 'id_familia', 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar', 'comedor', 'tarde', 'observaciones', 'estado' ),
+		'actividades' => array( 'empresa_email', 'nome', 'descripcion', 'curso_escolar', 'min_pupilos', 'max_pupilos', 'curso_min', 'curso_max', 'custo', 'estado' ),
+		'matriculas'  => array( 'proxenitor_email', 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar', 'comedor', 'tarde', 'observaciones', 'estado' ),
 		'socios_iban' => array( 'id_familia', 'titular_nome', 'titular_apelidos', 'titular_nif', 'iban', 'entidade_bancaria', 'autorizacion' ),
 	);
 
@@ -217,7 +217,7 @@ final class ANPA_Socios_Csv_Import {
 		}
 
 		// Email fields: email normalization.
-		$email_fields = array( 'email', 'empresa_email' );
+		$email_fields = array( 'email', 'empresa_email', 'proxenitor_email' );
 		foreach ( $email_fields as $field ) {
 			if ( isset( $row[ $field ] ) && '' !== $row[ $field ] ) {
 				$normalized = ANPA_Socios_Normalize::email( $row[ $field ] );
@@ -311,25 +311,25 @@ final class ANPA_Socios_Csv_Import {
 				return "empresas:{$email}";
 
 			case 'fillos':
-				$nome       = mb_strtolower( $row['nome'] ?? '', 'UTF-8' );
-				$apelidos   = mb_strtolower( $row['apelidos'] ?? '', 'UTF-8' );
-				$id_familia = $row['id_familia'] ?? '';
-				if ( '' === $nome || '' === $apelidos || '' === $id_familia ) {
+				$nome             = mb_strtolower( $row['nome'] ?? '', 'UTF-8' );
+				$apelidos         = mb_strtolower( $row['apelidos'] ?? '', 'UTF-8' );
+				$proxenitor_email = $row['proxenitor_email'] ?? '';
+				if ( '' === $nome || '' === $apelidos || '' === $proxenitor_email ) {
 					return null;
 				}
-				return "fillos:{$id_familia}|{$nome}|{$apelidos}";
+				return "fillos:{$proxenitor_email}|{$nome}|{$apelidos}";
 
 			case 'matriculas':
-				$id_familia      = $row['id_familia'] ?? '';
+				$proxenitor_email = $row['proxenitor_email'] ?? '';
 				$fillo_nome      = mb_strtolower( $row['fillo_nome'] ?? '', 'UTF-8' );
 				$fillo_apelidos  = mb_strtolower( $row['fillo_apelidos'] ?? '', 'UTF-8' );
 				$empresa_email   = $row['empresa_email'] ?? '';
 				$actividade_nome = mb_strtolower( $row['actividade_nome'] ?? '', 'UTF-8' );
 				$curso_escolar   = $row['curso_escolar'] ?? '';
-				if ( '' === $id_familia || '' === $fillo_nome || '' === $empresa_email || '' === $actividade_nome || '' === $curso_escolar ) {
+				if ( '' === $proxenitor_email || '' === $fillo_nome || '' === $empresa_email || '' === $actividade_nome || '' === $curso_escolar ) {
 					return null;
 				}
-				return "matriculas:{$id_familia}|{$fillo_nome}|{$fillo_apelidos}|{$empresa_email}|{$actividade_nome}|{$curso_escolar}";
+				return "matriculas:{$proxenitor_email}|{$fillo_nome}|{$fillo_apelidos}|{$empresa_email}|{$actividade_nome}|{$curso_escolar}";
 
 			case 'actividades':
 				$empresa_email = $row['empresa_email'] ?? '';

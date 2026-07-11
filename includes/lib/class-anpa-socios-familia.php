@@ -61,4 +61,27 @@ class ANPA_Socios_Familia {
 
 		return self::resolve_familia_id( $familia_id, $socio_id );
 	}
+
+	/**
+	 * Determines the family role for a socio.
+	 *
+	 * Business rule:
+	 * - 'principal' when familia_id is null, 0, or equals the socio's own id
+	 *   (head of family / single parent / unlinked).
+	 * - 'secundario' for any other family member (linked to another's id).
+	 *
+	 * This is a pure function: no DB access, no side-effects.
+	 *
+	 * @since  1.35.2
+	 * @param  int|null $familia_id The socios.familia_id value (nullable).
+	 * @param  int      $socio_id   The socios.id value (always > 0).
+	 * @return string 'principal' | 'secundario'
+	 */
+	public static function rol_familia( ?int $familia_id, int $socio_id ): string {
+		if ( null === $familia_id || $familia_id <= 0 || $familia_id === $socio_id ) {
+			return 'principal';
+		}
+
+		return 'secundario';
+	}
 }

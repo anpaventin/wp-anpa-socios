@@ -73,7 +73,6 @@ final class ANPA_Socios_Admin_Nav {
 		'empresas'           => 'Empresas',
 		'actividades'        => 'Actividades',
 		'cursos-matriculas'  => 'Cursos e matrículas',
-		'administradores'    => 'Administradores',
 		'importar-listados'  => 'Importar listados',
 		'auditoria'          => 'Auditoría',
 	);
