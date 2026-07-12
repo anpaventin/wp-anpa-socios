@@ -150,6 +150,38 @@ final class ANPA_Socios_Admin_Socios_Handler {
 			return new WP_Error( 'anpa_admin_socio_not_found', __( 'Socio non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 
+		// Attach segundo_proxenitor so the admin edit form can prefill.
+		$fam_row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, familia_id FROM {$wpdb->prefix}anpa_socios WHERE email = %s",
+				$email
+			),
+			ARRAY_A
+		);
+		$row['segundo_proxenitor'] = null;
+		if ( is_array( $fam_row ) ) {
+			$fam_id      = ! empty( $fam_row['familia_id'] ) ? (int) $fam_row['familia_id'] : (int) $fam_row['id'];
+			$principal_id = (int) $fam_row['id'];
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- family-scoped lookup.
+			$p2 = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT nome, apelidos, email, nif, telefono FROM {$wpdb->prefix}anpa_socios WHERE familia_id = %d AND id <> %d LIMIT 1",
+					$fam_id,
+					$principal_id
+				),
+				ARRAY_A
+			);
+			if ( is_array( $p2 ) ) {
+				$row['segundo_proxenitor'] = array(
+					'nome'     => $p2['nome'],
+					'apelidos' => $p2['apelidos'],
+					'email'    => $p2['email'] ?: null,
+					'nif'      => $p2['nif'] ?: null,
+					'telefono' => $p2['telefono'] ?: null,
+				);
+			}
+		}
+
 		return new WP_REST_Response( $row, 200 );
 	}
 
@@ -278,6 +310,26 @@ final class ANPA_Socios_Admin_Socios_Handler {
 		);
 		if ( false === $updated ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+
+		// Handle optional 2nd parent data (reuses the area-rest validator).
+		$p2_input = isset( $body['segundo_proxenitor'] ) ? $body['segundo_proxenitor'] : null;
+		if ( is_array( $p2_input ) && ! empty( array_filter( $p2_input ) ) ) {
+			$fam_row = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT id, familia_id FROM {$wpdb->prefix}anpa_socios WHERE email = %s",
+					$email
+				),
+				ARRAY_A
+			);
+			if ( is_array( $fam_row ) ) {
+				$familia_id   = (int) ( ! empty( $fam_row['familia_id'] ) ? $fam_row['familia_id'] : $fam_row['id'] );
+				$principal_id = (int) $fam_row['id'];
+				$p2_result    = ANPA_Socios_Area_REST::save_segundo_proxenitor( $familia_id, $principal_id, $p2_input );
+				if ( is_wp_error( $p2_result ) ) {
+					return $p2_result;
+				}
+			}
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'socio', $email, 'update' );

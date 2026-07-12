@@ -323,7 +323,7 @@
 	}
 
 	// ── Section: Socios ──────────────────────────────────────────────
-	var SOCIOS_COLS = ['email', 'nome', 'apelidos', 'telefono', 'nif', 'segundo_proxenitor_nome', 'estado'];
+	var SOCIOS_COLS = ['email', 'nome', 'apelidos', 'telefono', 'nif', 'segundo_proxenitor_nome', 'segundo_proxenitor_email', 'segundo_proxenitor_nif', 'estado'];
 
 	function loadSocios() {
 		showLoading();
@@ -339,11 +339,15 @@
 			if (r.segundo_proxenitor) {
 				var sp = r.segundo_proxenitor;
 				r.segundo_proxenitor_nome = (sp.nome || '') + ' ' + (sp.apelidos || '');
+				r.segundo_proxenitor_email = sp.email || '';
+				r.segundo_proxenitor_nif = sp.nif || '';
 				if (!sp.email && !sp.nif) {
 					r.segundo_proxenitor_nome += ' \u26A0';
 				}
 			} else {
 				r.segundo_proxenitor_nome = '';
+				r.segundo_proxenitor_email = '';
+				r.segundo_proxenitor_nif = '';
 			}
 		});
 		var st = sectionState.socios || (sectionState.socios = { sort: { key: 'email', dir: 'asc' }, page: 1, size: 10 });
@@ -424,6 +428,7 @@
 	// ── Socio inline edit form ────────────────────────────────────────
 	function renderSocioEdit(socio, allRows) {
 		root.textContent = '';
+		document.title = 'Editar socio/a — Xestión ANPA';
 		var form = document.createElement('div');
 		form.className = 'anpa-mgmt-form';
 		var h3 = document.createElement('h3');
@@ -450,6 +455,33 @@
 		});
 		addField('Estado', estado);
 
+		// ── 2nd parent section ──
+		var sp = socio.segundo_proxenitor || {};
+		var h3p2 = document.createElement('h3');
+		h3p2.textContent = '2\u00BA proxenitor/titor';
+		h3p2.style.marginTop = '1.5rem';
+		form.appendChild(h3p2);
+		var p2desc = document.createElement('p');
+		p2desc.style.fontSize = '12px';
+		p2desc.style.color = '#646970';
+		p2desc.textContent = 'Se o socio/a ten un segundo proxenitor/titor, completa os seus datos. Deixa baleiro se non.';
+		form.appendChild(p2desc);
+
+		var p2nome = document.createElement('input'); p2nome.type = 'text'; p2nome.value = sp.nome || ''; addField('Nome (2\u00BA)', p2nome);
+		var p2apelidos = document.createElement('input'); p2apelidos.type = 'text'; p2apelidos.value = sp.apelidos || ''; addField('Apelidos (2\u00BA)', p2apelidos);
+		var p2email = document.createElement('input'); p2email.type = 'email'; p2email.value = sp.email || ''; addField('Email (2\u00BA) \u2014 Se est\u00E1 baleiro, non ter\u00E1 acceso \u00E1 \u00E1rea persoal', p2email);
+		var p2nif = document.createElement('input'); p2nif.type = 'text'; p2nif.value = sp.nif || ''; addField('NIF / NIE (2\u00BA)', p2nif);
+		var p2tel = document.createElement('input'); p2tel.type = 'tel'; p2tel.value = sp.telefono || ''; addField('Tel\u00E9fono (2\u00BA)', p2tel);
+
+		// ── Fillos section (placeholder, loaded async) ──
+		var h3f = document.createElement('h3');
+		h3f.textContent = 'Fillos/as';
+		h3f.style.marginTop = '1.5rem';
+		form.appendChild(h3f);
+		var fillosContainer = document.createElement('div');
+		fillosContainer.innerHTML = '<p class="anpa-mgmt-loading">Cargando fillos/as\u2026</p>';
+		form.appendChild(fillosContainer);
+
 		var actions = document.createElement('div');
 		actions.className = 'anpa-mgmt-form-actions';
 		var saveBtn = document.createElement('button');
@@ -457,6 +489,18 @@
 		saveBtn.textContent = 'Gardar cambios';
 		saveBtn.addEventListener('click', function () {
 			clearMessage();
+			var p2data = {};
+			var p2nomeV = (p2nome.value || '').trim();
+			var p2apelidosV = (p2apelidos.value || '').trim();
+			if (p2nomeV || p2apelidosV) {
+				p2data = {
+					nome: p2nomeV,
+					apelidos: p2apelidosV,
+					email: (p2email.value || '').trim() || null,
+					nif: (p2nif.value || '').trim() || null,
+					telefono: (p2tel.value || '').trim() || null,
+				};
+			}
 			var payload = {
 				nome: (nome.value || '').trim(),
 				apelidos: (apelidos.value || '').trim(),
@@ -465,6 +509,9 @@
 				estado: estado.value,
 				rol: socio.rol || 'socio',
 			};
+			if (Object.keys(p2data).length > 0) {
+				payload.segundo_proxenitor = p2data;
+			}
 			if (!payload.nome || !payload.apelidos) {
 				showMessage('Nome e apelidos son obrigatorios.', 'error'); return;
 			}
@@ -484,6 +531,186 @@
 		actions.appendChild(cancelBtn);
 		form.appendChild(actions);
 		root.appendChild(form);
+
+		// ── Load fillos (async) ──
+		anpaAdminFetch('socio/' + encodeURIComponent(socio.email) + '/fillos').then(function (fillos) {
+			renderFillosInline(fillosContainer, fillos, socio);
+		}).catch(function (e) {
+			fillosContainer.textContent = '';
+			fillosContainer.appendChild(emptyEl('Erro ao cargar fillos/as: ' + e.message));
+		});
+	}
+
+	/**
+	 * Renders fillo list (inline table + add button) inside the socio edit form.
+	 * @param {HTMLElement} container - The fillos container div.
+	 * @param {Array} fillos - Fillos array from REST.
+	 * @param {object} socio - Current socio being edited.
+	 */
+	function renderFillosInline(container, fillos, socio) {
+		container.textContent = '';
+		var list = Array.isArray(fillos) ? fillos : [];
+
+		var addBtn = document.createElement('button');
+		addBtn.type = 'button';
+		addBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
+		addBtn.textContent = 'Novo fillo/a';
+		addBtn.addEventListener('click', function () {
+			renderFilloInlineForm(container, null, socio);
+		});
+		container.appendChild(addBtn);
+
+		if (!list.length) {
+			container.appendChild(emptyEl('Sen fillos/as rexistrados.'));
+			return;
+		}
+
+		var table = document.createElement('table');
+		table.className = 'anpa-mgmt-table';
+		var thead = document.createElement('thead');
+		var hr = document.createElement('tr');
+		['Nome', 'Apelidos', 'Data nacemento', 'Curso', 'Grupo', 'Estado', ''].forEach(function (t) {
+			var th = document.createElement('th'); th.textContent = t; hr.appendChild(th);
+		});
+		thead.appendChild(hr); table.appendChild(thead);
+
+		var tbody = document.createElement('tbody');
+		list.forEach(function (f) {
+			var tr = document.createElement('tr');
+			if (f.estado === 'baixa') { tr.classList.add('anpa-row-baixa'); }
+			[f.nome, f.apelidos, f.data_nacemento, f.curso, f.aula, f.estado].forEach(function (v) {
+				var td = document.createElement('td'); td.textContent = v || ''; tr.appendChild(td);
+			});
+			var actionsTd = document.createElement('td');
+			actionsTd.className = 'anpa-mgmt-actions';
+
+			var editBtn = document.createElement('button');
+			editBtn.type = 'button'; editBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
+			editBtn.textContent = 'Editar';
+			editBtn.addEventListener('click', function () {
+				renderFilloInlineForm(container, f, socio);
+			});
+			actionsTd.appendChild(editBtn);
+
+			var delBtn = document.createElement('button');
+			delBtn.type = 'button'; delBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-danger';
+			delBtn.textContent = 'Eliminar';
+			delBtn.addEventListener('click', function () {
+				if (!window.confirm('Eliminar a ' + (f.nome || '') + ' ' + (f.apelidos || '') + '? (baixa l\u00F3xica)')) { return; }
+				anpaAdminFetch('fillo/' + f.id, { method: 'DELETE' }).then(function () {
+					showMessage('Fillo/a dado de baixa.', 'success');
+					anpaAdminFetch('socio/' + encodeURIComponent(socio.email) + '/fillos').then(function (newFillos) {
+						renderFillosInline(container, newFillos, socio);
+					}).catch(function (e) { showMessage(e.message, 'error'); });
+				}).catch(function (e) { showMessage(e.message, 'error'); });
+			});
+			actionsTd.appendChild(delBtn);
+
+			tr.appendChild(actionsTd);
+			tbody.appendChild(tr);
+		});
+		table.appendChild(tbody);
+		container.appendChild(table);
+	}
+
+	/**
+	 * Renders create/edit form for a fillo inside the socio edit form.
+	 * @param {HTMLElement} container - The fillos container div.
+	 * @param {object|null} fillo - Existing fillo row, or null for create.
+	 * @param {object} socio - Current socio (for POST email).
+	 */
+	function renderFilloInlineForm(container, fillo, socio) {
+		container.textContent = '';
+		var isEdit = fillo !== null;
+		var form = document.createElement('div');
+		form.className = 'anpa-mgmt-form-inline';
+		form.style.border = '1px solid #dcdcde';
+		form.style.padding = '1rem';
+		form.style.marginTop = '0.5rem';
+		form.style.borderRadius = '4px';
+		form.style.backgroundColor = '#f6f7f7';
+
+		var title = document.createElement('h4');
+		title.textContent = isEdit ? 'Editar fillo/a' : 'Novo fillo/a';
+		title.style.marginTop = '0';
+		form.appendChild(title);
+
+		function addInlineField(labelText, input) {
+			var lbl = document.createElement('label');
+			lbl.style.display = 'block';
+			lbl.style.marginTop = '0.5rem';
+			lbl.textContent = labelText;
+			lbl.appendChild(input);
+			form.appendChild(lbl);
+		}
+
+		var nomeInput = document.createElement('input'); nomeInput.type = 'text'; nomeInput.value = isEdit ? (fillo.nome || '') : '';
+		addInlineField('Nome', nomeInput);
+
+		var apelidosInput = document.createElement('input'); apelidosInput.type = 'text'; apelidosInput.value = isEdit ? (fillo.apelidos || '') : '';
+		addInlineField('Apelidos', apelidosInput);
+
+		var nacemInput = document.createElement('input'); nacemInput.type = 'date'; nacemInput.value = isEdit ? (fillo.data_nacemento || '') : '';
+		addInlineField('Data nacemento', nacemInput);
+
+		var cursoInput = document.createElement('input'); cursoInput.type = 'text'; cursoInput.value = isEdit ? (fillo.curso || '') : '';
+		addInlineField('Curso', cursoInput);
+
+		var aulaInput = document.createElement('input'); aulaInput.type = 'text'; aulaInput.value = isEdit ? (fillo.aula || '') : '';
+		addInlineField('Grupo', aulaInput);
+
+		var estadoSel = document.createElement('select');
+		['activo', 'baixa'].forEach(function (v) {
+			var opt = document.createElement('option'); opt.value = v; opt.textContent = v;
+			if (isEdit && fillo.estado === v) { opt.selected = true; }
+			estadoSel.appendChild(opt);
+		});
+		addInlineField('Estado', estadoSel);
+
+		var formActions = document.createElement('div');
+		formActions.className = 'anpa-mgmt-form-actions';
+		formActions.style.marginTop = '0.75rem';
+
+		var saveBtn = document.createElement('button');
+		saveBtn.type = 'button'; saveBtn.className = 'anpa-mgmt-btn';
+		saveBtn.textContent = isEdit ? 'Gardar' : 'Engadir';
+		saveBtn.addEventListener('click', function () {
+			clearMessage();
+			var payload = {
+				nome: (nomeInput.value || '').trim(),
+				apelidos: (apelidosInput.value || '').trim(),
+				data_nacemento: (nacemInput.value || '').trim(),
+				curso: (cursoInput.value || '').trim(),
+				aula: (aulaInput.value || '').trim(),
+				estado: estadoSel.value,
+			};
+			if (!payload.nome || !payload.apelidos) {
+				showMessage('Nome e apelidos son obrigatorios.', 'error'); return;
+			}
+			var method = isEdit ? 'PATCH' : 'POST';
+			var path = isEdit ? 'fillo/' + fillo.id : 'socio/' + encodeURIComponent(socio.email) + '/fillos';
+			anpaAdminFetch(path, { method: method, body: payload }).then(function () {
+				showMessage(isEdit ? 'Fillo/a actualizado.' : 'Fillo/a creado.', 'success');
+				// Reload fillos list
+				anpaAdminFetch('socio/' + encodeURIComponent(socio.email) + '/fillos').then(function (newFillos) {
+					renderFillosInline(container, newFillos, socio);
+				}).catch(function (e) { showMessage(e.message, 'error'); });
+			}).catch(function (e) { showMessage(e.message, 'error'); });
+		});
+		formActions.appendChild(saveBtn);
+
+		var cancelBtn = document.createElement('button');
+		cancelBtn.type = 'button'; cancelBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
+		cancelBtn.textContent = 'Cancelar';
+		cancelBtn.addEventListener('click', function () {
+			// Re-render fillos list
+			anpaAdminFetch('socio/' + encodeURIComponent(socio.email) + '/fillos').then(function (newFillos) {
+				renderFillosInline(container, newFillos, socio);
+			}).catch(function (e) { showMessage(e.message, 'error'); });
+		});
+		formActions.appendChild(cancelBtn);
+		form.appendChild(formActions);
+		container.appendChild(form);
 	}
 
 	// ── Section: Aprobacións ─────────────────────────────────────────
