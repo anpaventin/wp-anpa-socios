@@ -37,6 +37,8 @@
 		'baixa_solicitada_en': '',
 		// Segundo proxenitor (socios)
 		'segundo_proxenitor_nome': '2\u00BA proxenitor/titor',
+		'segundo_proxenitor_email': 'Email 2\u00BA prox.',
+		'segundo_proxenitor_nif': 'NIF 2\u00BA prox.',
 		// Empresas
 		'responsable': 'Responsable',
 		'url_web': 'URL web',

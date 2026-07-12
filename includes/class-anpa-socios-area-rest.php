@@ -1010,13 +1010,18 @@ class ANPA_Socios_Area_REST {
 	 *
 	 * Business rule: NIF is mandatory if any 2nd-parent data is provided (RF-3).
 	 *
+	 * Reused by the admin socios handler (ANPA_Socios_Admin_Socios_Handler)
+	 * for the same validation/write logic. The method is family-scoped by its
+	 * explicit ($familia_id, $caller_id, $data) params, so it is safe to call
+	 * from any authenticated surface.
+	 *
 	 * @since  1.35.2
 	 * @param  int   $familia_id Family group id.
 	 * @param  int   $caller_id  Caller's socio id (excluded from lookup).
 	 * @param  array $data       Input data (nome, apelidos, email, nif, telefono).
 	 * @return true|WP_Error
 	 */
-	private static function save_segundo_proxenitor( int $familia_id, int $caller_id, array $data ) {
+	public static function save_segundo_proxenitor( int $familia_id, int $caller_id, array $data ) {
 		// Normalize inputs.
 		$p2_nome     = isset( $data['nome'] ) ? sanitize_text_field( (string) $data['nome'] ) : '';
 		$p2_apelidos = isset( $data['apelidos'] ) ? sanitize_text_field( (string) $data['apelidos'] ) : '';
