@@ -323,7 +323,7 @@
 	}
 
 	// ── Section: Socios ──────────────────────────────────────────────
-	var SOCIOS_COLS = ['email', 'nome', 'apelidos', 'telefono', 'nif', 'segundo_proxenitor_nome', 'segundo_proxenitor_email', 'segundo_proxenitor_nif', 'estado'];
+	var SOCIOS_COLS = ['email', 'nome', 'apelidos', 'telefono', 'nif', 'segundo_proxenitor_nome', 'segundo_proxenitor_email', 'segundo_proxenitor_telefono', 'segundo_proxenitor_nif', 'estado'];
 
 	function loadSocios() {
 		showLoading();
@@ -340,13 +340,15 @@
 				var sp = r.segundo_proxenitor;
 				r.segundo_proxenitor_nome = (sp.nome || '') + ' ' + (sp.apelidos || '');
 				r.segundo_proxenitor_email = sp.email || '';
+				r.segundo_proxenitor_telefono = sp.telefono || '';
 				r.segundo_proxenitor_nif = sp.nif || '';
-				if (!sp.email && !sp.nif) {
+				if (!sp.email && !sp.nif && !sp.telefono) {
 					r.segundo_proxenitor_nome += ' \u26A0';
 				}
 			} else {
 				r.segundo_proxenitor_nome = '';
 				r.segundo_proxenitor_email = '';
+				r.segundo_proxenitor_telefono = '';
 				r.segundo_proxenitor_nif = '';
 			}
 		});
