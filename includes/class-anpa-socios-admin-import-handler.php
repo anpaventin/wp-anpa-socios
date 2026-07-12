@@ -276,6 +276,12 @@ final class ANPA_Socios_Admin_Import_Handler {
 			$rol        = $row['rol_familia'] ?? 'principal';
 			$logical_fam = $row['id_familia'] ?? '';
 
+			// Compute real_familia_id early (needed for downstream upsert).
+			$real_familia_id = null;
+			if ( '' !== $logical_fam && isset( $familia_map[ $logical_fam ] ) ) {
+				$real_familia_id = $familia_map[ $logical_fam ];
+			}
+
 			// Idempotent: skip if socio already exists by nome+apelidos.
 			$exists = $wpdb->get_var( $wpdb->prepare(
 				"SELECT id FROM {$table} WHERE LOWER(nome) = %s AND LOWER(apelidos) = %s LIMIT 1",
@@ -290,7 +296,9 @@ final class ANPA_Socios_Admin_Import_Handler {
 						(int) $exists
 					) );
 					$familia_map[ $logical_fam ] = (int) $fam_id;
+					$real_familia_id = (int) $fam_id;
 				}
+				self::upsert_segundo_proxenitor( $table, $row, $real_familia_id, $wpdb, $idx, $errors, $inserted );
 				$skipped++;
 				continue;
 			}
@@ -308,7 +316,9 @@ final class ANPA_Socios_Admin_Import_Handler {
 							(int) $email_exists
 						) );
 						$familia_map[ $logical_fam ] = (int) $fam_id;
+						$real_familia_id = (int) $fam_id;
 					}
+					self::upsert_segundo_proxenitor( $table, $row, $real_familia_id, $wpdb, $idx, $errors, $inserted );
 					$skipped++;
 					continue;
 				}
@@ -318,12 +328,6 @@ final class ANPA_Socios_Admin_Import_Handler {
 			$db_rol = 'socio';
 			if ( 'secundario' === strtolower( $rol ) ) {
 				$db_rol = 'socio';
-			}
-
-			// Determine familia_id for this row.
-			$real_familia_id = null;
-			if ( '' !== $logical_fam && isset( $familia_map[ $logical_fam ] ) ) {
-				$real_familia_id = $familia_map[ $logical_fam ];
 			}
 
 			$insert_data = array(
@@ -357,10 +361,15 @@ final class ANPA_Socios_Admin_Import_Handler {
 				$familia_map[ $logical_fam ] = $new_id;
 				// Set this socio's familia_id to its own id.
 				$wpdb->update( $table, array( 'familia_id' => $new_id ), array( 'id' => $new_id ), array( '%d' ), array( '%d' ) );
+				$real_familia_id = $new_id;
 			} elseif ( '' !== $logical_fam && null === $real_familia_id ) {
 				// Shouldn't reach here but guard: update to resolved value.
 				$wpdb->update( $table, array( 'familia_id' => $familia_map[ $logical_fam ] ), array( 'id' => $new_id ), array( '%d' ), array( '%d' ) );
+				$real_familia_id = $familia_map[ $logical_fam ];
 			}
+
+			// Upsert segundo proxenitor after principal is established.
+			self::upsert_segundo_proxenitor( $table, $row, $real_familia_id, $wpdb, $idx, $errors, $inserted );
 		}
 
 		if ( $inserted > 0 ) {
@@ -815,5 +824,93 @@ final class ANPA_Socios_Admin_Import_Handler {
 		}
 
 		return array( 'merged' => $merged, 'kept' => $kept );
+	}
+
+	/**
+	 * Upserts a secundario socio row from segundo_proxenitor_* CSV fields.
+	 *
+	 * When a CSV row for a principal includes segundo_proxenitor data, this
+	 * method creates or updates the corresponding secundario row in the same
+	 * family. If a secundario already exists (by familia_id + rol_familia), its
+	 * fields are updated. Otherwise a new row with rol_familia='secundario' is
+	 * inserted. Empty segundo_proxenitor fields are silently ignored (UPDATE
+	 * only touches non-empty fields; INSERT fills empties as '').
+	 *
+	 * @since  1.37.0
+	 * @param  string   $table           Socios table name.
+	 * @param  array    $row             CSV row (may contain segundo_proxenitor_*).
+	 * @param  int|null $real_familia_id Real DB familia_id of the family.
+	 * @param  wpdb     $wpdb            WordPress database object.
+	 * @param  int      $idx             Row index (0-based) for error reporting.
+	 * @param  array    &$errors         Error accumulator (by reference).
+	 * @param  int      &$inserted       Inserted count accumulator (by reference).
+	 * @return void
+	 */
+	private static function upsert_segundo_proxenitor(
+		string $table,
+		array $row,
+		?int $real_familia_id,
+		$wpdb,
+		int $idx,
+		array &$errors,
+		int &$inserted
+	): void {
+		// Check if any segundo_proxenitor field is populated.
+		$has_data = false;
+		foreach ( array( 'segundo_proxenitor_nome', 'segundo_proxenitor_apelidos', 'segundo_proxenitor_email', 'segundo_proxenitor_nif', 'segundo_proxenitor_telefono' ) as $f ) {
+			if ( '' !== ( $row[ $f ] ?? '' ) ) {
+				$has_data = true;
+				break;
+			}
+		}
+		if ( ! $has_data || null === $real_familia_id ) {
+			return;
+		}
+
+		// Check if a secundario already exists for this family.
+		$sec_exists = $wpdb->get_var( $wpdb->prepare(
+			"SELECT id FROM {$table} WHERE familia_id = %d AND rol_familia = 'secundario' LIMIT 1",
+			$real_familia_id
+		) );
+
+		$nome     = $row['segundo_proxenitor_nome'] ?? '';
+		$apelidos = $row['segundo_proxenitor_apelidos'] ?? '';
+		$email    = $row['segundo_proxenitor_email'] ?? '';
+		$nif      = $row['segundo_proxenitor_nif'] ?? '';
+		$telefono = $row['segundo_proxenitor_telefono'] ?? '';
+
+		if ( $sec_exists ) {
+			// UPDATE existing secundario — only non-empty fields.
+			$update_data = array();
+			$formats     = array();
+			if ( '' !== $nome ) { $update_data['nome'] = $nome; $formats[] = '%s'; }
+			if ( '' !== $apelidos ) { $update_data['apelidos'] = $apelidos; $formats[] = '%s'; }
+			if ( '' !== $email ) { $update_data['email'] = $email; $formats[] = '%s'; }
+			if ( '' !== $nif ) { $update_data['nif'] = $nif; $formats[] = '%s'; }
+			if ( '' !== $telefono ) { $update_data['telefono'] = $telefono; $formats[] = '%s'; }
+
+			if ( ! empty( $update_data ) ) {
+				$wpdb->update( $table, $update_data, array( 'id' => $sec_exists ), $formats, array( '%d' ) );
+			}
+		} else {
+			// INSERT new secundario.
+			$ok = $wpdb->insert( $table, array(
+				'familia_id'  => $real_familia_id,
+				'rol_familia' => 'secundario',
+				'rol'         => 'socio',
+				'estado'      => 'activo',
+				'nome'        => $nome,
+				'apelidos'    => $apelidos,
+				'email'       => $email,
+				'nif'         => $nif,
+				'telefono'    => $telefono,
+			), array( '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ) );
+
+			if ( false === $ok ) {
+				$errors[] = array( 'row' => $idx, 'msg' => 'DB insert failed for segundo proxenitor' );
+				return;
+			}
+			$inserted++;
+		}
 	}
 }
