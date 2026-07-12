@@ -44,7 +44,7 @@ final class ANPA_Socios_Csv_Import {
 	 * @var array<string,string[]>
 	 */
 	const ENTITY_HEADERS = array(
-		'socios'      => array( 'id_familia', 'rol_familia', 'email', 'nome', 'apelidos', 'nif', 'telefono', 'estado' ),
+		'socios'      => array( 'id_familia', 'rol_familia', 'email', 'nome', 'apelidos', 'nif', 'telefono', 'estado', 'segundo_proxenitor_nome', 'segundo_proxenitor_apelidos', 'segundo_proxenitor_email', 'segundo_proxenitor_nif', 'segundo_proxenitor_telefono' ),
 		'fillos'      => array( 'proxenitor_email', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'image_consent', 'estado' ),
 		'empresas'    => array( 'nome', 'email', 'responsable', 'telefono', 'url_web', 'estado' ),
 		'actividades' => array( 'empresa_email', 'nome', 'descripcion', 'curso_escolar', 'min_pupilos', 'max_pupilos', 'curso_min', 'curso_max', 'custo', 'estado' ),
@@ -209,7 +209,7 @@ final class ANPA_Socios_Csv_Import {
 	 */
 	private static function normalize_row( string $entity, array $row ): array {
 		// Name fields: title_case.
-		$name_fields = array( 'nome', 'apelidos', 'responsable', 'fillo_nome', 'fillo_apelidos', 'titular_nome', 'titular_apelidos' );
+		$name_fields = array( 'nome', 'apelidos', 'responsable', 'fillo_nome', 'fillo_apelidos', 'titular_nome', 'titular_apelidos', 'segundo_proxenitor_nome', 'segundo_proxenitor_apelidos' );
 		foreach ( $name_fields as $field ) {
 			if ( isset( $row[ $field ] ) && '' !== $row[ $field ] ) {
 				$row[ $field ] = ANPA_Socios_Normalize::title_case( $row[ $field ] );
@@ -217,7 +217,7 @@ final class ANPA_Socios_Csv_Import {
 		}
 
 		// Email fields: email normalization.
-		$email_fields = array( 'email', 'empresa_email', 'proxenitor_email' );
+		$email_fields = array( 'email', 'empresa_email', 'proxenitor_email', 'segundo_proxenitor_email' );
 		foreach ( $email_fields as $field ) {
 			if ( isset( $row[ $field ] ) && '' !== $row[ $field ] ) {
 				$normalized = ANPA_Socios_Normalize::email( $row[ $field ] );
@@ -237,10 +237,22 @@ final class ANPA_Socios_Csv_Import {
 			$row['titular_nif'] = $normalized ?? '';
 		}
 
+		// Segundo proxenitor NIF.
+		if ( isset( $row['segundo_proxenitor_nif'] ) && '' !== $row['segundo_proxenitor_nif'] ) {
+			$normalized = ANPA_Socios_Normalize::nif( $row['segundo_proxenitor_nif'] );
+			$row['segundo_proxenitor_nif'] = $normalized ?? '';
+		}
+
 		// Telefono field.
 		if ( isset( $row['telefono'] ) && '' !== $row['telefono'] ) {
 			$normalized = ANPA_Socios_Normalize::telefono( $row['telefono'] );
 			$row['telefono'] = $normalized ?? '';
+		}
+
+		// Segundo proxenitor telefono.
+		if ( isset( $row['segundo_proxenitor_telefono'] ) && '' !== $row['segundo_proxenitor_telefono'] ) {
+			$normalized = ANPA_Socios_Normalize::telefono( $row['segundo_proxenitor_telefono'] );
+			$row['segundo_proxenitor_telefono'] = $normalized ?? '';
 		}
 
 		// IBAN field (if present).

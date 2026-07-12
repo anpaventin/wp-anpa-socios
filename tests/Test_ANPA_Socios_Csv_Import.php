@@ -607,4 +607,101 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 		$this->assertNotContains( 'idade_min', $headers );
 		$this->assertNotContains( 'idade_max', $headers );
 	}
+
+	// ─── PR-21s2: segundo_proxenitor normalization ─────────────
+
+	public function test_socios_entity_headers_includes_segundo_proxenitor_columns(): void {
+		$headers = ANPA_Socios_Csv_Import::ENTITY_HEADERS['socios'];
+		$this->assertContains( 'segundo_proxenitor_nome', $headers );
+		$this->assertContains( 'segundo_proxenitor_apelidos', $headers );
+		$this->assertContains( 'segundo_proxenitor_email', $headers );
+		$this->assertContains( 'segundo_proxenitor_nif', $headers );
+		$this->assertContains( 'segundo_proxenitor_telefono', $headers );
+	}
+
+	public function test_analyze_normalizes_segundo_proxenitor_nome_apelidos_title_case(): void {
+		$rows = array(
+			array(
+				'id_familia' => '1', 'rol_familia' => 'principal',
+				'email' => 'socio1@example.com', 'nome' => 'Ana', 'apelidos' => 'García',
+				'nif' => '12345678Z', 'telefono' => '', 'estado' => 'activo',
+				'segundo_proxenitor_nome' => 'MARÍA JOSÉ', 'segundo_proxenitor_apelidos' => 'RUIZ DE LA PRADA',
+				'segundo_proxenitor_email' => 'maria@example.com', 'segundo_proxenitor_nif' => '87654321X', 'segundo_proxenitor_telefono' => '',
+			),
+		);
+
+		$result = ANPA_Socios_Csv_Import::analyze( 'socios', $rows );
+
+		$this->assertSame( 'María José', $result['rows'][0]['segundo_proxenitor_nome'] );
+		$this->assertSame( 'Ruiz de la Prada', $result['rows'][0]['segundo_proxenitor_apelidos'] );
+	}
+
+	public function test_analyze_normalizes_segundo_proxenitor_email_lowercase(): void {
+		$rows = array(
+			array(
+				'id_familia' => '1', 'rol_familia' => 'principal',
+				'email' => 'socio1@example.com', 'nome' => 'Ana', 'apelidos' => 'García',
+				'nif' => '12345678Z', 'telefono' => '', 'estado' => 'activo',
+				'segundo_proxenitor_nome' => 'María', 'segundo_proxenitor_apelidos' => 'Ruiz',
+				'segundo_proxenitor_email' => 'MARIA@EXAMPLE.COM', 'segundo_proxenitor_nif' => '87654321X', 'segundo_proxenitor_telefono' => '',
+			),
+		);
+
+		$result = ANPA_Socios_Csv_Import::analyze( 'socios', $rows );
+
+		$this->assertSame( 'maria@example.com', $result['rows'][0]['segundo_proxenitor_email'] );
+	}
+
+	public function test_analyze_normalizes_segundo_proxenitor_nif_uppercase(): void {
+		$rows = array(
+			array(
+				'id_familia' => '1', 'rol_familia' => 'principal',
+				'email' => 'socio1@example.com', 'nome' => 'Ana', 'apelidos' => 'García',
+				'nif' => '12345678Z', 'telefono' => '', 'estado' => 'activo',
+				'segundo_proxenitor_nome' => 'María', 'segundo_proxenitor_apelidos' => 'Ruiz',
+				'segundo_proxenitor_email' => 'maria@example.com', 'segundo_proxenitor_nif' => '87654321x', 'segundo_proxenitor_telefono' => '',
+			),
+		);
+
+		$result = ANPA_Socios_Csv_Import::analyze( 'socios', $rows );
+
+		$nif = $result['rows'][0]['segundo_proxenitor_nif'];
+		$this->assertSame( $nif, strtoupper( $nif ) );
+	}
+
+	public function test_analyze_normalizes_segundo_proxenitor_telefono_digits(): void {
+		$rows = array(
+			array(
+				'id_familia' => '1', 'rol_familia' => 'principal',
+				'email' => 'socio1@example.com', 'nome' => 'Ana', 'apelidos' => 'García',
+				'nif' => '12345678Z', 'telefono' => '', 'estado' => 'activo',
+				'segundo_proxenitor_nome' => 'María', 'segundo_proxenitor_apelidos' => 'Ruiz',
+				'segundo_proxenitor_email' => 'maria@example.com', 'segundo_proxenitor_nif' => '87654321X',
+				'segundo_proxenitor_telefono' => '+34 600 654 321',
+			),
+		);
+
+		$result = ANPA_Socios_Csv_Import::analyze( 'socios', $rows );
+
+		$this->assertSame( '600654321', $result['rows'][0]['segundo_proxenitor_telefono'] );
+	}
+
+	public function test_analyze_segundo_proxenitor_empty_fields_unchanged(): void {
+		$rows = array(
+			array(
+				'id_familia' => '1', 'rol_familia' => 'principal',
+				'email' => 'socio1@example.com', 'nome' => 'Ana', 'apelidos' => 'García',
+				'nif' => '12345678Z', 'telefono' => '', 'estado' => 'activo',
+				'segundo_proxenitor_nome' => '', 'segundo_proxenitor_apelidos' => '',
+				'segundo_proxenitor_email' => '', 'segundo_proxenitor_nif' => '', 'segundo_proxenitor_telefono' => '',
+			),
+		);
+
+		$result = ANPA_Socios_Csv_Import::analyze( 'socios', $rows );
+
+		$this->assertSame( '', $result['rows'][0]['segundo_proxenitor_nome'] );
+		$this->assertSame( '', $result['rows'][0]['segundo_proxenitor_email'] );
+		$this->assertSame( '', $result['rows'][0]['segundo_proxenitor_nif'] );
+		$this->assertSame( '', $result['rows'][0]['segundo_proxenitor_telefono'] );
+	}
 }

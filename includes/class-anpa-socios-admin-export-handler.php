@@ -51,11 +51,11 @@ final class ANPA_Socios_Admin_Export_Handler {
 	 * @var array<string,string[]>
 	 */
 	private const ENTITY_COLUMNS = array(
-		'socios'      => array( 'email', 'nome', 'apelidos', 'estado', 'rol', 'creado_en', 'actualizado_en' ),
+		'socios'      => array( 'id_familia', 'rol_familia', 'email', 'nome', 'apelidos', 'nif', 'telefono', 'estado', 'segundo_proxenitor_nome', 'segundo_proxenitor_apelidos', 'segundo_proxenitor_email', 'segundo_proxenitor_nif', 'segundo_proxenitor_telefono' ),
 		'empresas'    => array( 'nome', 'email', 'responsable', 'telefono', 'estado', 'creado_en', 'actualizado_en' ),
 		'actividades' => array( 'empresa_email', 'nome', 'descripcion', 'curso_escolar', 'idade_min', 'idade_max', 'custo', 'estado' ),
 		'matriculas'  => array( 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar', 'estado', 'comedor', 'tarde', 'observaciones' ),
-		'fillos'      => array( 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'estado' ),
+		'fillos'      => array( 'proxenitor_email', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'estado' ),
 	);
 
 	/**
@@ -64,7 +64,7 @@ final class ANPA_Socios_Admin_Export_Handler {
 	 * @since 1.34.0
 	 * @var string[]
 	 */
-	private const JOIN_ENTITIES = array( 'actividades', 'matriculas' );
+	private const JOIN_ENTITIES = array( 'actividades', 'matriculas', 'socios', 'fillos' );
 
 	/**
 	 * Registers export admin routes.
@@ -237,8 +237,11 @@ final class ANPA_Socios_Admin_Export_Handler {
 	/**
 	 * Fetches entity rows with JOINs to resolve natural-key columns.
 	 *
+	 * Entities: actividades (empresa JOIN), matriculas (fillo+actividade+empresa),
+	 * socios (self-JOIN for second parent), fillos (socio_email alias).
+	 *
 	 * @since  1.34.0
-	 * @param  string $entity Entity name (actividades or matriculas).
+	 * @param  string $entity Entity name.
 	 * @return array[]|null Rows or null on DB error.
 	 */
 	private static function fetch_joined_entity( string $entity ): ?array {
@@ -261,6 +264,26 @@ final class ANPA_Socios_Admin_Export_Handler {
 					LEFT JOIN {$prefix}anpa_actividades act ON act.id = m.activitad_id
 					LEFT JOIN {$prefix}anpa_empresas e ON e.id = act.empresa_id
 					ORDER BY f.nome ASC, f.apelidos ASC";
+		} elseif ( 'socios' === $entity ) {
+			$sql = "SELECT COALESCE(NULLIF(p.familia_id, 0), p.id) AS id_familia,
+					p.rol_familia,
+					p.email, p.nome, p.apelidos, p.nif, p.telefono, p.estado,
+					s.nome AS segundo_proxenitor_nome,
+					s.apelidos AS segundo_proxenitor_apelidos,
+					s.email AS segundo_proxenitor_email,
+					s.nif AS segundo_proxenitor_nif,
+					s.telefono AS segundo_proxenitor_telefono
+					FROM {$prefix}anpa_socios p
+					LEFT JOIN {$prefix}anpa_socios s
+						ON COALESCE(NULLIF(s.familia_id, 0), s.id) = COALESCE(NULLIF(p.familia_id, 0), p.id)
+						AND s.id <> p.id
+						AND s.rol_familia = 'secundario'
+					WHERE p.rol <> 'master' AND p.rol_familia = 'principal'
+					ORDER BY p.email ASC";
+		} elseif ( 'fillos' === $entity ) {
+			$sql = "SELECT socio_email AS proxenitor_email, nome, apelidos, data_nacemento, curso, aula, estado
+					FROM {$prefix}anpa_fillos
+					ORDER BY socio_email ASC";
 		} else {
 			return null;
 		}
