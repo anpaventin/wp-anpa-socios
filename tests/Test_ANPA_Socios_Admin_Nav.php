@@ -101,6 +101,21 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 		);
 	}
 
+	/**
+	 * The top-level admin menu entry must render as "Axustes", not a duplicate
+	 * "ANPA Socios" entry. The legacy add_menu_page used 'ANPA Socios' as the
+	 * menu title, which produced a redundant top-level item.
+	 */
+	public function test_register_menu_does_not_duplicate_top_level_anpa_socios(): void {
+		$settings = file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-settings.php' );
+
+		// The top-level menu title must be "Axustes", not "ANPA Socios".
+		$this->assertStringContainsString( "'Axustes'", $settings );
+		$this->assertStringNotContainsString( "add_menu_page( 'ANPA Socios', 'ANPA Socios'", $settings );
+		// The redundant duplicate Axustes submenu (same slug as the top page) is gone.
+		$this->assertStringNotContainsString( "add_submenu_page( self::SETTINGS_SLUG, 'Axustes ANPA Socios', 'Axustes', self::CAP, self::SETTINGS_SLUG", $settings );
+	}
+
 	public function test_management_requires_completed_setup(): void {
 		$this->assertFalse( ANPA_Socios_Admin_Nav::can_access_management( false ) );
 		$this->assertTrue( ANPA_Socios_Admin_Nav::can_access_management( true ) );
