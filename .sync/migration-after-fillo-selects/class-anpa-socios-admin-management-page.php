@@ -162,21 +162,12 @@ final class ANPA_Socios_Admin_Management_Page {
 			true
 		);
 
-		// Localize: REST root + nonce + dynamic estrutura data.
-		global $wpdb;
-		$curso_escolar = ANPA_Socios_Curso_Escolar::current();
-		$niveis = ANPA_Socios_DB::get_niveis_for_curso( $curso_escolar );
-		$nivel_ids = array();
-		foreach ( $niveis as $n ) {
-			$nivel_ids[] = (int) $n['id'];
-		}
-		$aulas = ANPA_Socios_DB::get_aulas_for_niveis( $nivel_ids );
-
+		// Localize: REST root + nonce.
 		wp_localize_script( 'anpa-socios-admin-management', 'anpaAdminMgmt', array(
-			'root'       => esc_url_raw( rest_url( 'anpa-socios/v1/admin/' ) ),
-			'nonce'      => wp_create_nonce( 'wp_rest' ),
-			'filloniveis' => $niveis,
-			'filloaulas'  => $aulas,
+			'root'         => esc_url_raw( rest_url( 'anpa-socios/v1/admin/' ) ),
+			'nonce'        => wp_create_nonce( 'wp_rest' ),
+			'filloCursos' => range( 1, 6 ),
+			'filloGrupos' => ANPA_Socios_Config::aulas(),
 		) );
 
 		// admin-management.css.

@@ -64,6 +64,15 @@
 }
 
 /* fase11: public offered-activity cards rendered from active DB activities */
+.anpa-extra-curso-activo {
+	font-size: 0.95rem;
+	color: #5a6b60;
+	margin-bottom: 1rem;
+}
+.anpa-extra-horario-line {
+	padding-left: 1.25rem;
+	margin: 0.15rem 0;
+}
 .anpa-extra-ofertadas.anpa-card-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

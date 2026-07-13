@@ -51,4 +51,21 @@ class Test_ANPA_Socios_Settings_Tabs extends TestCase {
 		$this->assertSame( 'Verificación', ANPA_Socios_Settings_Tabs::label( 'verificacion' ) );
 		$this->assertSame( '', ANPA_Socios_Settings_Tabs::label( 'unknown' ) );
 	}
+
+	public function test_invalid_master_email_does_not_report_success(): void {
+		$file = dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-settings.php';
+		$src  = file_get_contents( $file );
+
+		$this->assertStringContainsString( 'is_email( $email )', $src );
+		$this->assertStringContainsString( "'settings_saved' => array( 'success'", $src );
+	}
+
+	public function test_courses_render_directly_without_single_section_level(): void {
+		$file = dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-settings.php';
+		$src  = file_get_contents( $file );
+
+		$this->assertStringContainsString( "'tab' => 'cursos'", $src );
+		$this->assertStringContainsString( "'anpa_msg' => 'settings_saved'", $src );
+		$this->assertStringContainsString( 'render_tab_cursos', $src );
+	}
 }

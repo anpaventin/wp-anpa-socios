@@ -10,7 +10,14 @@
 
 declare(strict_types=1);
 
+// Define ABSPATH so classes that guard against direct access (e.g. Config)
+// can be loaded in the test bootstrap without WordPress.
+if ( ! defined( 'ABSPATH' ) ) {
+    define( 'ABSPATH', dirname( __DIR__ ) . '/' );
+}
+
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-payload.php';
+require_once __DIR__ . '/../includes/class-anpa-socios-config.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-sepa.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-crypto.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-codigo-generator.php';
@@ -21,6 +28,8 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-flow.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-admin-payload.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-actividade-options.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-curso-fit.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-grupo-niveis.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-estrutura-escolar.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-curso-escolar.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-curso-lifecycle.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-course-settings.php';
@@ -41,3 +50,4 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-admin-auth.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-normalize.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-familia.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-csv-import.php';
+require_once __DIR__ . '/../includes/class-anpa-socios-db.php';

@@ -27,11 +27,11 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 
 	public function test_settings_sections_are_ordered_by_tab(): void {
 		$this->assertSame(
-			array( 'estado', 'mantemento', 'actualizacions', 'configuracion', 'paxinas' ),
+			array( 'estado', 'mantemento', 'configuracion', 'paxinas' ),
 			array_keys( ANPA_Socios_Admin_Nav::settings_sections( 'xeral' ) )
 		);
 		$this->assertSame(
-			array( 'curso-escolar', 'matriculas', 'crear-novo' ),
+			array( 'estrutura' ),
 			array_keys( ANPA_Socios_Admin_Nav::settings_sections( 'cursos' ) )
 		);
 		$this->assertSame(
@@ -47,6 +47,7 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 
 		$this->assertSame( 'estado', ANPA_Socios_Admin_Nav::active_settings_section( 'xeral', null ) );
 		$this->assertSame( 'estado', ANPA_Socios_Admin_Nav::active_settings_section( 'xeral', 'verificacion' ) );
+		$this->assertSame( 'estrutura', ANPA_Socios_Admin_Nav::active_settings_section( 'cursos', 'curso-escolar' ) );
 		$this->assertSame( '', ANPA_Socios_Admin_Nav::active_settings_section( 'mantemento', 'verificacion' ) );
 		$this->assertSame( '', ANPA_Socios_Admin_Nav::active_settings_section( 'mantemento', 'unknown' ) );
 	}
@@ -75,6 +76,43 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 			),
 			ANPA_Socios_Admin_Nav::native_management_page()
 		);
+	}
+
+	public function test_plugin_submenus_are_ordered_without_duplicate_parent_entry(): void {
+		$this->assertSame(
+			array(
+				'settings' => array(
+					'slug'       => 'anpa-socios-settings',
+					'menu_label' => 'Axustes',
+					'page_title' => 'Axustes ANPA Socios',
+				),
+				'management' => array(
+					'slug'       => 'anpa-socios-management',
+					'menu_label' => 'Xestión ANPA',
+					'page_title' => 'Xestión ANPA',
+				),
+				'documentation' => array(
+					'slug'       => 'anpa-socios-docs',
+					'menu_label' => 'Documentación',
+					'page_title' => 'Documentación ANPA Socios',
+				),
+			),
+			ANPA_Socios_Admin_Nav::plugin_submenus()
+		);
+	}
+
+	public function test_management_requires_completed_setup(): void {
+		$this->assertFalse( ANPA_Socios_Admin_Nav::can_access_management( false ) );
+		$this->assertTrue( ANPA_Socios_Admin_Nav::can_access_management( true ) );
+	}
+
+	public function test_clean_install_management_redirect_is_wired_and_old_warning_removed(): void {
+		$management = file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-management-page.php' );
+		$plugin     = file_get_contents( dirname( __DIR__ ) . '/anpa-socios.php' );
+
+		$this->assertStringContainsString( 'ANPA_Socios_Banking_Key::is_configured()', $management );
+		$this->assertStringContainsString( 'wp_safe_redirect', $management );
+		$this->assertStringNotContainsString( 'Un admin debe executar o setup da clave', $plugin );
 	}
 
 	public function test_import_targets_are_read_only_planning_targets(): void {

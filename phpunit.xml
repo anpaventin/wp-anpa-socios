@@ -16,6 +16,14 @@
       <file>tests/Test_ANPA_Socios_Roles.php</file>
       <file>tests/Test_ANPA_Socios_Flow.php</file>
       <file>tests/Test_ANPA_Socios_Admin_Payload.php</file>
+      <file>tests/Test_ANPA_Socios_Legacy_Hardcodes.php</file>
+      <file>tests/Test_ANPA_Socios_Estrutura_Escolar.php</file>
+      <file>tests/Test_ANPA_Socios_Grupo_Niveis.php</file>
+      <file>tests/Test_ANPA_Socios_DB_Migration.php</file>
+      <file>tests/Test_ANPA_Socios_Admin_Estrutura_Handler.php</file>
+      <file>tests/Test_ANPA_Socios_Fillos_Handlers_ES4.php</file>
+      <file>tests/Test_ANPA_Socios_Fillos_Dinamicos.php</file>
+      <file>tests/Test_ANPA_Socios_Grupos_Niveis_Dinamicos.php</file>
       <file>tests/Test_ANPA_Socios_Empresa_View.php</file>
       <file>tests/Test_ANPA_Socios_Csv.php</file>
       <file>tests/Test_ANPA_Socios_Antibot.php</file>
@@ -36,6 +44,7 @@
       <file>tests/Test_ANPA_Socios_Admin_Auth.php</file>
       <file>tests/Test_ANPA_Socios_Master_Auth_Removed.php</file>
       <file>tests/Test_ANPA_Socios_Security_Fase17.php</file>
+      <file>tests/Test_ANPA_Socios_Admin_Audit_Hardening.php</file>
       <file>tests/Test_ANPA_Socios_Normalize.php</file>
       <file>tests/Test_ANPA_Socios_Familia.php</file>
       <file>tests/Test_ANPA_Socios_Csv_Import.php</file>

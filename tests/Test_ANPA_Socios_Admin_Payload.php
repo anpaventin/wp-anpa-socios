@@ -103,6 +103,19 @@ class Test_ANPA_Socios_Admin_Payload extends TestCase {
 		$this->assertNull( $result );
 	}
 
+	public function test_diagnosticar_empresa_identifies_the_invalid_field(): void {
+		$base = array(
+			'nome'        => 'Escola',
+			'email'       => 'a@b.es',
+			'responsable' => 'Ana',
+			'telefono'    => '666111222',
+		);
+
+		$this->assertNull( ANPA_Socios_Admin_Payload::diagnosticar_empresa( $base ) );
+		$this->assertSame( 'telefono_required', ANPA_Socios_Admin_Payload::diagnosticar_empresa( array_replace( $base, array( 'telefono' => '' ) ) ) );
+		$this->assertSame( 'email_invalid', ANPA_Socios_Admin_Payload::diagnosticar_empresa( array_replace( $base, array( 'email' => 'non-email' ) ) ) );
+	}
+
 	// ──────────────────────────────────────────────
 	// validar_actividad
 	// ──────────────────────────────────────────────
@@ -170,6 +183,26 @@ class Test_ANPA_Socios_Admin_Payload extends TestCase {
 			'custo'         => 'not-a-number',
 		) );
 		$this->assertNull( $result );
+	}
+
+	public function test_diagnosticar_actividad_identifies_option_and_value_errors(): void {
+		$base = array(
+			'empresa_id'    => 1,
+			'nome'          => 'Teatro',
+			'descripcion'   => 'Teatro infantil',
+			'curso_escolar' => '2025/2026',
+			'horarios'      => array( 'tarde' ),
+			'grupos'        => array( '1-2-3' ),
+			'dias'          => array( 'luns' ),
+			'custo'         => '30.00',
+		);
+
+		$this->assertNull( ANPA_Socios_Admin_Payload::diagnosticar_actividad( $base ) );
+		$this->assertSame( 'horarios_required', ANPA_Socios_Admin_Payload::diagnosticar_actividad( array_replace( $base, array( 'horarios' => array() ) ) ) );
+		$this->assertSame( 'grupos_required', ANPA_Socios_Admin_Payload::diagnosticar_actividad( array_replace( $base, array( 'grupos' => array() ) ) ) );
+		$this->assertSame( 'dias_required', ANPA_Socios_Admin_Payload::diagnosticar_actividad( array_replace( $base, array( 'dias' => array() ) ) ) );
+		$this->assertSame( 'curso_escolar_invalid', ANPA_Socios_Admin_Payload::diagnosticar_actividad( array_replace( $base, array( 'curso_escolar' => '2025' ) ) ) );
+		$this->assertSame( 'custo_invalid', ANPA_Socios_Admin_Payload::diagnosticar_actividad( array_replace( $base, array( 'custo' => 'abc' ) ) ) );
 	}
 
 	// ──────────────────────────────────────────────

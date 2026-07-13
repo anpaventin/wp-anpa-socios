@@ -1253,5 +1253,86 @@ msgid "A Xestión ANPA require sesión de administración válida; se caduca, ha
 msgstr "A Xestión ANPA require sesión de administración válida; se caduca, hai que volver autenticarse."
 
 msgid "Antes de importar ou arquivar datos persoais, debe existir unha subfase con validación, vista previa, confirmación e auditoría."
-msgstr "Antes de importar ou arquivar datos persoais, debe existir unha subfase con validación, vista previa, confirmación e auditoría."
+msgstr "Antes de importar o archivar datos personales, debe existir una subfase con validación, vista previa, confirmación y auditoría."
+
+msgid "Documentación"
+msgstr "Documentación"
+
+msgid "O email do equipo administrador non é válido. Non se gardou ningún cambio."
+msgstr "El correo del equipo administrador no es válido. No se guardó ningún cambio."
+
+msgid "O nome é obrigatorio."
+msgstr "El nombre es obligatorio."
+
+msgid "O responsable é obrigatorio."
+msgstr "La persona responsable es obligatoria."
+
+msgid "O teléfono é obrigatorio."
+msgstr "El teléfono es obligatorio."
+
+msgid "O email é obrigatorio."
+msgstr "El correo electrónico es obligatorio."
+
+msgid "O email non é válido."
+msgstr "El correo electrónico no es válido."
+
+msgid "O estado da empresa non é válido."
+msgstr "El estado de la empresa no es válido."
+
+msgid "Revisa os datos da empresa."
+msgstr "Revisa los datos de la empresa."
+
+msgid "Selecciona unha empresa válida."
+msgstr "Selecciona una empresa válida."
+
+msgid "O nome da actividade é obrigatorio."
+msgstr "El nombre de la actividad es obligatorio."
+
+msgid "A descrición é obrigatoria."
+msgstr "La descripción es obligatoria."
+
+msgid "O curso escolar é obrigatorio."
+msgstr "El curso escolar es obligatorio."
+
+msgid "O curso escolar debe ter formato AAAA/AAAA+1."
+msgstr "El curso escolar debe tener formato AAAA/AAAA+1."
+
+msgid "Selecciona polo menos un horario válido."
+msgstr "Selecciona al menos un horario válido."
+
+msgid "Selecciona polo menos un grupo válido."
+msgstr "Selecciona al menos un grupo válido."
+
+msgid "Selecciona polo menos un día válido."
+msgstr "Selecciona al menos un día válido."
+
+msgid "O custo debe ser un número válido."
+msgstr "El coste debe ser un número válido."
+
+msgid "O curso mínimo non pode ser maior ca o curso máximo."
+msgstr "El curso mínimo no puede ser mayor que el curso máximo."
+
+msgid "O estado da actividade non é válido."
+msgstr "El estado de la actividad no es válido."
+
+msgid "Revisa os datos da actividade."
+msgstr "Revisa los datos de la actividad."
+
+msgid "Empresa non atopada."
+msgstr "Empresa no encontrada."
+
+msgid "Desactiva a empresa antes de eliminala."
+msgstr "Desactiva la empresa antes de eliminarla."
+
+msgid "Actividade non atopada."
+msgstr "Actividad no encontrada."
+
+msgid "Desactiva a actividade antes de eliminala."
+msgstr "Desactiva la actividad antes de eliminarla."
+
+msgid "Non se pode eliminar a actividade porque ten grupos ou matrículas asociadas."
+msgstr "No se puede eliminar la actividad porque tiene grupos o matrículas asociadas."
+
+msgid "Revisa os cursos nos que se oferta a actividade."
+msgstr "Revisa los cursos en los que se ofrece la actividad."
 

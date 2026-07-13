@@ -512,13 +512,47 @@
 			data.dataset.f = 'data_nacemento';
 			data.title = __( 'Data de nacemento', 'anpa-socios' );
 
+			// ── Dynamic nivel→aula selectors (ES4) ──
+			const est = window.anpaAltaEstrutura || {};
+			const niveis = Array.isArray(est.niveis) ? est.niveis : [];
+			const aulas  = Array.isArray(est.aulas) ? est.aulas : [];
+
 			const curso = document.createElement('select');
 			curso.dataset.f = 'curso';
-			buildOptions(curso, ['1', '2', '3', '4', '5', '6'], ['1º', '2º', '3º', '4º', '5º', '6º']);
+			if (niveis.length > 0) {
+				const ph1 = document.createElement('option'); ph1.value = ''; ph1.textContent = '-- Selecciona --';
+				curso.appendChild(ph1);
+				niveis.forEach(function (n) {
+					const o = document.createElement('option'); o.value = n.codigo; o.textContent = n.etiqueta;
+					curso.appendChild(o);
+				});
+			} else {
+				buildOptions(curso, ['1', '2', '3', '4', '5', '6'], ['1º', '2º', '3º', '4º', '5º', '6º']);
+			}
 
 			const aula = document.createElement('select');
 			aula.dataset.f = 'aula';
-			buildOptions(aula, ['A', 'B', 'C', 'D'], ['A', 'B', 'C', 'D']);
+			if (niveis.length > 0) {
+				const ph2 = document.createElement('option'); ph2.value = ''; ph2.textContent = '-- Selecciona --';
+				aula.appendChild(ph2);
+				// Will be populated on curso change
+				curso.addEventListener('change', function () {
+					aula.textContent = '';
+					aula.appendChild(document.createElement('option')); // placeholder re-added
+					const ph2b = document.createElement('option'); ph2b.value = ''; ph2b.textContent = '-- Selecciona --';
+					aula.appendChild(ph2b);
+					let nid = null;
+					niveis.forEach(function (n) { if (n.codigo === curso.value) { nid = n.id; } });
+					aulas.forEach(function (a) {
+						if (parseInt(a.nivel_id, 10) === parseInt(nid, 10)) {
+							const o = document.createElement('option'); o.value = a.codigo; o.textContent = a.etiqueta;
+							aula.appendChild(o);
+						}
+					});
+				});
+			} else {
+				buildOptions(aula, ['A', 'B', 'C', 'D'], ['A', 'B', 'C', 'D']);
+			}
 
 			const consentLabel = document.createElement('label');
 			consentLabel.className = 'anpa-check';

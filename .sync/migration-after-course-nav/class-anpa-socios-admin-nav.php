@@ -44,9 +44,7 @@ final class ANPA_Socios_Admin_Nav {
 			'configuracion' => 'Configuración',
 			'paxinas'       => 'Páxinas e shortcodes',
 		),
-		'cursos'       => array(
-			'estrutura' => 'Estrutura escolar',
-		),
+		'cursos'       => array(),
 		'localizacion' => array(),
 	);
 

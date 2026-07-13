@@ -38,6 +38,11 @@ final class ANPA_Socios_Admin_Approvals_Handler {
 			'callback'            => array( __CLASS__, 'list_pending' ),
 			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
 		) );
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/approvals/history', array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => array( __CLASS__, 'list_history' ),
+			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+		) );
 		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/approvals/approve', array(
 			'methods'             => WP_REST_Server::CREATABLE,
 			'callback'            => array( __CLASS__, 'approve' ),
@@ -67,6 +72,44 @@ final class ANPA_Socios_Admin_Approvals_Handler {
 				 ORDER BY creado_en ASC",
 				self::PENDING_ESTADO
 			),
+			ARRAY_A
+		);
+
+		return new WP_REST_Response( is_array( $rows ) ? $rows : array(), 200 );
+	}
+
+	/**
+	 * GET /admin/approvals/history — list previously approved/rejected socios.
+	 *
+	 * Queries the last 100 approval decision events and joins current socio
+	 * data when available to show request and decision dates.
+	 *
+	 * @since  1.34.0
+	 * @return WP_REST_Response
+	 */
+	public static function list_history(): WP_REST_Response {
+		global $wpdb;
+
+		$audit_t = $wpdb->prefix . 'anpa_audit_log';
+		$soc_t   = $wpdb->prefix . 'anpa_socios';
+
+		// Return every decision event. LEFT JOIN keeps audit history visible even
+		// when the current socio row has changed or no longer exists.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
+		$rows = $wpdb->get_results(
+			"SELECT COALESCE(s.email, a.target_id) AS email,
+			        COALESCE(s.nome, '') AS nome,
+			        COALESCE(s.apelidos, '') AS apelidos,
+			        COALESCE(s.telefono, '') AS telefono,
+			        s.creado_en AS solicitado_en,
+			        a.timestamp AS resolto_en,
+			        a.accion,
+			        a.actor_email AS resolto_por
+			 FROM {$audit_t} a
+			 LEFT JOIN {$soc_t} s ON s.email = a.target_id
+			 WHERE a.target_tipo = 'socio' AND a.accion IN ('approval_approve', 'approval_reject')
+			 ORDER BY a.timestamp DESC
+			 LIMIT 100",
 			ARRAY_A
 		);
 

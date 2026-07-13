@@ -135,7 +135,7 @@
 	background: #fef3e2;
 }
 
-/* ── Filter / toolbar bar ──────────────────────────────────────── */
+/* ── Filters / toolbar bar ──────────────────────────────────────── */
 .anpa-mgmt-filter-bar {
 	display: flex;
 	flex-wrap: wrap;
@@ -158,6 +158,24 @@
 	display: flex;
 	align-items: center;
 	gap: 0.3rem;
+}
+
+/* ── Cursos summary section ────────────────────────────────────── */
+.anpa-mgmt-summary {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.75rem 1rem;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	margin-bottom: 1rem;
+}
+
+.anpa-mgmt-summary p {
+	margin: 0;
+	font-size: 14px;
 }
 
 /* ── Pagination ────────────────────────────────────────────────── */
@@ -270,6 +288,15 @@
 	display: flex;
 	gap: 0.5rem;
 	margin-top: 1rem;
+}
+
+.anpa-mgmt-table input[type="checkbox"],
+.anpa-mgmt-form input[type="checkbox"] {
+	width: 16px;
+	height: 16px;
+	min-width: 16px;
+	min-height: 16px;
+	border-radius: 0;
 }
 
 /* ── Empty state ───────────────────────────────────────────────── */

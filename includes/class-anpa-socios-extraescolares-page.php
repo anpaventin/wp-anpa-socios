@@ -80,56 +80,55 @@ final class ANPA_Socios_Extraescolares_Page {
 	 * @return string Escaped HTML.
 	 */
 	public static function render_ofertadas( $atts ): string {
-		$rows = self::active_activities();
+		$curso = ANPA_Socios_Curso_Activo::get();
+		$rows  = self::active_activities();
 		if ( array() === $rows ) {
 			return '<div class="anpa-extra-ofertadas anpa-extra-empty"><p>'
 				. esc_html__( 'Aínda non hai actividades extraescolares publicadas para este curso.', 'anpa-socios' )
 				. '</p></div>';
 		}
 
-		$html = '<div class="anpa-extra-ofertadas anpa-card-grid">';
+		$html = '<div class="anpa-extra-ofertadas">';
+		if ( null !== $curso ) {
+			/* translators: %s: school year like "2026/2027" */
+			$html .= '<p class="anpa-extra-curso-activo">'
+				. esc_html( sprintf( __( 'Actividades activas no curso actual %s', 'anpa-socios' ), $curso ) )
+				. '</p>';
+		}
+		$html .= '<div class="anpa-card-grid">';
 		foreach ( $rows as $act ) {
 			$html .= '<div class="anpa-card anpa-extra-card">';
 			$html .= '<p class="anpa-icon-circle">' . esc_html( self::activity_icon( (string) ( $act['icono'] ?? '' ) ) ) . '</p>';
 			$html .= '<h3>' . esc_html( (string) ( $act['nome'] ?? '' ) ) . '</h3>';
-			$html .= '<p>' . esc_html( (string) ( $act['descripcion'] ?? '' ) ) . '</p>';
 
-			// Schedule.
-			$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Horario:', 'anpa-socios' ) . '</strong> ' . esc_html( self::schedule_label( $act ) ) . '</p>';
-
-			// Groups (replaces the old "Curso:" label) with enrolment stats.
-			$grupos_info = isset( $act['grupos_detail'] ) ? (array) json_decode( $act['grupos_detail'], true ) : array();
-			if ( array() !== $grupos_info ) {
-				$parts = array();
-				foreach ( $grupos_info as $g ) {
-					$label = ANPA_Socios_Horario_Builder::GRUPO_LABELS[ $g['curso_range'] ] ?? $g['curso_range'];
-					$min   = (int) ( $g['min_pupilos'] ?? 0 );
-					$max   = (int) ( $g['max_pupilos'] ?? 0 );
-					$ins   = (int) ( $g['activos'] ?? 0 );
-					$esp   = (int) ( $g['espera'] ?? 0 );
-					$stats = $max > 0 ? "{$ins} / {$max}" : ( $min > 0 ? sprintf( __( 'mín %d', 'anpa-socios' ), $min ) : '' );
-					if ( $esp > 0 ) {
-						/* translators: %d: number of pupils on the waiting list */
-						$stats .= ' (' . sprintf( __( '%d en espera', 'anpa-socios' ), $esp ) . ')';
-					}
-					$parts[] = empty( $stats ) ? $label : "{$label} — {$stats}";
-				}
-				$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Grupos:', 'anpa-socios' ) . '</strong> ' . esc_html( implode( ' | ', $parts ) ) . '</p>';
-			}
-
-			$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Prezo:', 'anpa-socios' ) . '</strong> ' . esc_html( self::price_label( $act['custo'] ?? null ) ) . '</p>';
-
+			// Empresa.
+			$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Empresa:', 'anpa-socios' ) . '</strong> ';
 			if ( ! empty( $act['empresa_nome'] ) ) {
-				$html .= '<p class="anpa-extra-meta anpa-extra-empresa"><strong>' . esc_html__( 'Empresa:', 'anpa-socios' ) . '</strong> ' . esc_html( (string) $act['empresa_nome'] ) . '</p>';
+				$html .= esc_html( (string) $act['empresa_nome'] );
+				if ( ! empty( $act['url_web'] ) ) {
+					$html .= ' (<a href="' . esc_url( $act['url_web'] ) . '" target="_blank" rel="noopener">'
+						. esc_html( $act['url_web'] ) . '</a>)';
+				}
+			}
+			$html .= '</p>';
+
+			// Descripción (só se ten contido).
+			if ( ! empty( $act['descripcion'] ) ) {
+				$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Descripción:', 'anpa-socios' ) . '</strong> '
+					. esc_html( (string) $act['descripcion'] ) . '</p>';
 			}
 
-			// "Máis información" → empresa URL or fallback.
-			$url = ! empty( $act['url_web'] ) ? $act['url_web'] : '#horario';
-			$html .= '<p><a href="' . esc_url( $url ) . '" target="_blank" rel="noopener">' . esc_html__( 'Máis información', 'anpa-socios' ) . '</a></p>';
+			// Horario — días e franxa separados.
+			$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Horario:', 'anpa-socios' ) . '</strong></p>';
+			$html .= self::schedule_detail_html( $act );
+
+			// Prezo.
+			$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Prezo:', 'anpa-socios' ) . '</strong> '
+				. esc_html( self::price_label( $act['custo'] ?? null ) ) . '</p>';
 
 			$html .= '</div>';
 		}
-		$html .= '</div>';
+		$html .= '</div></div>';
 
 		return $html;
 	}
@@ -290,7 +289,15 @@ final class ANPA_Socios_Extraescolares_Page {
 		return '' === $icon ? '🎒' : $icon;
 	}
 
-	private static function schedule_label( array $act ): string {
+	/**
+	 * Returns HTML with separate lines for schedule days and time, with
+	 * human-friendly Mañá/Tarde labels.
+	 *
+	 * @since  1.39.0
+	 * @param  array $act Activity row (needs 'horarios_grupos').
+	 * @return string Escaped HTML.
+	 */
+	private static function schedule_detail_html( array $act ): string {
 		$raw   = (string) ( $act['horarios_grupos'] ?? '' );
 		$parts = array();
 		foreach ( array_filter( explode( ';;', $raw ) ) as $chunk ) {
@@ -300,10 +307,41 @@ final class ANPA_Socios_Extraescolares_Page {
 			foreach ( $dias as $dia ) {
 				$labels[] = ANPA_Socios_Horario_Builder::DIA_LABELS[ $dia ] ?? $dia;
 			}
-			$parts[] = ( array() === $labels ? '' : implode( ', ', $labels ) . ' · ' ) . str_replace( '-', '–', $franxa );
+			$parts[] = array(
+				'dias'   => implode( ', ', $labels ),
+				'franxa' => self::franxa_label( $franxa ),
+			);
 		}
 
-		return array() === $parts ? __( 'consultar condicións', 'anpa-socios' ) : implode( '; ', array_unique( $parts ) );
+		if ( array() === $parts ) {
+			return '<p class="anpa-extra-meta anpa-extra-horario-line">'
+				. esc_html__( 'consultar condicións', 'anpa-socios' ) . '</p>';
+		}
+
+		$html = '';
+		foreach ( $parts as $part ) {
+			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line">' . esc_html( $part['dias'] ) . '</p>';
+			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line">' . esc_html( $part['franxa'] ) . '</p>';
+		}
+		return $html;
+	}
+
+	/**
+	 * Formats a raw franxa (HH:MM-HH:MM) into a human label with Mañá/Tarde.
+	 *
+	 * @since  1.39.0
+	 * @param  string $franxa Raw time range, e.g. "16:45-17:45".
+	 * @return string Human label, e.g. "Tarde de 16:45 a 17:45".
+	 */
+	private static function franxa_label( string $franxa ): string {
+		if ( preg_match( '/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/', $franxa, $m ) ) {
+			$period = (int) $m[1] < 12
+				? __( 'Mañá', 'anpa-socios' )
+				: __( 'Tarde', 'anpa-socios' );
+			/* translators: %1$s: Mañá/Tarde, %2$s: HH:MM, %3$s: HH:MM */
+			return sprintf( __( '%1$s de %2$s a %3$s', 'anpa-socios' ), $period, "{$m[1]}:{$m[2]}", "{$m[3]}:{$m[4]}" );
+		}
+		return str_replace( '-', '–', $franxa );
 	}
 
 	private static function price_label( $value ): string {
