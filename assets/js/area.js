@@ -621,28 +621,58 @@
 		const filloFormTitleEl = root.querySelector('[data-fillos-form-title]');
 		const cancelEditBtn = root.querySelector('[data-action="cancel-fillo-edit"]');
 
-		// Build the aula (classroom) options from the config-provided list on the
-		// area root (data-aulas JSON). Falls back to A-D when absent. Storage still
-		// accepts A-H; this only bounds what the form offers.
-		(function buildAulaOptions() {
-			const aulaSel = root.querySelector('#anpa-fillo-aula');
-			if (!aulaSel) { return; }
-			let aulas = ['A', 'B', 'C', 'D'];
-			try {
-				const parsed = JSON.parse(root.getAttribute('data-aulas') || '');
-				if (Array.isArray(parsed) && parsed.length) { aulas = parsed; }
-			} catch (e) { /* keep fallback */ }
-			aulaSel.textContent = '';
-			const placeholder = document.createElement('option');
-			placeholder.value = '';
-			placeholder.textContent = '-- Selecciona --';
-			aulaSel.appendChild(placeholder);
-			aulas.forEach(function (v) {
-				const o = document.createElement('option');
-				o.value = v;
-				o.textContent = v;
-				aulaSel.appendChild(o);
-			});
+		// ── Dynamic nivel→aula selectors (ES4) ──
+		(function buildDynamicFilloSelectors() {
+			const cursoSel = root.querySelector('#anpa-fillo-curso');
+			const aulaSel  = root.querySelector('#anpa-fillo-aula');
+			if (!cursoSel || !aulaSel) { return; }
+
+			let estrutura = null;
+			try { estrutura = JSON.parse(root.getAttribute('data-estrutura') || ''); } catch (e) { /* fallback */ }
+
+			const niveis = (estrutura && Array.isArray(estrutura.niveis)) ? estrutura.niveis : [];
+			const aulas  = (estrutura && Array.isArray(estrutura.aulas)) ? estrutura.aulas : [];
+
+			if (niveis.length > 0) {
+				// Populate curso select from niveis
+				cursoSel.textContent = '';
+				const ph1 = document.createElement('option'); ph1.value = ''; ph1.textContent = '-- Selecciona --';
+				cursoSel.appendChild(ph1);
+				niveis.forEach(function (n) {
+					const o = document.createElement('option'); o.value = n.codigo; o.textContent = n.etiqueta;
+					cursoSel.appendChild(o);
+				});
+
+				// Aula dependent on curso
+				function populateAulas(nivelCod) {
+					aulaSel.textContent = '';
+					const ph2 = document.createElement('option'); ph2.value = ''; ph2.textContent = '-- Selecciona --';
+					aulaSel.appendChild(ph2);
+					let nid = null;
+					niveis.forEach(function (n) { if (n.codigo === nivelCod) { nid = n.id; } });
+					aulas.forEach(function (a) {
+						if (parseInt(a.nivel_id, 10) === parseInt(nid, 10)) {
+							const o = document.createElement('option'); o.value = a.codigo; o.textContent = a.etiqueta;
+							aulaSel.appendChild(o);
+						}
+					});
+				}
+				cursoSel.addEventListener('change', function () { populateAulas(cursoSel.value); });
+			} else {
+				// Legacy fallback: populate aula from data-aulas
+				let aulasLegacy = ['A', 'B', 'C', 'D'];
+				try {
+					const parsed = JSON.parse(root.getAttribute('data-aulas') || '');
+					if (Array.isArray(parsed) && parsed.length) { aulasLegacy = parsed; }
+				} catch (e) { /* keep fallback */ }
+				aulaSel.textContent = '';
+				const ph2 = document.createElement('option'); ph2.value = ''; ph2.textContent = '-- Selecciona --';
+				aulaSel.appendChild(ph2);
+				aulasLegacy.forEach(function (v) {
+					const o = document.createElement('option'); o.value = v; o.textContent = v;
+					aulaSel.appendChild(o);
+				});
+			}
 		})();
 
 		function readFilloForm() {

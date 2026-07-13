@@ -1,9 +1,9 @@
 <?php
 /**
- * Pure helper: does a fillo's curso fit a group's curso range?
+ * Pure helper: does a fillo's curso fit a group's nivel set?
  *
- * Curso ranges are the canonical grupos curriculares used by activities and
- * groups: `1-2-3` (1º-2º-3º) and `4-5-6` (4º-5º-6º). No WordPress dependency.
+ * Supports both legacy RANGES and dynamic grupos_niveis lookup.
+ * No WordPress dependency.
  *
  * @since  1.9.0
  * @package ANPA_Socios
@@ -12,7 +12,7 @@
 declare(strict_types=1);
 
 /**
- * Curso-range membership logic.
+ * Curso-range / grupos_niveis membership logic.
  *
  * @since 1.9.0
  */
@@ -30,7 +30,8 @@ final class ANPA_Socios_Curso_Fit {
 	);
 
 	/**
-	 * Returns whether $curso belongs to $curso_range.
+	 * Returns whether $curso belongs to $curso_range or to the dynamic
+	 * nivel set resolved via grupos_niveis.
 	 *
 	 * @since  1.9.0
 	 * @param  string $curso       Fillo curso ('1'..'6').
@@ -40,8 +41,50 @@ final class ANPA_Socios_Curso_Fit {
 	public static function fits( string $curso, string $curso_range ): bool {
 		$curso = trim( $curso );
 
-		return isset( self::RANGES[ $curso_range ] )
-			&& in_array( $curso, self::RANGES[ $curso_range ], true );
+		// Legacy RANGES fallback
+		if ( isset( self::RANGES[ $curso_range ] ) ) {
+			return in_array( $curso, self::RANGES[ $curso_range ], true );
+		}
+
+		// Dynamic grupos_niveis: curso_range is actually a grupo_id
+		if ( is_numeric( $curso_range ) ) {
+			$nivel_ids = ANPA_Socios_DB::get_niveis_for_grupo( (int) $curso_range );
+			if ( array() === $nivel_ids ) {
+				return false;
+			}
+			// Map curso string to nivel_id by querying the niveis table
+			return self::curso_in_nivel_ids( $curso, $nivel_ids );
+		}
+
+		return false;
+	}
+
+	/**
+	 * Checks if a curso string matches any of the given nivel_ids.
+	 *
+	 * @since  1.27.0
+	 * @param  string $curso     Fillo curso.
+	 * @param  int[]  $nivel_ids Nivel ids.
+	 * @return bool
+	 */
+	private static function curso_in_nivel_ids( string $curso, array $nivel_ids ): bool {
+		global $wpdb;
+
+		if ( array() === $nivel_ids ) {
+			return false;
+		}
+
+		$placeholders = implode( ',', array_fill( 0, count( $nivel_ids ), '%d' ) );
+		$params       = $nivel_ids;
+		$params[]     = $curso;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- pure utility.
+		$found = $wpdb->get_var( $wpdb->prepare(
+			"SELECT 1 FROM {$wpdb->prefix}anpa_niveis WHERE id IN ({$placeholders}) AND codigo = %s",
+			$params
+		) );
+
+		return '1' === $found;
 	}
 
 	/**

@@ -91,6 +91,86 @@ final class ANPA_Socios_Admin_Payload {
 	const GRUPO_VALIDOS = array( 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' );
 
 	/**
+	 * Returns valid curso codes for a given curso_escolar from DB, or
+	 * falls back to CURSO_VALIDOS when DB unavailable.
+	 *
+	 * @since  1.27.0
+	 * @param  string $curso_escolar Curso escolar (e.g. '2025-2026').
+	 * @return string[]
+	 */
+	public static function dynamic_curso_validos( string $curso_escolar ): array {
+		global $wpdb;
+
+		if ( '' === $curso_escolar ) {
+			return self::CURSO_VALIDOS;
+		}
+
+		$codigos = $wpdb->get_col( $wpdb->prepare(
+			"SELECT codigo FROM {$wpdb->prefix}anpa_niveis WHERE curso_escolar = %s ORDER BY `order` ASC",
+			$curso_escolar
+		) );
+
+		return is_array( $codigos ) && array() !== $codigos
+			? $codigos
+			: self::CURSO_VALIDOS;
+	}
+
+	/**
+	 * Returns valid aula codes for a given curso_escolar from DB, or
+	 * falls back to GRUPO_VALIDOS when DB unavailable.
+	 *
+	 * @since  1.27.0
+	 * @param  string $curso_escolar Curso escolar.
+	 * @return string[]
+	 */
+	public static function dynamic_aula_validos( string $curso_escolar ): array {
+		global $wpdb;
+
+		if ( '' === $curso_escolar ) {
+			return self::GRUPO_VALIDOS;
+		}
+
+		// For fillos we return aulas for the first nivel if none selected,
+		// or all aulas for the curso_escolar (broad validation).
+		$codigos = $wpdb->get_col( $wpdb->prepare(
+			"SELECT codigo FROM {$wpdb->prefix}anpa_aulas WHERE curso_escolar = %s ORDER BY `order` ASC",
+			$curso_escolar
+		) );
+
+		return is_array( $codigos ) && array() !== $codigos
+			? $codigos
+			: self::GRUPO_VALIDOS;
+	}
+
+	/**
+	 * Validates a curso value against the DB for the given curso_escolar,
+	 * with legacy fallback to CURSO_VALIDOS.
+	 *
+	 * @since  1.27.0
+	 * @param  string $curso         Curso code to validate.
+	 * @param  string $curso_escolar Optional curso escolar context.
+	 * @return bool
+	 */
+	public static function curso_valido_db( string $curso, string $curso_escolar = '' ): bool {
+		$validos = self::dynamic_curso_validos( $curso_escolar );
+		return in_array( $curso, $validos, true );
+	}
+
+	/**
+	 * Validates an aula value against the DB for the given curso_escolar,
+	 * with legacy fallback to GRUPO_VALIDOS.
+	 *
+	 * @since  1.27.0
+	 * @param  string $aula          Aula code to validate.
+	 * @param  string $curso_escolar Optional curso escolar context.
+	 * @return bool
+	 */
+	public static function aula_valida_db( string $aula, string $curso_escolar = '' ): bool {
+		$validos = self::dynamic_aula_validos( $curso_escolar );
+		return in_array( $aula, $validos, true );
+	}
+
+	/**
 	 * Allowed socio/fillo estado values written by the admin REST.
 	 *
 	 * @since 1.2.0
@@ -122,13 +202,16 @@ final class ANPA_Socios_Admin_Payload {
 	 * Validates and returns a canonical fillo payload.
 	 *
 	 * Required fields: nome, apelidos, data_nacemento, curso (1-6), aula (A-H).
+	 * When $curso_escolar is provided, validates curso/aula against the DB
+	 * (anpa_niveis/anpa_aulas); otherwise falls back to CURSO_VALIDOS/GRUPO_VALIDOS.
 	 * Returns null on missing or invalid data.
 	 *
 	 * @since  1.2.0
-	 * @param  array<string,mixed> $input Raw input.
+	 * @param  array<string,mixed> $input         Raw input.
+	 * @param  string              $curso_escolar Optional curso escolar context.
 	 * @return array<string,string>|null
 	 */
-	public static function validar_fillo( array $input ): ?array {
+	public static function validar_fillo( array $input, string $curso_escolar = '' ): ?array {
 		$raw_nome     = $input['nome'] ?? null;
 		$raw_apelidos = $input['apelidos'] ?? null;
 		// Normalize names before sanitisation (Fase 18 — RF-7 consistency).
@@ -162,14 +245,24 @@ final class ANPA_Socios_Admin_Payload {
 			return null;
 		}
 
-		// Enforce canonical curso enum (case-sensitive).
-		if ( ! in_array( $curso, self::CURSO_VALIDOS, true ) ) {
-			return null;
-		}
+		// Dynamic validation with DB fallback when curso_escolar is provided.
+		if ( '' !== $curso_escolar ) {
+			if ( ! self::curso_valido_db( $curso, $curso_escolar ) ) {
+				return null;
+			}
+			if ( ! self::aula_valida_db( $aula, $curso_escolar ) ) {
+				return null;
+			}
+		} else {
+			// Enforce canonical curso enum (case-sensitive).
+			if ( ! in_array( $curso, self::CURSO_VALIDOS, true ) ) {
+				return null;
+			}
 
-		// Enforce canonical grupo/aula enum (case-sensitive).
-		if ( ! in_array( $aula, self::GRUPO_VALIDOS, true ) ) {
-			return null;
+			// Enforce canonical grupo/aula enum (case-sensitive).
+			if ( ! in_array( $aula, self::GRUPO_VALIDOS, true ) ) {
+				return null;
+			}
 		}
 
 		return array(
@@ -185,6 +278,35 @@ final class ANPA_Socios_Admin_Payload {
 	// ──────────────────────────────────────────────
 	// Empresas
 	// ──────────────────────────────────────────────
+
+	/**
+	 * Identifies the first invalid empresa field.
+	 *
+	 * @since  1.34.0
+	 * @param  array<string,mixed> $input Raw input.
+	 * @return string|null Stable issue code, or null when valid.
+	 */
+	public static function diagnosticar_empresa( array $input ): ?string {
+		$required = array(
+			'nome'        => 'nome_required',
+			'responsable' => 'responsable_required',
+			'telefono'    => 'telefono_required',
+			'email'       => 'email_required',
+		);
+		foreach ( $required as $field => $code ) {
+			if ( ! isset( $input[ $field ] ) || '' === trim( (string) $input[ $field ] ) ) {
+				return $code;
+			}
+		}
+		if ( null === self::sanitise_email( (string) $input['email'] ) ) {
+			return 'email_invalid';
+		}
+		if ( isset( $input['estado'] ) && ! in_array( (string) $input['estado'], self::EMPRESA_ESTADO, true ) ) {
+			return 'estado_invalid';
+		}
+
+		return null;
+	}
 
 	/**
 	 * Validates and returns a canonical empresa payload.
@@ -230,6 +352,78 @@ final class ANPA_Socios_Admin_Payload {
 	// ──────────────────────────────────────────────
 	// Actividades
 	// ──────────────────────────────────────────────
+
+	/**
+	 * Normalizes the school years selected for an activity.
+	 *
+	 * The primary year is always first and cannot be omitted.
+	 *
+	 * @since  1.34.0
+	 * @param  mixed[] $cursos        Selected years.
+	 * @param  string  $curso_primary Primary year.
+	 * @return string[]|null Normalized years, or null on invalid input.
+	 */
+	public static function normalizar_cursos_actividad( array $cursos, string $curso_primary ): ?array {
+		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso_primary ) ) {
+			return null;
+		}
+
+		$normalized = array( $curso_primary );
+		foreach ( $cursos as $curso ) {
+			$curso = is_string( $curso ) ? trim( $curso ) : '';
+			if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
+				return null;
+			}
+			if ( ! in_array( $curso, $normalized, true ) ) {
+				$normalized[] = $curso;
+			}
+		}
+
+		return $normalized;
+	}
+
+	/**
+	 * Identifies the first invalid actividad field.
+	 *
+	 * @since  1.34.0
+	 * @param  array<string,mixed> $input Raw input.
+	 * @return string|null Stable issue code, or null when valid.
+	 */
+	public static function diagnosticar_actividad( array $input ): ?string {
+		if ( ! isset( $input['empresa_id'] ) || (int) $input['empresa_id'] <= 0 ) {
+			return 'empresa_required';
+		}
+		foreach ( array( 'nome', 'descripcion', 'curso_escolar' ) as $field ) {
+			if ( ! isset( $input[ $field ] ) || '' === trim( (string) $input[ $field ] ) ) {
+				return $field . '_required';
+			}
+		}
+		if ( ! ANPA_Socios_Curso_Escolar::is_valid( (string) $input['curso_escolar'] ) ) {
+			return 'curso_escolar_invalid';
+		}
+		if ( array() === ANPA_Socios_Actividade_Options::normalize( $input['horarios'] ?? null, ANPA_Socios_Actividade_Options::HORARIOS ) ) {
+			return 'horarios_required';
+		}
+		if ( array() === ANPA_Socios_Actividade_Options::normalize( $input['grupos'] ?? null, ANPA_Socios_Actividade_Options::GRUPOS ) ) {
+			return 'grupos_required';
+		}
+		if ( array() === ANPA_Socios_Actividade_Options::normalize( $input['dias'] ?? null, ANPA_Socios_Actividade_Options::DIAS ) ) {
+			return 'dias_required';
+		}
+		if ( null === self::parse_custo( $input['custo'] ?? null ) ) {
+			return 'custo_invalid';
+		}
+		$curso_min = isset( $input['curso_min'] ) && '' !== $input['curso_min'] ? (int) $input['curso_min'] : null;
+		$curso_max = isset( $input['curso_max'] ) && '' !== $input['curso_max'] ? (int) $input['curso_max'] : null;
+		if ( null !== $curso_min && null !== $curso_max && $curso_min > $curso_max ) {
+			return 'curso_range_invalid';
+		}
+		if ( isset( $input['estado'] ) && ! in_array( (string) $input['estado'], self::EMPRESA_ESTADO, true ) ) {
+			return 'estado_invalid';
+		}
+
+		return null;
+	}
 
 	/**
 	 * Validates and returns a canonical actividad payload.
@@ -324,11 +518,12 @@ final class ANPA_Socios_Admin_Payload {
 	/**
 	 * Validates and returns a canonical grupo payload (standalone shape).
 	 *
+	 * Supports both legacy curso_range and dynamic nivel_ids.
 	 * Cross-checks against the parent activity's option sets (curso_range ⊆
 	 * activity.grupos, días ⊆ activity.días) are the caller's responsibility,
 	 * since they need the activity row. Here we validate the shape:
-	 * curso_range is canonical, días is a non-empty valid set, max ≥ min and
-	 * max > 0, estado is valid.
+	 * curso_range or nivel_ids is present, días is a non-empty valid set,
+	 * max ≥ min and max > 0, estado is valid.
 	 *
 	 * @since  1.9.0
 	 * @param  array<string,mixed> $input Raw input.
@@ -340,8 +535,17 @@ final class ANPA_Socios_Admin_Payload {
 			return null;
 		}
 
+		// Support both legacy curso_range and dynamic nivel_ids.
 		$curso_range = isset( $input['curso_range'] ) ? (string) $input['curso_range'] : '';
-		if ( ! ANPA_Socios_Curso_Fit::is_range( $curso_range ) ) {
+		$nivel_ids   = isset( $input['nivel_ids'] ) ? (array) $input['nivel_ids'] : array();
+		$nivel_ids   = array_filter( array_map( 'intval', $nivel_ids ), function ( $v ) { return $v > 0; } );
+		$nivel_ids   = array_values( array_unique( $nivel_ids ) );
+
+		// At least one of curso_range or nivel_ids must be present and valid.
+		$has_range = '' !== $curso_range && ANPA_Socios_Grupo_Niveis::is_valid( $curso_range );
+		$has_niveis = array() !== $nivel_ids;
+
+		if ( ! $has_range && ! $has_niveis ) {
 			return null;
 		}
 
@@ -372,6 +576,7 @@ final class ANPA_Socios_Admin_Payload {
 		return array(
 			'curso_escolar' => $curso_escolar,
 			'curso_range' => $curso_range,
+			'nivel_ids'   => $nivel_ids,
 			'franxa'      => $franxa,
 			'dias'        => implode( ',', $dias ),
 			'min_pupilos' => $min,

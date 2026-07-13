@@ -79,6 +79,7 @@ class ANPA_Socios_Area_Page {
 			data-empresa-logout-url="<?php echo esc_attr( $empresa_logout_url ); ?>"
 			data-empresa-export-url="<?php echo esc_attr( $empresa_export_url ); ?>"
 			data-aulas="<?php echo esc_attr( (string) wp_json_encode( ANPA_Socios_Config::aulas() ) ); ?>"
+			data-estrutura="<?php echo esc_attr( (string) wp_json_encode( self::get_estrutura_data() ) ); ?>"
 			data-login-url="<?php echo esc_attr( class_exists( 'ANPA_Socios_Admin_Settings' ) ? ANPA_Socios_Admin_Settings::landing_page_url() : '' ); ?>">
 			<div class="anpa-area-notice" data-area-message hidden></div>
 			<div class="anpa-area-idle" data-idle-warning hidden role="alertdialog" aria-live="assertive">
@@ -330,5 +331,22 @@ class ANPA_Socios_Area_Page {
 			array(),
 			$css_version
 		);
+	}
+
+	/**
+	 * Returns the estrutura data for the current curso_escolar.
+	 *
+	 * @since  1.28.0
+	 * @return array{niveis:array,aulas:array}
+	 */
+	private static function get_estrutura_data(): array {
+		$curso_escolar = ANPA_Socios_Curso_Escolar::current();
+		$niveis = ANPA_Socios_DB::get_niveis_for_curso( $curso_escolar );
+		$nivel_ids = array();
+		foreach ( $niveis as $n ) {
+			$nivel_ids[] = (int) $n['id'];
+		}
+		$aulas = ANPA_Socios_DB::get_aulas_for_niveis( $nivel_ids );
+		return array( 'niveis' => $niveis, 'aulas' => $aulas );
 	}
 }

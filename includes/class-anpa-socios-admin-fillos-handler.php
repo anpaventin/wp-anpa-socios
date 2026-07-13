@@ -132,7 +132,9 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 		if ( null === $email ) {
 			return new WP_Error( 'anpa_admin_invalid', __( 'Email inválido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
-		$payload = ANPA_Socios_Admin_Payload::validar_fillo( ANPA_Socios_Admin_Shared::json_body( $request ) );
+		$body = ANPA_Socios_Admin_Shared::json_body( $request );
+		$curso_escolar = isset( $body['curso_escolar'] ) ? (string) $body['curso_escolar'] : '';
+		$payload = ANPA_Socios_Admin_Payload::validar_fillo( $body, $curso_escolar );
 		if ( null === $payload ) {
 			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
@@ -188,7 +190,9 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 		global $wpdb;
 
 		$id      = (int) $request->get_param( 'id' );
-		$payload = ANPA_Socios_Admin_Payload::validar_fillo( ANPA_Socios_Admin_Shared::json_body( $request ) );
+		$body = ANPA_Socios_Admin_Shared::json_body( $request );
+		$curso_escolar = isset( $body['curso_escolar'] ) ? (string) $body['curso_escolar'] : '';
+		$payload = ANPA_Socios_Admin_Payload::validar_fillo( $body, $curso_escolar );
 		if ( null === $payload ) {
 			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}

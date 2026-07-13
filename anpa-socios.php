@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ANPA Socios
  * Description: Xestión de socios para asociacións de nais e pais (ANPA/AMPA): área de socios sen contrasinal, fillos e actividades extraescolares, domiciliación SEPA cifrada, ciclo de curso, panel de administración e actualizacións self-hosted. Configurable para calquera asociación.
- * Version: 1.38.0
+ * Version: 1.39.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: ANPA Socios
@@ -21,8 +21,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ANPA_SOCIOS_VERSION', '1.38.0' );
-define( 'ANPA_SOCIOS_DB_VERSION', '1.26.0' );
+define( 'ANPA_SOCIOS_VERSION', '1.39.0' );
+define( 'ANPA_SOCIOS_DB_VERSION', '1.27.0' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 
@@ -42,7 +42,9 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-config.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-flow.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-admin-payload.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-actividade-options.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-estrutura-escolar.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-curso-fit.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-grupo-niveis.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-curso-escolar.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-curso-lifecycle.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-course-settings.php';
@@ -98,6 +100,8 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-verificaci
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-verificacion-rest.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-admin-settings.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-admin-management-page.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-estrutura-escolar-page.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-admin-estrutura-handler.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-backup.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-updater.php';
 
@@ -129,26 +133,11 @@ add_action( 'rest_api_init', array( 'ANPA_Socios_Fillos_REST', 'register_routes'
 add_action( 'rest_api_init', array( 'ANPA_Socios_Fillo_Cursos_REST', 'register_routes' ) );
 add_action( 'rest_api_init', array( 'ANPA_Socios_Extraescolares_REST', 'register_routes' ) );
 add_action( 'rest_api_init', array( 'ANPA_Socios_Empresa_REST', 'register_routes' ) );
+add_action( 'rest_api_init', array( 'ANPA_Socios_Admin_Estrutura_Handler', 'register_routes' ) );
 add_action( ANPA_Socios_DB::CLEANUP_HOOK, array( 'ANPA_Socios_DB', 'borrar_sesions_expiradas' ) );
 add_action( ANPA_Socios_Extraescolar_Offers::CRON_HOOK, array( 'ANPA_Socios_Extraescolar_Offers', 'expire_stale' ) );
 add_action( ANPA_Socios_Season_Service::CRON_HOOK, array( 'ANPA_Socios_Season_Service', 'run_check' ) );
 
-add_action( 'admin_notices', function () {
-	if ( ! current_user_can( 'manage_options' ) ) {
-		return;
-	}
-	// Do not show the global banking-key warning on the plugin's own Axustes/Docs
-	// screens: those render the banking status inline, and during the setup
-	// self-POST admin_notices fires before the page configures the key, which
-	// would otherwise show a stale "not configured" warning next to "success".
-	$current_page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
-	if ( in_array( $current_page, array( 'anpa-socios-settings', 'anpa-socios-docs' ), true ) ) {
-		return;
-	}
-	if ( ! ANPA_Socios_Banking_Key::is_configured() ) {
-		echo '<div class="notice notice-warning"><p><strong>ANPA Socios:</strong> a clave bancaria (cifrado) aínda non está configurada. Ata configurala, non se poderán gardar datos bancarios novos. Un admin debe executar o setup da clave (POST <code>/anpa-socios/v1/admin/banking-key/setup</code>) e gardar a clave privada e o contrasinal nun lugar seguro. Ver <code>docs/BANKING-KEY.md</code>.</p></div>';
-	}
-} );
 add_shortcode( 'anpa_socios_asociarse', array( 'ANPA_Socios_Socios_Page', 'render' ) );
 add_shortcode( 'anpa_socios_area_persoal', array( 'ANPA_Socios_Area_Page', 'render' ) );
 add_shortcode( 'anpa_socios_hub', array( 'ANPA_Socios_Hub_Page', 'render' ) );

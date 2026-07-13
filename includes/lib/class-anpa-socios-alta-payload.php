@@ -105,7 +105,8 @@ final class ANPA_Socios_Alta_Payload {
 			if ( ! is_array( $raw_fillo ) ) {
 				return null;
 			}
-			$fillo = ANPA_Socios_Admin_Payload::validar_fillo( $raw_fillo );
+			$fillo_curso_escolar = isset( $raw_fillo['curso_escolar'] ) ? (string) $raw_fillo['curso_escolar'] : '';
+			$fillo = ANPA_Socios_Admin_Payload::validar_fillo( $raw_fillo, $fillo_curso_escolar );
 			if ( null === $fillo ) {
 				return null;
 			}

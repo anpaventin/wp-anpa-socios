@@ -14,8 +14,7 @@
 	var cfg = window.anpaAdminMgmt || {};
 	var apiRoot = cfg.root || '/wp-json/anpa-socios/v1/admin/';
 	var nonce = cfg.nonce || '';
-	var filloCursos = Array.isArray(cfg.filloCursos) ? cfg.filloCursos.map(String) : ['1', '2', '3', '4', '5', '6'];
-	var filloGrupos = Array.isArray(cfg.filloGrupos) ? cfg.filloGrupos.map(String) : ['A', 'B', 'C', 'D'];
+
 	// ── External helpers ──────────────────────────────────────────────
 	var tbl = window.AnpaAdminTable || { sortRows: function (r) { return r; }, pageSlice: function (r) { return r; } };
 	var utils = window.AnpaUtils || {};
@@ -85,23 +84,6 @@
 	}
 
 	function clearMessage() { showMessage('', 'info'); }
-
-	function buildFilloSelect(options, current, labeler) {
-		var select = document.createElement('select');
-		select.required = true;
-		var placeholder = document.createElement('option');
-		placeholder.value = '';
-		placeholder.textContent = '-- Selecciona --';
-		select.appendChild(placeholder);
-		options.forEach(function (value) {
-			var option = document.createElement('option');
-			option.value = value;
-			option.textContent = labeler ? labeler(value) : value;
-			option.selected = String(current || '') === value;
-			select.appendChild(option);
-		});
-		return select;
-	}
 
 	function downloadBlob(blob, filename) {
 		var url = URL.createObjectURL(blob);
@@ -378,7 +360,6 @@
 		var st = sectionState.socios || (sectionState.socios = { sort: { key: 'email', dir: 'asc' }, page: 1, size: 10 });
 
 		function render() {
-			var currentSearch = st.searchQuery || '';
 			root.textContent = '';
 			var showInactive = st.showInactive;
 			var active = allRows.filter(function (r) { return !isInactiveRow('socios', r); });
@@ -391,7 +372,6 @@
 				onRefresh: render,
 			});
 			root.appendChild(bar);
-			bar._searchInput.value = currentSearch;
 
 			// Export buttons
 			addCsvExportBtn(bar, 'socios', visible, SOCIOS_COLS);
@@ -445,7 +425,6 @@
 			// Wire search
 			var timer = null;
 			bar._searchInput.addEventListener('input', function () {
-				st.searchQuery = this.value;
 				if (timer) { clearTimeout(timer); }
 				timer = setTimeout(function () { st.page = 1; render(); }, 250);
 			});
@@ -681,45 +660,10 @@
 		var nacemInput = document.createElement('input'); nacemInput.type = 'date'; nacemInput.value = isEdit ? (fillo.data_nacemento || '') : '';
 		addInlineField('Data nacemento', nacemInput);
 
-		// ── Dynamic nivel→aula selectors (ES4) ──
-		var anpaNiveis = Array.isArray(cfg.filloniveis) ? cfg.filloniveis : [];
-		var anpaAulas  = Array.isArray(cfg.filloaulas) ? cfg.filloaulas : [];
-
-		var cursoInput, aulaInput;
-		if (anpaNiveis.length > 0) {
-			// Nivel select
-			cursoInput = document.createElement('select'); cursoInput.required = true;
-			var ph1 = document.createElement('option'); ph1.value = ''; ph1.textContent = '-- Selecciona --';
-			cursoInput.appendChild(ph1);
-			anpaNiveis.forEach(function (n) {
-				var o = document.createElement('option'); o.value = n.codigo; o.textContent = n.etiqueta;
-				if (isEdit && fillo.curso === n.codigo) { o.selected = true; }
-				cursoInput.appendChild(o);
-			});
-			// Aula select (dependent)
-			aulaInput = document.createElement('select'); aulaInput.required = true;
-			function atualizaAulas(nivelCod) {
-				aulaInput.textContent = '';
-				var ph2 = document.createElement('option'); ph2.value = ''; ph2.textContent = '-- Selecciona --';
-				aulaInput.appendChild(ph2);
-				var nid = null;
-				anpaNiveis.forEach(function (n) { if (n.codigo === nivelCod) { nid = n.id; } });
-				anpaAulas.forEach(function (a) {
-					if (parseInt(a.nivel_id, 10) === parseInt(nid, 10)) {
-						var op = document.createElement('option'); op.value = a.codigo; op.textContent = a.etiqueta;
-						if (isEdit && fillo.aula === a.codigo) { op.selected = true; }
-						aulaInput.appendChild(op);
-					}
-				});
-			}
-			cursoInput.addEventListener('change', function () { atualizaAulas(cursoInput.value); });
-			if (isEdit) { atualizaAulas(fillo.curso); }
-		} else {
-			// Legacy fallback
-			cursoInput = buildFilloSelect(filloCursos, isEdit ? fillo.curso : '', function (value) { return value + '\u00BA'; });
-			aulaInput  = buildFilloSelect(filloGrupos, isEdit ? fillo.aula : '');
-		}
+		var cursoInput = document.createElement('input'); cursoInput.type = 'text'; cursoInput.value = isEdit ? (fillo.curso || '') : '';
 		addInlineField('Curso', cursoInput);
+
+		var aulaInput = document.createElement('input'); aulaInput.type = 'text'; aulaInput.value = isEdit ? (fillo.aula || '') : '';
 		addInlineField('Grupo', aulaInput);
 
 		var estadoSel = document.createElement('select');
@@ -747,8 +691,8 @@
 				aula: (aulaInput.value || '').trim(),
 				estado: estadoSel.value,
 			};
-			if (!payload.nome || !payload.apelidos || !payload.curso || !payload.aula) {
-				showMessage('Nome, apelidos, curso e grupo son obrigatorios.', 'error'); return;
+			if (!payload.nome || !payload.apelidos) {
+				showMessage('Nome e apelidos son obrigatorios.', 'error'); return;
 			}
 			var method = isEdit ? 'PATCH' : 'POST';
 			var path = isEdit ? 'fillo/' + fillo.id : 'socio/' + encodeURIComponent(socio.email) + '/fillos';
@@ -917,11 +861,9 @@
 		var allRows = Array.isArray(rows) ? rows : [];
 		var st = sectionState.fillos || (sectionState.fillos = { sort: { key: 'apelidos', dir: 'asc' }, page: 1, size: 10 });
 		function render() {
-			var currentSearch = st.searchQuery || '';
 			root.textContent = '';
 			var bar = buildFilterBar('fillos', { onRefresh: render });
 			root.appendChild(bar);
-			bar._searchInput.value = currentSearch;
 			addCsvExportBtn(bar, 'fillos', allRows, FILLOS_COLS);
 			addCsvImportBtn(bar, 'fillos');
 			var query = bar._searchInput.value || '';
@@ -955,7 +897,6 @@
 
 			var timer = null;
 			bar._searchInput.addEventListener('input', function () {
-				st.searchQuery = this.value;
 				if (timer) { clearTimeout(timer); }
 				timer = setTimeout(function () { st.page = 1; render(); }, 250);
 			});
@@ -993,39 +934,9 @@
 		addField('anpa-fillo-apelidos', 'Apelidos', apelidosInput);
 		var nacementoInput = document.createElement('input'); nacementoInput.type = 'date'; nacementoInput.value = fillo.data_nacemento || '';
 		addField('anpa-fillo-nacemento', 'Data de nacemento', nacementoInput);
-		// ── Dynamic nivel→aula selectors (ES4) ──
-		var cursoInput, aulaInput;
-		if (anpaNiveis.length > 0) {
-			cursoInput = document.createElement('select'); cursoInput.required = true;
-			var ph1 = document.createElement('option'); ph1.value = ''; ph1.textContent = '-- Selecciona --';
-			cursoInput.appendChild(ph1);
-			anpaNiveis.forEach(function (n) {
-				var o = document.createElement('option'); o.value = n.codigo; o.textContent = n.etiqueta;
-				if (fillo.curso === n.codigo) { o.selected = true; }
-				cursoInput.appendChild(o);
-			});
-			aulaInput = document.createElement('select'); aulaInput.required = true;
-			function atAulas(nivelCod) {
-				aulaInput.textContent = '';
-				var ph2 = document.createElement('option'); ph2.value = ''; ph2.textContent = '-- Selecciona --';
-				aulaInput.appendChild(ph2);
-				var nid = null;
-				anpaNiveis.forEach(function (n) { if (n.codigo === nivelCod) { nid = n.id; } });
-				anpaAulas.forEach(function (a) {
-					if (parseInt(a.nivel_id, 10) === parseInt(nid, 10)) {
-						var op = document.createElement('option'); op.value = a.codigo; op.textContent = a.etiqueta;
-						if (fillo.aula === a.codigo) { op.selected = true; }
-						aulaInput.appendChild(op);
-					}
-				});
-			}
-			cursoInput.addEventListener('change', function () { atAulas(cursoInput.value); });
-			atAulas(fillo.curso);
-		} else {
-			cursoInput = buildFilloSelect(filloCursos, fillo.curso, function (value) { return value + '\u00BA'; });
-			aulaInput  = buildFilloSelect(filloGrupos, fillo.aula);
-		}
+		var cursoInput = document.createElement('input'); cursoInput.type = 'text'; cursoInput.value = fillo.curso || '';
 		addField('anpa-fillo-curso', 'Curso', cursoInput);
+		var aulaInput = document.createElement('input'); aulaInput.type = 'text'; aulaInput.value = fillo.aula || '';
 		addField('anpa-fillo-aula', 'Grupo', aulaInput);
 		var estadoSelect = document.createElement('select');
 		['activo', 'baixa'].forEach(function (v) {
@@ -1050,8 +961,8 @@
 				aula: (aulaInput.value || '').trim(),
 				estado: estadoSelect.value,
 			};
-			if (!payload.nome || !payload.apelidos || !payload.curso || !payload.aula) {
-				showMessage('Nome, apelidos, curso e grupo son obrigatorios.', 'error'); return;
+			if (!payload.nome || !payload.apelidos) {
+				showMessage('Nome e apelidos son obrigatorios.', 'error'); return;
 			}
 			anpaAdminFetch('fillo/' + fillo.id, {
 				method: 'PATCH', body: payload,
@@ -1083,13 +994,11 @@
 		var allRows = Array.isArray(rows) ? rows : [];
 		var st = sectionState.empresas || (sectionState.empresas = { sort: { key: 'nome', dir: 'asc' }, page: 1, size: 10 });
 		function render() {
-			var currentSearch = st.searchQuery || '';
 			root.textContent = '';
 			var active = allRows.filter(function (r) { return r.estado !== 'inactivo'; });
 			var visible = st.showInactive ? allRows : active;
 			var bar = buildFilterBar('empresas', { hasInactive: true, activeCount: active.length, totalCount: allRows.length, onRefresh: render });
 			root.appendChild(bar);
-			bar._searchInput.value = currentSearch;
 			addCsvExportBtn(bar, 'empresas', visible, EMPRESAS_COLS);
 			addCsvImportBtn(bar, 'empresas');
 
@@ -1162,7 +1071,6 @@
 
 			var timer = null;
 			bar._searchInput.addEventListener('input', function () {
-				st.searchQuery = this.value;
 				if (timer) { clearTimeout(timer); }
 				timer = setTimeout(function () { st.page = 1; render(); }, 250);
 			});
@@ -1326,13 +1234,11 @@
 
 		var st = sectionState.actividades || (sectionState.actividades = { sort: { key: 'nome', dir: 'asc' }, page: 1, size: 10 });
 		function render() {
-			var currentSearch = st.searchQuery || '';
 			root.textContent = '';
 			var active = allRows.filter(function (r) { return r.estado !== 'inactivo'; });
 			var visible = st.showInactive ? allRows : active;
 			var bar = buildFilterBar('actividades', { hasInactive: true, activeCount: active.length, totalCount: allRows.length, onRefresh: render });
 			root.appendChild(bar);
-			bar._searchInput.value = currentSearch;
 			addCsvExportBtn(bar, 'actividades', visible, ACTIV_COLS);
 			addCsvImportBtn(bar, 'actividades');
 
@@ -1469,7 +1375,6 @@
 
 			var timer = null;
 			bar._searchInput.addEventListener('input', function () {
-				st.searchQuery = this.value;
 				if (timer) { clearTimeout(timer); }
 				timer = setTimeout(function () { st.page = 1; render(); }, 250);
 			});
@@ -2165,14 +2070,12 @@
 				if (!matRows.length) { matHost.appendChild(emptyEl('Sen matr\u00EDculas.')); return; }
 				var matSt = sectionState.matriculas || (sectionState.matriculas = { sort: { key: 'fillo_apelidos', dir: 'asc' }, page: 1, size: 10 });
 				function renderMat() {
-						var currentSearch = matSt.searchQuery || '';
-						matHost.textContent = '';
-						var bar = buildFilterBar('matriculas', { onRefresh: renderMat });
-						matHost.appendChild(bar);
-						bar._searchInput.value = currentSearch;
-						addCsvExportBtn(bar, 'matriculas', matRows, MAT_COLS);
-						addCsvImportBtn(bar, 'matriculas');
-						var query = bar._searchInput.value || '';
+					matHost.textContent = '';
+					var bar = buildFilterBar('matriculas', { onRefresh: renderMat });
+					matHost.appendChild(bar);
+					addCsvExportBtn(bar, 'matriculas', matRows, MAT_COLS);
+					addCsvImportBtn(bar, 'matriculas');
+					var query = bar._searchInput.value || '';
 					var filtered = filterRows(matRows, query, MAT_COLS);
 					var sorted = tbl.sortRows(filtered, matSt.sort.key, matSt.sort.dir);
 					if (!sorted.length) { matHost.appendChild(emptyEl('Sen matr\u00EDculas.')); return; }
@@ -2185,14 +2088,13 @@
 						}));
 					}
 					var timer = null;
-						bar._searchInput.addEventListener('input', function () {
-							matSt.searchQuery = this.value;
-							if (timer) { clearTimeout(timer); }
-							timer = setTimeout(function () { matSt.page = 1; renderMat(); }, 250);
-						});
-					}
-					renderMat();
-					}).catch(function (e) { matHost.textContent = ''; showMessage(e.message, 'error'); });
+					bar._searchInput.addEventListener('input', function () {
+						if (timer) { clearTimeout(timer); }
+						timer = setTimeout(function () { matSt.page = 1; renderMat(); }, 250);
+					});
+				}
+				renderMat();
+			}).catch(function (e) { matHost.textContent = ''; showMessage(e.message, 'error'); });
 		}
 		loadMat(matCursoSelect.value);
 	}
@@ -2209,11 +2111,9 @@
 		var allRows = Array.isArray(rows) ? rows : [];
 		var st = sectionState.audit || (sectionState.audit = { sort: { key: 'timestamp', dir: 'desc' }, page: 1, size: 50 });
 		function render() {
-			var currentSearch = st.searchQuery || '';
 			root.textContent = '';
 			var bar = buildFilterBar('audit', { onRefresh: render });
 			root.appendChild(bar);
-			bar._searchInput.value = currentSearch;
 			var query = bar._searchInput.value || '';
 			var filtered = filterRows(allRows, query, AUDIT_COLS);
 			var sorted = tbl.sortRows(filtered, st.sort.key, st.sort.dir);
@@ -2230,7 +2130,6 @@
 
 			var timer = null;
 			bar._searchInput.addEventListener('input', function () {
-				st.searchQuery = this.value;
 				if (timer) { clearTimeout(timer); }
 				timer = setTimeout(function () { st.page = 1; render(); }, 250);
 			});

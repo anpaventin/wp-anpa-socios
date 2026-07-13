@@ -130,6 +130,9 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			return $fit_error;
 		}
 
+		$nivel_ids = $payload['nivel_ids'] ?? array();
+		unset( $payload['nivel_ids'] );
+
 		$payload['actividad_id'] = $actividad_id;
 		$inserted                = $wpdb->insert(
 			ANPA_Socios_DB::tabela_grupos(),
@@ -140,9 +143,16 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
-		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $wpdb->insert_id, 'create' );
+		$grupo_id = (int) $wpdb->insert_id;
 
-		return new WP_REST_Response( self::get_grupo_row( (int) $wpdb->insert_id ), 201 );
+		// Persist nivel_ids to grupos_niveis table.
+		if ( array() !== $nivel_ids ) {
+			ANPA_Socios_DB::insert_grupo_niveis( $grupo_id, $nivel_ids );
+		}
+
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $grupo_id, 'create' );
+
+		return new WP_REST_Response( self::get_grupo_row( $grupo_id ), 201 );
 	}
 
 	/**
@@ -173,6 +183,9 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			return $fit_error;
 		}
 
+		$nivel_ids = $payload['nivel_ids'] ?? array();
+		unset( $payload['nivel_ids'] );
+
 		$payload['actualizado_en'] = current_time( 'mysql' );
 		$updated                   = $wpdb->update(
 			ANPA_Socios_DB::tabela_grupos(),
@@ -183,6 +196,12 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		);
 		if ( false === $updated ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+
+		// Refresh nivel_ids in grupos_niveis table.
+		ANPA_Socios_DB::delete_grupo_niveis( $id );
+		if ( array() !== $nivel_ids ) {
+			ANPA_Socios_DB::insert_grupo_niveis( $id, $nivel_ids );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $id, 'update' );
@@ -223,6 +242,9 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		if ( false === $deleted ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
+
+		// Clean up grupos_niveis relationships.
+		ANPA_Socios_DB::delete_grupo_niveis( $id );
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $id, 'delete' );
 
@@ -488,7 +510,14 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			ARRAY_A
 		);
 
-		return is_array( $row ) ? $row : null;
+		if ( ! is_array( $row ) ) {
+			return null;
+		}
+
+		// Append dynamic nivel_ids from grupos_niveis table.
+		$row['nivel_ids'] = ANPA_Socios_DB::get_niveis_for_grupo( $id );
+
+		return $row;
 	}
 
 	/**

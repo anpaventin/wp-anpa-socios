@@ -61,7 +61,15 @@ final class ANPA_Socios_Admin_Empresas_Handler {
 	public static function create_empresa( WP_REST_Request $request ) {
 		global $wpdb;
 
-		$payload = ANPA_Socios_Admin_Payload::validar_empresa( ANPA_Socios_Admin_Shared::json_body( $request ) );
+		$body = ANPA_Socios_Admin_Shared::json_body( $request );
+
+		// Field-level validation for specific error messages.
+		$err = self::validar_campos_empresa( $body );
+		if ( null !== $err ) {
+			return $err;
+		}
+
+		$payload = ANPA_Socios_Admin_Payload::validar_empresa( $body );
 		if ( null === $payload ) {
 			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
@@ -96,14 +104,29 @@ final class ANPA_Socios_Admin_Empresas_Handler {
 		global $wpdb;
 
 		$id      = (int) $request->get_param( 'id' );
-		$payload = ANPA_Socios_Admin_Payload::validar_empresa( ANPA_Socios_Admin_Shared::json_body( $request ) );
+		$body = ANPA_Socios_Admin_Shared::json_body( $request );
+
+		// Field-level validation for specific error messages.
+		$err = self::validar_campos_empresa( $body );
+		if ( null !== $err ) {
+			return $err;
+		}
+
+		$payload = ANPA_Socios_Admin_Payload::validar_empresa( $body );
 		if ( null === $payload ) {
 			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 		$payload['actualizado_en'] = current_time( 'mysql' );
+		$table = ANPA_Socios_DB::tabela_empresas();
+		$exists = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE id = %d", $id )
+		);
+		if ( 0 === $exists ) {
+			return new WP_Error( 'anpa_admin_not_found', __( 'Empresa non atopada.', 'anpa-socios' ), array( 'status' => 404 ) );
+		}
 
 		$updated = $wpdb->update(
-			$wpdb->prefix . 'anpa_empresas',
+			$table,
 			$payload,
 			array( 'id' => $id ),
 			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s' ),
@@ -117,7 +140,9 @@ final class ANPA_Socios_Admin_Empresas_Handler {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
-		ANPA_Socios_Admin_Shared::write_audit( $request, 'empresa', (string) $id, 'update' );
+		if ( $updated > 0 ) {
+			ANPA_Socios_Admin_Shared::write_audit( $request, 'empresa', (string) $id, 'update' );
+		}
 
 		return new WP_REST_Response( $payload + array( 'id' => $id ), 200 );
 	}
@@ -126,22 +151,74 @@ final class ANPA_Socios_Admin_Empresas_Handler {
 		global $wpdb;
 
 		$id = (int) $request->get_param( 'id' );
-		$updated = $wpdb->update(
-			$wpdb->prefix . 'anpa_empresas',
-			array(
-				'estado'         => 'inactivo',
-				'actualizado_en' => current_time( 'mysql' ),
-			),
-			array( 'id' => $id ),
-			array( '%s', '%s' ),
-			array( '%d' )
+		$table = ANPA_Socios_DB::tabela_empresas();
+		$estado = $wpdb->get_var(
+			$wpdb->prepare( "SELECT estado FROM {$table} WHERE id = %d", $id )
 		);
-		if ( false === $updated ) {
+		if ( null === $estado ) {
+			return new WP_Error( 'anpa_admin_not_found', __( 'Empresa non atopada.', 'anpa-socios' ), array( 'status' => 404 ) );
+		}
+		if ( 'inactivo' !== $estado ) {
+			return new WP_Error( 'anpa_admin_must_deactivate', __( 'Desactiva a empresa antes de eliminala.', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+
+		// Never remove a company while any activity still references it.
+		$act_table = ANPA_Socios_DB::tabela_actividades();
+		$linked_act = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT nome FROM {$act_table} WHERE empresa_id = %d ORDER BY id LIMIT 1",
+				$id
+			)
+		);
+		if ( null !== $linked_act && false !== $linked_act && '' !== $linked_act ) {
+			return new WP_Error(
+				'anpa_admin_empresa_has_actividades',
+				sprintf(
+					/* translators: %s: name of the first linked activity */
+					__( 'Non se pode eliminar a empresa porque ten actividades asociadas: %s', 'anpa-socios' ),
+					$linked_act
+				),
+				array( 'status' => 409 )
+			);
+		}
+
+		$deleted = $wpdb->delete( $table, array( 'id' => $id ), array( '%d' ) );
+		if ( false === $deleted ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		if ( 0 === $deleted ) {
+			return new WP_Error( 'anpa_admin_not_found', __( 'Empresa non atopada.', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'empresa', (string) $id, 'delete' );
 
 		return new WP_REST_Response( null, 204 );
+	}
+
+	/**
+	 * Field-level validation for empresa required fields.
+	 *
+	 * Returns specific error messages for common missing/invalid fields,
+	 * or null if all required fields pass basic checks.
+	 *
+	 * @since  1.34.0
+	 * @param  array<string,mixed> $body Raw request body.
+	 * @return WP_Error|null
+	 */
+	private static function validar_campos_empresa( array $body ) {
+		$issue = ANPA_Socios_Admin_Payload::diagnosticar_empresa( $body );
+		if ( null === $issue ) {
+			return null;
+		}
+		$messages = array(
+			'nome_required'        => __( 'O nome é obrigatorio.', 'anpa-socios' ),
+			'responsable_required' => __( 'O responsable é obrigatorio.', 'anpa-socios' ),
+			'telefono_required'    => __( 'O teléfono é obrigatorio.', 'anpa-socios' ),
+			'email_required'       => __( 'O email é obrigatorio.', 'anpa-socios' ),
+			'email_invalid'        => __( 'O email non é válido.', 'anpa-socios' ),
+			'estado_invalid'       => __( 'O estado da empresa non é válido.', 'anpa-socios' ),
+		);
+
+		return new WP_Error( 'anpa_admin_' . $issue, $messages[ $issue ] ?? __( 'Revisa os datos da empresa.', 'anpa-socios' ), array( 'status' => 400 ) );
 	}
 }

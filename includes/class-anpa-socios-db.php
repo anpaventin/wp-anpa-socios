@@ -56,11 +56,16 @@ class ANPA_Socios_DB {
 	 * 1.24.0 renames actividades.idade_min/idade_max → curso_min/curso_max.
 	 * 1.25.0 adds baixa_en datetime NULL to matriculas (baixa date tracking).
 	 * 1.26.0 repairs legacy duplicate active courses, keeping the newest one.
+	 * 1.27.0 adds parametrizable school structure: `niveis`, `aulas`,
+	 *        `grupos_niveis` tables; fills `fillos_cursos` varchar columns
+	 *        and level/classroom foreign ids; converts `grupos.curso_range`
+	 *        to varchar; adds `actividades_cursos.nivel_min/max_id`;
+	 *        backfills legacy data into new structure.
 	 *
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.26.0';
+	const DB_VERSION = '1.27.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -208,6 +213,11 @@ class ANPA_Socios_DB {
 
 		// 1.26.0: enforce one active course in restored/legacy data.
 		if ( ! self::migrate_to_1_26_0() ) {
+			return;
+		}
+
+		// 1.27.0: parametrizable school structure (tables + backfill).
+		if ( ! self::migrate_to_1_27_0() ) {
 			return;
 		}
 
@@ -561,6 +571,187 @@ class ANPA_Socios_DB {
 		global $wpdb;
 
 		return $wpdb->prefix . 'anpa_fillos_cursos';
+	}
+
+	/**
+	 * Returns the full anpa_niveis table name.
+	 *
+	 * @since  1.27.0
+	 * @return string
+	 */
+	public static function tabela_niveis(): string {
+		global $wpdb;
+
+		return $wpdb->prefix . 'anpa_niveis';
+	}
+
+	/**
+	 * Returns the full anpa_aulas table name.
+	 *
+	 * @since  1.27.0
+	 * @return string
+	 */
+	public static function tabela_aulas(): string {
+		global $wpdb;
+
+		return $wpdb->prefix . 'anpa_aulas';
+	}
+
+	/**
+	 * Returns the full anpa_grupos_niveis table name.
+	 *
+	 * @since  1.27.0
+	 * @return string
+	 */
+	public static function tabela_grupos_niveis(): string {
+		global $wpdb;
+
+		return $wpdb->prefix . 'anpa_grupos_niveis';
+	}
+
+	/**
+	 * Inserts a single grupo↔nivel relationship. Idempotent (INSERT IGNORE).
+	 *
+	 * @since  1.27.0
+	 * @param  int $grupo_id Grupo id.
+	 * @param  int $nivel_id Nivel id.
+	 * @return bool True on success.
+	 */
+	public static function insert_grupo_nivel( int $grupo_id, int $nivel_id ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- explicit CRUD helper.
+		$result = $wpdb->query( $wpdb->prepare(
+			"INSERT IGNORE INTO {$wpdb->prefix}anpa_grupos_niveis (grupo_id, nivel_id) VALUES (%d, %d)",
+			$grupo_id,
+			$nivel_id
+		) );
+
+		return false !== $result;
+	}
+
+	/**
+	 * Gets all niveis for a given curso_escolar, ordered by `order`.
+	 *
+	 * @since  1.28.0
+	 * @param  string $curso_escolar Course school year e.g. '2025-2026'.
+	 * @return array[] Array of nivel rows (id, codigo, etiqueta, order, curso_escolar).
+	 */
+	public static function get_niveis_for_curso( string $curso_escolar ): array {
+		global $wpdb;
+		$table = self::tabela_niveis();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read helper.
+		$results = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, codigo, etiqueta, orde, estado FROM {$table} WHERE curso_escolar = %s AND estado = 'activo' ORDER BY orde ASC",
+				$curso_escolar
+			),
+			ARRAY_A
+		);
+
+		return is_array( $results ) ? $results : array();
+	}
+
+	/**
+	 * Gets all aulas for given nivel IDs, ordered by `orde`.
+	 *
+	 * @since  1.28.0
+	 * @param  int[] $nivel_ids Array of nivel IDs.
+	 * @return array[] Array of aula rows (id, codigo, etiqueta, orde, nivel_id, estado).
+	 */
+	public static function get_aulas_for_niveis( array $nivel_ids ): array {
+		global $wpdb;
+
+		if ( empty( $nivel_ids ) ) {
+			return array();
+		}
+
+		$table = self::tabela_aulas();
+		$ids   = implode( ',', array_map( 'intval', $nivel_ids ) );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read helper.
+		$results = $wpdb->get_results(
+			"SELECT id, codigo, etiqueta, orde, nivel_id, estado FROM {$table} WHERE nivel_id IN ({$ids}) AND estado = 'activo' ORDER BY orde ASC",
+			ARRAY_A
+		);
+
+		return is_array( $results ) ? $results : array();
+	}
+
+	/**
+	 * Inserts multiple grupo↔nivel relationships in one batch. Idempotent.
+	 *
+	 * @since  1.27.0
+	 * @param  int   $grupo_id  Grupo id.
+	 * @param  int[] $nivel_ids Array of nivel ids.
+	 * @return bool True on success.
+	 */
+	public static function insert_grupo_niveis( int $grupo_id, array $nivel_ids ): bool {
+		global $wpdb;
+
+		if ( array() === $nivel_ids ) {
+			return true;
+		}
+
+		$values = array();
+		$params = array();
+		foreach ( $nivel_ids as $nid ) {
+			$nid = (int) $nid;
+			if ( $nid < 1 ) {
+				continue;
+			}
+			$values[] = '(%d, %d)';
+			$params[] = $grupo_id;
+			$params[] = $nid;
+		}
+
+		if ( array() === $values ) {
+			return true;
+		}
+
+		$sql = "INSERT IGNORE INTO {$wpdb->prefix}anpa_grupos_niveis (grupo_id, nivel_id) VALUES " . implode( ',', $values );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- explicit CRUD helper.
+		return false !== $wpdb->query( $wpdb->prepare( $sql, $params ) );
+	}
+
+	/**
+	 * Deletes all grupo↔nivel relationships for a given grupo.
+	 *
+	 * @since  1.27.0
+	 * @param  int $grupo_id Grupo id.
+	 * @return bool True on success.
+	 */
+	public static function delete_grupo_niveis( int $grupo_id ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- explicit CRUD helper.
+		$result = $wpdb->query( $wpdb->prepare(
+			"DELETE FROM {$wpdb->prefix}anpa_grupos_niveis WHERE grupo_id = %d",
+			$grupo_id
+		) );
+
+		return false !== $result;
+	}
+
+	/**
+	 * Returns nivel_ids for a given grupo.
+	 *
+	 * @since  1.27.0
+	 * @param  int $grupo_id Grupo id.
+	 * @return int[]
+	 */
+	public static function get_niveis_for_grupo( int $grupo_id ): array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- explicit CRUD helper.
+		$ids = $wpdb->get_col( $wpdb->prepare(
+			"SELECT nivel_id FROM {$wpdb->prefix}anpa_grupos_niveis WHERE grupo_id = %d",
+			$grupo_id
+		) );
+
+		return is_array( $ids ) ? array_map( 'intval', $ids ) : array();
 	}
 
 	/**
@@ -1355,6 +1546,236 @@ class ANPA_Socios_DB {
 		}
 
 		return false !== $wpdb->query( 'COMMIT' );
+	}
+
+	/**
+	 * Migration to 1.27.0: parametrizable school structure.
+	 *
+	 * Creates {niveis, aulas, grupos_niveis} tables, widens legacy columns,
+	 * and backfills existing data into the new structure. Idempotent via
+	 * INSERT IGNORE, guarded ALTER TABLE, and a transaction that rolls back
+	 * any partial state on failure.
+	 *
+	 * @since  1.27.0
+	 * @return bool Whether the migration completed.
+	 */
+	private static function migrate_to_1_27_0(): bool {
+		global $wpdb;
+
+		$charset_collate = $wpdb->get_charset_collate();
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		// ── Step 1: Create new tables (idempotent via dbDelta) ─────────
+		$niveis = self::tabela_niveis();
+		dbDelta( "CREATE TABLE {$niveis} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			curso_escolar varchar(9) NOT NULL,
+			codigo varchar(30) NOT NULL,
+			etiqueta varchar(60) NOT NULL,
+			orde smallint(5) unsigned NOT NULL,
+			estado enum('activo','inactivo') NOT NULL DEFAULT 'activo',
+			creado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			actualizado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE KEY curso_nivel (curso_escolar, codigo),
+			INDEX curso_estado_orde (curso_escolar, estado, orde),
+			PRIMARY KEY  (id)
+		) {$charset_collate};" );
+
+		$aulas = self::tabela_aulas();
+		dbDelta( "CREATE TABLE {$aulas} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			nivel_id bigint(20) unsigned NOT NULL,
+			codigo varchar(20) NOT NULL,
+			etiqueta varchar(60) NOT NULL,
+			orde smallint(5) unsigned NOT NULL,
+			estado enum('activo','inactivo') NOT NULL DEFAULT 'activo',
+			creado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			actualizado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE KEY nivel_aula (nivel_id, codigo),
+			INDEX nivel_estado_orde (nivel_id, estado, orde),
+			PRIMARY KEY  (id)
+		) {$charset_collate};" );
+
+		$grupos_niveis = self::tabela_grupos_niveis();
+		dbDelta( "CREATE TABLE {$grupos_niveis} (
+			grupo_id bigint(20) unsigned NOT NULL,
+			nivel_id bigint(20) unsigned NOT NULL,
+			PRIMARY KEY  (grupo_id, nivel_id),
+			INDEX nivel_id (nivel_id)
+		) {$charset_collate};" );
+
+		// ── Step 2: ALTER existing tables (guarded, idempotent) ────────
+		$fillos_cursos = self::tabela_fillos_cursos();
+
+		if ( ! self::tem_columna( $fillos_cursos, 'nivel_id' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$fillos_cursos} ADD COLUMN nivel_id bigint(20) unsigned NULL DEFAULT NULL AFTER aula, ADD KEY nivel_id (nivel_id)" ) ) {
+				return false;
+			}
+		}
+		if ( ! self::tem_columna( $fillos_cursos, 'aula_id' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$fillos_cursos} ADD COLUMN aula_id bigint(20) unsigned NULL DEFAULT NULL AFTER nivel_id, ADD KEY aula_id (aula_id)" ) ) {
+				return false;
+			}
+		}
+
+		// Widen curso enum → varchar(30).
+		$col_info = $wpdb->get_row( $wpdb->prepare( "SHOW COLUMNS FROM {$fillos_cursos} LIKE %s", 'curso' ), ARRAY_A );
+		$col_type = is_array( $col_info ) ? (string) ( $col_info['Type'] ?? '' ) : '';
+		if ( false !== strpos( $col_type, 'enum' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$fillos_cursos} MODIFY COLUMN curso varchar(30) NOT NULL DEFAULT ''" ) ) {
+				return false;
+			}
+		}
+
+		// Widen aula enum → varchar(20).
+		$col_info = $wpdb->get_row( $wpdb->prepare( "SHOW COLUMNS FROM {$fillos_cursos} LIKE %s", 'aula' ), ARRAY_A );
+		$col_type = is_array( $col_info ) ? (string) ( $col_info['Type'] ?? '' ) : '';
+		if ( false !== strpos( $col_type, 'enum' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$fillos_cursos} MODIFY COLUMN aula varchar(20) NOT NULL DEFAULT ''" ) ) {
+				return false;
+			}
+		}
+
+		// Convert grupos.curso_range enum → varchar(20).
+		$grupos = self::tabela_grupos();
+		$col_info = $wpdb->get_row( $wpdb->prepare( "SHOW COLUMNS FROM {$grupos} LIKE %s", 'curso_range' ), ARRAY_A );
+		$col_type = is_array( $col_info ) ? (string) ( $col_info['Type'] ?? '' ) : '';
+		if ( false !== strpos( $col_type, 'enum' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$grupos} MODIFY COLUMN curso_range varchar(20) NOT NULL DEFAULT ''" ) ) {
+				return false;
+			}
+		}
+
+		// Add nivel_min_id / nivel_max_id to actividades_cursos.
+		$act_cursos = self::tabela_actividades_cursos();
+		if ( ! self::tem_columna( $act_cursos, 'nivel_min_id' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$act_cursos} ADD COLUMN nivel_min_id bigint(20) unsigned NULL DEFAULT NULL AFTER grupos, ADD KEY nivel_min_id (nivel_min_id)" ) ) {
+				return false;
+			}
+		}
+		if ( ! self::tem_columna( $act_cursos, 'nivel_max_id' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$act_cursos} ADD COLUMN nivel_max_id bigint(20) unsigned NULL DEFAULT NULL AFTER nivel_min_id, ADD KEY nivel_max_id (nivel_max_id)" ) ) {
+				return false;
+			}
+		}
+
+		// ── Step 3: Backfill structure from existing cursos ────────────
+		// Create levels 1..6 and classrooms A..aula_max for every existing
+		// curso_escolar in anpa_cursos. INSERT IGNORE guarantees idempotence.
+		$cursos_t = self::tabela_cursos();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent data backfill.
+		$existing = $wpdb->get_col( "SELECT DISTINCT curso_escolar FROM {$cursos_t} ORDER BY curso_escolar" );
+		$aula_max = ANPA_Socios_Config::aula_max();
+
+		if ( is_array( $existing ) ) {
+			foreach ( $existing as $curso_escolar ) {
+				// Levels 1..6.
+				for ( $n = 1; $n <= 6; $n++ ) {
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent data backfill.
+					$wpdb->query( $wpdb->prepare(
+						"INSERT IGNORE INTO {$niveis} (curso_escolar, codigo, etiqueta, orde, estado, creado_en, actualizado_en)
+						 VALUES (%s, %s, %s, %d, 'activo', NOW(), NOW())",
+						$curso_escolar,
+						(string) $n,
+						$n . 'º',
+						$n * 10
+					) );
+				}
+
+				// Classrooms A..aula_max for each level.
+				for ( $n = 1; $n <= 6; $n++ ) {
+					$nivel_id = $wpdb->get_var( $wpdb->prepare(
+						"SELECT id FROM {$niveis} WHERE curso_escolar = %s AND codigo = %s",
+						$curso_escolar,
+						(string) $n
+					) );
+					if ( null === $nivel_id || ! $nivel_id ) {
+						continue;
+					}
+					$letters = range( 'A', $aula_max );
+					foreach ( $letters as $letter ) {
+						// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent data backfill.
+						$wpdb->query( $wpdb->prepare(
+							"INSERT IGNORE INTO {$aulas} (nivel_id, codigo, etiqueta, orde, estado, creado_en, actualizado_en)
+							 VALUES (%d, %s, %s, %d, 'activo', NOW(), NOW())",
+							(int) $nivel_id,
+							$letter,
+							$letter,
+							( ord( $letter ) - 64 ) * 10
+						) );
+					}
+				}
+			}
+		}
+
+		// ── Step 4: Map existing fillos_cursos to nivel_id/aula_id ─────
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- safe read for backfill.
+		$fc_rows = $wpdb->get_results( "SELECT id, curso_escolar, curso, aula FROM {$fillos_cursos}", ARRAY_A );
+		if ( is_array( $fc_rows ) ) {
+			foreach ( $fc_rows as $fc ) {
+				if ( ! empty( $fc['curso'] ) ) {
+					$nivel_id = $wpdb->get_var( $wpdb->prepare(
+						"SELECT n.id FROM {$niveis} n WHERE n.curso_escolar = %s AND n.codigo = %s LIMIT 1",
+						$fc['curso_escolar'],
+						trim( $fc['curso'] )
+					) );
+					if ( $nivel_id && ! empty( $fc['aula'] ) ) {
+						$aula_id = $wpdb->get_var( $wpdb->prepare(
+							"SELECT a.id FROM {$aulas} a INNER JOIN {$niveis} n ON n.id = a.nivel_id
+							 WHERE n.curso_escolar = %s AND n.codigo = %s AND a.codigo = %s LIMIT 1",
+							$fc['curso_escolar'],
+							trim( $fc['curso'] ),
+							trim( $fc['aula'] )
+						) );
+						if ( $aula_id ) {
+							// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent data backfill.
+							$wpdb->query( $wpdb->prepare(
+								"UPDATE {$fillos_cursos} SET nivel_id = %d, aula_id = %d WHERE id = %d",
+								(int) $nivel_id,
+								(int) $aula_id,
+								(int) $fc['id']
+							) );
+						}
+					}
+				}
+			}
+		}
+
+		// ── Step 5: Map legacy grupos.curso_range to grupos_niveis ─────
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- safe read for backfill.
+		$legacy_grupos = $wpdb->get_results( "SELECT id, curso_range FROM {$grupos}", ARRAY_A );
+		if ( is_array( $legacy_grupos ) ) {
+			foreach ( $legacy_grupos as $g ) {
+				$range = trim( (string) $g['curso_range'] );
+				$codes = array();
+				if ( '1-2-3' === $range || '4-5-6' === $range ) {
+					$codes = explode( '-', $range );
+				}
+				if ( array() === $codes ) {
+					continue;
+				}
+				// Find any nivel with matching code (cross-course — best-effort).
+				foreach ( $codes as $code ) {
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent data backfill.
+					$wpdb->query( $wpdb->prepare(
+						"INSERT IGNORE INTO {$grupos_niveis} (grupo_id, nivel_id)
+						 SELECT %d, id FROM {$niveis} WHERE codigo = %s",
+						(int) $g['id'],
+						$code
+					) );
+				}
+			}
+		}
+
+		return true;
 	}
 
 	/**

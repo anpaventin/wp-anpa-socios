@@ -118,7 +118,9 @@ final class ANPA_Socios_Fillos_REST {
 			return self::invalid_session_error();
 		}
 
-		$payload = ANPA_Socios_Admin_Payload::validar_fillo( self::json_body( $request ) );
+		$body = self::json_body( $request );
+		$curso_escolar = isset( $body['curso_escolar'] ) ? (string) $body['curso_escolar'] : '';
+		$payload = ANPA_Socios_Admin_Payload::validar_fillo( $body, $curso_escolar );
 		if ( null === $payload ) {
 			return self::invalid_payload_error();
 		}
@@ -173,7 +175,9 @@ final class ANPA_Socios_Fillos_REST {
 			return self::not_found_error();
 		}
 
-		$payload = ANPA_Socios_Admin_Payload::validar_fillo( self::json_body( $request ) );
+		$body = self::json_body( $request );
+		$curso_escolar = isset( $body['curso_escolar'] ) ? (string) $body['curso_escolar'] : '';
+		$payload = ANPA_Socios_Admin_Payload::validar_fillo( $body, $curso_escolar );
 		if ( null === $payload ) {
 			return self::invalid_payload_error();
 		}

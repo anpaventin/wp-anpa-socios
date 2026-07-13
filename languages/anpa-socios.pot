@@ -1672,3 +1672,111 @@ msgstr ""
 msgid "Antes de importar ou arquivar datos persoais, debe existir unha subfase con validación, vista previa, confirmación e auditoría."
 msgstr ""
 
+#: includes/class-anpa-socios-admin-settings.php:action_links
+msgid "Documentación"
+msgstr ""
+
+#: includes/class-anpa-socios-admin-settings.php:handle_save_settings
+msgid "O email do equipo administrador non é válido. Non se gardou ningún cambio."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-empresas-handler.php
+msgid "O nome é obrigatorio."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-empresas-handler.php
+msgid "O responsable é obrigatorio."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-empresas-handler.php
+msgid "O teléfono é obrigatorio."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-empresas-handler.php
+msgid "O email é obrigatorio."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-empresas-handler.php
+msgid "O email non é válido."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-empresas-handler.php
+msgid "O estado da empresa non é válido."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-empresas-handler.php
+msgid "Revisa os datos da empresa."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-actividades-handler.php
+msgid "Selecciona unha empresa válida."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-actividades-handler.php
+msgid "O nome da actividade é obrigatorio."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-actividades-handler.php
+msgid "A descrición é obrigatoria."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-actividades-handler.php
+msgid "O curso escolar é obrigatorio."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-actividades-handler.php
+msgid "O curso escolar debe ter formato AAAA/AAAA+1."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-actividades-handler.php
+msgid "Selecciona polo menos un horario válido."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-actividades-handler.php
+msgid "Selecciona polo menos un grupo válido."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-actividades-handler.php
+msgid "Selecciona polo menos un día válido."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-actividades-handler.php
+msgid "O custo debe ser un número válido."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-actividades-handler.php
+msgid "O curso mínimo non pode ser maior ca o curso máximo."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-actividades-handler.php
+msgid "O estado da actividade non é válido."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-actividades-handler.php
+msgid "Revisa os datos da actividade."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-empresas-handler.php
+msgid "Empresa non atopada."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-empresas-handler.php
+msgid "Desactiva a empresa antes de eliminala."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-actividades-handler.php
+msgid "Actividade non atopada."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-actividades-handler.php
+msgid "Desactiva a actividade antes de eliminala."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-actividades-handler.php
+msgid "Non se pode eliminar a actividade porque ten grupos ou matrículas asociadas."
+msgstr ""
+
+#: includes/class-anpa-socios-admin-actividades-handler.php
+msgid "Revisa os cursos nos que se oferta a actividade."
+msgstr ""
+
