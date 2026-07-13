@@ -44,6 +44,7 @@
       <file>tests/Test_ANPA_Socios_Admin_Auth.php</file>
       <file>tests/Test_ANPA_Socios_Master_Auth_Removed.php</file>
       <file>tests/Test_ANPA_Socios_Security_Fase17.php</file>
+      <file>tests/Test_ANPA_Socios_Sepa.php</file>
       <file>tests/Test_ANPA_Socios_Admin_Audit_Hardening.php</file>
       <file>tests/Test_ANPA_Socios_Normalize.php</file>
       <file>tests/Test_ANPA_Socios_Familia.php</file>
