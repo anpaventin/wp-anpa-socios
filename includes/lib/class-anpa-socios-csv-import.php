@@ -48,7 +48,7 @@ final class ANPA_Socios_Csv_Import {
 		'fillos'      => array( 'proxenitor_email', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'image_consent', 'estado' ),
 		'empresas'    => array( 'nome', 'email', 'responsable', 'telefono', 'url_web', 'estado' ),
 		'actividades' => array( 'empresa_email', 'nome', 'descripcion', 'curso_escolar', 'min_pupilos', 'max_pupilos', 'curso_min', 'curso_max', 'custo', 'estado' ),
-		'matriculas'  => array( 'proxenitor_email', 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar', 'comedor', 'tarde', 'observaciones', 'estado' ),
+		'matriculas'  => array( 'proxenitor_email', 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar', 'grupo_curso_range', 'grupo_franxa', 'grupo_dias', 'trimestre', 'posicion', 'comedor', 'tarde', 'observaciones', 'estado' ),
 		'socios_iban' => array( 'id_familia', 'titular_nome', 'titular_apelidos', 'titular_nif', 'iban', 'entidade_bancaria', 'autorizacion' ),
 	);
 
@@ -77,7 +77,9 @@ final class ANPA_Socios_Csv_Import {
 			return array();
 		}
 
-		$headers = array_map( 'trim', $lines[0] );
+		$headers = array_map( static function ( $v ) {
+			return strtolower( trim( $v, " \"	\n\r\0\x0B" ) );
+		}, $lines[0] );
 		$rows    = array();
 
 		for ( $i = 1, $count = count( $lines ); $i < $count; $i++ ) {
@@ -338,10 +340,14 @@ final class ANPA_Socios_Csv_Import {
 				$empresa_email   = $row['empresa_email'] ?? '';
 				$actividade_nome = mb_strtolower( $row['actividade_nome'] ?? '', 'UTF-8' );
 				$curso_escolar   = $row['curso_escolar'] ?? '';
+				$grupo_range     = mb_strtolower( $row['grupo_curso_range'] ?? '', 'UTF-8' );
+				$grupo_franxa    = mb_strtolower( $row['grupo_franxa'] ?? '', 'UTF-8' );
+				$grupo_dias      = mb_strtolower( $row['grupo_dias'] ?? '', 'UTF-8' );
+				$trimestre       = (string) ( $row['trimestre'] ?? '' );
 				if ( '' === $proxenitor_email || '' === $fillo_nome || '' === $empresa_email || '' === $actividade_nome || '' === $curso_escolar ) {
 					return null;
 				}
-				return "matriculas:{$proxenitor_email}|{$fillo_nome}|{$fillo_apelidos}|{$empresa_email}|{$actividade_nome}|{$curso_escolar}";
+				return "matriculas:{$proxenitor_email}|{$fillo_nome}|{$fillo_apelidos}|{$empresa_email}|{$actividade_nome}|{$curso_escolar}|{$grupo_range}|{$grupo_franxa}|{$grupo_dias}|{$trimestre}";
 
 			case 'actividades':
 				$empresa_email = $row['empresa_email'] ?? '';
@@ -362,6 +368,17 @@ final class ANPA_Socios_Csv_Import {
 			default:
 				return null;
 		}
+	}
+
+	/**
+	 * Keeps every state supported by the matriculas schema.
+	 *
+	 * @since  1.38.0
+	 */
+	public static function matricula_estado( string $estado ): string {
+		$valid = array( 'activo', 'lista_espera', 'oferta', 'baixa_solicitada', 'baixa' );
+
+		return in_array( $estado, $valid, true ) ? $estado : 'activo';
 	}
 
 	/**

@@ -168,7 +168,10 @@ final class ANPA_Socios_Extraescolares_Page {
 		$act_t = ANPA_Socios_DB::tabela_actividades();
 		$acy_t = ANPA_Socios_DB::tabela_actividades_cursos();
 		$gru_t = ANPA_Socios_DB::tabela_grupos();
-		$curso = ANPA_Socios_Curso_Escolar::current();
+		$curso = ANPA_Socios_Curso_Activo::get();
+		if ( null === $curso ) {
+			return array();
+		}
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only public schedule from activity/group tables.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
@@ -201,7 +204,10 @@ final class ANPA_Socios_Extraescolares_Page {
 		$gru_t    = ANPA_Socios_DB::tabela_grupos();
 		$mat_t    = ANPA_Socios_DB::tabela_matriculas();
 		$empresas = ANPA_Socios_DB::tabela_empresas();
-		$curso    = ANPA_Socios_Curso_Escolar::current();
+		$curso    = ANPA_Socios_Curso_Activo::get();
+		if ( null === $curso ) {
+			return array();
+		}
 
 		// Main activity + empresa query (without group_detail — added per activity).
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only public blocks from activity/group tables.
@@ -215,7 +221,7 @@ final class ANPA_Socios_Extraescolares_Page {
 				 FROM {$act_t} a
 				 INNER JOIN {$acy_t} ac ON ac.actividad_id = a.id AND ac.curso_escolar = %s
 				 LEFT JOIN {$empresas} e ON e.id = a.empresa_id
-				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = ac.curso_escolar AND g.estado = 'aberto'
+				 LEFT JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = ac.curso_escolar AND g.estado = 'aberto'
 				 WHERE a.estado = 'activo' AND ac.estado = 'activo'
 				 GROUP BY a.id, a.nome, a.icono, a.descripcion, ac.custo, e.nome, e.url_web
 				 ORDER BY sort_franxa ASC, a.nome ASC",

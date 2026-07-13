@@ -27,6 +27,7 @@
       <file>tests/Test_ANPA_Socios_Export_Exclusion.php</file>
       <file>tests/Test_ANPA_Socios_Actividade_Options.php</file>
       <file>tests/Test_ANPA_Socios_Curso_Escolar.php</file>
+      <file>tests/Test_ANPA_Socios_Curso_Lifecycle.php</file>
       <file>tests/Test_ANPA_Socios_Course_Settings.php</file>
       <file>tests/Test_ANPA_Socios_Horario_Builder.php</file>
       <file>tests/Test_ANPA_Socios_Settings_Tabs.php</file>
@@ -39,6 +40,7 @@
       <file>tests/Test_ANPA_Socios_Familia.php</file>
       <file>tests/Test_ANPA_Socios_Csv_Import.php</file>
       <file>tests/Test_ANPA_Socios_Csv_Import_Iban.php</file>
+      <file>tests/Test_ANPA_Socios_Csv_Roundtrip_Contracts.php</file>
       <file>tests/Test_ANPA_Socios_Trimestre.php</file>
     </testsuite>
   </testsuites>

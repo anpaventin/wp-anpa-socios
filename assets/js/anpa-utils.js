@@ -31,33 +31,34 @@
 		'rol': 'Rol',
 		'creado_en': 'Creado',
 		'actualizado_en': 'Actualizado',
-		'telefono': 'Tel\u00E9fono',
-		'nif': 'NIF',
+		'telefono': 'Teléfono',
+		'nif': 'DNI',
 		'baixa_estado': '',
 		'baixa_solicitada_en': '',
 		// Segundo proxenitor (socios)
-		'segundo_proxenitor_nome': '2\u00BA proxenitor/titor',
-		'segundo_proxenitor_email': 'Email 2\u00BA prox.',
-		'segundo_proxenitor_nif': 'NIF 2\u00BA prox.',
+		'segundo_proxenitor_nome': '2º proxenitor/titor',
+		'segundo_proxenitor_email': 'Email 2º prox.',
+		'segundo_proxenitor_nif': 'DNI 2º prox.',
+		'segundo_proxenitor_telefono': 'Teléfono (2º)',
 		// Empresas
 		'responsable': 'Responsable',
 		'url_web': 'URL web',
 		// Actividades
 		'empresa_id': '',
 		'empresa_nome': 'Empresa',
-		'descripcion': 'Descrici\u00F3n',
+		'descripcion': 'Descrición',
 		'curso_escolar': 'Curso escolar',
-		'curso_min': 'Curso m\u00EDn.',
-		'curso_max': 'Curso m\u00E1x.',
+		'curso_min': 'Curso mín.',
+		'curso_max': 'Curso máx.',
 		'custo': 'Custo',
-		// Matr\u00EDculas
+		// Matrículas
 		'fillo_id': '',
 		'fillo_nome': 'Fillo/a',
 		'activitad_id': '',
 		'actividade_nome': 'Actividade',
 		'comedor': 'Comedor',
 		'tarde': 'Tarde',
-		'observaciones': 'Observaci\u00F3ns',
+		'observaciones': 'Observacións',
 		// Cursos
 		'curso': 'Curso',
 		// Fillos / Audit
@@ -68,24 +69,24 @@
 		'actor_tipo': 'Tipo',
 		'target_tipo': 'Destino',
 		'target_id': 'ID',
-		'accion': 'Acci\u00F3n',
+		'accion': 'Acción',
 		'timestamp': 'Data/Hora',
 		'aula_nome': 'Aula',
 		// _display computed columns
 		'curso_display': 'Curso',
 		'estado_display': 'Estado',
 		'_empresa_nome': 'Empresa',
-		'_opcions': 'Opci\u00F3ns',
-		// matr\u00EDculas columns
+		'_opcions': 'Opcións',
+		// matrículas columns
 		'fillo_apelidos': 'Apelidos',
 		'fillo_nome': 'Nome',
 		'actividade': 'Actividade',
 		'curso_completo': 'Curso/Aula',
 		'franxa': 'Franxa',
-		'dias': 'D\u00EDas',
+		'dias': 'Días',
 		'trimestre': 'Trim.',
 		'trimestres': 'Trimestres',
-		'posicion': 'Posici\u00F3n',
+		'posicion': 'Posición',
 		// fillos section
 		'proxenitor_apelidos': 'Apelidos prox.',
 		'proxenitor_nome': 'Nome prox.',
@@ -108,7 +109,7 @@
 
 	/**
 	 * Returns a filtered copy of `rows` where any visible-column value
-	 * contains `query` (case-insensitive). Empty/missing query â all rows.
+	 * contains `query` (case-insensitive). Empty/missing query → all rows.
 	 */
 	function filterRows(rows, query, cols) {
 		if (!query || !query.trim()) { return rows; }

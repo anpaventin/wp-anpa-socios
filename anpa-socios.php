@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ANPA Socios
  * Description: Xestión de socios para asociacións de nais e pais (ANPA/AMPA): área de socios sen contrasinal, fillos e actividades extraescolares, domiciliación SEPA cifrada, ciclo de curso, panel de administración e actualizacións self-hosted. Configurable para calquera asociación.
- * Version: 1.37.1
+ * Version: 1.38.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: ANPA Socios
@@ -21,8 +21,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ANPA_SOCIOS_VERSION', '1.37.1' );
-define( 'ANPA_SOCIOS_DB_VERSION', '1.25.0' );
+define( 'ANPA_SOCIOS_VERSION', '1.38.0' );
+define( 'ANPA_SOCIOS_DB_VERSION', '1.26.0' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 
@@ -44,6 +44,7 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-admin-payl
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-actividade-options.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-curso-fit.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-curso-escolar.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-curso-lifecycle.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-course-settings.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-season.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-preseason-gate.php';
@@ -52,6 +53,7 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-waitlist.p
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-trimestre.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-alta-payload.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-db.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-curso-activo.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-rest.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-area-rest.php';

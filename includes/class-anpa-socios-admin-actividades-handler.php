@@ -401,8 +401,11 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function copy_actividad_to_current( WP_REST_Request $request ) {
-		// Delegate to the generalized duplicate logic using current course.
-		$request->set_body_params( array( 'target_curso' => ANPA_Socios_Curso_Escolar::current() ) );
+		$active = ANPA_Socios_Curso_Activo::get();
+		if ( null === $active ) {
+			return new WP_Error( 'anpa_admin_no_active_course', 'Non hai un curso activo.', array( 'status' => 409 ) );
+		}
+		$request->set_body_params( array( 'target_curso' => $active ) );
 		return self::duplicate_actividad( $request );
 	}
 
@@ -427,7 +430,10 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		$body   = is_array( $request->get_json_params() ) ? $request->get_json_params() : array();
 		$target = isset( $body['target_curso'] ) && ANPA_Socios_Curso_Escolar::is_valid( (string) $body['target_curso'] )
 			? (string) $body['target_curso']
-			: ANPA_Socios_Curso_Escolar::current();
+			: ANPA_Socios_Curso_Activo::get();
+		if ( null === $target ) {
+			return new WP_Error( 'anpa_admin_no_active_course', 'Non hai un curso activo.', array( 'status' => 409 ) );
+		}
 
 		$act_t = ANPA_Socios_DB::tabela_actividades();
 		$acy_t = ANPA_Socios_DB::tabela_actividades_cursos();

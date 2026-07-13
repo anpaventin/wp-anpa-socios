@@ -84,13 +84,7 @@
 		URL.revokeObjectURL(url);
 	}
 
-	function downloadCsv(filename, csv) {
-		var bom = '\uFEFF';
-		var blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
-		downloadBlob(blob, filename);
-	}
-
-	// ── Passphrase modal ─────────────────────────────────────────────
+	// ── Passphrase modal
 	function promptPassphrase(title, onSubmit) {
 		var overlay = document.createElement('div');
 		overlay.className = 'anpa-mgmt-modal-overlay';
@@ -283,14 +277,13 @@
 	}
 
 	// ── CSV export button ─────────────────────────────────────────────
-	function addCsvExportBtn(container, section, rows, cols) {
+	function addCsvExportBtn(container, section) {
 		var btn = document.createElement('button');
 		btn.type = 'button';
 		btn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
 		btn.textContent = 'Exportar CSV';
 		btn.addEventListener('click', function () {
-			var csv = buildCsvString(rows, cols);
-			downloadCsv('anpa-' + section + '.csv', csv);
+			exportServerCsv(section, 'anpa-' + section + '.csv');
 		});
 		container.appendChild(btn);
 	}
@@ -992,6 +985,21 @@
 					}).catch(function (e) { showMessage(e.message, 'error'); });
 				});
 				actionsTd.appendChild(toggleBtn);
+
+				// Delete button only when inactive
+				if (row.estado === 'inactivo') {
+					var deleteBtn = document.createElement('button');
+					deleteBtn.type = 'button'; deleteBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-danger';
+					deleteBtn.textContent = 'Eliminar';
+					deleteBtn.addEventListener('click', function () {
+						if (!window.confirm('Eliminar esta empresa? Esta acci\u00F3n non se pode desfacer.')) { return; }
+						anpaAdminFetch('empresa/' + row.id, { method: 'DELETE' }).then(function () {
+							showMessage('Empresa eliminada.', 'success');
+							loadEmpresas();
+						}).catch(function (e) { showMessage(e.message, 'error'); loadEmpresas(); });
+					});
+					actionsTd.appendChild(deleteBtn);
+				}
 			});
 
 			root.appendChild(table);
@@ -1091,6 +1099,55 @@
 		cancelBtn.addEventListener('click', function () { loadEmpresas(); });
 		actions.appendChild(cancelBtn);
 		form.appendChild(actions);
+
+		// Show related actividades when editing an existing empresa
+		if (isEdit && empresa.id) {
+			var h4 = document.createElement('h4');
+			h4.textContent = 'Actividades desta empresa';
+			form.appendChild(h4);
+
+			anpaAdminFetch('actividades').then(function (acts) {
+				var relActs = acts.filter(function (a) { return String(a.empresa_id) === String(empresa.id); });
+				if (relActs.length === 0) {
+					var p = document.createElement('p');
+					p.textContent = 'Esta empresa non ten actividades asociadas.';
+					p.className = 'description';
+					form.appendChild(p);
+					return;
+				}
+				var actTable = document.createElement('table');
+				actTable.className = 'widefat striped';
+				actTable.style.marginTop = '1em';
+				var thead = document.createElement('thead');
+				var headerRow = document.createElement('tr');
+				['Nome', 'Curso escolar', 'Estado'].forEach(function (h) {
+					var th = document.createElement('th');
+					th.textContent = h;
+					headerRow.appendChild(th);
+				});
+				thead.appendChild(headerRow);
+				actTable.appendChild(thead);
+				var tbody = document.createElement('tbody');
+				relActs.forEach(function (a) {
+					var tr = document.createElement('tr');
+					var td1 = document.createElement('td');
+					td1.textContent = a.nome || '';
+					var td2 = document.createElement('td');
+					td2.textContent = a.curso_escolar || '';
+					var td3 = document.createElement('td');
+					td3.textContent = a.estado || '';
+					tr.appendChild(td1);
+					tr.appendChild(td2);
+					tr.appendChild(td3);
+					tbody.appendChild(tr);
+				});
+				actTable.appendChild(tbody);
+				form.appendChild(actTable);
+			}).catch(function () {
+				// Silently ignore fetch errors for this ancillary data
+			});
+		}
+
 		root.appendChild(form);
 	}
 
@@ -1217,22 +1274,36 @@
 				toggleBtn.className = row.estado === 'activo' ? 'anpa-mgmt-btn anpa-mgmt-btn-danger' : 'anpa-mgmt-btn';
 				toggleBtn.textContent = row.estado === 'activo' ? 'Desactivar' : 'Activar';
 				toggleBtn.addEventListener('click', function () {
-					var newEstado = row.estado === 'activo' ? 'inactivo' : 'activo';
-					var payload = {
-						empresa_id: row.empresa_id, nome: row.nome, icono: row.icono || '',
-						descripcion: row.descripcion || '', curso_escolar: row.curso_escolar,
-						franxa: row.franxa || '', horarios: row.horarios || '',
-						grupos: row.grupos || '', dias: row.dias || '',
-						curso_min: row.curso_min, curso_max: row.curso_max,
-						min_pupilos: row.min_pupilos, max_pupilos: row.max_pupilos,
-						custo: row.custo, estado: newEstado,
-					};
-					anpaAdminFetch('actividad/' + row.id, { method: 'PUT', body: payload }).then(function () {
-						showMessage('Estado da actividade actualizado.', 'success');
-						loadActividades();
-					}).catch(function (e) { showMessage(e.message, 'error'); });
-				});
+						var newEstado = row.estado === 'activo' ? 'inactivo' : 'activo';
+						var payload = {
+							empresa_id: row.empresa_id, nome: row.nome, icono: row.icono || '',
+							descripcion: row.descripcion || '', curso_escolar: row.curso_escolar,
+							franxa: row.franxa || '', horarios: row.horarios || '',
+							grupos: row.grupos || '', dias: row.dias || '',
+							curso_min: row.curso_min, curso_max: row.curso_max,
+							min_pupilos: row.min_pupilos, max_pupilos: row.max_pupilos,
+							custo: row.custo, estado: newEstado,
+						};
+						anpaAdminFetch('actividad/' + row.id, { method: 'PUT', body: payload }).then(function () {
+							showMessage('Estado da actividade actualizado.', 'success');
+							loadActividades();
+						}).catch(function (e) { showMessage(e.message, 'error'); });
+					});
 				actionsTd.appendChild(toggleBtn);
+
+				if (row.estado === 'inactivo') {
+					var deleteBtn = document.createElement('button');
+					deleteBtn.type = 'button'; deleteBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-danger';
+					deleteBtn.textContent = 'Eliminar';
+					deleteBtn.addEventListener('click', function () {
+						if (!confirm('Eliminar esta actividade? Esta acción non se pode desfacer.')) return;
+						anpaAdminFetch('actividad/' + row.id, { method: 'DELETE' }).then(function () {
+							showMessage('Actividade eliminada.', 'success');
+							loadActividades();
+						}).catch(function (e) { showMessage(e.message, 'error'); loadActividades(); });
+					});
+					actionsTd.appendChild(deleteBtn);
+				}
 			});
 
 			root.appendChild(table);
@@ -1253,7 +1324,7 @@
 	}
 
 	/**
-	 * Generates a range of school years around the given one (or current).
+	* Generates a range of school years around the given one (or current).
 	 * Returns e.g. ['2024/2025', '2025/2026', '2026/2027'].
 	 */
 	function generateCursoRange(curso) {
@@ -1314,10 +1385,15 @@
 		descInput.rows = 3; descInput.value = isEdit ? (act.descripcion || '') : '';
 		addField('anpa-act-descripcion', 'Descrici\u00F3n', descInput);
 
-		var cursoInput = document.createElement('input'); cursoInput.type = 'text';
-		cursoInput.placeholder = '2025/2026';
-		cursoInput.value = isEdit ? (act.curso_escolar || '') : '';
-		addField('anpa-act-curso', 'Curso escolar (primario)', cursoInput);
+		var cursoSelect = document.createElement('select');
+		var currentYear = isEdit ? (act.curso_escolar || '') : '';
+		var yearOptions = generateCursoRange(currentYear);
+		yearOptions.forEach(function (yr) {
+			var opt = document.createElement('option'); opt.value = yr; opt.textContent = yr;
+			if (yr === currentYear) { opt.selected = true; }
+			cursoSelect.appendChild(opt);
+		});
+		addField('anpa-act-curso', 'Curso escolar (primario)', cursoSelect);
 
 		// Multi-course selector: checkboxes for available school years.
 		var cursosContainer = document.createElement('div');
@@ -1325,7 +1401,7 @@
 		var cursosLabel = document.createElement('label');
 		cursosLabel.textContent = 'Cursos nos que se oferta';
 		form.appendChild(cursosLabel);
-		var currentYear = cursoInput.value || '';
+		var currentYear = cursoSelect.value || '';
 		var yearList = generateCursoRange(currentYear);
 		var selectedCursos = isEdit && Array.isArray(act.cursos) ? act.cursos : (isEdit && act.curso_escolar ? [act.curso_escolar] : []);
 		yearList.forEach(function (yr) {
@@ -1347,15 +1423,43 @@
 		franxaInput.value = isEdit ? (act.franxa || '') : '';
 		addField('anpa-act-franxa', 'Franxa', franxaInput);
 
-		var horariosInput = document.createElement('input'); horariosInput.type = 'text';
-		horariosInput.placeholder = '09:00-10:00,10:00-11:00';
-		horariosInput.value = isEdit ? (act.horarios || '') : '';
-		addField('anpa-act-horarios', 'Horarios (separados por coma)', horariosInput);
+		// Horarios checkboxes
+		var horariosContainer = document.createElement('div');
+		['manha', 'tarde'].forEach(function (v) {
+			var chkLabel = document.createElement('label');
+			chkLabel.style.display = 'inline-block'; chkLabel.style.marginRight = '1em';
+			var chk = document.createElement('input'); chk.type = 'checkbox'; chk.value = v;
+			if (isEdit && act.horarios) {
+				var horariosArr = act.horarios.split(',').map(function (s) { return s.trim(); });
+				if (horariosArr.indexOf(v) !== -1) { chk.checked = true; }
+			}
+			chkLabel.appendChild(chk);
+			chkLabel.appendChild(document.createTextNode(v === 'manha' ? ' Ma\u00F1\u00E1' : ' Tarde'));
+			horariosContainer.appendChild(chkLabel);
+		});
+		var horariosLabel = document.createElement('label');
+		horariosLabel.textContent = 'Horarios';
+		form.appendChild(horariosLabel);
+		form.appendChild(horariosContainer);
 
-		var gruposInput = document.createElement('input'); gruposInput.type = 'text';
-		gruposInput.placeholder = '1-2,3-4,5-6';
-		gruposInput.value = isEdit ? (act.grupos || '') : '';
-		addField('anpa-act-grupos', 'Grupos curriculares (separados por coma)', gruposInput);
+		// Grupos curriculares checkboxes
+		var gruposContainer = document.createElement('div');
+		['1-2-3', '4-5-6'].forEach(function (v) {
+			var chkLabel = document.createElement('label');
+			chkLabel.style.display = 'inline-block'; chkLabel.style.marginRight = '1em';
+			var chk = document.createElement('input'); chk.type = 'checkbox'; chk.value = v;
+			if (isEdit && act.grupos) {
+				var gruposArr = act.grupos.split(',').map(function (s) { return s.trim(); });
+				if (gruposArr.indexOf(v) !== -1) { chk.checked = true; }
+			}
+			chkLabel.appendChild(chk);
+			chkLabel.appendChild(document.createTextNode(v === '1-2-3' ? ' 1\u00BA ciclo (1-2-3)' : ' 2\u00BA ciclo (4-5-6)'));
+			gruposContainer.appendChild(chkLabel);
+		});
+		var gruposLabel = document.createElement('label');
+		gruposLabel.textContent = 'Grupos curriculares';
+		form.appendChild(gruposLabel);
+		form.appendChild(gruposContainer);
 
 		var diasInput = document.createElement('input'); diasInput.type = 'text';
 		diasInput.placeholder = 'luns,martes,m\u00E9rcores';
@@ -1404,15 +1508,27 @@
 			for (var ci = 0; ci < chks.length; ci++) {
 				if (chks[ci].checked) { selectedCursosArr.push(chks[ci].value); }
 			}
+			// Horarios from checkboxes
+			var horariosArr = [];
+			var hChks = horariosContainer.querySelectorAll('input[type="checkbox"]');
+			for (var hi = 0; hi < hChks.length; hi++) {
+				if (hChks[hi].checked) { horariosArr.push(hChks[hi].value); }
+			}
+			// Grupos from checkboxes
+			var gruposArr = [];
+			var gChks = gruposContainer.querySelectorAll('input[type="checkbox"]');
+			for (var gi = 0; gi < gChks.length; gi++) {
+				if (gChks[gi].checked) { gruposArr.push(gChks[gi].value); }
+			}
 			var payload = {
 				empresa_id: parseInt(empresaSelect.value, 10) || 0,
 				nome: (nomeInput.value || '').trim(),
 				icono: isEdit ? (act.icono || '') : '',
 				descripcion: (descInput.value || '').trim(),
-				curso_escolar: (cursoInput.value || '').trim(),
+				curso_escolar: cursoSelect.value,
 				franxa: (franxaInput.value || '').trim(),
-				horarios: (horariosInput.value || '').trim(),
-				grupos: (gruposInput.value || '').trim(),
+				horarios: horariosArr.join(','),
+				grupos: gruposArr.join(','),
 				dias: (diasInput.value || '').trim(),
 				curso_min: idadeMinInput.value !== '' ? parseInt(idadeMinInput.value, 10) : null,
 				curso_max: idadeMaxInput.value !== '' ? parseInt(idadeMaxInput.value, 10) : null,
@@ -1753,58 +1869,91 @@
 		root.textContent = '';
 		var current = (data && data.current) || '';
 		var list = data && Array.isArray(data.cursos) ? data.cursos : [];
+		var active = list.filter(function (c) { return c.curso_escolar === current && c.estado === 'activo'; })[0] || null;
 
 		var h3 = document.createElement('h3');
-		h3.textContent = 'Cursos escolares (actual: ' + current + ')';
+		h3.textContent = 'Curso escolar activo';
 		root.appendChild(h3);
 
-		if (!list.length) { root.appendChild(emptyEl('Sen cursos.')); return; }
+		if (active) {
+			var summary = document.createElement('div');
+			summary.className = 'anpa-mgmt-summary';
+			var status = document.createElement('p');
+			var courseStrong = document.createElement('strong');
+			courseStrong.textContent = active.curso_escolar;
+			status.appendChild(courseStrong);
+			status.appendChild(document.createTextNode(' · Matrículas ' + (active.matriculas_abertas ? 'abertas' : 'pechadas')));
+			summary.appendChild(status);
 
-		var COLS = ['curso_escolar', '_estado_display', 'actualizado_en'];
-		list.forEach(function (r) {
-			r._estado_display = r.matriculas_abertas ? 'Aberto' : 'Pechado';
-		});
-		var st = sectionState.cursos || (sectionState.cursos = { sort: { key: 'curso_escolar', dir: 'desc' } });
-		var sorted = tbl.sortRows(list, st.sort.key, st.sort.dir);
-		var table = buildTable(sorted, COLS, st.sort, function () { renderCursos(data); }, function (tr, row) {
-			if (!row.matriculas_abertas) { tr.classList.add('anpa-row-baixa'); }
-		});
-		// Add toggle button per row
-		var tbodyRows = table.querySelectorAll('tbody tr');
-		sorted.forEach(function (row, i) {
-			var cell = tbodyRows[i] ? tbodyRows[i]._actionsCell || tbodyRows[i].lastElementChild : null;
-			if (!cell) { return; }
-			var btn = document.createElement('button');
-			btn.type = 'button';
-			btn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
-			btn.textContent = row.matriculas_abertas ? 'Pechar' : 'Abrir';
-			btn.addEventListener('click', function () {
-				if (!window.confirm((row.matriculas_abertas ? 'Pechar' : 'Abrir') + ' matr\u00EDcula para ' + row.curso_escolar + '?')) { return; }
-				anpaAdminFetch('curso', { method: 'PUT', body: { curso_escolar: row.curso_escolar, matriculas_abertas: !row.matriculas_abertas } })
-					.then(function () { showMessage('Curso actualizado.', 'success'); loadCursos(); })
+			var gateBtn = document.createElement('button');
+			gateBtn.type = 'button';
+			gateBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
+			gateBtn.textContent = active.matriculas_abertas ? 'Pechar matrículas' : 'Abrir matrículas';
+			gateBtn.addEventListener('click', function () {
+				var opening = !active.matriculas_abertas;
+				if (!window.confirm((opening ? 'Abrir' : 'Pechar') + ' as matrículas de ' + active.curso_escolar + '?')) { return; }
+				anpaAdminFetch('curso', { method: 'PUT', body: { curso_escolar: active.curso_escolar, estado: 'activo', matriculas_abertas: opening, replace_active: false } })
+					.then(function () { showMessage('Matrículas actualizadas.', 'success'); loadCursos(); })
 					.catch(function (e) { showMessage(e.message, 'error'); });
 			});
-			cell.appendChild(btn);
-		});
-		root.appendChild(table);
+			summary.appendChild(gateBtn);
+
+			var closeBtn = document.createElement('button');
+			closeBtn.type = 'button';
+			closeBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-danger';
+			closeBtn.textContent = 'Desactivar curso';
+			closeBtn.addEventListener('click', function () {
+				if (!window.confirm('Desactivar ' + active.curso_escolar + '? As súas matrículas tamén quedarán pechadas.')) { return; }
+				anpaAdminFetch('curso', { method: 'PUT', body: { curso_escolar: active.curso_escolar, estado: 'pechado', matriculas_abertas: false } })
+					.then(function () { showMessage('Curso desactivado e matrículas pechadas.', 'success'); loadCursos(); })
+					.catch(function (e) { showMessage(e.message, 'error'); });
+			});
+			summary.appendChild(closeBtn);
+			root.appendChild(summary);
+		} else {
+			root.appendChild(emptyEl('Non hai ningún curso activo. Selecciona un para activalo.'));
+		}
+
+		var candidates = list.filter(function (c) { return !active || c.curso_escolar !== active.curso_escolar; });
+		if (candidates.length) {
+			var switchWrap = document.createElement('div');
+			switchWrap.className = 'anpa-mgmt-form-actions';
+			var courseLabel = document.createElement('label');
+			courseLabel.textContent = active ? 'Cambiar curso activo: ' : 'Activar curso: ';
+			var switchSelect = document.createElement('select');
+			candidates.forEach(function (c) {
+				var option = document.createElement('option');
+				option.value = c.curso_escolar;
+				option.textContent = c.curso_escolar + (c.curso_escolar === data.suggested ? ' (suxerido)' : '');
+				switchSelect.appendChild(option);
+			});
+			courseLabel.appendChild(switchSelect);
+			switchWrap.appendChild(courseLabel);
+
+			var activateBtn = document.createElement('button');
+			activateBtn.type = 'button';
+			activateBtn.className = 'anpa-mgmt-btn';
+			activateBtn.textContent = 'Activar curso seleccionado';
+			activateBtn.addEventListener('click', function () {
+				var target = switchSelect.value;
+				if (active && !window.confirm('Para activar ' + target + ' hai que desactivar ' + active.curso_escolar + ' e pechar as súas matrículas. Continuar?')) { return; }
+				var open = window.confirm('Queres activar tamén a apertura de matrículas para ' + target + '?\n\nAceptar: curso activo con matrículas abertas.\nCancelar: curso activo con matrículas pechadas.');
+				anpaAdminFetch('curso', { method: 'PUT', body: { curso_escolar: target, estado: 'activo', matriculas_abertas: open, replace_active: !!active } })
+					.then(function () { showMessage('Curso activo actualizado.', 'success'); loadCursos(); })
+					.catch(function (e) { showMessage(e.message, 'error'); });
+			});
+			switchWrap.appendChild(activateBtn);
+			root.appendChild(switchWrap);
+		}
+
+		if (!current) { return; }
 
 		// Matriculas sub-section
 		var hr = document.createElement('hr');
 		root.appendChild(hr);
 		var h3b = document.createElement('h3');
-		h3b.textContent = 'Matr\u00EDculas';
+		h3b.textContent = 'Matrículas de ' + current;
 		root.appendChild(h3b);
-		var selLabel = document.createElement('label');
-		selLabel.textContent = 'Curso: ';
-		var cursoSel = document.createElement('select');
-		list.forEach(function (c) {
-			var o = document.createElement('option'); o.value = c.curso_escolar;
-			o.textContent = c.curso_escolar + (c.actual ? ' (actual)' : '');
-			if (c.curso_escolar === current) { o.selected = true; }
-			cursoSel.appendChild(o);
-		});
-		selLabel.appendChild(cursoSel);
-		root.appendChild(selLabel);
 		var matHost = document.createElement('div');
 		root.appendChild(matHost);
 
@@ -1845,7 +1994,6 @@
 				renderMat();
 			}).catch(function (e) { matHost.textContent = ''; showMessage(e.message, 'error'); });
 		}
-		cursoSel.addEventListener('change', function () { loadMat(cursoSel.value || current); });
 		loadMat(current);
 	}
 

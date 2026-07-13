@@ -91,8 +91,8 @@ final class ANPA_Socios_Extraescolares_REST {
 		$acy_t = ANPA_Socios_DB::tabela_actividades_cursos();
 		$gru_t = ANPA_Socios_DB::tabela_grupos();
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
-		$curso = ANPA_Socios_Curso_Escolar::current();
-		if ( ! self::course_is_open( $curso ) ) {
+		$curso = ANPA_Socios_Curso_Activo::get();
+		if ( null === $curso || ! self::course_is_open( $curso ) ) {
 			return new WP_REST_Response( array(), 200 );
 		}
 
@@ -433,7 +433,7 @@ final class ANPA_Socios_Extraescolares_REST {
 		// Send only the current course plus school years where this family has
 		// enrolments. Past years should be selectable only when there is actual
 		// history for the family.
-		$current = ANPA_Socios_Curso_Escolar::current();
+		$current = ANPA_Socios_Curso_Activo::get();
 		$cursos  = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT DISTINCT g.curso_escolar
@@ -445,7 +445,8 @@ final class ANPA_Socios_Extraescolares_REST {
 				$familia_id
 			)
 		);
-		$cursos  = is_array( $cursos ) ? array_values( array_unique( array_merge( array( $current ), $cursos ) ) ) : array( $current );
+		$base_courses = null === $current ? array() : array( $current );
+		$cursos       = is_array( $cursos ) ? array_values( array_unique( array_merge( $base_courses, $cursos ) ) ) : $base_courses;
 
 		return new WP_REST_Response(
 			array(
@@ -830,7 +831,7 @@ final class ANPA_Socios_Extraescolares_REST {
 		// The coarse lifecycle estado (pendente/pechado) overrides the finer
 		// matriculas_abertas flag: a course that has not started or has finished
 		// is never open, regardless of the flag.
-		$estado = isset( $row['estado'] ) ? (string) $row['estado'] : ANPA_Socios_Season::ESTADO_ACTIVO;
+		$estado = isset( $row['estado'] ) ? (string) $row['estado'] : ANPA_Socios_Season::ESTADO_PENDENTE;
 		if ( ANPA_Socios_Season::ESTADO_ACTIVO !== $estado ) {
 			return false;
 		}

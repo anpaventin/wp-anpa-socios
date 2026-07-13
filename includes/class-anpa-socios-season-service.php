@@ -3,8 +3,8 @@
  * Course season lifecycle service (fase12).
  *
  * WordPress glue around the pure ANPA_Socios_Season helper:
- *   - a daily cron that closes finished courses, creates the next course as
- *     `pendente`, and activates pending courses on their start date;
+ *   - a daily cron that closes finished courses and creates the next course as
+ *     `pendente`; activation is always an explicit admin decision;
  *   - read helpers used by the pre-season access gate and the socios page.
  *
  * All transitions are idempotent and safe to run multiple times per day.
@@ -50,8 +50,8 @@ final class ANPA_Socios_Season_Service {
 	}
 
 	/**
-	 * Runs the season check: close finished courses, create the next course as
-	 * `pendente`, and activate pending courses whose start date has arrived.
+	 * Runs the season check: closes finished courses and creates the following
+	 * course as `pendente` with enrolments closed. Activation is manual.
 	 *
 	 * @param  string|null $today Optional Y-m-d override (testing/manual runs).
 	 * @return array{closed:string[],created:string[],activated:string[]}
@@ -87,27 +87,30 @@ final class ANPA_Socios_Season_Service {
 				continue;
 			}
 
+			$rollover = ANPA_Socios_Curso_Lifecycle::season_rollover( $curso );
 			$wpdb->update(
 				$cursos,
 				array(
-					'estado'         => ANPA_Socios_Season::ESTADO_PECHADO,
-					'actualizado_en' => current_time( 'mysql' ),
+					'estado'              => $rollover['current_estado'],
+					'matriculas_abertas' => $rollover['current_matriculas_abertas'] ? 1 : 0,
+					'actualizado_en'      => current_time( 'mysql' ),
 				),
 				array( 'id' => (int) $row['id'] ),
-				array( '%s', '%s' ),
+				array( '%s', '%d', '%s' ),
 				array( '%d' )
 			);
 			$summary['closed'][] = $curso;
 
-			$next        = ANPA_Socios_Season::next_curso( $curso );
+			$next        = $rollover['next_curso'];
 			$next_inicio = ANPA_Socios_Season::default_data_inicio( $next );
 			$next_peche  = ANPA_Socios_Season::default_data_peche( $next );
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent next-course creation (unique key guards duplicates).
 			$affected = $wpdb->query(
 				$wpdb->prepare(
-					"INSERT IGNORE INTO {$cursos} (curso_escolar, matriculas_abertas, estado, data_inicio, data_peche) VALUES (%s, 1, %s, %s, %s)",
+					"INSERT IGNORE INTO {$cursos} (curso_escolar, matriculas_abertas, estado, data_inicio, data_peche) VALUES (%s, %d, %s, %s, %s)",
 					$next,
-					ANPA_Socios_Season::ESTADO_PENDENTE,
+					$rollover['next_matriculas_abertas'] ? 1 : 0,
+					$rollover['next_estado'],
 					$next_inicio,
 					$next_peche
 				)
@@ -115,32 +118,6 @@ final class ANPA_Socios_Season_Service {
 			if ( (int) $affected > 0 ) {
 				$summary['created'][] = $next;
 			}
-		}
-
-		// Pass 2: activate pending courses whose start date has arrived (re-read
-		// so a course created in pass 1 with a past start date also activates).
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only lifecycle scan.
-		$rows = $wpdb->get_results( "SELECT id, curso_escolar, estado, data_inicio FROM {$cursos}", ARRAY_A );
-		if ( ! is_array( $rows ) ) {
-			return $summary;
-		}
-		foreach ( $rows as $row ) {
-			$estado = (string) $row['estado'];
-			$inicio = (string) ( $row['data_inicio'] ?? '' );
-			if ( ! ANPA_Socios_Season::should_activate( $today, $estado, $inicio ) ) {
-				continue;
-			}
-			$wpdb->update(
-				$cursos,
-				array(
-					'estado'         => ANPA_Socios_Season::ESTADO_ACTIVO,
-					'actualizado_en' => current_time( 'mysql' ),
-				),
-				array( 'id' => (int) $row['id'] ),
-				array( '%s', '%s' ),
-				array( '%d' )
-			);
-			$summary['activated'][] = (string) $row['curso_escolar'];
 		}
 
 		return $summary;
@@ -155,9 +132,12 @@ final class ANPA_Socios_Season_Service {
 	public static function current_course_row(): array {
 		global $wpdb;
 
-		$curso  = ANPA_Socios_Curso_Escolar::current();
+		$curso  = ANPA_Socios_Curso_Activo::get();
 		$cursos = ANPA_Socios_DB::tabela_cursos();
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only current-course lookup.
+		if ( null === $curso ) {
+			$curso = ANPA_Socios_Curso_Escolar::current();
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only operational-course lookup.
 		$row = $wpdb->get_row(
 			$wpdb->prepare( "SELECT curso_escolar, estado, data_inicio, data_peche FROM {$cursos} WHERE curso_escolar = %s", $curso ),
 			ARRAY_A
@@ -165,7 +145,7 @@ final class ANPA_Socios_Season_Service {
 		if ( ! is_array( $row ) ) {
 			return array(
 				'curso_escolar' => $curso,
-				'estado'        => ANPA_Socios_Season::ESTADO_ACTIVO,
+				'estado'        => ANPA_Socios_Season::ESTADO_PENDENTE,
 				'data_inicio'   => ANPA_Socios_Season::default_data_inicio( $curso ),
 				'data_peche'    => ANPA_Socios_Season::default_data_peche( $curso ),
 			);
@@ -173,7 +153,7 @@ final class ANPA_Socios_Season_Service {
 
 		return array(
 			'curso_escolar' => (string) $row['curso_escolar'],
-			'estado'        => (string) ( $row['estado'] ?? ANPA_Socios_Season::ESTADO_ACTIVO ),
+			'estado'        => (string) ( $row['estado'] ?? ANPA_Socios_Season::ESTADO_PENDENTE ),
 			'data_inicio'   => (string) ( $row['data_inicio'] ?? '' ),
 			'data_peche'    => (string) ( $row['data_peche'] ?? '' ),
 		);

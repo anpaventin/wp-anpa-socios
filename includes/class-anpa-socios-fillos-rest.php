@@ -337,9 +337,12 @@ final class ANPA_Socios_Fillos_REST {
 
 		global $wpdb;
 		$table         = ANPA_Socios_DB::tabela_fillos_cursos();
-		$curso_escolar = ANPA_Socios_Curso_Escolar::current();
+		$curso_escolar = ANPA_Socios_Curso_Activo::get();
+		if ( null === $curso_escolar ) {
+			return;
+		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent upsert of authenticated socio's own fillo current-course assignment.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent upsert of authenticated socio's own fillo active-course assignment.
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT INTO {$table} (fillo_id, curso_escolar, curso, aula)

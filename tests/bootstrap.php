@@ -22,6 +22,7 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-admin-payload.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-actividade-options.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-curso-fit.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-curso-escolar.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-curso-lifecycle.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-course-settings.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-season.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-preseason-gate.php';

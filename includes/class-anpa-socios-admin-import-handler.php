@@ -190,25 +190,27 @@ final class ANPA_Socios_Admin_Import_Handler {
 				$act_t = ANPA_Socios_DB::tabela_actividades();
 				$emp_t = ANPA_Socios_DB::tabela_empresas();
 				$soc_t = ANPA_Socios_DB::tabela_socios();
+				$gru_t = ANPA_Socios_DB::tabela_grupos();
 				$rows  = $wpdb->get_results(
-					"SELECT f.socio_email AS proxenitor_email, f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
-					        e.email AS empresa_email, a.nome AS actividade_nome, a.curso_escolar
+					"SELECT COALESCE(NULLIF(f.socio_email, ''), sp.email) AS proxenitor_email,
+					        f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
+					        e.email AS empresa_email, a.nome AS actividade_nome,
+					        COALESCE(g.curso_escolar, a.curso_escolar) AS curso_escolar,
+					        g.curso_range AS grupo_curso_range, g.franxa AS grupo_franxa,
+					        g.dias AS grupo_dias, m.trimestre
 					 FROM {$mat_t} m
 					 JOIN {$fil_t} f ON f.id = m.fillo_id
 					 JOIN {$act_t} a ON a.id = m.activitad_id
-					 LEFT JOIN {$emp_t} e ON e.id = a.empresa_id",
+					 LEFT JOIN {$emp_t} e ON e.id = a.empresa_id
+					 LEFT JOIN {$gru_t} g ON g.id = m.grupo_id
+					 LEFT JOIN {$soc_t} sp ON sp.familia_id = f.familia_id AND sp.rol_familia = 'principal'",
 					ARRAY_A
 				);
 				if ( is_array( $rows ) ) {
 					foreach ( $rows as $r ) {
-						$pe  = $r['proxenitor_email'] ?? '';
-						$fn  = mb_strtolower( $r['fillo_nome'] ?? '', 'UTF-8' );
-						$fa  = mb_strtolower( $r['fillo_apelidos'] ?? '', 'UTF-8' );
-						$ee  = $r['empresa_email'] ?? '';
-						$an  = mb_strtolower( $r['actividade_nome'] ?? '', 'UTF-8' );
-						$ce  = $r['curso_escolar'] ?? '';
-						if ( '' !== $pe && '' !== $fn && '' !== $ee && '' !== $an && '' !== $ce ) {
-							$keys[] = "matriculas:{$pe}|{$fn}|{$fa}|{$ee}|{$an}|{$ce}";
+						$key = ANPA_Socios_Csv_Import::compute_natural_key( 'matriculas', $r );
+						if ( null !== $key ) {
+							$keys[] = $key;
 						}
 					}
 				}
@@ -549,6 +551,7 @@ final class ANPA_Socios_Admin_Import_Handler {
 	private static function commit_actividades( array $rows, WP_REST_Request $request ): array {
 		global $wpdb;
 		$table    = ANPA_Socios_DB::tabela_actividades();
+		$course_t = ANPA_Socios_DB::tabela_actividades_cursos();
 		$emp_t    = ANPA_Socios_DB::tabela_empresas();
 		$inserted = 0;
 		$skipped  = 0;
@@ -574,33 +577,55 @@ final class ANPA_Socios_Admin_Import_Handler {
 			}
 			$empresa_id = $empresa_cache[ $empresa_email ];
 
-			// Idempotent: skip if (empresa_id + nome + curso_escolar) exists.
-			$exists = $wpdb->get_var( $wpdb->prepare(
-				"SELECT id FROM {$table} WHERE empresa_id = %d AND LOWER(nome) = %s AND curso_escolar = %s LIMIT 1",
+			// Resolve the base activity by natural key (empresa + nome). Course
+			// assignment lives in actividades_cursos and is imported separately.
+			$activity_id = $wpdb->get_var( $wpdb->prepare(
+				"SELECT id FROM {$table} WHERE empresa_id = %d AND LOWER(nome) = %s LIMIT 1",
 				$empresa_id,
-				mb_strtolower( $nome, 'UTF-8' ),
+				mb_strtolower( $nome, 'UTF-8' )
+			) );
+
+			if ( ! $activity_id ) {
+				$ok = $wpdb->insert( $table, array(
+					'empresa_id'    => $empresa_id,
+					'nome'          => $nome,
+					'descripcion'   => $row['descripcion'] ?? '',
+					'curso_escolar' => $curso_escolar,
+					'min_pupilos'   => (int) ( $row['min_pupilos'] ?? 10 ),
+					'max_pupilos'   => (int) ( $row['max_pupilos'] ?? 15 ),
+					'curso_min'     => '' === (string) ( $row['curso_min'] ?? '' ) ? null : (int) $row['curso_min'],
+					'curso_max'     => '' === (string) ( $row['curso_max'] ?? '' ) ? null : (int) $row['curso_max'],
+					'custo'         => (float) ( $row['custo'] ?? 0 ),
+					'estado'        => in_array( $row['estado'] ?? '', array( 'activo', 'inactivo' ), true ) ? $row['estado'] : 'inactivo',
+				), array( '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%f', '%s' ) );
+				if ( false === $ok ) {
+					$errors[] = array( 'row' => $idx, 'msg' => 'Non se puido inserir a actividade.' );
+					continue;
+				}
+				$activity_id = (int) $wpdb->insert_id;
+			}
+
+			$course_exists = $wpdb->get_var( $wpdb->prepare(
+				"SELECT id FROM {$course_t} WHERE actividad_id = %d AND curso_escolar = %s LIMIT 1",
+				(int) $activity_id,
 				$curso_escolar
 			) );
-			if ( $exists ) {
+			if ( $course_exists ) {
 				$skipped++;
 				continue;
 			}
 
-			$ok = $wpdb->insert( $table, array(
-				'empresa_id'    => $empresa_id,
-				'nome'          => $nome,
-				'descripcion'   => $row['descripcion'] ?? '',
+			$ok = $wpdb->insert( $course_t, array(
+				'actividad_id'  => (int) $activity_id,
 				'curso_escolar' => $curso_escolar,
 				'min_pupilos'   => (int) ( $row['min_pupilos'] ?? 10 ),
 				'max_pupilos'   => (int) ( $row['max_pupilos'] ?? 15 ),
-				'idade_min'     => (int) ( $row['idade_min'] ?? 0 ),
-				'idade_max'     => (int) ( $row['idade_max'] ?? 0 ),
 				'custo'         => (float) ( $row['custo'] ?? 0 ),
 				'estado'        => in_array( $row['estado'] ?? '', array( 'activo', 'inactivo' ), true ) ? $row['estado'] : 'inactivo',
-			), array( '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%f', '%s' ) );
+			), array( '%d', '%s', '%d', '%d', '%f', '%s' ) );
 
 			if ( false === $ok ) {
-				$errors[] = array( 'row' => $idx, 'msg' => 'DB insert failed' );
+				$errors[] = array( 'row' => $idx, 'msg' => 'Non se puido asignar a actividade ao curso.' );
 				continue;
 			}
 			$inserted++;
@@ -630,6 +655,8 @@ final class ANPA_Socios_Admin_Import_Handler {
 		$table    = ANPA_Socios_DB::tabela_matriculas();
 		$fil_t    = ANPA_Socios_DB::tabela_fillos();
 		$act_t    = ANPA_Socios_DB::tabela_actividades();
+		$acy_t    = ANPA_Socios_DB::tabela_actividades_cursos();
+		$gru_t    = ANPA_Socios_DB::tabela_grupos();
 		$emp_t    = ANPA_Socios_DB::tabela_empresas();
 		$soc_t    = ANPA_Socios_DB::tabela_socios();
 		$inserted = 0;
@@ -703,7 +730,8 @@ final class ANPA_Socios_Admin_Import_Handler {
 				continue;
 			}
 			$actividade_id = $wpdb->get_var( $wpdb->prepare(
-				"SELECT id FROM {$act_t} WHERE empresa_id = %d AND LOWER(nome) = %s AND curso_escolar = %s LIMIT 1",
+				"SELECT a.id FROM {$act_t} a INNER JOIN {$acy_t} ac ON ac.actividad_id = a.id
+				 WHERE a.empresa_id = %d AND LOWER(a.nome) = %s AND ac.curso_escolar = %s LIMIT 1",
 				$empresa_id,
 				mb_strtolower( $act_nome, 'UTF-8' ),
 				$curso_escolar
@@ -713,11 +741,42 @@ final class ANPA_Socios_Admin_Import_Handler {
 				continue;
 			}
 
-			// Idempotent: skip if (fillo_id, activitad_id) already exists.
+			$grupo_range  = (string) ( $row['grupo_curso_range'] ?? '' );
+			$grupo_franxa = (string) ( $row['grupo_franxa'] ?? '' );
+			$grupo_dias   = (string) ( $row['grupo_dias'] ?? '' );
+			if ( '' !== $grupo_range || '' !== $grupo_franxa || '' !== $grupo_dias ) {
+				$grupo_id = $wpdb->get_var( $wpdb->prepare(
+					"SELECT id FROM {$gru_t} WHERE actividad_id = %d AND curso_escolar = %s AND curso_range = %s AND franxa = %s AND dias = %s LIMIT 1",
+					(int) $actividade_id,
+					$curso_escolar,
+					$grupo_range,
+					$grupo_franxa,
+					$grupo_dias
+				) );
+			} else {
+				// Backwards compatibility is safe only with one group in the course.
+				$group_ids = $wpdb->get_col( $wpdb->prepare(
+					"SELECT id FROM {$gru_t} WHERE actividad_id = %d AND curso_escolar = %s ORDER BY id ASC LIMIT 2",
+					(int) $actividade_id,
+					$curso_escolar
+				) );
+				$grupo_id = is_array( $group_ids ) && 1 === count( $group_ids ) ? (int) $group_ids[0] : null;
+			}
+			if ( ! $grupo_id ) {
+				$errors[] = array( 'row' => $idx, 'msg' => 'Non se puido identificar un grupo único para a matrícula.' );
+				continue;
+			}
+
+			$trimestre = in_array( (int) ( $row['trimestre'] ?? 0 ), array( 1, 2, 3 ), true )
+				? (int) $row['trimestre']
+				: ANPA_Socios_Trimestre::actual( (int) current_time( 'n' ) );
+
+			// Idempotent within the real enrolment identity: child + group + term.
 			$exists = $wpdb->get_var( $wpdb->prepare(
-				"SELECT id FROM {$table} WHERE fillo_id = %d AND activitad_id = %d LIMIT 1",
+				"SELECT id FROM {$table} WHERE fillo_id = %d AND grupo_id = %d AND trimestre = %d LIMIT 1",
 				(int) $fillo_id,
-				(int) $actividade_id
+				(int) $grupo_id,
+				$trimestre
 			) );
 			if ( $exists ) {
 				$skipped++;
@@ -727,15 +786,17 @@ final class ANPA_Socios_Admin_Import_Handler {
 			$ok = $wpdb->insert( $table, array(
 				'fillo_id'      => (int) $fillo_id,
 				'activitad_id'  => (int) $actividade_id,
-				'trimestre'     => ANPA_Socios_Trimestre::actual( (int) current_time( 'n' ) ),
-				'estado'        => in_array( $row['estado'] ?? '', array( 'activo', 'baixa' ), true ) ? $row['estado'] : 'activo',
+				'grupo_id'      => (int) $grupo_id,
+				'trimestre'     => $trimestre,
+				'estado'        => ANPA_Socios_Csv_Import::matricula_estado( (string) ( $row['estado'] ?? '' ) ),
+				'posicion'      => '' === (string) ( $row['posicion'] ?? '' ) ? null : max( 1, (int) $row['posicion'] ),
 				'comedor'       => ( '1' === ( $row['comedor'] ?? '0' ) ) ? 1 : 0,
 				'tarde'         => ( '1' === ( $row['tarde'] ?? '0' ) ) ? 1 : 0,
 				'observaciones' => $row['observaciones'] ?? '',
-			), array( '%d', '%d', '%d', '%s', '%d', '%d', '%s' ) );
+			), array( '%d', '%d', '%d', '%d', '%s', '%d', '%d', '%d', '%s' ) );
 
 			if ( false === $ok ) {
-				$errors[] = array( 'row' => $idx, 'msg' => 'DB insert failed' );
+				$errors[] = array( 'row' => $idx, 'msg' => 'Non se puido inserir a matrícula.' );
 				continue;
 			}
 			$inserted++;
