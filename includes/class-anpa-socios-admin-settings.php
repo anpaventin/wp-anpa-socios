@@ -60,15 +60,27 @@ final class ANPA_Socios_Admin_Settings {
 	}
 
 	/**
-	 * Registers the ANPA admin menu + Axustes/Docs submenus.
+	 * Registers the ANPA admin menu with only the three expected entries:
+	 * "Axustes" (top), "Xestión ANPA" and "Documentación".
+	 *
+	 * To avoid a duplicate top-level "ANPA Socios" entry, the top menu is
+	 * rendered directly as "Axustes" and the redundant Axustes submenu is
+	 * not added again. This matches the post-fase17 information architecture.
 	 *
 	 * @return void
 	 */
 	public static function register_menu(): void {
-		add_menu_page( 'ANPA Socios', 'ANPA Socios', self::CAP, self::SETTINGS_SLUG, array( __CLASS__, 'render_settings_page' ), 'dashicons-groups', 58 );
+		add_menu_page(
+			'ANPA Socios — Axustes',
+			'Axustes',
+			self::CAP,
+			self::SETTINGS_SLUG,
+			array( __CLASS__, 'render_settings_page' ),
+			'dashicons-groups',
+			58
+		);
 		ANPA_Socios_Admin_Management_Page::register_menu( self::SETTINGS_SLUG, self::CAP );
-		add_submenu_page( self::SETTINGS_SLUG, 'Axustes ANPA Socios', 'Axustes', self::CAP, self::SETTINGS_SLUG, array( __CLASS__, 'render_settings_page' ) );
-		add_submenu_page( self::SETTINGS_SLUG, 'Documentación ANPA Socios', 'Docs', self::CAP, self::DOCS_SLUG, array( __CLASS__, 'render_docs_page' ) );
+		add_submenu_page( self::SETTINGS_SLUG, 'Documentación ANPA Socios', 'Documentación', self::CAP, self::DOCS_SLUG, array( __CLASS__, 'render_docs_page' ) );
 	}
 
 	/**
