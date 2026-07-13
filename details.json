@@ -1,17 +1,17 @@
 {
-    "name": "ANPA Socios",
-    "slug": "anpa-socios",
-    "version": "1.37.1",
-    "download_url": "https://github.com/anpaventin/wp-anpa-socios/releases/download/v1.37.1/wp-anpa-socios-1.37.1.zip",
-    "homepage": "https://github.com/anpaventin/wp-anpa-socios",
-    "author": "ANPA Socios",
-    "author_homepage": "https://github.com/anpaventin/wp-anpa-socios",
-    "requires": "6.0",
-    "tested": "6.7",
-    "requires_php": "7.4",
-    "last_updated": "2026-07-12T12:00:00+02:00",
-    "sections": {
-        "description": "Member management for parents associations (ANPA/AMPA) on WordPress: passwordless member area, children and extracurricular enrolment, encrypted SEPA banking, season lifecycle, native WordPress admin screens, and self-hosted updates from GitHub.",
-        "changelog": "<h4>1.37.1</h4><ul><li>Engadido teléfono do 2º proxenitor/titor ao listado de socios (columna + export). A edición xa gardaba o dato; agora amósase na táboa. A advertencia de datos incompletos inclúe tamén o teléfono.</li></ul><h4>1.37.0</h4><ul><li>Exportación de socios con columnas para segundo proxenitor (segundo_proxenitor_nome, apelidos, email, nif, teléfono).</li><li>Importación de socios crea ou actualiza automaticamente o segundo proxenitor como rol secundario na mesma familia.</li><li>Exportación de fillos inclúe proxenitor_email para compatibilidade round-trip.</li><li>Normalización de campos do segundo proxenitor no import CSV (title_case, NIF, email, teléfono).</li></ul><h4>1.36.1</h4><ul><li>Corrección na xestión de permisos de administración e melloras internas. Fix de seguridade en permission_master.</li></ul><h4>1.35.1</h4><ul><li>Endurecemento da importación de IBAN (só se cifran filas sen erros de validación) e correccións menores.</li></ul><h4>1.35.0</h4><ul><li>Importación e exportación por CSV desde cada listado (socios, fillos, empresas, actividades e matrículas) con vista previa, detección de duplicados e normalización de datos.</li><li>Pasada de IBAN cifrada cun contrasinal verificado; baixa das persoas socias non reimportadas.</li><li>Modelo de familia por id_familia (relación de fillos coa familia, non cun só proxenitor).</li><li>Formularios de xestión de empresas, actividades e grupos no panel.</li></ul><h4>1.33.0</h4><ul><li>Xestión ANPA trasladada ao panel nativo de WordPress con autenticación propia, seccións de socios, aprobacións, fillos, empresas, actividades, cursos e matrículas, import/export CSV e auditoría.</li></ul>"
-    }
+    "name":  "ANPA Socios",
+    "slug":  "anpa-socios",
+    "version":  "1.38.0",
+    "download_url":  "https://github.com/anpaventin/wp-anpa-socios/releases/download/v1.38.0/wp-anpa-socios-1.38.0.zip",
+    "homepage":  "https://github.com/anpaventin/wp-anpa-socios",
+    "author":  "ANPA Socios",
+    "author_homepage":  "https://github.com/anpaventin/wp-anpa-socios",
+    "requires":  "6.0",
+    "tested":  "6.7",
+    "requires_php":  "7.4",
+    "last_updated":  "2026-07-13 09:14:59",
+    "sections":  {
+                     "description":  "Member management for parents associations (ANPA/AMPA) on WordPress: passwordless member area, children and extracurricular enrolment, encrypted SEPA banking, season lifecycle, native WordPress admin screens, and self-hosted updates from GitHub.",
+                     "changelog":  "\u003ch4\u003e1.38.0\u003c/h4\u003e\u003cul\u003e\u003cli\u003eCurso escolar activo como fonte Ãºnica para extraescolares, fillos e matrÃ­culas.\u003c/li\u003e\u003cli\u003eCambio seguro de curso con confirmaciÃ³n, transacciÃ³n e peche automÃ¡tico das matrÃ­culas do curso anterior.\u003c/li\u003e\u003cli\u003eActividades ofertadas visibles aÃ­nda que os grupos estean pendentes.\u003c/li\u003e\u003cli\u003eExportaciÃ³n e importaciÃ³n CSV aliÃ±adas nos cinco listados, incluÃ­ndo grupo, trimestre e estados completos das matrÃ­culas.\u003c/li\u003e\u003cli\u003eReparaciÃ³n automÃ¡tica de datos antigos con mÃ¡is dun curso activo.\u003c/li\u003e\u003c/ul\u003e\u003ch4\u003e1.37.1\u003c/h4\u003e\u003cul\u003e\u003cli\u003eEngadido telÃ©fono do 2Âº proxenitor/titor ao listado de socios (columna + export). A ediciÃ³n xa gardaba o dato; agora amÃ³sase na tÃ¡boa. A advertencia de datos incompletos inclÃºe tamÃ©n o telÃ©fono.\u003c/li\u003e\u003c/ul\u003e\u003ch4\u003e1.37.0\u003c/h4\u003e\u003cul\u003e\u003cli\u003eExportaciÃ³n de socios con columnas para segundo proxenitor (segundo_proxenitor_nome, apelidos, email, nif, telÃ©fono).\u003c/li\u003e\u003cli\u003eImportaciÃ³n de socios crea ou actualiza automaticamente o segundo proxenitor como rol secundario na mesma familia.\u003c/li\u003e\u003cli\u003eExportaciÃ³n de fillos inclÃºe proxenitor_email para compatibilidade round-trip.\u003c/li\u003e\u003cli\u003eNormalizaciÃ³n de campos do segundo proxenitor no import CSV (title_case, NIF, email, telÃ©fono).\u003c/li\u003e\u003c/ul\u003e\u003ch4\u003e1.36.1\u003c/h4\u003e\u003cul\u003e\u003cli\u003eCorrecciÃ³n na xestiÃ³n de permisos de administraciÃ³n e melloras internas. Fix de seguridade en permission_master.\u003c/li\u003e\u003c/ul\u003e\u003ch4\u003e1.35.1\u003c/h4\u003e\u003cul\u003e\u003cli\u003eEndurecemento da importaciÃ³n de IBAN (sÃ³ se cifran filas sen erros de validaciÃ³n) e correcciÃ³ns menores.\u003c/li\u003e\u003c/ul\u003e\u003ch4\u003e1.35.0\u003c/h4\u003e\u003cul\u003e\u003cli\u003eImportaciÃ³n e exportaciÃ³n por CSV desde cada listado (socios, fillos, empresas, actividades e matrÃ­culas) con vista previa, detecciÃ³n de duplicados e normalizaciÃ³n de datos.\u003c/li\u003e\u003cli\u003ePasada de IBAN cifrada cun contrasinal verificado; baixa das persoas socias non reimportadas.\u003c/li\u003e\u003cli\u003eModelo de familia por id_familia (relaciÃ³n de fillos coa familia, non cun sÃ³ proxenitor).\u003c/li\u003e\u003cli\u003eFormularios de xestiÃ³n de empresas, actividades e grupos no panel.\u003c/li\u003e\u003c/ul\u003e\u003ch4\u003e1.33.0\u003c/h4\u003e\u003cul\u003e\u003cli\u003eXestiÃ³n ANPA trasladada ao panel nativo de WordPress con autenticaciÃ³n propia, secciÃ³ns de socios, aprobaciÃ³ns, fillos, empresas, actividades, cursos e matrÃ­culas, import/export CSV e auditorÃ­a.\u003c/li\u003e\u003c/ul\u003e"
+                 }
 }

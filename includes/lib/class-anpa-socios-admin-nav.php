@@ -29,7 +29,6 @@ final class ANPA_Socios_Admin_Nav {
 		'xeral'        => 'Xeral',
 		'cursos'       => 'Cursos',
 		'localizacion' => 'Localización e idioma',
-		'mantemento'   => 'Mantemento',
 	);
 
 	/**
@@ -41,6 +40,8 @@ final class ANPA_Socios_Admin_Nav {
 	private const SETTINGS_SECTIONS = array(
 		'xeral'        => array(
 			'estado'        => 'Estado',
+			'mantemento'    => 'Mantemento',
+			'actualizacions' => 'Actualizacións',
 			'configuracion' => 'Configuración',
 			'paxinas'       => 'Páxinas e shortcodes',
 		),
@@ -50,13 +51,6 @@ final class ANPA_Socios_Admin_Nav {
 			'crear-novo'    => 'Crear novo curso',
 		),
 		'localizacion' => array(),
-		'mantemento'   => array(
-			'contrasinais'   => 'Contrasinais',
-			'copias'         => 'Copias',
-			'verificacion'   => 'Verificación',
-			'actualizacions' => 'Actualizacións',
-			'ferramentas'    => 'Ferramentas de mantemento',
-		),
 	);
 
 	/**

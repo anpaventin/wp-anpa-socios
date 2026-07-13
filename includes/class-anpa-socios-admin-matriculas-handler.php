@@ -69,7 +69,7 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 
 		$curso = (string) $request->get_param( 'curso' );
 		if ( '' === $curso ) {
-			$curso = ANPA_Socios_Curso_Escolar::current();
+			$curso = (string) ( ANPA_Socios_Curso_Activo::get() ?? '' );
 		}
 		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
 			return new WP_Error( 'anpa_admin_curso_invalid', __( 'Curso escolar inválido', 'anpa-socios' ), array( 'status' => 400 ) );

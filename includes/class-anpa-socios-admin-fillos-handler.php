@@ -413,7 +413,10 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 
 		global $wpdb;
 		$table         = ANPA_Socios_DB::tabela_fillos_cursos();
-		$curso_escolar = ANPA_Socios_Curso_Escolar::current();
+		$curso_escolar = ANPA_Socios_Curso_Activo::get();
+		if ( null === $curso_escolar ) {
+			return;
+		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent admin upsert of current-course assignment.
 		$wpdb->query(

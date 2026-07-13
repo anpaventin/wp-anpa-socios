@@ -52,10 +52,10 @@ final class ANPA_Socios_Admin_Export_Handler {
 	 */
 	private const ENTITY_COLUMNS = array(
 		'socios'      => array( 'id_familia', 'rol_familia', 'email', 'nome', 'apelidos', 'nif', 'telefono', 'estado', 'segundo_proxenitor_nome', 'segundo_proxenitor_apelidos', 'segundo_proxenitor_email', 'segundo_proxenitor_nif', 'segundo_proxenitor_telefono' ),
-		'empresas'    => array( 'nome', 'email', 'responsable', 'telefono', 'estado', 'creado_en', 'actualizado_en' ),
-		'actividades' => array( 'empresa_email', 'nome', 'descripcion', 'curso_escolar', 'idade_min', 'idade_max', 'custo', 'estado' ),
-		'matriculas'  => array( 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar', 'estado', 'comedor', 'tarde', 'observaciones' ),
-		'fillos'      => array( 'proxenitor_email', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'estado' ),
+		'empresas'    => array( 'nome', 'email', 'responsable', 'telefono', 'url_web', 'estado' ),
+		'actividades' => array( 'empresa_email', 'nome', 'descripcion', 'curso_escolar', 'min_pupilos', 'max_pupilos', 'curso_min', 'curso_max', 'custo', 'estado' ),
+		'matriculas'  => array( 'proxenitor_email', 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar', 'grupo_curso_range', 'grupo_franxa', 'grupo_dias', 'trimestre', 'posicion', 'comedor', 'tarde', 'observaciones', 'estado' ),
+		'fillos'      => array( 'proxenitor_email', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'image_consent', 'estado' ),
 	);
 
 	/**
@@ -250,20 +250,23 @@ final class ANPA_Socios_Admin_Export_Handler {
 		$prefix = $wpdb->prefix;
 
 		if ( 'actividades' === $entity ) {
-			$sql = "SELECT e.email AS empresa_email, a.nome, a.descripcion, a.curso_escolar,
-					a.idade_min, a.idade_max, a.custo, a.estado
+			$sql = "SELECT e.email AS empresa_email, a.nome, a.descripcion, ac.curso_escolar,
+					ac.min_pupilos, ac.max_pupilos, a.curso_min, a.curso_max, ac.custo, ac.estado
 					FROM {$prefix}anpa_actividades a
+					INNER JOIN {$prefix}anpa_actividades_cursos ac ON ac.actividad_id = a.id
 					LEFT JOIN {$prefix}anpa_empresas e ON e.id = a.empresa_id
-					ORDER BY e.email ASC, a.nome ASC";
+					ORDER BY e.email ASC, a.nome ASC, ac.curso_escolar ASC";
 		} elseif ( 'matriculas' === $entity ) {
-			$sql = "SELECT f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
+			$sql = "SELECT f.socio_email AS proxenitor_email, f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
 					e.email AS empresa_email, act.nome AS actividade_nome,
-					act.curso_escolar, m.estado, m.comedor, m.tarde, m.observaciones
+					g.curso_escolar, g.curso_range AS grupo_curso_range, g.franxa AS grupo_franxa,
+					g.dias AS grupo_dias, m.trimestre, m.posicion, m.comedor, m.tarde, m.observaciones, m.estado
 					FROM {$prefix}anpa_matriculas m
 					LEFT JOIN {$prefix}anpa_fillos f ON f.id = m.fillo_id
 					LEFT JOIN {$prefix}anpa_actividades act ON act.id = m.activitad_id
 					LEFT JOIN {$prefix}anpa_empresas e ON e.id = act.empresa_id
-					ORDER BY f.nome ASC, f.apelidos ASC";
+					LEFT JOIN {$prefix}anpa_grupos g ON g.id = m.grupo_id
+					ORDER BY f.socio_email ASC, f.nome ASC, f.apelidos ASC";
 		} elseif ( 'socios' === $entity ) {
 			$sql = "SELECT COALESCE(NULLIF(p.familia_id, 0), p.id) AS id_familia,
 					p.rol_familia,
@@ -281,7 +284,7 @@ final class ANPA_Socios_Admin_Export_Handler {
 					WHERE p.rol <> 'master' AND p.rol_familia = 'principal'
 					ORDER BY p.email ASC";
 		} elseif ( 'fillos' === $entity ) {
-			$sql = "SELECT socio_email AS proxenitor_email, nome, apelidos, data_nacemento, curso, aula, estado
+			$sql = "SELECT socio_email AS proxenitor_email, nome, apelidos, data_nacemento, curso, aula, image_consent, estado
 					FROM {$prefix}anpa_fillos
 					ORDER BY socio_email ASC";
 		} else {

@@ -55,11 +55,12 @@ class ANPA_Socios_DB {
 	 * 1.23.0 allows socios.email NULL for 2nd parent contact-without-login.
 	 * 1.24.0 renames actividades.idade_min/idade_max → curso_min/curso_max.
 	 * 1.25.0 adds baixa_en datetime NULL to matriculas (baixa date tracking).
+	 * 1.26.0 repairs legacy duplicate active courses, keeping the newest one.
 	 *
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.25.0';
+	const DB_VERSION = '1.26.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -204,6 +205,11 @@ class ANPA_Socios_DB {
 
 		// 1.25.0: add baixa_en datetime NULL to matriculas.
 		self::migrate_to_1_25_0();
+
+		// 1.26.0: enforce one active course in restored/legacy data.
+		if ( ! self::migrate_to_1_26_0() ) {
+			return;
+		}
 
 		// Ensure the configured master email holds the master role so the
 		// legacy master-only guards (root-baixa block + preseason preflight)
@@ -730,7 +736,7 @@ class ANPA_Socios_DB {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- creates the current course gate if absent.
 		$wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$cursos} (curso_escolar, matriculas_abertas) VALUES (%s, 1)",
+				"INSERT IGNORE INTO {$cursos} (curso_escolar, matriculas_abertas) VALUES (%s, 0)",
 				$current
 			)
 		);
@@ -1310,6 +1316,45 @@ class ANPA_Socios_DB {
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
 		$wpdb->query( "ALTER TABLE {$matriculas} ADD COLUMN baixa_en datetime NULL DEFAULT NULL AFTER estado" );
+	}
+
+	/**
+	 * Repairs restored/legacy data containing more than one active course.
+	 * Keeps the most recently updated course and closes every other one.
+	 *
+	 * @since  1.26.0
+	 * @return bool Whether the repair transaction completed.
+	 */
+	private static function migrate_to_1_26_0(): bool {
+		global $wpdb;
+
+		$cursos = self::tabela_cursos();
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return false;
+		}
+		$wpdb->last_error = '';
+		$active_ids       = $wpdb->get_col(
+			"SELECT id FROM {$cursos} WHERE estado = 'activo' ORDER BY actualizado_en DESC, curso_escolar DESC FOR UPDATE"
+		);
+		if ( '' !== $wpdb->last_error ) {
+			$wpdb->query( 'ROLLBACK' );
+			return false;
+		}
+		if ( count( $active_ids ) > 1 ) {
+			$updated = $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$cursos} SET estado = 'pechado', matriculas_abertas = 0, actualizado_en = %s WHERE estado = 'activo' AND id <> %d",
+					current_time( 'mysql' ),
+					(int) $active_ids[0]
+				)
+			);
+			if ( false === $updated ) {
+				$wpdb->query( 'ROLLBACK' );
+				return false;
+			}
+		}
+
+		return false !== $wpdb->query( 'COMMIT' );
 	}
 
 	/**
