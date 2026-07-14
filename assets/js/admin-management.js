@@ -1632,10 +1632,26 @@
 		form.appendChild(gruposLabel);
 		form.appendChild(gruposContainer);
 
-		var diasInput = document.createElement('input'); diasInput.type = 'text';
-		diasInput.placeholder = 'luns,martes,m\u00E9rcores';
-		diasInput.value = isEdit ? (act.dias || '') : '';
-		addField('anpa-act-dias', 'D\u00EDas (separados por coma)', diasInput);
+		// Días checkboxes (canonical weekday tokens matching ANPA_Socios_Actividade_Options::DIAS)
+		var diasContainer = document.createElement('div');
+		var diasTokens = ['luns', 'martes', 'mercores', 'xoves', 'venres'];
+		var diasLabels = ['Luns', 'Martes', 'M\u00E9rcores', 'Xoves', 'Venres'];
+		diasTokens.forEach(function (v, idx) {
+			var chkLabel = document.createElement('label');
+			chkLabel.style.display = 'inline-block'; chkLabel.style.marginRight = '1em';
+			var chk = document.createElement('input'); chk.type = 'checkbox'; chk.value = v;
+			if (isEdit && act.dias) {
+				var diasArr = act.dias.split(',').map(function (s) { return s.trim(); });
+				if (diasArr.indexOf(v) !== -1) { chk.checked = true; }
+			}
+			chkLabel.appendChild(chk);
+			chkLabel.appendChild(document.createTextNode(' ' + diasLabels[idx]));
+			diasContainer.appendChild(chkLabel);
+		});
+		var diasLabel = document.createElement('label');
+		diasLabel.textContent = 'D\u00EDas';
+		form.appendChild(diasLabel);
+		form.appendChild(diasContainer);
 
 		var minPupInput = document.createElement('input'); minPupInput.type = 'number'; minPupInput.min = '1';
 		minPupInput.value = isEdit ? (act.min_pupilos || 10) : '10';
@@ -1691,6 +1707,12 @@
 			for (var gi = 0; gi < gChks.length; gi++) {
 				if (gChks[gi].checked) { gruposArr.push(gChks[gi].value); }
 			}
+			// Días from checkboxes
+			var diasArr = [];
+			var dChks = diasContainer.querySelectorAll('input[type="checkbox"]');
+			for (var di = 0; di < dChks.length; di++) {
+				if (dChks[di].checked) { diasArr.push(dChks[di].value); }
+			}
 			var payload = {
 				empresa_id: parseInt(empresaSelect.value, 10) || 0,
 				nome: (nomeInput.value || '').trim(),
@@ -1700,7 +1722,7 @@
 				franxa: (franxaInput.value || '').trim(),
 				horarios: horariosArr.join(','),
 				grupos: gruposArr.join(','),
-				dias: (diasInput.value || '').trim(),
+				dias: diasArr.join(','),
 				curso_min: idadeMinInput.value !== '' ? parseInt(idadeMinInput.value, 10) : null,
 				curso_max: idadeMaxInput.value !== '' ? parseInt(idadeMaxInput.value, 10) : null,
 				min_pupilos: parseInt(minPupInput.value, 10) || 10,
@@ -1870,10 +1892,30 @@
 		franxaInput.value = isEdit ? (grupo.franxa || '') : (actividad.franxa || '');
 		addField('anpa-grupo-franxa', 'Franxa', franxaInput);
 
-		var diasInput = document.createElement('input'); diasInput.type = 'text';
-		diasInput.placeholder = 'luns,martes';
-		diasInput.value = isEdit ? (grupo.dias || '') : '';
-		addField('anpa-grupo-dias', 'D\u00EDas (separados por coma)', diasInput);
+		// Días checkboxes — constrained to parent activity's días (subset requirement)
+		var grupoDiasContainer = document.createElement('div');
+		var actDias = (actividad.dias || '').split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s !== ''; });
+		var allDiasTokens = ['luns', 'martes', 'mercores', 'xoves', 'venres'];
+		var allDiasLabels = ['Luns', 'Martes', 'M\u00E9rcores', 'Xoves', 'Venres'];
+		var grupoDiasToShow = actDias.length > 0 ? actDias : allDiasTokens;
+		grupoDiasToShow.forEach(function (v) {
+			var idx = allDiasTokens.indexOf(v);
+			if (idx === -1) { return; }
+			var chkLabel = document.createElement('label');
+			chkLabel.style.display = 'inline-block'; chkLabel.style.marginRight = '1em';
+			var chk = document.createElement('input'); chk.type = 'checkbox'; chk.value = v;
+			if (isEdit && grupo.dias) {
+				var grupoDiasArr = grupo.dias.split(',').map(function (s) { return s.trim(); });
+				if (grupoDiasArr.indexOf(v) !== -1) { chk.checked = true; }
+			}
+			chkLabel.appendChild(chk);
+			chkLabel.appendChild(document.createTextNode(' ' + allDiasLabels[idx]));
+			grupoDiasContainer.appendChild(chkLabel);
+		});
+		var grupoDiasLabel = document.createElement('label');
+		grupoDiasLabel.textContent = 'D\u00EDas';
+		form.appendChild(grupoDiasLabel);
+		form.appendChild(grupoDiasContainer);
 
 		var minInput = document.createElement('input'); minInput.type = 'number'; minInput.min = '0';
 		minInput.value = isEdit ? (grupo.min_pupilos || 0) : '10';
@@ -1898,11 +1940,17 @@
 		saveBtn.textContent = isEdit ? 'Gardar cambios' : 'Crear grupo';
 		saveBtn.addEventListener('click', function () {
 			clearMessage();
+			// Gather grupo días from checkboxes
+			var grupoDiasArr = [];
+			var gdChks = grupoDiasContainer.querySelectorAll('input[type="checkbox"]');
+			for (var gdi = 0; gdi < gdChks.length; gdi++) {
+				if (gdChks[gdi].checked) { grupoDiasArr.push(gdChks[gdi].value); }
+			}
 			var payload = {
 				curso_escolar: (cursoEscInput.value || '').trim(),
 				curso_range: (cursoRangeInput.value || '').trim(),
 				franxa: (franxaInput.value || '').trim(),
-				dias: (diasInput.value || '').trim(),
+				dias: grupoDiasArr.join(','),
 				min_pupilos: parseInt(minInput.value, 10) || 0,
 				max_pupilos: parseInt(maxInput.value, 10) || 15,
 				estado: estadoSelect.value,
