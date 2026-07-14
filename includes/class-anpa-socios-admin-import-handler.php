@@ -695,6 +695,11 @@ final class ANPA_Socios_Admin_Import_Handler {
 			}
 		}
 
+		// Cache curso_escolar → { codigo (lowercase) => nivel_id } for
+		// nivel_min_codigo/nivel_max_codigo resolution (mirrors the `grupos`
+		// entity's niveis_codigos pattern). Lazily populated per curso_escolar.
+		$niveis_cache = array();
+
 		foreach ( $rows as $idx => $row ) {
 			$empresa_email = $row['empresa_email'] ?? '';
 			$nome          = $row['nome'] ?? '';
@@ -705,6 +710,47 @@ final class ANPA_Socios_Admin_Import_Handler {
 				continue;
 			}
 			$empresa_id = $empresa_cache[ $empresa_email ];
+
+			// Resolve nivel_min_codigo/nivel_max_codigo → nivel_min_id/nivel_max_id
+			// for THIS row's curso_escolar. A code that does not exist in that
+			// year is reported as a row error but does NOT abort the import
+			// (same policy as the rest of this file — see commit_fillos for the
+			// curso/aula validation precedent).
+			if ( ! isset( $niveis_cache[ $curso_escolar ] ) ) {
+				$map = array();
+				foreach ( ANPA_Socios_DB::get_niveis_for_curso( $curso_escolar ) as $n ) {
+					$map[ mb_strtolower( (string) $n['codigo'], 'UTF-8' ) ] = (int) $n['id'];
+				}
+				$niveis_cache[ $curso_escolar ] = $map;
+			}
+			$niveis_map = $niveis_cache[ $curso_escolar ];
+
+			$nivel_min_codigo = trim( (string) ( $row['nivel_min_codigo'] ?? '' ) );
+			$nivel_max_codigo = trim( (string) ( $row['nivel_max_codigo'] ?? '' ) );
+			$nivel_min_id     = null;
+			$nivel_max_id     = null;
+			$nivel_error      = false;
+			if ( '' !== $nivel_min_codigo ) {
+				$key = mb_strtolower( $nivel_min_codigo, 'UTF-8' );
+				if ( ! isset( $niveis_map[ $key ] ) ) {
+					$errors[]     = array( 'row' => $idx, 'field' => 'nivel_min_codigo', 'msg' => "Nivel mínimo '{$nivel_min_codigo}' non atopado para {$curso_escolar}" );
+					$nivel_error  = true;
+				} else {
+					$nivel_min_id = $niveis_map[ $key ];
+				}
+			}
+			if ( '' !== $nivel_max_codigo ) {
+				$key = mb_strtolower( $nivel_max_codigo, 'UTF-8' );
+				if ( ! isset( $niveis_map[ $key ] ) ) {
+					$errors[]     = array( 'row' => $idx, 'field' => 'nivel_max_codigo', 'msg' => "Nivel máximo '{$nivel_max_codigo}' non atopado para {$curso_escolar}" );
+					$nivel_error  = true;
+				} else {
+					$nivel_max_id = $niveis_map[ $key ];
+				}
+			}
+			if ( $nivel_error ) {
+				continue;
+			}
 
 			// Resolve the base activity by natural key (empresa + nome). Course
 			// assignment lives in actividades_cursos and is imported separately.
@@ -749,9 +795,11 @@ final class ANPA_Socios_Admin_Import_Handler {
 				'curso_escolar' => $curso_escolar,
 				'min_pupilos'   => (int) ( $row['min_pupilos'] ?? 10 ),
 				'max_pupilos'   => (int) ( $row['max_pupilos'] ?? 15 ),
+				'nivel_min_id'  => $nivel_min_id,
+				'nivel_max_id'  => $nivel_max_id,
 				'custo'         => (float) ( $row['custo'] ?? 0 ),
 				'estado'        => in_array( $row['estado'] ?? '', array( 'activo', 'inactivo' ), true ) ? $row['estado'] : 'inactivo',
-			), array( '%d', '%s', '%d', '%d', '%f', '%s' ) );
+			), array( '%d', '%s', '%d', '%d', '%d', '%d', '%f', '%s' ) );
 
 			if ( false === $ok ) {
 				$errors[] = array( 'row' => $idx, 'msg' => 'Non se puido asignar a actividade ao curso.' );

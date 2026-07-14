@@ -183,6 +183,10 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		if ( is_wp_error( $cursos ) ) {
 			return $cursos;
 		}
+		$cursos_niveis = self::validated_cursos_niveis( $body, $cursos );
+		if ( is_wp_error( $cursos_niveis ) ) {
+			return $cursos_niveis;
+		}
 
 		$base = self::base_payload( $payload );
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
@@ -199,7 +203,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		}
 
 		$actividad_id = (int) $wpdb->insert_id;
-		$sync_result  = self::sync_actividad_cursos( $actividad_id, $cursos, $payload );
+		$sync_result  = self::sync_actividad_cursos( $actividad_id, $cursos, $payload, $cursos_niveis );
 		if ( is_wp_error( $sync_result ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return $sync_result;
@@ -234,6 +238,10 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		if ( is_wp_error( $cursos ) ) {
 			return $cursos;
 		}
+		$cursos_niveis = self::validated_cursos_niveis( $body, $cursos );
+		if ( is_wp_error( $cursos_niveis ) ) {
+			return $cursos_niveis;
+		}
 		$table = ANPA_Socios_DB::tabela_actividades();
 		$exists = (int) $wpdb->get_var(
 			$wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE id = %d", $id )
@@ -259,7 +267,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
-		$sync_result = self::sync_actividad_cursos( $id, $cursos, $payload );
+		$sync_result = self::sync_actividad_cursos( $id, $cursos, $payload, $cursos_niveis );
 		if ( is_wp_error( $sync_result ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return $sync_result;
@@ -395,6 +403,8 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			'franxa'         => (string) $payload['franxa'],
 			'horarios'       => (string) $payload['horarios'],
 			'grupos'         => (string) $payload['grupos'],
+			'nivel_min_id'   => isset( $payload['nivel_min_id'] ) ? $payload['nivel_min_id'] : null,
+			'nivel_max_id'   => isset( $payload['nivel_max_id'] ) ? $payload['nivel_max_id'] : null,
 			'dias'           => (string) $payload['dias'],
 			'min_pupilos'    => (int) $payload['min_pupilos'],
 			'max_pupilos'    => (int) $payload['max_pupilos'],
@@ -423,7 +433,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 				$table,
 				$row,
 				array( 'id' => $exists ),
-				array( '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%f', '%s', '%s' ),
+				array( '%d', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%d', '%d', '%f', '%s', '%s' ),
 				array( '%d' )
 			);
 			if ( false === $updated ) {
@@ -435,7 +445,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		$inserted = $wpdb->insert(
 			$table,
 			$row,
-			array( '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%f', '%s', '%s' )
+			array( '%d', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%d', '%d', '%f', '%s', '%s' )
 		);
 		if ( false === $inserted ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
@@ -460,6 +470,8 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 				        COALESCE(ac.max_pupilos, a.max_pupilos) AS max_pupilos,
 				        COALESCE(ac.custo, a.custo) AS custo,
 				        COALESCE(ac.estado, a.estado) AS estado,
+				        ac.nivel_min_id AS nivel_min_id,
+				        ac.nivel_max_id AS nivel_max_id,
 				        0 AS prazas_ocupadas,
 				        0 AS prazas_espera
 				 FROM {$act_t} a
@@ -516,12 +528,15 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 	 * of selected school years. Inserts missing, removes unchecked.
 	 *
 	 * @since 1.24.0
-	 * @param int                  $actividad_id Activity id.
-	 * @param string[]             $cursos       Validated school years.
-	 * @param array<string,mixed>  $payload      Validated payload for year data.
+	 * @param int                       $actividad_id  Activity id.
+	 * @param string[]                  $cursos        Validated school years.
+	 * @param array<string,mixed>       $payload       Validated payload for year data.
+	 * @param array<string,array<string,int|null>> $cursos_niveis Per-year nivel_min_id/nivel_max_id,
+	 *                                                  keyed by curso_escolar (see validated_cursos_niveis()).
+	 *                                                  A year absent from this map gets NULL/NULL.
 	 * @return int|WP_Error Number of changed rows, or an error.
 	 */
-	private static function sync_actividad_cursos( int $actividad_id, array $cursos, array $payload ) {
+	private static function sync_actividad_cursos( int $actividad_id, array $cursos, array $payload, array $cursos_niveis = array() ) {
 		global $wpdb;
 
 		$table   = ANPA_Socios_DB::tabela_actividades_cursos();
@@ -546,6 +561,12 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		foreach ( $cursos as $curso ) {
 			$row_payload = $payload;
 			$row_payload['curso_escolar'] = $curso;
+			// Per-year nivel limits are independent per curso_escolar (design
+			// decision fase23 PR-ES9 task 84) — a year with no explicit entry
+			// in $cursos_niveis stores NULL/NULL, it never inherits another
+			// year's values nor the legacy curso_min/curso_max.
+			$row_payload['nivel_min_id'] = $cursos_niveis[ $curso ]['nivel_min_id'] ?? null;
+			$row_payload['nivel_max_id'] = $cursos_niveis[ $curso ]['nivel_max_id'] ?? null;
 			$upserted = self::upsert_year_payload( $actividad_id, $row_payload );
 			if ( is_wp_error( $upserted ) ) {
 				return $upserted;
@@ -554,6 +575,77 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		}
 
 		return $changed;
+	}
+
+	/**
+	 * Validates the optional `cursos_niveis` body field.
+	 *
+	 * Contract (PR-ES9 task 84): `cursos_niveis` is an OPTIONAL array of
+	 * `{ curso_escolar: string, nivel_min_id: int|null, nivel_max_id: int|null }`,
+	 * additive to the existing `cursos: string[]` field (which stays
+	 * unchanged for sub-lote A back-compat). Each entry configures the
+	 * nivel_min_id/nivel_max_id for ONE school year row in
+	 * `actividades_cursos` — the limits are independent per year, never a
+	 * single global pair.
+	 *
+	 * Validation per entry:
+	 *   - `curso_escolar` must be one of the already-validated `$cursos`.
+	 *   - if `nivel_min_id`/`nivel_max_id` are provided (non-null), each must
+	 *     belong to THAT exact curso_escolar (ANPA_Socios_DB::niveis_belong_to_curso()).
+	 *   - if BOTH are provided, the mínimo's `orde` must not be greater than
+	 *     the máximo's `orde` (comparison is by `orde`, not id/codigo — nivel
+	 *     codigos are arbitrary strings, not necessarily numeric).
+	 *
+	 * @since  1.40.0
+	 * @param  array<string,mixed> $body   Raw request body.
+	 * @param  string[]            $cursos Already-validated school years for this activity.
+	 * @return array<string,array<string,int|null>>|WP_Error Map of curso_escolar => {nivel_min_id, nivel_max_id}.
+	 */
+	private static function validated_cursos_niveis( array $body, array $cursos ) {
+		if ( ! isset( $body['cursos_niveis'] ) ) {
+			return array();
+		}
+		if ( ! is_array( $body['cursos_niveis'] ) ) {
+			return new WP_Error( 'anpa_admin_invalid_cursos_niveis', __( 'Revisa os niveis mínimo/máximo por curso escolar.', 'anpa-socios' ), array( 'status' => 400 ) );
+		}
+
+		$result = array();
+		foreach ( $body['cursos_niveis'] as $entry ) {
+			if ( ! is_array( $entry ) || ! isset( $entry['curso_escolar'] ) ) {
+				return new WP_Error( 'anpa_admin_invalid_cursos_niveis', __( 'Revisa os niveis mínimo/máximo por curso escolar.', 'anpa-socios' ), array( 'status' => 400 ) );
+			}
+			$curso_escolar = (string) $entry['curso_escolar'];
+			if ( ! in_array( $curso_escolar, $cursos, true ) ) {
+				return new WP_Error( 'anpa_admin_invalid_cursos_niveis', __( 'Os niveis por curso deben corresponder a un curso escolar seleccionado.', 'anpa-socios' ), array( 'status' => 400 ) );
+			}
+
+			$nivel_min_id = isset( $entry['nivel_min_id'] ) && '' !== $entry['nivel_min_id'] && null !== $entry['nivel_min_id']
+				? (int) $entry['nivel_min_id']
+				: null;
+			$nivel_max_id = isset( $entry['nivel_max_id'] ) && '' !== $entry['nivel_max_id'] && null !== $entry['nivel_max_id']
+				? (int) $entry['nivel_max_id']
+				: null;
+
+			if ( null !== $nivel_min_id && ! ANPA_Socios_DB::niveis_belong_to_curso( array( $nivel_min_id ), $curso_escolar ) ) {
+				return new WP_Error( 'anpa_admin_nivel_min_invalid', __( 'O nivel mínimo non pertence ao curso escolar indicado.', 'anpa-socios' ), array( 'status' => 400 ) );
+			}
+			if ( null !== $nivel_max_id && ! ANPA_Socios_DB::niveis_belong_to_curso( array( $nivel_max_id ), $curso_escolar ) ) {
+				return new WP_Error( 'anpa_admin_nivel_max_invalid', __( 'O nivel máximo non pertence ao curso escolar indicado.', 'anpa-socios' ), array( 'status' => 400 ) );
+			}
+			if ( null !== $nivel_min_id && null !== $nivel_max_id ) {
+				$ordes = ANPA_Socios_DB::get_niveis_ordes( array( $nivel_min_id, $nivel_max_id ) );
+				if ( isset( $ordes[ $nivel_min_id ], $ordes[ $nivel_max_id ] ) && $ordes[ $nivel_min_id ] > $ordes[ $nivel_max_id ] ) {
+					return new WP_Error( 'anpa_admin_nivel_range_invalid', __( 'O nivel mínimo non pode ser posterior ao nivel máximo.', 'anpa-socios' ), array( 'status' => 400 ) );
+				}
+			}
+
+			$result[ $curso_escolar ] = array(
+				'nivel_min_id' => $nivel_min_id,
+				'nivel_max_id' => $nivel_max_id,
+			);
+		}
+
+		return $result;
 	}
 
 	/**

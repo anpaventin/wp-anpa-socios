@@ -636,6 +636,36 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 		$this->assertNotContains( 'idade_max', $headers );
 	}
 
+	// ─── actividades nivel_min_codigo/nivel_max_codigo (PR-ES9 task 84) ──
+
+	public function test_actividades_entity_headers_includes_nivel_codigo_columns(): void {
+		$headers = ANPA_Socios_Csv_Import::ENTITY_HEADERS['actividades'];
+		$this->assertContains( 'nivel_min_codigo', $headers );
+		$this->assertContains( 'nivel_max_codigo', $headers );
+	}
+
+	public function test_analyze_actividades_trims_nivel_codigo_columns(): void {
+		$rows = array(
+			array( 'empresa_email' => 'e@example.com', 'nome' => 'Futbol', 'descripcion' => 'desc', 'curso_escolar' => '2025/2026', 'min_pupilos' => '5', 'max_pupilos' => '15', 'curso_min' => '', 'curso_max' => '', 'nivel_min_codigo' => '  1  ', 'nivel_max_codigo' => '  3  ', 'custo' => '10', 'estado' => 'activo' ),
+		);
+
+		$result = ANPA_Socios_Csv_Import::analyze( 'actividades', $rows );
+
+		$this->assertSame( '1', $result['rows'][0]['nivel_min_codigo'] );
+		$this->assertSame( '3', $result['rows'][0]['nivel_max_codigo'] );
+	}
+
+	public function test_analyze_actividades_nivel_codigo_columns_default_to_empty_string(): void {
+		$rows = array(
+			array( 'empresa_email' => 'e@example.com', 'nome' => 'Futbol', 'descripcion' => 'desc', 'curso_escolar' => '2025/2026', 'min_pupilos' => '5', 'max_pupilos' => '15', 'curso_min' => '', 'curso_max' => '', 'custo' => '10', 'estado' => 'activo' ),
+		);
+
+		$result = ANPA_Socios_Csv_Import::analyze( 'actividades', $rows );
+
+		// Row has no nivel_min_codigo/nivel_max_codigo keys at all — must not error.
+		$this->assertNotEmpty( $result['to_insert'] );
+	}
+
 	// ─── PR-21s2: segundo_proxenitor normalization ─────────────
 
 	public function test_socios_entity_headers_includes_segundo_proxenitor_columns(): void {

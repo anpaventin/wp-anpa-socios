@@ -1592,8 +1592,126 @@
 				}
 			}
 		}
-		cursoSelect.addEventListener('change', syncPrimaryCourseCheckbox);
+		cursoSelect.addEventListener('change', function () {
+			syncPrimaryCourseCheckbox();
+			// syncNiveisPorAno is a hoisted function declaration defined below
+			// in this same scope — it re-renders the per-year nivel selects,
+			// needed because programmatically setting `.checked` on the
+			// matching checkbox does NOT fire that checkbox's own 'change'.
+			syncNiveisPorAno();
+		});
 		syncPrimaryCourseCheckbox();
+
+		// ── Per-year nivel mínimo/máximo selectors (PR-ES9 task 85) ──
+		// One pair of <select> per CHECKED curso_escolar checkbox, populated
+		// from GET /admin/estrutura?curso_escolar=<ese ano>. Independent of
+		// the legacy idadeMinInput/idadeMaxInput (curso_min/curso_max) below,
+		// which stay untouched for back-compat.
+		var niveisPorAnoContainer = document.createElement('div');
+		niveisPorAnoContainer.className = 'anpa-mgmt-niveis-por-ano';
+		var niveisPorAnoLabel = document.createElement('label');
+		niveisPorAnoLabel.textContent = 'Niveis m\u00EDnimo/m\u00E1ximo por curso escolar (opcional)';
+		form.appendChild(niveisPorAnoLabel);
+		form.appendChild(niveisPorAnoContainer);
+
+		// yr -> { min: <select>, max: <select> }
+		var niveisPorAnoSelects = {};
+		// Preloaded per-year limits when editing (act.cursos_anuais, if the
+		// backend exposes it) — falls back to act.nivel_min_id/max_id for the
+		// activity's own primary curso_escolar row.
+		var existingNiveisPorAno = {};
+		if (isEdit) {
+			if (act.curso_escolar && (act.nivel_min_id != null || act.nivel_max_id != null)) {
+				existingNiveisPorAno[act.curso_escolar] = { nivel_min_id: act.nivel_min_id, nivel_max_id: act.nivel_max_id };
+			}
+			if (act.cursos_anuais && typeof act.cursos_anuais === 'object') {
+				Object.keys(act.cursos_anuais).forEach(function (yr) {
+					existingNiveisPorAno[yr] = act.cursos_anuais[yr];
+				});
+			}
+		}
+
+		function buildNivelSelect(idPrefix, yr, labelText) {
+			var wrapLabel = document.createElement('label');
+			wrapLabel.setAttribute('for', idPrefix + '-' + yr.replace(/\//g, '-'));
+			wrapLabel.textContent = labelText + ' (' + yr + ')';
+			wrapLabel.style.display = 'inline-block';
+			wrapLabel.style.marginRight = '0.5em';
+			var select = document.createElement('select');
+			select.id = idPrefix + '-' + yr.replace(/\//g, '-');
+			select.style.marginRight = '1em';
+			var emptyOpt = document.createElement('option');
+			emptyOpt.value = ''; emptyOpt.textContent = '-- Sen l\u00EDmite --';
+			select.appendChild(emptyOpt);
+			return { label: wrapLabel, select: select };
+		}
+
+		function populateNivelSelect(select, niveis, preselectId) {
+			niveis.forEach(function (n) {
+				var opt = document.createElement('option');
+				opt.value = String(n.id);
+				opt.textContent = n.etiqueta || n.codigo;
+				// data-orde backs the UI-side mínimo≤máximo check on save —
+				// comparison must use `orde`, never id/codigo (codigos are
+				// arbitrary strings, not necessarily numeric/sequential).
+				opt.setAttribute('data-orde', String(n.orde != null ? n.orde : ''));
+				if (preselectId != null && String(preselectId) === String(n.id)) { opt.selected = true; }
+				select.appendChild(opt);
+			});
+		}
+
+		function renderNivelRowForYear(yr) {
+			if (niveisPorAnoSelects[yr]) { return; }
+			var rowWrap = document.createElement('div');
+			rowWrap.className = 'anpa-mgmt-nivel-ano-row';
+			rowWrap.setAttribute('data-curso-escolar', yr);
+
+			var minParts = buildNivelSelect('anpa-act-nivelmin', yr, 'Nivel m\u00EDnimo');
+			var maxParts = buildNivelSelect('anpa-act-nivelmax', yr, 'Nivel m\u00E1ximo');
+			rowWrap.appendChild(minParts.label);
+			rowWrap.appendChild(minParts.select);
+			rowWrap.appendChild(maxParts.label);
+			rowWrap.appendChild(maxParts.select);
+			niveisPorAnoContainer.appendChild(rowWrap);
+
+			niveisPorAnoSelects[yr] = { min: minParts.select, max: maxParts.select, wrap: rowWrap };
+
+			var existing = existingNiveisPorAno[yr] || {};
+			anpaAdminFetch('estrutura?curso_escolar=' + encodeURIComponent(yr)).then(function (resp) {
+				var niveis = (resp && Array.isArray(resp.niveis)) ? resp.niveis : [];
+				populateNivelSelect(minParts.select, niveis, existing.nivel_min_id);
+				populateNivelSelect(maxParts.select, niveis, existing.nivel_max_id);
+			}).catch(function () {
+				// Estrutura non dispo\u00F1ible para este curso: deixa os selects
+				// so con "Sen l\u00EDmite", sen bloquear o resto do formulario.
+			});
+		}
+
+		function removeNivelRowForYear(yr) {
+			var entry = niveisPorAnoSelects[yr];
+			if (!entry) { return; }
+			if (entry.wrap && entry.wrap.parentNode) { entry.wrap.parentNode.removeChild(entry.wrap); }
+			delete niveisPorAnoSelects[yr];
+		}
+
+		function syncNiveisPorAno() {
+			var checkboxes = cursosContainer.querySelectorAll('input[type="checkbox"]');
+			for (var i = 0; i < checkboxes.length; i++) {
+				var yr = checkboxes[i].value;
+				if (checkboxes[i].checked) {
+					renderNivelRowForYear(yr);
+				} else {
+					removeNivelRowForYear(yr);
+				}
+			}
+		}
+		(function bindNivelSync() {
+			var checkboxes = cursosContainer.querySelectorAll('input[type="checkbox"]');
+			for (var i = 0; i < checkboxes.length; i++) {
+				checkboxes[i].addEventListener('change', syncNiveisPorAno);
+			}
+		})();
+		syncNiveisPorAno();
 
 		var franxaInput = document.createElement('input'); franxaInput.type = 'text';
 		franxaInput.placeholder = 'ma\u00F1\u00E1s / tardes';
@@ -1723,6 +1841,28 @@
 			for (var di = 0; di < dChks.length; di++) {
 				if (dChks[di].checked) { diasArr.push(dChks[di].value); }
 			}
+			// Per-year nivel mínimo/máximo (PR-ES9 task 85): collect from every
+			// visible pair of selects, one entry per curso_escolar.
+			var cursosNiveisArr = [];
+			var niveisOrderError = null;
+			Object.keys(niveisPorAnoSelects).forEach(function (yr) {
+				var entry = niveisPorAnoSelects[yr];
+				var minVal = entry.min.value !== '' ? parseInt(entry.min.value, 10) : null;
+				var maxVal = entry.max.value !== '' ? parseInt(entry.max.value, 10) : null;
+				if (minVal != null && maxVal != null) {
+					var minOpt = entry.min.options[entry.min.selectedIndex];
+					var maxOpt = entry.max.options[entry.max.selectedIndex];
+					var minOrde = minOpt ? parseInt(minOpt.getAttribute('data-orde'), 10) : NaN;
+					var maxOrde = maxOpt ? parseInt(maxOpt.getAttribute('data-orde'), 10) : NaN;
+					if (!isNaN(minOrde) && !isNaN(maxOrde) && minOrde > maxOrde) {
+						niveisOrderError = 'O nivel m\u00EDnimo non pode ser posterior ao nivel m\u00E1ximo (curso ' + yr + ').';
+					}
+				}
+				cursosNiveisArr.push({ curso_escolar: yr, nivel_min_id: minVal, nivel_max_id: maxVal });
+			});
+			if (niveisOrderError) {
+				showMessage(niveisOrderError, 'error'); return;
+			}
 			var payload = {
 				empresa_id: parseInt(empresaSelect.value, 10) || 0,
 				nome: (nomeInput.value || '').trim(),
@@ -1740,6 +1880,7 @@
 				custo: (custoInput.value || '').trim(),
 				estado: estadoSelect.value,
 				cursos: selectedCursosArr,
+				cursos_niveis: cursosNiveisArr,
 			};
 			if (!payload.empresa_id || !payload.nome || !payload.descripcion || !payload.curso_escolar) {
 				showMessage('Empresa, nome, descrici\u00F3n e curso escolar son obrigatorios.', 'error'); return;
