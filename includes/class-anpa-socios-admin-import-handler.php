@@ -461,6 +461,9 @@ final class ANPA_Socios_Admin_Import_Handler {
 		// Cache email → familia_id resolution.
 		$email_familia_cache = array();
 
+		// Collect rows that pass validation (pre-filter before the atomic write phase).
+		$valid_rows = array();
+
 		foreach ( $rows as $idx => $row ) {
 			$proxenitor_email = (string) ( $row['proxenitor_email'] ?? '' );
 			$nome             = $row['nome'] ?? '';
@@ -529,23 +532,79 @@ final class ANPA_Socios_Admin_Import_Handler {
 				continue;
 			}
 
-			$ok = $wpdb->insert( $table, array(
-				'socio_email'    => $proxenitor_email,
-				'familia_id'     => $real_fam,
-				'nome'           => $nome,
-				'apelidos'       => $apelidos,
-				'data_nacemento' => $nacemento,
-				'curso'          => $curso,
-				'aula'           => strtoupper( $aula ),
-				'image_consent'  => ( '1' === $consent ) ? '1' : '0',
-				'estado'         => in_array( $estado, array( 'activo', 'baixa' ), true ) ? $estado : 'activo',
-			), array( '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ) );
+			$valid_rows[] = array(
+				'idx'             => $idx,
+				'proxenitor_email' => $proxenitor_email,
+				'familia_id'      => $real_fam,
+				'nome'            => $nome,
+				'apelidos'        => $apelidos,
+				'data_nacemento'  => $nacemento,
+				'curso'           => $curso,
+				'aula'            => strtoupper( $aula ),
+				'image_consent'   => $consent,
+				'estado'          => $estado,
+				'curso_escolar'   => $curso_escolar,
+			);
+		}
 
-			if ( false === $ok ) {
-				$errors[] = array( 'row' => $idx, 'msg' => 'DB insert failed' );
-				continue;
+		// Atomic write phase: all-or-nothing for the validated batch.
+		if ( ! empty( $valid_rows ) ) {
+			$wpdb->last_error = '';
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- transaction wrapping atomic import batch.
+			$wpdb->query( 'START TRANSACTION' );
+			if ( '' !== (string) $wpdb->last_error ) {
+				$errors[] = array( 'row' => -1, 'msg' => 'Failed to start transaction' );
+				return array( 'inserted' => $inserted, 'skipped' => $skipped, 'errors' => $errors, 'warnings' => $warnings );
 			}
-			$inserted++;
+
+			foreach ( $valid_rows as $vr ) {
+				$wpdb->last_error = '';
+				$ok = $wpdb->insert( $table, array(
+					'socio_email'    => $vr['proxenitor_email'],
+					'familia_id'     => $vr['familia_id'],
+					'nome'           => $vr['nome'],
+					'apelidos'       => $vr['apelidos'],
+					'data_nacemento' => $vr['data_nacemento'],
+					'curso'          => $vr['curso'],
+					'aula'           => $vr['aula'],
+					'image_consent'  => ( '1' === $vr['image_consent'] ) ? '1' : '0',
+					'estado'         => in_array( $vr['estado'], array( 'activo', 'baixa' ), true ) ? $vr['estado'] : 'activo',
+				), array( '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ) );
+
+				if ( false === $ok || '' !== (string) $wpdb->last_error ) {
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback on insert failure.
+					$wpdb->query( 'ROLLBACK' );
+					$errors[] = array( 'row' => $vr['idx'], 'msg' => 'DB insert failed — batch rolled back' );
+					return array( 'inserted' => 0, 'skipped' => $skipped, 'errors' => $errors, 'warnings' => $warnings );
+				}
+
+				// Write the annual assignment (fillos_cursos).
+				$fillo_id = (int) $wpdb->insert_id;
+				$fc_ok = ANPA_Socios_DB::upsert_fillo_curso_assignment(
+					$fillo_id,
+					$vr['curso_escolar'],
+					$vr['curso'],
+					$vr['aula']
+				);
+				if ( ! $fc_ok ) {
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback on fillos_cursos failure.
+					$wpdb->query( 'ROLLBACK' );
+					$errors[] = array( 'row' => $vr['idx'], 'msg' => 'fillos_cursos write failed — batch rolled back' );
+					return array( 'inserted' => 0, 'skipped' => $skipped, 'errors' => $errors, 'warnings' => $warnings );
+				}
+
+				$inserted++;
+			}
+
+			$wpdb->last_error = '';
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- commit atomic import batch.
+			$wpdb->query( 'COMMIT' );
+			if ( '' !== (string) $wpdb->last_error ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback uncertain commit.
+				$wpdb->query( 'ROLLBACK' );
+				$errors[] = array( 'row' => -1, 'msg' => 'Commit failed — batch rolled back' );
+				return array( 'inserted' => 0, 'skipped' => $skipped, 'errors' => $errors, 'warnings' => $warnings );
+			}
 		}
 
 		if ( $inserted > 0 ) {

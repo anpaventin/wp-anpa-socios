@@ -410,7 +410,8 @@ class ANPA_Socios_REST {
 		}
 
 		// Fillos.
-		foreach ( $clean['fillos'] as $fillo ) {
+		$raw_fillos_list = is_array( $body['fillos'] ?? null ) ? $body['fillos'] : array();
+		foreach ( $clean['fillos'] as $fillo_idx => $fillo ) {
 			// Skip an identical active fillo for this socio so re-running
 			// the alta (with a fresh token) does not create duplicate rows.
 			$dup = (int) $wpdb->get_var(
@@ -444,6 +445,29 @@ class ANPA_Socios_REST {
 			);
 			if ( false === $inserted || self::has_db_error() ) {
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback on failed fillo insert.
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+			}
+
+			// Write the annual assignment row (fillos_cursos) for this fillo.
+			// Resolve curso_escolar from the raw payload per-fillo field,
+			// matching Alta_Payload::validar()'s own resolution logic.
+			$raw_fillo_ce = isset( $raw_fillos_list[ $fillo_idx ]['curso_escolar'] )
+				? trim( (string) $raw_fillos_list[ $fillo_idx ]['curso_escolar'] )
+				: '';
+			$fillo_curso_escolar = ( '' !== $raw_fillo_ce && ANPA_Socios_Curso_Escolar::is_valid( $raw_fillo_ce ) )
+				? $raw_fillo_ce
+				: ANPA_Socios_Curso_Escolar::current();
+
+			self::clear_db_error();
+			$fc_ok = ANPA_Socios_DB::upsert_fillo_curso_assignment(
+				(int) $wpdb->insert_id,
+				$fillo_curso_escolar,
+				$fillo['curso'],
+				$fillo['aula']
+			);
+			if ( ! $fc_ok || self::has_db_error() ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback on failed annual assignment write.
 				$wpdb->query( 'ROLLBACK' );
 				return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 			}

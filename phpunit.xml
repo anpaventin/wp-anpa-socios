@@ -55,6 +55,7 @@
       <file>tests/Test_ANPA_Socios_Backup_Tables.php</file>
       <file>tests/Test_ANPA_Socios_Fillos_Export_No_Duplication.php</file>
       <file>tests/Test_ANPA_Socios_Grupo_Dinamico_Assert.php</file>
+      <file>tests/Test_ANPA_Socios_Fillo_Curso_Assignment_Mirror.php</file>
       <file>tests/Test_ANPA_Socios_Adversarial_ES7.php</file>
     </testsuite>
   </testsuites>

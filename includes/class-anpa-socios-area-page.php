@@ -37,6 +37,7 @@ class ANPA_Socios_Area_Page {
 		$reactivar_url         = rest_url( 'anpa-socios/v1/area/reactivar' );
 		$fillos_url            = rest_url( 'anpa-socios/v1/fillos' );
 		$fillo_url             = rest_url( 'anpa-socios/v1/fillo/' );
+		$fillo_reparar_url     = rest_url( 'anpa-socios/v1/area/me/fillo/' );
 		$referencias_url       = rest_url( 'anpa-socios/v1/area/referencias' );
 
 		// Extraescolares enrolment endpoints (fase7).
@@ -68,6 +69,7 @@ class ANPA_Socios_Area_Page {
 			data-reactivar-url="<?php echo esc_attr( $reactivar_url ); ?>"
 			data-fillos-url="<?php echo esc_attr( $fillos_url ); ?>"
 			data-fillo-url="<?php echo esc_attr( $fillo_url ); ?>"
+			data-fillo-reparar-url="<?php echo esc_attr( $fillo_reparar_url ); ?>"
 			data-referencias-url="<?php echo esc_attr( $referencias_url ); ?>"
 			data-extra-oferta-url="<?php echo esc_attr( $extra_oferta_url ); ?>"
 			data-extra-matriculas-url="<?php echo esc_attr( $extra_matriculas_url ); ?>"

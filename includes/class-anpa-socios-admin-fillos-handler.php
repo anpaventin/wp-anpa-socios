@@ -406,6 +406,9 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 	/**
 	 * Upserts the fillo assignment for the current school year.
 	 *
+	 * Thin wrapper over the canonical shared helper so that callers inside
+	 * this handler keep their existing interface unchanged.
+	 *
 	 * @since  1.14.0
 	 * @param  int    $fillo_id Fillo id.
 	 * @param  string $curso    Curso 1-6.
@@ -417,8 +420,6 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 			return;
 		}
 
-		global $wpdb;
-		$table         = ANPA_Socios_DB::tabela_fillos_cursos();
 		$curso_escolar = ANPA_Socios_Curso_Activo::get();
 		if ( null === $curso_escolar ) {
 			return;
@@ -429,18 +430,6 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 			return;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent admin upsert of current-course assignment.
-		$wpdb->query(
-			$wpdb->prepare(
-				"INSERT INTO {$table} (fillo_id, curso_escolar, curso, aula)
-				VALUES (%d, %s, %s, %s)
-				ON DUPLICATE KEY UPDATE curso = VALUES(curso), aula = VALUES(aula), actualizado_en = %s",
-				$fillo_id,
-				$curso_escolar,
-				$curso,
-				$aula,
-				current_time( 'mysql' )
-			)
-		);
+		ANPA_Socios_DB::upsert_fillo_curso_assignment( $fillo_id, $curso_escolar, $curso, $aula );
 	}
 }
