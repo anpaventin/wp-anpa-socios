@@ -91,55 +91,72 @@ final class ANPA_Socios_Admin_Payload {
 	const GRUPO_VALIDOS = array( 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' );
 
 	/**
-	 * Returns valid curso codes for a given curso_escolar from DB, or
-	 * falls back to CURSO_VALIDOS when DB unavailable.
+	 * Returns valid curso (nivel) codes for a given curso_escolar from DB,
+	 * or falls back to CURSO_VALIDOS when none are persisted.
+	 *
+	 * Delegates to ANPA_Socios_DB::get_niveis_for_curso(), which queries the
+	 * correct `orde` column (anpa_niveis has no `order` column — that name
+	 * caused a silent SQL error here pre-1.39.1, masked by the hardcoded
+	 * fallback). Do not re-implement this query inline; reuse the DB helper.
 	 *
 	 * @since  1.27.0
-	 * @param  string $curso_escolar Curso escolar (e.g. '2025-2026').
+	 * @param  string $curso_escolar Curso escolar (e.g. '2025/2026').
 	 * @return string[]
 	 */
 	public static function dynamic_curso_validos( string $curso_escolar ): array {
-		global $wpdb;
-
-		if ( '' === $curso_escolar ) {
+		if ( '' === $curso_escolar || ! class_exists( 'ANPA_Socios_DB' ) ) {
 			return self::CURSO_VALIDOS;
 		}
 
-		$codigos = $wpdb->get_col( $wpdb->prepare(
-			"SELECT codigo FROM {$wpdb->prefix}anpa_niveis WHERE curso_escolar = %s ORDER BY `order` ASC",
-			$curso_escolar
-		) );
+		$niveis  = ANPA_Socios_DB::get_niveis_for_curso( $curso_escolar );
+		$codigos = array_map(
+			static function ( array $nivel ): string {
+				return (string) $nivel['codigo'];
+			},
+			$niveis
+		);
 
-		return is_array( $codigos ) && array() !== $codigos
-			? $codigos
-			: self::CURSO_VALIDOS;
+		return array() !== $codigos ? $codigos : self::CURSO_VALIDOS;
 	}
 
 	/**
 	 * Returns valid aula codes for a given curso_escolar from DB, or
-	 * falls back to GRUPO_VALIDOS when DB unavailable.
+	 * falls back to GRUPO_VALIDOS when none are persisted.
+	 *
+	 * `anpa_aulas` has no `curso_escolar` column — aulas relate to a curso
+	 * only indirectly, via `nivel_id -> anpa_niveis.curso_escolar` (see
+	 * design.md §2.2). Resolve the niveis for this curso first, then fetch
+	 * their aulas via ANPA_Socios_DB::get_aulas_for_niveis(), which queries
+	 * the correct `orde` column. Do not query anpa_aulas.curso_escolar
+	 * directly — it does not exist and fails silently under WordPress'
+	 * default error suppression.
 	 *
 	 * @since  1.27.0
 	 * @param  string $curso_escolar Curso escolar.
 	 * @return string[]
 	 */
 	public static function dynamic_aula_validos( string $curso_escolar ): array {
-		global $wpdb;
-
-		if ( '' === $curso_escolar ) {
+		if ( '' === $curso_escolar || ! class_exists( 'ANPA_Socios_DB' ) ) {
 			return self::GRUPO_VALIDOS;
 		}
 
-		// For fillos we return aulas for the first nivel if none selected,
-		// or all aulas for the curso_escolar (broad validation).
-		$codigos = $wpdb->get_col( $wpdb->prepare(
-			"SELECT codigo FROM {$wpdb->prefix}anpa_aulas WHERE curso_escolar = %s ORDER BY `order` ASC",
-			$curso_escolar
-		) );
+		$niveis     = ANPA_Socios_DB::get_niveis_for_curso( $curso_escolar );
+		$nivel_ids  = array_map(
+			static function ( array $nivel ): int {
+				return (int) $nivel['id'];
+			},
+			$niveis
+		);
+		$aulas   = ANPA_Socios_DB::get_aulas_for_niveis( $nivel_ids );
+		$codigos = array();
+		foreach ( $aulas as $aula ) {
+			$codigo = (string) $aula['codigo'];
+			if ( ! in_array( $codigo, $codigos, true ) ) {
+				$codigos[] = $codigo;
+			}
+		}
 
-		return is_array( $codigos ) && array() !== $codigos
-			? $codigos
-			: self::GRUPO_VALIDOS;
+		return array() !== $codigos ? $codigos : self::GRUPO_VALIDOS;
 	}
 
 	/**
