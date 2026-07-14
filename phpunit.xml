@@ -52,6 +52,8 @@
       <file>tests/Test_ANPA_Socios_Csv_Import_Iban.php</file>
       <file>tests/Test_ANPA_Socios_Csv_Roundtrip_Contracts.php</file>
       <file>tests/Test_ANPA_Socios_Trimestre.php</file>
+      <file>tests/Test_ANPA_Socios_Backup_Tables.php</file>
+      <file>tests/Test_ANPA_Socios_Fillos_Export_No_Duplication.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

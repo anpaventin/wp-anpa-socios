@@ -41,8 +41,11 @@ final class ANPA_Socios_Backup {
 			'empresas'           => ANPA_Socios_DB::tabela_empresas(),
 			'actividades'        => ANPA_Socios_DB::tabela_actividades(),
 			'actividades_cursos' => ANPA_Socios_DB::tabela_actividades_cursos(),
-			'grupos'             => ANPA_Socios_DB::tabela_grupos(),
 			'cursos'             => ANPA_Socios_DB::tabela_cursos(),
+			'niveis'             => ANPA_Socios_DB::tabela_niveis(),
+			'aulas'              => ANPA_Socios_DB::tabela_aulas(),
+			'grupos'             => ANPA_Socios_DB::tabela_grupos(),
+			'grupos_niveis'      => ANPA_Socios_DB::tabela_grupos_niveis(),
 			'matriculas'         => ANPA_Socios_DB::tabela_matriculas(),
 			'domiciliacions'     => ANPA_Socios_DB::tabela_domiciliacions(),
 		);
@@ -215,8 +218,8 @@ final class ANPA_Socios_Backup {
 
 		$suffixes = array(
 			'actividades', 'actividades_cursos', 'area_sessions', 'area_sessions_empresas',
-			'audit_log', 'codigos_verificacion', 'cursos', 'domiciliacions', 'empresas',
-			'fillos', 'fillos_cursos', 'grupos', 'matriculas', 'socios',
+			'audit_log', 'aulas', 'codigos_verificacion', 'cursos', 'domiciliacions', 'empresas',
+			'fillos', 'fillos_cursos', 'grupos', 'grupos_niveis', 'matriculas', 'niveis', 'socios',
 		);
 		$wpdb->query( 'SET FOREIGN_KEY_CHECKS=0' );
 		foreach ( $suffixes as $s ) {
