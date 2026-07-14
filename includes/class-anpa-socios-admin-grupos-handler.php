@@ -521,8 +521,18 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 	}
 
 	/**
-	 * Asserts the group's curso_range and días are subsets of the activity's
-	 * option sets. Returns a WP_Error on mismatch, or null when valid.
+	 * Asserts the group's curso_range/nivel_ids and días are subsets of the
+	 * activity's option sets. Returns a WP_Error on mismatch, or null when
+	 * valid.
+	 *
+	 * `ANPA_Socios_Admin_Payload::validar_grupo()` accepts EITHER a legacy
+	 * `curso_range` ('1-2-3'/'4-5-6') OR a dynamic `nivel_ids` list, per
+	 * design.md §8.1 (grupos relate to niveis, never to the legacy range as
+	 * sole authority). A pure `nivel_ids` payload legitimately has an empty
+	 * `curso_range`, which the OLD legacy-only check below used to reject
+	 * unconditionally — making it impossible to ever create a dynamic-only
+	 * grupo through this endpoint. Branch on which one the payload actually
+	 * carries instead of always requiring the legacy string.
 	 *
 	 * @since  1.9.0
 	 * @param  array<string,mixed> $payload  Canonical grupo payload.
@@ -530,11 +540,35 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 	 * @return WP_Error|null
 	 */
 	private static function assert_within_activity( array $payload, array $activity ): ?WP_Error {
-		$act_grupos = ANPA_Socios_Actividade_Options::parse( (string) $activity['grupos'], ANPA_Socios_Actividade_Options::GRUPOS );
-		if ( ! in_array( $payload['curso_range'], $act_grupos, true ) ) {
+		$nivel_ids = $payload['nivel_ids'] ?? array();
+
+		if ( array() !== $nivel_ids ) {
+			// Dynamic path: every nivel_id must belong to the SAME curso_escolar
+			// as the activity being edited — cross-year niveis are invalid.
+			$curso_escolar = (string) ( $activity['curso_escolar'] ?? $payload['curso_escolar'] ?? '' );
+			if ( ! ANPA_Socios_DB::niveis_belong_to_curso( $nivel_ids, $curso_escolar ) ) {
+				return new WP_Error(
+					'anpa_admin_grupo_nivel_ids',
+					'Os niveis seleccionados non pertencen ao curso escolar da actividade.',
+					array( 'status' => 400 )
+				);
+			}
+		} elseif ( '' !== (string) ( $payload['curso_range'] ?? '' ) ) {
+			// Legacy path: curso_range must be one of the activity's option set.
+			$act_grupos = ANPA_Socios_Actividade_Options::parse( (string) $activity['grupos'], ANPA_Socios_Actividade_Options::GRUPOS );
+			if ( ! in_array( $payload['curso_range'], $act_grupos, true ) ) {
+				return new WP_Error(
+					'anpa_admin_grupo_curso_range',
+					'O grupo curricular non está entre os da actividade.',
+					array( 'status' => 400 )
+				);
+			}
+		} else {
+			// Neither present — validar_grupo() should have already rejected
+			// this, but guard defensively rather than silently accepting.
 			return new WP_Error(
-				'anpa_admin_grupo_curso_range',
-				'O grupo curricular non está entre os da actividade.',
+				'anpa_admin_grupo_sen_niveis',
+				'O grupo debe ter niveis ou un grupo curricular asignado.',
 				array( 'status' => 400 )
 			);
 		}
