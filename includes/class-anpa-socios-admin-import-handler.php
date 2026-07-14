@@ -761,9 +761,19 @@ final class ANPA_Socios_Admin_Import_Handler {
 			) );
 
 			if ( ! $activity_id ) {
+				// icono is only ever set from CSV when the activity is created for
+				// the FIRST time. Re-importing an existing activity (matched by
+				// empresa+nome natural key, above) never touches its icono — the
+				// round-trip must not erase/replace an icon set/changed from the
+				// admin UI. Falls back to the same default as the admin payload
+				// validator when the CSV cell is blank.
+				$icono_raw = trim( (string) ( $row['icono'] ?? '' ) );
+				$icono     = '' === $icono_raw ? '🎒' : mb_substr( $icono_raw, 0, 20, 'UTF-8' );
+
 				$ok = $wpdb->insert( $table, array(
 					'empresa_id'    => $empresa_id,
 					'nome'          => $nome,
+					'icono'         => $icono,
 					'descripcion'   => $row['descripcion'] ?? '',
 					'curso_escolar' => $curso_escolar,
 					'min_pupilos'   => (int) ( $row['min_pupilos'] ?? 10 ),
@@ -772,7 +782,7 @@ final class ANPA_Socios_Admin_Import_Handler {
 					'curso_max'     => '' === (string) ( $row['curso_max'] ?? '' ) ? null : (int) $row['curso_max'],
 					'custo'         => (float) ( $row['custo'] ?? 0 ),
 					'estado'        => in_array( $row['estado'] ?? '', array( 'activo', 'inactivo' ), true ) ? $row['estado'] : 'inactivo',
-				), array( '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%f', '%s' ) );
+				), array( '%d', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%f', '%s' ) );
 				if ( false === $ok ) {
 					$errors[] = array( 'row' => $idx, 'msg' => 'Non se puido inserir a actividade.' );
 					continue;
