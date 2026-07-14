@@ -73,6 +73,9 @@ final class ANPA_Socios_Admin_Payload {
 	/**
 	 * Valid curso values for fillos (Educación Primaria 1–6).
 	 *
+	 * Fallback ONLY — do not use as primary source. Primary source is
+	 * ANPA_Socios_DB::get_niveis_for_curso() via dynamic_curso_validos().
+	 *
 	 * @since 1.5.0
 	 * @var string[]
 	 */
@@ -80,6 +83,9 @@ final class ANPA_Socios_Admin_Payload {
 
 	/**
 	 * Valid grupo/aula values for fillos (A–H). Case-sensitive.
+	 *
+	 * Fallback ONLY — do not use as primary source. Primary source is
+	 * ANPA_Socios_DB::get_aulas_for_niveis() via dynamic_aula_validos().
 	 *
 	 * Storage/validation accept the full A–H range so imported or edited
 	 * fillos in classrooms E..H validate; the admin UI constrains the

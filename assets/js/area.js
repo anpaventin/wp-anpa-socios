@@ -766,6 +766,9 @@
 		});
 
 		// ── Extraescolares (socio self-enrolment, fase7 PR-7d) ───────────
+		// Labels below are for legacy curso_range display ('1-2-3'/'4-5-6').
+		// Dynamic grupos using grupos_niveis render nivel names from the backend;
+		// full horario rework with dynamic labels is out of scope here (PR-ES9).
 		const EXTRA_DIA_LABELS = { luns: 'Luns', martes: 'Martes', mercores: 'Mércores', xoves: 'Xoves', venres: 'Venres' };
 		const EXTRA_RANGE_LABELS = { '1-2-3': '1º-2º-3º', '4-5-6': '4º-5º-6º' };
 		const EXTRA_ESTADO_LABELS = {
@@ -936,6 +939,9 @@
 				return opt ? String(opt.dataset.curso || '') : '';
 			}
 			function cursoFits(curso, range) {
+				// Legacy fallback for literal curso_range strings only; dynamic
+				// grupos (numeric grupo_id) are resolved by the backend's
+				// grupos_niveis before reaching this code.
 				const map = { '1-2-3': ['1', '2', '3'], '4-5-6': ['4', '5', '6'] };
 				return !!map[range] && map[range].indexOf(String(curso).trim()) !== -1;
 			}

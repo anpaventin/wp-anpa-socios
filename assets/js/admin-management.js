@@ -1609,7 +1609,11 @@
 		form.appendChild(horariosLabel);
 		form.appendChild(horariosContainer);
 
-		// Grupos curriculares checkboxes
+		// Grupos curriculares checkboxes — legacy actividades.grupos CSV field.
+		// This stores the legacy curso_range tokens ('1-2-3'/'4-5-6') for the
+		// actividade entity itself (NOT the grupo de actividade entity, which
+		// uses dynamic nivel_ids via grupos_niveis since PR-ES5). Retained for
+		// horario builder compatibility and legacy rendering; not dead code.
 		var gruposContainer = document.createElement('div');
 		['1-2-3', '4-5-6'].forEach(function (v) {
 			var chkLabel = document.createElement('label');

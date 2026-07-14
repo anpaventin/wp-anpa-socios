@@ -1428,7 +1428,10 @@ final class ANPA_Socios_Admin_Settings {
 		echo '<li>' . esc_html__( 'O curso pendente actívase automaticamente o 1 de setembro.', 'anpa-socios' ) . '</li>';
 		echo '<li>' . esc_html__( 'En pretempada só o equipo administrador pode iniciar sesión; as familias quedan protexidas ata a apertura.', 'anpa-socios' ) . '</li>';
 		echo '<li>' . esc_html__( 'En Axustes → Cursos → Matrículas podes abrir ou pechar novas matrículas sen tocar datas nin estado do curso.', 'anpa-socios' ) . '</li>';
-		echo '</ul></section>';
+		echo '<li>' . wp_kses_post( __( 'En Axustes → Cursos → <strong>Estrutura escolar</strong> configúranse os niveis (cursos) e aulas do centro para cada ano. Ao crear un novo curso escolar pódese copiar a estrutura do anterior. Os cambios nun curso non afectan aos anos xa pechados.', 'anpa-socios' ) ) . '</li>';
+		echo '</ul>';
+		echo '<p class="description">' . esc_html__( 'Nota: «aula» (clase ordinaria, ex. 4ºB) non é o mesmo que «grupo de actividade» (agrupamento por niveis dunha extraescolar, ex. 1º-2º-3º). A estrutura escolar define aulas; os grupos de actividade configúranse na ficha de cada actividade.', 'anpa-socios' ) . '</p>';
+		echo '</section>';
 
 		echo '<section id="paxinas-shortcodes" class="card"><h2>' . esc_html( $sections['paxinas-shortcodes'] ) . '</h2>';
 		echo '<p>' . esc_html__( 'A área pública principal amósase coa páxina configurada en Axustes e o shortcode:', 'anpa-socios' ) . ' <code>[anpa_socios_area]</code></p>';

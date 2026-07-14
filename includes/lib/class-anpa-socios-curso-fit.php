@@ -14,6 +14,11 @@ declare(strict_types=1);
 /**
  * Curso-range / grupos_niveis membership logic.
  *
+ * Supports dual-path design: RANGES matches only the literal legacy
+ * range-key strings ('1-2-3'/'4-5-6'). When curso_range is a numeric
+ * grupo_id, fit is resolved via the dynamic grupos_niveis table instead.
+ * There is no collision risk between legacy string keys and numeric IDs.
+ *
  * @since 1.9.0
  */
 final class ANPA_Socios_Curso_Fit {

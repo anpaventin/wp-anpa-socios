@@ -127,10 +127,10 @@ final class ANPA_Socios_Fillo_Cursos_REST {
 		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso_escolar ) ) {
 			return self::invalid_payload_error( 'curso_escolar inválido' );
 		}
-		if ( ! in_array( $curso, array( '1', '2', '3', '4', '5', '6' ), true ) ) {
+		if ( ! ANPA_Socios_Admin_Payload::curso_valido_db( $curso, $curso_escolar ) ) {
 			return self::invalid_payload_error( 'curso inválido' );
 		}
-		if ( ! in_array( $aula, ANPA_Socios_Admin_Payload::GRUPO_VALIDOS, true ) ) {
+		if ( ! ANPA_Socios_Admin_Payload::aula_valida_db( $aula, $curso_escolar ) ) {
 			return self::invalid_payload_error( 'aula inválida' );
 		}
 
@@ -201,10 +201,10 @@ final class ANPA_Socios_Fillo_Cursos_REST {
 		$curso = isset( $body['curso'] ) ? sanitize_text_field( $body['curso'] ) : $existing['curso'];
 		$aula  = isset( $body['aula'] ) ? sanitize_text_field( $body['aula'] ) : $existing['aula'];
 
-		if ( ! in_array( $curso, array( '1', '2', '3', '4', '5', '6' ), true ) ) {
+		if ( ! in_array( $curso, ANPA_Socios_Admin_Payload::dynamic_curso_validos( $curso_escolar ), true ) ) {
 			return self::invalid_payload_error( 'curso inválido' );
 		}
-		if ( ! in_array( $aula, ANPA_Socios_Admin_Payload::GRUPO_VALIDOS, true ) ) {
+		if ( ! in_array( $aula, ANPA_Socios_Admin_Payload::dynamic_aula_validos( $curso_escolar ), true ) ) {
 			return self::invalid_payload_error( 'aula inválida' );
 		}
 
