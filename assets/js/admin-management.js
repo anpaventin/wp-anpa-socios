@@ -1549,6 +1549,106 @@
 		descInput.rows = 3; descInput.value = isEdit ? (act.descripcion || '') : '';
 		addField('anpa-act-descripcion', 'Descrici\u00F3n', descInput);
 
+		// ── Icona: presets accesibles + personalizada + vista previa (PR-ES9 task 86) ──
+		// `actividades.icono` é compartido entre todos os anos en que se oferta a
+		// actividade (vive na táboa base, non en actividades_cursos). O payload de
+		// gardado sempre envía o valor seleccionado aquí, nunca fuerza baleiro.
+		var ICONO_PRESETS = [
+			{ emoji: '\uD83C\uDF92', label: 'Xeral' },
+			{ emoji: '\u26BD', label: 'F\u00FAtbol' },
+			{ emoji: '\uD83C\uDFA8', label: 'Debuxo' },
+			{ emoji: '\uD83C\uDFAD', label: 'Teatro' },
+			{ emoji: '\uD83C\uDFB5', label: 'M\u00FAsica' },
+			{ emoji: '\u265F\uFE0F', label: 'Xadrez' },
+			{ emoji: '\uD83E\uDD38', label: 'Deporte' },
+			{ emoji: '\uD83C\uDFAC', label: 'Cine' },
+			{ emoji: '\uD83D\uDD2C', label: 'Ciencia' },
+			{ emoji: '\uD83D\uDCDA', label: 'Lectura' }
+		];
+		var ICONO_DEFAULT = ICONO_PRESETS[0].emoji;
+		var initialIcono = isEdit ? ( act.icono || ICONO_DEFAULT ) : ICONO_DEFAULT;
+		var matchedIconoPreset = null;
+		ICONO_PRESETS.forEach(function (p) {
+			if (p.emoji === initialIcono) { matchedIconoPreset = p; }
+		});
+
+		var iconoLabel = document.createElement('label');
+		iconoLabel.textContent = 'Icona';
+		form.appendChild(iconoLabel);
+
+		var iconoGroup = document.createElement('div');
+		iconoGroup.className = 'anpa-mgmt-icono-group';
+		iconoGroup.setAttribute('role', 'radiogroup');
+		iconoGroup.setAttribute('aria-label', 'Icona da actividade');
+
+		var iconoRadios = [];
+		ICONO_PRESETS.forEach(function (p) {
+			var chkLabel = document.createElement('label');
+			chkLabel.style.display = 'inline-block';
+			chkLabel.style.marginRight = '1em';
+			var radio = document.createElement('input');
+			radio.type = 'radio';
+			radio.name = 'anpa-act-icono-preset';
+			radio.value = p.emoji;
+			radio.setAttribute('aria-label', p.label);
+			if (matchedIconoPreset && matchedIconoPreset.emoji === p.emoji) { radio.checked = true; }
+			chkLabel.appendChild(radio);
+			chkLabel.appendChild(document.createTextNode(' ' + p.emoji + ' ' + p.label));
+			iconoGroup.appendChild(chkLabel);
+			iconoRadios.push(radio);
+		});
+		form.appendChild(iconoGroup);
+
+		// Personalizada: conserva/permite calquera emoji legacy fóra da lista de presets.
+		var iconoCustomInput = document.createElement('input');
+		iconoCustomInput.type = 'text';
+		iconoCustomInput.maxLength = 20;
+		iconoCustomInput.value = matchedIconoPreset ? '' : initialIcono;
+		addField('anpa-act-icono-custom', 'Icona personalizada (emoji)', iconoCustomInput);
+
+		var iconoPreviewLabel = document.createElement('label');
+		iconoPreviewLabel.textContent = 'Vista previa da icona';
+		form.appendChild(iconoPreviewLabel);
+		var iconoPreview = document.createElement('p');
+		iconoPreview.className = 'anpa-mgmt-icono-preview';
+		iconoPreview.setAttribute('aria-live', 'polite');
+		iconoPreview.textContent = initialIcono;
+		form.appendChild(iconoPreview);
+
+		function updateIconoPreview() {
+			var checkedRadio = null;
+			for (var ri = 0; ri < iconoRadios.length; ri++) {
+				if (iconoRadios[ri].checked) { checkedRadio = iconoRadios[ri]; break; }
+			}
+			if (checkedRadio) {
+				iconoPreview.textContent = checkedRadio.value;
+			} else if ((iconoCustomInput.value || '').trim() !== '') {
+				iconoPreview.textContent = iconoCustomInput.value.trim();
+			} else {
+				iconoPreview.textContent = ICONO_DEFAULT;
+			}
+		}
+		iconoRadios.forEach(function (radio) {
+			radio.addEventListener('change', function () {
+				iconoCustomInput.value = '';
+				updateIconoPreview();
+			});
+		});
+		iconoCustomInput.addEventListener('input', function () {
+			if ((iconoCustomInput.value || '').trim() !== '') {
+				iconoRadios.forEach(function (radio) { radio.checked = false; });
+			}
+			updateIconoPreview();
+		});
+
+		function getSelectedIcono() {
+			for (var ri = 0; ri < iconoRadios.length; ri++) {
+				if (iconoRadios[ri].checked) { return iconoRadios[ri].value; }
+			}
+			var custom = (iconoCustomInput.value || '').trim();
+			return custom !== '' ? custom : ICONO_DEFAULT;
+		}
+
 		var cursoSelect = document.createElement('select');
 		var currentYear = isEdit ? (act.curso_escolar || '') : '';
 		var yearOptions = generateCursoRange(currentYear);
@@ -1866,7 +1966,7 @@
 			var payload = {
 				empresa_id: parseInt(empresaSelect.value, 10) || 0,
 				nome: (nomeInput.value || '').trim(),
-				icono: isEdit ? (act.icono || '') : '',
+				icono: getSelectedIcono(),
 				descripcion: (descInput.value || '').trim(),
 				curso_escolar: cursoSelect.value,
 				franxa: (franxaInput.value || '').trim(),
