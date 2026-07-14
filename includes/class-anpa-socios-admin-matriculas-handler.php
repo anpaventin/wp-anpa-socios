@@ -40,21 +40,85 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 			'callback'            => array( __CLASS__, 'delete_matricula' ),
 			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
 		) );
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/matriculas/sen-grupo', array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => array( __CLASS__, 'list_matriculas_sen_grupo' ),
+			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+		) );
 	}
 
-	public static function list_matriculas( WP_REST_Request $request ): WP_REST_Response {
+	/**
+	 * GET /admin/actividad/<id>/matriculas — enriched listing for the
+	 * actividade editor. Filterable by curso_escolar and estado. Returns
+	 * year-scoped nivel/aula (not the current-year mirror), grupo details,
+	 * and pagination metadata. NO IBAN/NIF/banking data.
+	 *
+	 * @since  1.27.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function list_matriculas( WP_REST_Request $request ) {
 		global $wpdb;
 
-		$id   = (int) $request->get_param( 'id' );
+		$id = (int) $request->get_param( 'id' );
+
+		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		$fil_t = ANPA_Socios_DB::tabela_fillos();
+		$gru_t = ANPA_Socios_DB::tabela_grupos();
+
+		$where  = array( "m.activitad_id = %d" );
+		$params = array( $id );
+
+		// Optional curso_escolar filter.
+		$curso_filter = $request->get_param( 'curso_escolar' );
+		if ( $curso_filter && ANPA_Socios_Curso_Escolar::is_valid( (string) $curso_filter ) ) {
+			$where[]  = "g.curso_escolar = %s";
+			$params[] = (string) $curso_filter;
+		}
+
+		// Optional estado filter.
+		$estado_filter = $request->get_param( 'estado' );
+		$valid_estados = array( 'activo', 'lista_espera', 'oferta', 'baixa_solicitada', 'baixa' );
+		if ( $estado_filter && in_array( $estado_filter, $valid_estados, true ) ) {
+			$where[]  = "m.estado = %s";
+			$params[] = $estado_filter;
+		}
+
+		// Pagination.
+		$page     = max( 1, (int) ( $request->get_param( 'page' ) ?? 1 ) );
+		$per_page = min( 200, max( 10, (int) ( $request->get_param( 'per_page' ) ?? 50 ) ) );
+		$offset   = ( $page - 1 ) * $per_page;
+
+		$where_sql = implode( ' AND ', $where );
+
+		// Total count for pagination metadata.
+		$count_sql = "SELECT COUNT(*) FROM {$mat_t} m LEFT JOIN {$gru_t} g ON g.id = m.grupo_id WHERE {$where_sql}";
+		$total     = (int) $wpdb->get_var( $wpdb->prepare( $count_sql, ...$params ) );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin-only paginated listing.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, fillo_id, activitad_id, estado, comedor, tarde, observaciones FROM {$wpdb->prefix}anpa_matriculas WHERE activitad_id = %d ORDER BY id ASC",
-				$id
+				"SELECT m.id, m.estado, m.trimestre, m.creado_en,
+				        f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
+				        COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula) AS aula,
+				        g.curso_escolar, g.franxa, g.curso_range AS grupo_range, g.dias AS grupo_dias
+				 FROM {$mat_t} m
+				 INNER JOIN {$fil_t} f ON f.id = m.fillo_id
+				 LEFT JOIN {$gru_t} g ON g.id = m.grupo_id
+				 LEFT JOIN {$wpdb->prefix}anpa_fillos_cursos fc ON fc.fillo_id = f.id AND fc.curso_escolar = g.curso_escolar
+				 WHERE {$where_sql}
+				 ORDER BY g.curso_escolar DESC, f.apelidos ASC, f.nome ASC, m.id ASC
+				 LIMIT %d OFFSET %d",
+				...array_merge( $params, array( $per_page, $offset ) )
 			),
 			ARRAY_A
 		);
 
-		return new WP_REST_Response( is_array( $rows ) ? $rows : array(), 200 );
+		$response = new WP_REST_Response( is_array( $rows ) ? $rows : array(), 200 );
+		$response->header( 'X-WP-Total', (string) $total );
+		$response->header( 'X-WP-TotalPages', (string) max( 1, (int) ceil( $total / $per_page ) ) );
+
+		return $response;
 	}
 
 	/**
@@ -141,6 +205,40 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'matricula', (string) $wpdb->insert_id, 'create' );
 
 		return new WP_REST_Response( $payload + array( 'id' => $wpdb->insert_id ), 201 );
+	}
+
+	/**
+	 * GET /admin/matriculas/sen-grupo — legacy enrolments without a grupo assignment.
+	 *
+	 * Informational only: surfaces matriculas where grupo_id IS NULL so an admin
+	 * can assess backfill or manual reassignment. Never auto-assigns a grupo.
+	 * No banking/IBAN data exposed.
+	 *
+	 * @since  1.27.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public static function list_matriculas_sen_grupo( WP_REST_Request $request ): WP_REST_Response {
+		global $wpdb;
+
+		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		$fil_t = ANPA_Socios_DB::tabela_fillos();
+		$act_t = ANPA_Socios_DB::tabela_actividades();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin-only diagnostic report.
+		$rows = $wpdb->get_results(
+			"SELECT m.id, m.estado, m.trimestre, m.creado_en,
+			        f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
+			        a.nome AS actividade_nome
+			 FROM {$mat_t} m
+			 INNER JOIN {$fil_t} f ON f.id = m.fillo_id
+			 INNER JOIN {$act_t} a ON a.id = m.activitad_id
+			 WHERE m.grupo_id IS NULL
+			 ORDER BY m.creado_en DESC",
+			ARRAY_A
+		);
+
+		return new WP_REST_Response( is_array( $rows ) ? $rows : array(), 200 );
 	}
 
 	public static function delete_matricula( WP_REST_Request $request ) {

@@ -69,11 +69,13 @@ final class ANPA_Socios_Alumnos_Export {
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table names from DB helper.
 			$rows = $wpdb->get_results(
 				"SELECT e.nome AS empresa_nome, a.nome AS actividade_nome, "
-				. "f.nome, f.apelidos, f.curso, f.aula, m.comedor, m.tarde, f.socio_email "
+				. "f.nome, f.apelidos, COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula) AS aula, m.comedor, m.tarde, f.socio_email "
 				. "FROM {$matriculas} m "
 				. "JOIN {$fillos} f ON f.id = m.fillo_id "
 				. "JOIN {$actividades} a ON a.id = m.activitad_id "
 				. "JOIN {$empresas} e ON e.id = a.empresa_id "
+				. "LEFT JOIN {$wpdb->prefix}anpa_grupos g ON g.id = m.grupo_id "
+				. "LEFT JOIN {$wpdb->prefix}anpa_fillos_cursos fc ON fc.fillo_id = f.id AND fc.curso_escolar = g.curso_escolar "
 				. "WHERE m.estado = 'activo' "
 				. "ORDER BY e.nome, a.nome, f.apelidos, f.nome",
 				ARRAY_A
@@ -85,10 +87,12 @@ final class ANPA_Socios_Alumnos_Export {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT a.nome AS actividade_nome, "
-					. "f.nome, f.apelidos, f.curso, f.aula, m.comedor, m.tarde, f.socio_email "
+					. "f.nome, f.apelidos, COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula) AS aula, m.comedor, m.tarde, f.socio_email "
 					. "FROM {$matriculas} m "
 					. "JOIN {$fillos} f ON f.id = m.fillo_id "
 					. "JOIN {$actividades} a ON a.id = m.activitad_id "
+					. "LEFT JOIN {$wpdb->prefix}anpa_grupos g ON g.id = m.grupo_id "
+					. "LEFT JOIN {$wpdb->prefix}anpa_fillos_cursos fc ON fc.fillo_id = f.id AND fc.curso_escolar = g.curso_escolar "
 					. "WHERE a.empresa_id = %d AND m.estado = 'activo' "
 					. "ORDER BY a.nome, f.apelidos, f.nome",
 					$empresa_id

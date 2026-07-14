@@ -365,7 +365,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 
 		$grupo = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, actividad_id, curso_range, max_pupilos FROM {$gru_t} WHERE id = %d",
+				"SELECT id, actividad_id, curso_escolar, curso_range, max_pupilos FROM {$gru_t} WHERE id = %d",
 				$target
 			),
 			ARRAY_A
@@ -377,6 +377,18 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		// Must be the same activity.
 		if ( (int) $grupo['actividad_id'] !== (int) $mat['activitad_id'] ) {
 			return new WP_Error( 'anpa_admin_mover_actividade', __( 'Só se pode mover entre grupos da mesma actividade', 'anpa-socios' ), array( 'status' => 400 ) );
+		}
+
+		// Cross-year movement prevention: source and target must share curso_escolar.
+		$source_curso_escolar = ! empty( $mat['grupo_id'] )
+			? (string) $wpdb->get_var( $wpdb->prepare( "SELECT curso_escolar FROM {$gru_t} WHERE id = %d", (int) $mat['grupo_id'] ) )
+			: '';
+		if ( '' !== $source_curso_escolar && (string) $grupo['curso_escolar'] !== $source_curso_escolar ) {
+			return new WP_Error(
+				'anpa_admin_mover_curso_escolar',
+				__( 'Non se pode mover entre cursos escolares diferentes', 'anpa-socios' ),
+				array( 'status' => 409 )
+			);
 		}
 
 		// Curso fit.

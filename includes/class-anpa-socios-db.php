@@ -132,92 +132,67 @@ class ANPA_Socios_DB {
 		// alters the estado enum or other columns on an existing install.
 		self::create_base_tables();
 
-		// 1.2.0: extend wp_anpa_socios with rol + pendiente_alta estado.
-		// dbDelta does not always update enum columns; run an explicit
-		// migration guarded by the previous schema version.
-		self::migrate_1_1_0_to_1_2_0();
+		// ── Migration chain with failure-state detection ───────────────
+		// Each step is idempotent so a re-run on next admin_init is safe.
+		// If any step leaves a real error in $wpdb->last_error, we halt
+		// immediately and do NOT advance VERSION_OPTION — the next page
+		// load will retry from the same stored version.
+		$migration_steps = array(
+			'1.2.0'  => 'migrate_1_1_0_to_1_2_0',
+			'1.3.0'  => 'create_1_3_0_tables',
+			'1.4.0'  => 'create_1_4_0_tables',
+			'1.5.0'  => 'normalize_1_5_0_fillos_curso_aula',
+			'1.6.0'  => 'migrate_1_5_0_to_1_6_0',
+			'1.7.0'  => 'create_1_7_0_tables',
+			'1.8.0'  => 'migrate_1_7_0_to_1_8_0',
+			'1.9.0'  => 'migrate_to_1_9_0',
+			'1.10.0' => 'migrate_to_1_10_0',
+			'1.11.0' => 'migrate_to_1_11_0',
+			'1.12.0' => 'migrate_to_1_12_0',
+			'1.13.0' => 'migrate_to_1_13_0',
+			'1.14.0' => 'migrate_to_1_14_0',
+			'1.15.0' => 'migrate_to_1_15_0',
+			'1.16.0' => 'migrate_to_1_16_0',
+			'1.17.0' => 'migrate_to_1_17_0',
+			'1.18.0' => 'migrate_to_1_18_0',
+			'1.19.0' => 'migrate_to_1_19_0',
+			'1.20.0' => 'migrate_to_1_20_0',
+			'1.21.0' => 'migrate_to_1_21_0',
+			'1.22.0' => 'migrate_to_1_22_0',
+			'1.23.0' => 'migrate_to_1_23_0',
+			'1.24.0' => 'migrate_to_1_24_0',
+			'1.25.0' => 'migrate_to_1_25_0',
+		);
 
-		// 1.3.0: create fillos, empresas, actividades, matriculas and
-		// audit_log tables. dbDelta is idempotent so this is safe to
-		// call on every activation.
-		self::create_1_3_0_tables();
-
-		// 1.4.0: create empresa passwordless-session table.
-		self::create_1_4_0_tables();
-
-		// 1.5.0: normalize existing fillos curso/aula to canonical values.
-		self::normalize_1_5_0_fillos_curso_aula();
-
-		// 1.6.0: add socios nif/telefono/familia_id columns (fillos
-		// image_consent is added by dbDelta in create_1_3_0_tables).
-		self::migrate_1_5_0_to_1_6_0();
-
-		// 1.7.0: create the encrypted SEPA banking table.
-		self::create_1_7_0_tables();
-
-		// 1.8.0: add the socio baixa workflow columns.
-		self::migrate_1_7_0_to_1_8_0();
-
-		// 1.9.0: extraescolares management — activity option sets, the new
-		// grupos table, and the matriculas enrolment/waitlist columns.
-		self::migrate_to_1_9_0();
-
-		// 1.10.0: course lifecycle gates + real timetable franxas.
-		self::migrate_to_1_10_0();
-
-		// 1.11.0: offered activities icon metadata.
-		self::migrate_to_1_11_0();
-
-		// 1.12.0: group-specific schedule slot for comedor/tarde splits.
-		self::migrate_to_1_12_0();
-
-		// 1.13.0: empresa url_web for public activity card links.
-		self::migrate_to_1_13_0();
-
-		// 1.14.0: fillo course assignments per school year.
-		self::migrate_to_1_14_0();
-
-		// 1.15.0: extraescolar enrolment authorisations.
-		self::migrate_to_1_15_0();
-
-		// 1.16.0: per-activity min/max pupil capacity + default values for existing.
-		self::migrate_to_1_16_0();
-
-		// 1.17.0: activity data that changes every school year lives in a
-		// separate yearly table; groups are also scoped to curso_escolar.
-		self::migrate_to_1_17_0();
-
-		// 1.18.0: course season lifecycle — estado + season dates on cursos.
-		self::migrate_to_1_18_0();
-
-		// 1.19.0: add 'pendente_aprobacion' to the socios estado enum.
-		self::migrate_to_1_19_0();
-
-		// 1.20.0: widen the fillos_cursos.aula enum to A-H for larger schools.
-		self::migrate_to_1_20_0();
-
-		// 1.21.0: add fillos.familia_id column + backfill from socios.
-		self::migrate_to_1_21_0();
-
-		// 1.22.0: add socios.rol_familia enum + backfill from familia_id.
-		self::migrate_to_1_22_0();
-
-		// 1.23.0: allow socios.email NULL for 2nd-parent contact-without-login.
-		self::migrate_to_1_23_0();
-
-		// 1.24.0: rename idade_min/idade_max → curso_min/curso_max.
-		self::migrate_to_1_24_0();
-
-		// 1.25.0: add baixa_en datetime NULL to matriculas.
-		self::migrate_to_1_25_0();
+		foreach ( $migration_steps as $step_version => $method ) {
+			// Clear any stale error before the step so we only detect NEW failures.
+			$wpdb->last_error = '';
+			self::$method();
+			if ( '' !== (string) $wpdb->last_error ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional migration failure logging.
+				error_log( sprintf(
+					'[anpa-socios] Migration halted at step %s (%s): %s',
+					$step_version,
+					$method,
+					$wpdb->last_error
+				) );
+				return; // Do NOT advance VERSION_OPTION.
+			}
+		}
 
 		// 1.26.0: enforce one active course in restored/legacy data.
+		$wpdb->last_error = '';
 		if ( ! self::migrate_to_1_26_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.26.0 (migrate_to_1_26_0): ' . $wpdb->last_error );
 			return;
 		}
 
 		// 1.27.0: parametrizable school structure (tables + backfill).
+		$wpdb->last_error = '';
 		if ( ! self::migrate_to_1_27_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.27.0 (migrate_to_1_27_0): ' . $wpdb->last_error );
 			return;
 		}
 
