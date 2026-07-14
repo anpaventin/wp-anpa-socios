@@ -291,12 +291,109 @@
 }
 
 .anpa-mgmt-table input[type="checkbox"],
-.anpa-mgmt-form input[type="checkbox"] {
+.anpa-mgmt-form input[type="checkbox"],
+.anpa-mgmt-form input[type="radio"] {
 	width: 16px;
 	height: 16px;
 	min-width: 16px;
 	min-height: 16px;
 	border-radius: 0;
+}
+
+.anpa-mgmt-form input[type="radio"] {
+	border-radius: 50%;
+}
+
+/* ── Inline option groups (icona, cursos, checkboxes de días…) ───
+   Overrides the generic full-width input rule above: these groups lay
+   out several small labelled controls (checkbox/radio + text) on one
+   flexible row instead of one full-width 400px control each. ──── */
+.anpa-mgmt-icono-group,
+.anpa-mgmt-multicurso {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.3rem 1.2rem;
+	align-items: center;
+	max-width: none;
+}
+
+.anpa-mgmt-icono-group label,
+.anpa-mgmt-multicurso label {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	width: auto;
+	margin: 0;
+	font-weight: 400;
+}
+
+.anpa-mgmt-icono-preview {
+	font-size: 28px;
+	line-height: 1;
+	margin: 0.2rem 0 0.6rem;
+}
+
+/* ── Per-year nivel mínimo/máximo selectors ──────────────────────
+   One row per checked curso escolar, each with a compact (not
+   full-width) pair of selects instead of two stacked 400px selects. */
+.anpa-mgmt-niveis-por-ano {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+}
+
+.anpa-mgmt-nivel-ano-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.3rem 0.6rem;
+}
+
+.anpa-mgmt-nivel-ano-row label {
+	display: inline-block;
+	width: auto;
+	margin: 0;
+	font-weight: 400;
+}
+
+.anpa-mgmt-nivel-ano-row select {
+	width: auto;
+	max-width: 200px;
+	margin-right: 0;
+}
+
+/* ── Legacy curso_min/curso_max — collapsed by default ───────────
+   Kept for back-compat (see design.md §8.3) but visually de-emphasised
+   so it does not compete with the modern per-year nivel selectors. */
+.anpa-mgmt-legacy-limits {
+	margin: 0.8rem 0;
+	padding: 0.6rem 0.8rem;
+	border: 1px dashed #c3c4c7;
+	border-radius: 4px;
+	background: #f6f7f7;
+}
+
+.anpa-mgmt-legacy-limits summary {
+	cursor: pointer;
+	font-weight: 500;
+	font-size: 13px;
+	color: #646970;
+}
+
+.anpa-mgmt-legacy-limits label {
+	margin-top: 0.6rem;
+}
+
+/* ── Franxa: start/end time pickers on one row ───────────────────── */
+.anpa-mgmt-franxa-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.anpa-mgmt-franxa-row input[type="time"] {
+	width: auto;
+	max-width: 130px;
 }
 
 /* ── Empty state ───────────────────────────────────────────────── */
