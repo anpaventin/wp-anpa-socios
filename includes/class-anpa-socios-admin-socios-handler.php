@@ -428,20 +428,21 @@ final class ANPA_Socios_Admin_Socios_Handler {
 	 * GET /admin/config — system configuration for the admin UI.
 	 *
 	 * Returns cursos, aulas and other dynamic values so the frontend
-	 * never hardcodes them. Cursos come from the payload validation
-	 * constants; aulas are constrained to the configured maximum classroom
-	 * letter (ANPA_Socios_Config::aulas), while storage still accepts A-H.
+	 * never hardcodes them. Cursos and aulas come from the dynamic
+	 * per-curso_escolar structure (falling back to CURSO_VALIDOS/GRUPO_VALIDOS
+	 * when no structure is configured for the current year).
 	 *
 	 * @since  1.21.0
 	 * @return WP_REST_Response
 	 */
 	public static function get_config(): WP_REST_Response {
+		$curso_escolar = ANPA_Socios_Curso_Escolar::current();
 		return new WP_REST_Response( array(
-			'cursos'   => ANPA_Socios_Admin_Payload::CURSO_VALIDOS,
-			'aulas'    => ANPA_Socios_Config::aulas(),
+			'cursos'   => ANPA_Socios_Admin_Payload::dynamic_curso_validos( $curso_escolar ),
+			'aulas'    => ANPA_Socios_Admin_Payload::dynamic_aula_validos( $curso_escolar ),
 			'defaults' => array(
-				'provincia' => 'A Coruña',
-				'poboacion' => 'Ames',
+				'provincia' => ANPA_Socios_Config::default_province(),
+				'poboacion' => ANPA_Socios_Config::default_town(),
 			),
 		), 200 );
 	}

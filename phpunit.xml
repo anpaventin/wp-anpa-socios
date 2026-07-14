@@ -54,6 +54,7 @@
       <file>tests/Test_ANPA_Socios_Trimestre.php</file>
       <file>tests/Test_ANPA_Socios_Backup_Tables.php</file>
       <file>tests/Test_ANPA_Socios_Fillos_Export_No_Duplication.php</file>
+      <file>tests/Test_ANPA_Socios_Adversarial_ES7.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

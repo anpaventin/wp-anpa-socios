@@ -1336,3 +1336,11 @@ msgstr "No se puede eliminar la actividad porque tiene grupos o matrículas asoc
 msgid "Revisa os cursos nos que se oferta a actividade."
 msgstr "Revisa los cursos en los que se ofrece la actividad."
 
+
+#: includes/class-anpa-socios-admin-settings.php
+msgid "En Axustes → Cursos → <strong>Estrutura escolar</strong> configúranse os niveis (cursos) e aulas do centro para cada ano. Ao crear un novo curso escolar pódese copiar a estrutura do anterior. Os cambios nun curso non afectan aos anos xa pechados."
+msgstr "En Ajustes → Cursos → <strong>Estructura escolar</strong> se configuran los niveles (cursos) y aulas del centro para cada año. Al crear un nuevo curso escolar se puede copiar la estructura del anterior. Los cambios en un curso no afectan a los años ya cerrados."
+
+#: includes/class-anpa-socios-admin-settings.php
+msgid "Nota: «aula» (clase ordinaria, ex. 4ºB) non é o mesmo que «grupo de actividade» (agrupamento por niveis dunha extraescolar, ex. 1º-2º-3º). A estrutura escolar define aulas; os grupos de actividade configúranse na ficha de cada actividade."
+msgstr "Nota: «aula» (clase ordinaria, ej. 4ºB) no es lo mismo que «grupo de actividad» (agrupamiento por niveles de una extraescolar, ej. 1º-2º-3º). La estructura escolar define aulas; los grupos de actividad se configuran en la ficha de cada actividad."

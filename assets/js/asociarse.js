@@ -527,8 +527,11 @@
 					curso.appendChild(o);
 				});
 			} else {
-				buildOptions(curso, ['1', '2', '3', '4', '5', '6'], ['1º', '2º', '3º', '4º', '5º', '6º']);
-			}
+			// Legacy fallback: only reached when no dynamic structure is localized
+			// via anpaAltaEstrutura. Primary source is wp_localize_script in
+			// ANPA_Socios_Unified_Page (niveis/aulas from DB per curso_escolar).
+			buildOptions(curso, ['1', '2', '3', '4', '5', '6'], ['1º', '2º', '3º', '4º', '5º', '6º']);
+		}
 
 			const aula = document.createElement('select');
 			aula.dataset.f = 'aula';
@@ -551,6 +554,7 @@
 					});
 				});
 			} else {
+				// Legacy fallback: same as curso above — only when no dynamic structure.
 				buildOptions(aula, ['A', 'B', 'C', 'D'], ['A', 'B', 'C', 'D']);
 			}
 

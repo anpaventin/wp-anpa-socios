@@ -335,7 +335,7 @@ final class ANPA_Socios_Fillos_REST {
 	 * @return void
 	 */
 	private static function sync_current_course_assignment( int $fillo_id, string $curso, string $aula ): void {
-		if ( $fillo_id <= 0 || ! in_array( $curso, array( '1', '2', '3', '4', '5', '6' ), true ) || ! in_array( $aula, ANPA_Socios_Admin_Payload::GRUPO_VALIDOS, true ) ) {
+		if ( $fillo_id <= 0 ) {
 			return;
 		}
 
@@ -343,6 +343,11 @@ final class ANPA_Socios_Fillos_REST {
 		$table         = ANPA_Socios_DB::tabela_fillos_cursos();
 		$curso_escolar = ANPA_Socios_Curso_Activo::get();
 		if ( null === $curso_escolar ) {
+			return;
+		}
+
+		// Validate against dynamic per-curso_escolar structure.
+		if ( ! ANPA_Socios_Admin_Payload::curso_valido_db( $curso, $curso_escolar ) || ! ANPA_Socios_Admin_Payload::aula_valida_db( $aula, $curso_escolar ) ) {
 			return;
 		}
 
