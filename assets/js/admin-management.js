@@ -24,6 +24,7 @@
 		solicitado_en: 'Data da solicitude',
 		resolto_en: 'Data da resolución',
 		resolto_por: 'Resolto por',
+		cursos_ofertados: 'Cursos nos que se oferta',
 	};
 	function colLabel(key) { return adminColLabels[key] || baseColLabel(key); }
 	function formatAdminDate(value) {
@@ -206,7 +207,12 @@
 			cols.forEach(function (c) {
 				var td = document.createElement('td');
 				var v = row[c];
-				td.textContent = v === null || v === undefined ? '' : String(v);
+				if (Array.isArray(v)) {
+					// e.g. cursos_ofertados: comma+space separated, em-dash when empty.
+					td.textContent = v.length ? v.join(', ') : '\u2014';
+				} else {
+					td.textContent = v === null || v === undefined ? '' : String(v);
+				}
 				tr.appendChild(td);
 			});
 			var actionsTd = document.createElement('td');
@@ -1303,7 +1309,7 @@
 	}
 
 	// ── Section: Actividades ─────────────────────────────────────────
-	var ACTIV_COLS = ['nome', '_empresa_nome', 'curso_escolar', 'franxa', 'estado'];
+	var ACTIV_COLS = ['nome', '_empresa_nome', 'curso_escolar', 'cursos_ofertados', 'franxa', 'estado'];
 	var _cachedEmpresas = null;
 
 	function loadActividades() {
@@ -1436,6 +1442,10 @@
 							curso_min: row.curso_min, curso_max: row.curso_max,
 							min_pupilos: row.min_pupilos, max_pupilos: row.max_pupilos,
 							custo: row.custo, estado: newEstado,
+							// Preserve every offered year: omitting this wipes the
+							// activity's actividades_cursos rows for all OTHER years
+							// via sync_actividad_cursos()'s array_diff-based removal.
+							cursos: Array.isArray(row.cursos_ofertados) ? row.cursos_ofertados : [],
 						};
 						anpaAdminFetch('actividad/' + row.id, { method: 'PUT', body: payload }).then(function () {
 							showMessage('Estado da actividade actualizado.', 'success');
@@ -1557,7 +1567,7 @@
 		form.appendChild(cursosLabel);
 		var primaryYear = cursoSelect.value || '';
 		var yearList = generateCursoRange(primaryYear);
-		var selectedCursos = isEdit && Array.isArray(act.cursos) ? act.cursos : (isEdit && act.curso_escolar ? [act.curso_escolar] : []);
+		var selectedCursos = isEdit && Array.isArray(act.cursos_ofertados) ? act.cursos_ofertados : (isEdit && act.curso_escolar ? [act.curso_escolar] : []);
 		yearList.forEach(function (yr) {
 			var chkLabel = document.createElement('label');
 			chkLabel.style.display = 'inline-block';

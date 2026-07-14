@@ -59,6 +59,8 @@
       <file>tests/Test_ANPA_Socios_Adversarial_ES7.php</file>
       <file>tests/Test_ANPA_Socios_PR_ES8_Second_Half.php</file>
       <file>tests/Test_ANPA_Socios_PR_ES9_Horario.php</file>
+      <file>tests/Test_ANPA_Socios_Actividades_Collapse.php</file>
+      <file>tests/Test_ANPA_Socios_List_Actividades_Contract.php</file>
     </testsuite>
   </testsuites>
 </phpunit>
