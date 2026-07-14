@@ -33,6 +33,39 @@ class Test_ANPA_Socios_Fillos_Dinamicos extends TestCase {
         $this->assertStringContainsString( 'dynamic_curso_validos', $src );
     }
 
+    /**
+     * Regression test for a real SQL bug found by live auditing (2026-07-14):
+     * dynamic_curso_validos()/dynamic_aula_validos() used to hand-roll their
+     * own SQL against `anpa_niveis`/`anpa_aulas` with a wrong `order` column
+     * (the real column is `orde`) and a nonexistent `anpa_aulas.curso_escolar`
+     * column. WordPress swallows the resulting SQL error and the method
+     * silently fell back to the static CURSO_VALIDOS/GRUPO_VALIDOS constants,
+     * so the dynamic-structure validation added in PR-ES4 never actually ran
+     * against real data despite the suite staying green (prior tests only
+     * grepped for method names, never executed SQL).
+     *
+     * These methods MUST delegate to ANPA_Socios_DB::get_niveis_for_curso()
+     * and ::get_aulas_for_niveis() — the only place that queries these
+     * tables with the correct schema — instead of re-implementing SQL here.
+     *
+     * @testdox dynamic_curso_validos/dynamic_aula_validos delegate to ANPA_Socios_DB (no inline SQL)
+     */
+    public function test_dynamic_validos_delegate_to_db_helpers_not_inline_sql(): void {
+        $src = file_get_contents( $this->payload_file );
+
+        $this->assertStringContainsString( 'ANPA_Socios_DB::get_niveis_for_curso', $src );
+        $this->assertStringContainsString( 'ANPA_Socios_DB::get_aulas_for_niveis', $src );
+
+        // Must not re-introduce the ad-hoc buggy SQL pattern here (the wrong
+        // `order` column and direct FROM {$wpdb->prefix}anpa_niveis/anpa_aulas
+        // queries). Only assert on the literal buggy fragments, not on
+        // any mention of the table names (the docblock legitimately names
+        // them when explaining why delegation is required).
+        $this->assertStringNotContainsString( 'ORDER BY `order`', $src );
+        $this->assertStringNotContainsString( 'FROM {$wpdb->prefix}anpa_niveis', $src );
+        $this->assertStringNotContainsString( 'FROM {$wpdb->prefix}anpa_aulas', $src );
+    }
+
     /** @testdox Admin_Payload has dynamic_aula_validos method */
     public function test_dynamic_aula_validos_exists(): void {
         $src = file_get_contents( $this->payload_file );
