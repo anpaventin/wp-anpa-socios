@@ -755,6 +755,43 @@ class ANPA_Socios_DB {
 	}
 
 	/**
+	 * Whether every given nivel id belongs to the given curso_escolar.
+	 *
+	 * Used to validate a grupo's `nivel_ids` payload against the activity's
+	 * course year (a grupo must never reference niveis from a different
+	 * curso_escolar than the activity it belongs to). Returns false for an
+	 * empty id list (nothing to validate should never be treated as valid).
+	 *
+	 * @since  1.39.1
+	 * @param  int[]  $nivel_ids     Candidate nivel ids.
+	 * @param  string $curso_escolar Expected curso escolar.
+	 * @return bool
+	 */
+	public static function niveis_belong_to_curso( array $nivel_ids, string $curso_escolar ): bool {
+		global $wpdb;
+
+		$nivel_ids = array_values( array_unique( array_filter( array_map( 'intval', $nivel_ids ), static function ( $v ) {
+			return $v > 0;
+		} ) ) );
+		if ( array() === $nivel_ids || '' === $curso_escolar ) {
+			return false;
+		}
+
+		$table         = self::tabela_niveis();
+		$placeholders  = implode( ',', array_fill( 0, count( $nivel_ids ), '%d' ) );
+		$params        = $nivel_ids;
+		$params[]      = $curso_escolar;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- explicit CRUD helper.
+		$matched = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$table} WHERE id IN ({$placeholders}) AND curso_escolar = %s",
+			$params
+		) );
+
+		return $matched === count( $nivel_ids );
+	}
+
+	/**
 	 * Returns whether the given column exists on the given (full) table name.
 	 *
 	 * @since  1.9.0
