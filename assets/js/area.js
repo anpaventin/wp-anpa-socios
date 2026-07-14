@@ -734,6 +734,26 @@
 				editBtn.textContent = __( 'Editar', 'anpa-socios' );
 				row.appendChild(editBtn);
 
+				// Repair annual assignment button (idempotent, harmless).
+				const repairBtn = document.createElement('button');
+				repairBtn.type = 'button';
+				repairBtn.className = 'anpa-area-secondary';
+				repairBtn.textContent = __( 'Reparar curso', 'anpa-socios' );
+				repairBtn.addEventListener('click', async () => {
+					showMessage(root, '', 'info');
+					if (!areaToken) {
+						showStep(root, 'email');
+						showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
+						return;
+					}
+					const url = root.dataset.filloRepararUrl + String(fillo.id) + '/reparar-curso';
+					const result = await tokenRequest('POST', url, areaToken, {}, root);
+					if (result) {
+						showMessage(root, result.message || __( 'Asignación de curso reparada.', 'anpa-socios' ), 'success');
+					}
+				});
+				row.appendChild(repairBtn);
+
 				const delBtn = document.createElement('button');
 				delBtn.type = 'button';
 				delBtn.className = 'anpa-area-secondary';
@@ -938,20 +958,11 @@
 				const opt = filloSel.options[filloSel.selectedIndex];
 				return opt ? String(opt.dataset.curso || '') : '';
 			}
-			function cursoFits(curso, range) {
-				// Legacy fallback for literal curso_range strings only; dynamic
-				// grupos (numeric grupo_id) are resolved by the backend's
-				// grupos_niveis before reaching this code.
-				const map = { '1-2-3': ['1', '2', '3'], '4-5-6': ['4', '5', '6'] };
-				return !!map[range] && map[range].indexOf(String(curso).trim()) !== -1;
-			}
 			function refreshGrupos() {
 				grupoSel.textContent = '';
 				const act = oferta.find((a) => String(a.id) === actSel.value);
-				const curso = selectedCurso();
 				if (!act) { return; }
 				(act.grupos || []).forEach((g) => {
-					if (!cursoFits(curso, g.curso_range)) { return; }
 					const o = document.createElement('option');
 					o.value = String(g.id);
 					o.dataset.franxa = String(g.franxa || '');

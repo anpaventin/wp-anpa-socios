@@ -574,6 +574,104 @@ class ANPA_Socios_DB {
 	}
 
 	/**
+	 * Upserts a fillo's annual course assignment (fillos_cursos) and updates the
+	 * legacy mirror columns on anpa_fillos when the target year is the
+	 * OPERATIONAL active course.
+	 *
+	 * This is the SINGLE write point for the pair fillos_cursos + fillos.curso/aula.
+	 * Callers MUST manage their own transaction — this helper participates in the
+	 * caller's transaction and never starts its own.
+	 *
+	 * The legacy-mirror gate uses `ANPA_Socios_Curso_Activo::get()` — the
+	 * fase22 operational resolver backed by `anpa_cursos.estado = 'activo'`
+	 * — NOT `ANPA_Socios_Curso_Escolar::current()` (a pure date calculation).
+	 * The two normally agree but can diverge (e.g. the junta delays opening
+	 * the next year past September 1st, or opens it early); using the wrong
+	 * one would silently stop refreshing the legacy mirror whenever they
+	 * disagree, which is exactly the kind of "old check doesn't know about
+	 * the newer concept" bug already found elsewhere in this session.
+	 * `Curso_Activo::get()` can return null (no active course configured);
+	 * in that case the mirror is intentionally left untouched.
+	 *
+	 * @since  1.39.0
+	 * @param  int    $fillo_id      Fillo id.
+	 * @param  string $curso_escolar School year (e.g. "2025/2026").
+	 * @param  string $curso         Grade code (e.g. "3").
+	 * @param  string $aula          Classroom code (e.g. "B").
+	 * @return bool True on success, false on DB write failure.
+	 */
+	public static function upsert_fillo_curso_assignment( int $fillo_id, string $curso_escolar, string $curso, string $aula ): bool {
+		if ( $fillo_id <= 0 || '' === $curso_escolar || '' === $curso || '' === $aula ) {
+			return false;
+		}
+
+		global $wpdb;
+
+		$fc_table = self::tabela_fillos_cursos();
+		$now      = current_time( 'mysql' );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- atomic upsert participating in caller's transaction.
+		$result = $wpdb->query(
+			$wpdb->prepare(
+				"INSERT INTO {$fc_table} (fillo_id, curso_escolar, curso, aula)
+				VALUES (%d, %s, %s, %s)
+				ON DUPLICATE KEY UPDATE curso = VALUES(curso), aula = VALUES(aula), actualizado_en = %s",
+				$fillo_id,
+				$curso_escolar,
+				$curso,
+				$aula,
+				$now
+			)
+		);
+
+		if ( false === $result ) {
+			return false;
+		}
+
+		// Legacy mirror: only reflect the OPERATIONAL active year on
+		// anpa_fillos.curso/aula (design.md §7.1 — mirror is transitional,
+		// never fallback for other years).
+		if ( $curso_escolar === self::resolve_operational_curso_activo() ) {
+			$fillos_table = self::tabela_fillos();
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- legacy mirror update within caller transaction.
+			$mirror = $wpdb->update(
+				$fillos_table,
+				array( 'curso' => $curso, 'aula' => $aula ),
+				array( 'id' => $fillo_id ),
+				array( '%s', '%s' ),
+				array( '%d' )
+			);
+			if ( false === $mirror ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Resolves the operational active curso for the legacy-mirror gate.
+	 *
+	 * Prefers `ANPA_Socios_Curso_Activo::get()` (fase22 DB-backed resolver);
+	 * falls back to `ANPA_Socios_Curso_Escolar::current()` (date-based) only
+	 * when no active course is configured yet, so the mirror keeps working
+	 * on a fresh install before the junta has set an explicit active course.
+	 *
+	 * @since  1.39.0
+	 * @return string
+	 */
+	private static function resolve_operational_curso_activo(): string {
+		if ( class_exists( 'ANPA_Socios_Curso_Activo' ) ) {
+			$activo = ANPA_Socios_Curso_Activo::get();
+			if ( null !== $activo ) {
+				return $activo;
+			}
+		}
+
+		return ANPA_Socios_Curso_Escolar::current();
+	}
+
+	/**
 	 * Returns the full anpa_niveis table name.
 	 *
 	 * @since  1.27.0
