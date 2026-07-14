@@ -246,27 +246,62 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			return new WP_Error( 'anpa_admin_must_deactivate', __( 'Desactiva a actividade antes de eliminala.', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
 
-		$groups_table = ANPA_Socios_DB::tabela_grupos();
-		$mat_table    = ANPA_Socios_DB::tabela_matriculas();
-		$has_related  = (int) $wpdb->get_var(
+		// Gate: block if ANY matricula exists (any estado, any year) — per design §8.5.
+		$mat_table = ANPA_Socios_DB::tabela_matriculas();
+		$has_matriculas = (int) $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT (SELECT COUNT(*) FROM {$groups_table} WHERE actividad_id = %d) + (SELECT COUNT(*) FROM {$mat_table} WHERE activitad_id = %d)",
-				$id,
+				"SELECT COUNT(*) FROM {$mat_table} WHERE activitad_id = %d",
 				$id
 			)
 		);
-		if ( $has_related > 0 ) {
-			return new WP_Error( 'anpa_admin_actividad_has_data', __( 'Non se pode eliminar a actividade porque ten grupos ou matrículas asociadas.', 'anpa-socios' ), array( 'status' => 409 ) );
+		if ( $has_matriculas > 0 ) {
+			return new WP_Error( 'anpa_admin_actividad_has_data', __( 'Non se pode eliminar a actividade porque ten matrículas asociadas.', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
 
+		// No matriculas exist — safe to cascade-delete empty groups and the activity.
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
+
+		$groups_table       = ANPA_Socios_DB::tabela_grupos();
+		$grupos_niveis_table = ANPA_Socios_DB::tabela_grupos_niveis();
+
+		// Step 1: Delete grupos_niveis for this activity's groups.
+		$group_ids = $wpdb->get_col(
+			$wpdb->prepare( "SELECT id FROM {$groups_table} WHERE actividad_id = %d", $id )
+		);
+		if ( ! empty( $group_ids ) ) {
+			$placeholders = implode( ',', array_fill( 0, count( $group_ids ), '%d' ) );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- cascade delete within transaction.
+			$deleted_gn = $wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$grupos_niveis_table} WHERE grupo_id IN ({$placeholders})",
+					...$group_ids
+				)
+			);
+			if ( false === $deleted_gn ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+			}
+		}
+
+		// Step 2: Delete the groups themselves.
+		$deleted_groups = $wpdb->query(
+			$wpdb->prepare( "DELETE FROM {$groups_table} WHERE actividad_id = %d", $id )
+		);
+		if ( false === $deleted_groups ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+
+		// Step 3: Delete actividades_cursos rows.
 		$deleted_courses = $wpdb->delete( ANPA_Socios_DB::tabela_actividades_cursos(), array( 'actividad_id' => $id ), array( '%d' ) );
 		if ( false === $deleted_courses ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
+
+		// Step 4: Delete the actividade itself.
 		$deleted = $wpdb->delete( ANPA_Socios_DB::tabela_actividades(), array( 'id' => $id ), array( '%d' ) );
 		if ( false === $deleted ) {
 			$wpdb->query( 'ROLLBACK' );

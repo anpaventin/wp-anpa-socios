@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class ANPA_Socios_Backup {
 
 	const MAGIC   = 'ANPABAK1';
-	const VERSION = 1;
+	const VERSION = 2;
 
 	/**
 	 * Domain tables included in a backup, in FK-safe insert order.
@@ -203,6 +203,77 @@ final class ANPA_Socios_Backup {
 			}
 		}
 		$wpdb->query( 'SET FOREIGN_KEY_CHECKS=1' );
+
+		// ── v1 restore compatibility: backfill niveis/aulas for old backups ──
+		$backup_version = (int) ( $payload['version'] ?? 1 );
+		$ambiguous      = array();
+		if ( $backup_version < 2 ) {
+			// A v1 backup predates the parametrizable structure tables.
+			// Create default niveis 1..6 + aulas A..aula_max for each
+			// curso_escolar found in the restored cursos table, mirroring
+			// the same backfill logic from migrate_to_1_27_0.
+			$niveis_t  = ANPA_Socios_DB::tabela_niveis();
+			$aulas_t   = ANPA_Socios_DB::tabela_aulas();
+			$cursos_t  = ANPA_Socios_DB::tabela_cursos();
+			$aula_max  = ANPA_Socios_Config::aula_max();
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- backup restore backfill.
+			$restored_cursos = $wpdb->get_col( "SELECT DISTINCT curso_escolar FROM {$cursos_t} ORDER BY curso_escolar" );
+			if ( is_array( $restored_cursos ) ) {
+				foreach ( $restored_cursos as $curso_escolar ) {
+					// Check if the curso already has niveis (e.g. from a partial v2 state).
+					$existing_count = (int) $wpdb->get_var( $wpdb->prepare(
+						"SELECT COUNT(*) FROM {$niveis_t} WHERE curso_escolar = %s",
+						$curso_escolar
+					) );
+					if ( $existing_count > 0 ) {
+						continue;
+					}
+
+					// Levels 1..6.
+					for ( $n = 1; $n <= 6; $n++ ) {
+						// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent restore backfill.
+						$wpdb->query( $wpdb->prepare(
+							"INSERT IGNORE INTO {$niveis_t} (curso_escolar, codigo, etiqueta, orde, estado, creado_en, actualizado_en)
+							 VALUES (%s, %s, %s, %d, 'activo', NOW(), NOW())",
+							$curso_escolar,
+							(string) $n,
+							$n . 'º',
+							$n * 10
+						) );
+					}
+
+					// Classrooms A..aula_max for each level.
+					for ( $n = 1; $n <= 6; $n++ ) {
+						$nivel_id = $wpdb->get_var( $wpdb->prepare(
+							"SELECT id FROM {$niveis_t} WHERE curso_escolar = %s AND codigo = %s",
+							$curso_escolar,
+							(string) $n
+						) );
+						if ( null === $nivel_id || ! $nivel_id ) {
+							$ambiguous[] = sprintf( 'nivel %d for %s not created', $n, $curso_escolar );
+							continue;
+						}
+						$letters = range( 'A', $aula_max );
+						foreach ( $letters as $letter ) {
+							// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent restore backfill.
+							$wpdb->query( $wpdb->prepare(
+								"INSERT IGNORE INTO {$aulas_t} (nivel_id, codigo, etiqueta, orde, estado, creado_en, actualizado_en)
+								 VALUES (%d, %s, %s, %d, 'activo', NOW(), NOW())",
+								(int) $nivel_id,
+								$letter,
+								$letter,
+								( ord( $letter ) - 64 ) * 10
+							) );
+						}
+					}
+				}
+			}
+		}
+
+		if ( ! empty( $ambiguous ) ) {
+			return new WP_Error( 'anpa_bak_ambiguous', implode( '; ', $ambiguous ), array( 'status' => 200, 'partial' => true ) );
+		}
 
 		return true;
 	}
