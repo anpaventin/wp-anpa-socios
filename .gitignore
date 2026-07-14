@@ -18,6 +18,8 @@ out.txt
 /.hermes/
 /.agents/
 /.claude/
+/.sync/
+/.atl/
 /CLAUDE.md
 /AGENTS.local.md
 /TODO.local.md
