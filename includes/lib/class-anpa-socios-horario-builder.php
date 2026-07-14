@@ -103,6 +103,64 @@ final class ANPA_Socios_Horario_Builder {
 	}
 
 	/**
+	 * Diagnoses why an activity IS or IS NOT included in the public horario.
+	 *
+	 * Pure helper — no WordPress dependency. Receives pre-fetched data so it
+	 * can be tested without a database.
+	 *
+	 * @since  1.27.0
+	 * @param  array $activity_row Row with keys: franxa, dias, estado, curso_estado.
+	 * @param  array $grupos       All grupos for the (actividad, curso) pair. Each with 'estado' key.
+	 * @param  bool  $curso_is_active Whether the curso_escolar is the active one.
+	 * @return string One of: incluida_por_grupo, incluida_por_horario_anual_provisional,
+	 *               sen_franxa, sen_dias, sen_grupo_aberto, estado_inactivo, curso_non_activo.
+	 */
+	public static function diagnose( array $activity_row, array $grupos, bool $curso_is_active ): string {
+		// Gate: curso must be active.
+		if ( ! $curso_is_active ) {
+			return 'curso_non_activo';
+		}
+
+		// Gate: activity must be active.
+		if ( 'activo' !== ( $activity_row['estado'] ?? '' ) ) {
+			return 'estado_inactivo';
+		}
+
+		// Gate: curso_estado from actividades_cursos row must be active.
+		if ( 'activo' !== ( $activity_row['curso_estado'] ?? '' ) ) {
+			return 'estado_inactivo';
+		}
+
+		// Gate: valid franxa.
+		$franxa = ANPA_Socios_Actividade_Options::normalize_franxa( $activity_row['franxa'] ?? '' );
+		if ( null === $franxa ) {
+			return 'sen_franxa';
+		}
+
+		// Gate: valid días.
+		$dias = ANPA_Socios_Actividade_Options::parse( (string) ( $activity_row['dias'] ?? '' ), ANPA_Socios_Actividade_Options::DIAS );
+		if ( array() === $dias ) {
+			return 'sen_dias';
+		}
+
+		// If any groups exist for this (actividad, curso) pair:
+		if ( array() !== $grupos ) {
+			// Check if at least one is aberto.
+			foreach ( $grupos as $g ) {
+				if ( 'aberto' === ( $g['estado'] ?? '' ) ) {
+					return 'incluida_por_grupo';
+				}
+			}
+			// Groups exist but none is aberto — the provisional slot is
+			// suppressed per design.md §8.6 point 4.
+			return 'sen_grupo_aberto';
+		}
+
+		// ZERO groups for this (actividad, curso) pair — provisional slot.
+		return 'incluida_por_horario_anual_provisional';
+	}
+
+	/**
 	 * Creates an empty row with all weekday columns.
 	 *
 	 * @since  1.10.0

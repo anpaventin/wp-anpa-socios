@@ -158,6 +158,10 @@ final class ANPA_Socios_Extraescolares_Page {
 	/**
 	 * Returns active group slots for the current course.
 	 *
+	 * Also synthesizes provisional rows for activities that have valid annual
+	 * franxa + dias on actividades_cursos but ZERO groups for the current year
+	 * (design.md §8.6 provisional-slot fallback).
+	 *
 	 * @since  1.12.0
 	 * @return array<int,array<string,mixed>>
 	 */
@@ -171,6 +175,8 @@ final class ANPA_Socios_Extraescolares_Page {
 		if ( null === $curso ) {
 			return array();
 		}
+
+		// 1. Real group slots (existing query).
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only public schedule from activity/group tables.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
@@ -185,7 +191,45 @@ final class ANPA_Socios_Extraescolares_Page {
 			ARRAY_A
 		);
 
-		return is_array( $rows ) ? $rows : array();
+		if ( ! is_array( $rows ) ) {
+			$rows = array();
+		}
+
+		// 2. Provisional slots: activities with valid franxa + dias on
+		//    actividades_cursos but ZERO groups for this (actividad, curso) pair.
+		//    Per design.md §8.6 point 4: never use the annual fallback when
+		//    ANY group exists (even pechado) for that pair.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only provisional schedule check.
+		$provisional = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT a.nome, ac.franxa, '' AS grupos, ac.dias
+				 FROM {$act_t} a
+				 INNER JOIN {$acy_t} ac ON ac.actividad_id = a.id AND ac.curso_escolar = %s
+				 WHERE a.estado = 'activo'
+				   AND ac.estado = 'activo'
+				   AND ac.franxa IS NOT NULL AND ac.franxa != ''
+				   AND ac.dias IS NOT NULL AND ac.dias != ''
+				   AND NOT EXISTS (
+				       SELECT 1 FROM {$gru_t} g
+				       WHERE g.actividad_id = a.id AND g.curso_escolar = ac.curso_escolar
+				   )
+				 ORDER BY ac.franxa ASC, a.nome ASC",
+				$curso
+			),
+			ARRAY_A
+		);
+
+		if ( is_array( $provisional ) ) {
+			foreach ( $provisional as $row ) {
+				// Only include if franxa normalises correctly (guard against
+				// text values like "tardes" stored in the DB).
+				if ( null !== ANPA_Socios_Actividade_Options::normalize_franxa( $row['franxa'] ?? '' ) ) {
+					$rows[] = $row;
+				}
+			}
+		}
+
+		return $rows;
 	}
 
 	/**

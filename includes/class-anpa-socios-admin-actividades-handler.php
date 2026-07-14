@@ -62,6 +62,16 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 				'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
 			),
 		) );
+
+		// GET /admin/actividad/{id}/horario-diagnostic?curso_escolar=YYYY/YYYY
+		// Read-only diagnostic: why an activity IS or IS NOT in the public horario.
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/actividad/(?P<id>\d+)/horario-diagnostic', array(
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( __CLASS__, 'horario_diagnostic' ),
+				'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+			),
+		) );
 	}
 
 	public static function list_actividades(): WP_REST_Response {
@@ -649,5 +659,88 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		);
 
 		return new WP_Error( 'anpa_admin_' . $issue, $messages[ $issue ] ?? __( 'Revisa os datos da actividade.', 'anpa-socios' ), array( 'status' => 400 ) );
+	}
+
+	/**
+	 * Admin-only diagnostic: why an activity IS or IS NOT in the public horario.
+	 *
+	 * GET /admin/actividad/{id}/horario-diagnostic?curso_escolar=YYYY/YYYY
+	 * Returns one of: incluida_por_grupo, incluida_por_horario_anual_provisional,
+	 * sen_franxa, sen_dias, sen_grupo_aberto, estado_inactivo, curso_non_activo.
+	 *
+	 * @since  1.27.0
+	 * @param  WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function horario_diagnostic( WP_REST_Request $request ) {
+		global $wpdb;
+
+		$id            = (int) $request['id'];
+		$curso_escolar = sanitize_text_field( $request->get_param( 'curso_escolar' ) ?? '' );
+
+		// Default to current active curso if not specified.
+		if ( '' === $curso_escolar ) {
+			$curso_escolar = ANPA_Socios_Curso_Activo::get() ?? '';
+		}
+		if ( '' === $curso_escolar ) {
+			return new WP_Error( 'anpa_admin_no_curso', 'Non hai curso activo.', array( 'status' => 400 ) );
+		}
+
+		$act_t = ANPA_Socios_DB::tabela_actividades();
+		$acy_t = ANPA_Socios_DB::tabela_actividades_cursos();
+		$gru_t = ANPA_Socios_DB::tabela_grupos();
+
+		// Fetch activity + actividades_cursos row.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$activity = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT a.nome, a.estado, ac.franxa, ac.dias, ac.estado AS curso_estado
+				 FROM {$act_t} a
+				 LEFT JOIN {$acy_t} ac ON ac.actividad_id = a.id AND ac.curso_escolar = %s
+				 WHERE a.id = %d",
+				$curso_escolar,
+				$id
+			),
+			ARRAY_A
+		);
+
+		if ( null === $activity ) {
+			return new WP_Error( 'anpa_admin_not_found', 'Actividade non atopada.', array( 'status' => 404 ) );
+		}
+
+		// If no actividades_cursos row exists, it means the activity is not
+		// configured for this curso at all.
+		if ( null === $activity['curso_estado'] ) {
+			return new WP_REST_Response( array(
+				'actividad_id'  => $id,
+				'curso_escolar' => $curso_escolar,
+				'reason'        => 'curso_non_activo',
+			) );
+		}
+
+		// Determine whether the curso_escolar is the currently active one.
+		$curso_is_active = ( $curso_escolar === ANPA_Socios_Curso_Activo::get() );
+
+		// Fetch all grupos for this (actividad, curso) pair (any estado).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$grupos = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT g.estado FROM {$gru_t} g WHERE g.actividad_id = %d AND g.curso_escolar = %s",
+				$id,
+				$curso_escolar
+			),
+			ARRAY_A
+		);
+		if ( ! is_array( $grupos ) ) {
+			$grupos = array();
+		}
+
+		$reason = ANPA_Socios_Horario_Builder::diagnose( $activity, $grupos, $curso_is_active );
+
+		return new WP_REST_Response( array(
+			'actividad_id'  => $id,
+			'curso_escolar' => $curso_escolar,
+			'reason'        => $reason,
+		) );
 	}
 }
