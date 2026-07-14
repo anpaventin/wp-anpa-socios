@@ -865,6 +865,47 @@ class ANPA_Socios_DB {
 	}
 
 	/**
+	 * Returns the `orde` value for each given nivel id.
+	 *
+	 * Used to compare a grupo's niveis against an activity+year's configured
+	 * nivel_min_id/nivel_max_id range: the comparison must be done by `orde`
+	 * (not by id or codigo), since nivel codigos are arbitrary strings and
+	 * ids are not guaranteed to be sequential across curso_escolar rows.
+	 *
+	 * @since  1.40.0
+	 * @param  int[] $nivel_ids Candidate nivel ids.
+	 * @return array<int,int> Map of nivel_id => orde, for ids that exist.
+	 */
+	public static function get_niveis_ordes( array $nivel_ids ): array {
+		global $wpdb;
+
+		$nivel_ids = array_values( array_unique( array_filter( array_map( 'intval', $nivel_ids ), static function ( $v ) {
+			return $v > 0;
+		} ) ) );
+		if ( array() === $nivel_ids ) {
+			return array();
+		}
+
+		$table        = self::tabela_niveis();
+		$placeholders = implode( ',', array_fill( 0, count( $nivel_ids ), '%d' ) );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- explicit CRUD helper.
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT id, orde FROM {$table} WHERE id IN ({$placeholders})",
+			$nivel_ids
+		), ARRAY_A );
+
+		$map = array();
+		if ( is_array( $rows ) ) {
+			foreach ( $rows as $r ) {
+				$map[ (int) $r['id'] ] = (int) $r['orde'];
+			}
+		}
+
+		return $map;
+	}
+
+	/**
 	 * Returns whether the given column exists on the given (full) table name.
 	 *
 	 * @since  1.9.0

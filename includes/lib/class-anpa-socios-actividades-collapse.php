@@ -92,6 +92,12 @@ final class ANPA_Socios_Actividades_Collapse {
 				'estado'           => null !== $source ? $source['estado'] : $base['estado'],
 				'curso_min'        => $base['curso_min'],
 				'curso_max'        => $base['curso_max'],
+				// nivel_min_id/nivel_max_id (PR-ES9 task 84) live ONLY on
+				// actividades_cursos — a legacy activity with no annual row
+				// has no per-year niveis configured, so this is null, never
+				// a fallback to curso_min/curso_max (different concept).
+				'nivel_min_id'     => null !== $source ? self::nullable_int( $source['nivel_min_id'] ?? null ) : null,
+				'nivel_max_id'     => null !== $source ? self::nullable_int( $source['nivel_max_id'] ?? null ) : null,
 				'cursos_ofertados' => $cursos_ofertados,
 			);
 
@@ -111,6 +117,21 @@ final class ANPA_Socios_Actividades_Collapse {
 		}
 
 		return $rows;
+	}
+
+	/**
+	 * Normalizes a possibly-null/possibly-string DB value into an int|null.
+	 *
+	 * @since  1.40.0
+	 * @param  mixed $value Raw value from a wpdb row (may be null, '', or numeric string).
+	 * @return int|null
+	 */
+	private static function nullable_int( $value ): ?int {
+		if ( null === $value || '' === $value ) {
+			return null;
+		}
+
+		return (int) $value;
 	}
 
 	/**

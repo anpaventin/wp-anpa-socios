@@ -157,6 +157,67 @@ final class Test_ANPA_Socios_Actividades_Collapse extends TestCase {
 	}
 
 	/**
+	 * @testdox nivel_min_id/nivel_max_id are exposed from the source annual row
+	 */
+	public function test_exposes_nivel_min_max_from_source_row(): void {
+		$base = array( $this->base_row( 1, 'Xadrez' ) );
+		$acy  = array(
+			$this->acy_row( 1, '2025/2026', array( 'nivel_min_id' => 5, 'nivel_max_id' => 9 ) ),
+		);
+
+		$rows = ANPA_Socios_Actividades_Collapse::collapse( $base, $acy, '2025/2026', array(), array() );
+
+		$this->assertSame( 5, $rows[0]['nivel_min_id'] );
+		$this->assertSame( 9, $rows[0]['nivel_max_id'] );
+	}
+
+	/**
+	 * @testdox nivel_min_id/nivel_max_id are null when not configured for the source year
+	 */
+	public function test_nivel_min_max_null_when_not_configured(): void {
+		$base = array( $this->base_row( 1, 'Xadrez' ) );
+		$acy  = array(
+			$this->acy_row( 1, '2025/2026' ), // no nivel_min_id/nivel_max_id override.
+		);
+
+		$rows = ANPA_Socios_Actividades_Collapse::collapse( $base, $acy, '2025/2026', array(), array() );
+
+		$this->assertNull( $rows[0]['nivel_min_id'] );
+		$this->assertNull( $rows[0]['nivel_max_id'] );
+	}
+
+	/**
+	 * @testdox nivel_min_id/nivel_max_id are null (never inherited from curso_min/curso_max) when there is no annual row
+	 */
+	public function test_nivel_min_max_null_for_legacy_activity_without_annual_row(): void {
+		$base = array( $this->base_row( 1, 'Legado', array( 'curso_min' => 1, 'curso_max' => 6 ) ) );
+
+		$rows = ANPA_Socios_Actividades_Collapse::collapse( $base, array(), null, array(), array() );
+
+		$this->assertNull( $rows[0]['nivel_min_id'] );
+		$this->assertNull( $rows[0]['nivel_max_id'] );
+	}
+
+	/**
+	 * @testdox Different years of the same activity can carry different nivel_min_id/nivel_max_id (independent per year)
+	 */
+	public function test_nivel_min_max_independent_per_year(): void {
+		$base = array( $this->base_row( 1, 'Xadrez' ) );
+		$acy  = array(
+			$this->acy_row( 1, '2024/2025', array( 'nivel_min_id' => 1, 'nivel_max_id' => 3 ) ),
+			$this->acy_row( 1, '2025/2026', array( 'nivel_min_id' => 4, 'nivel_max_id' => 6 ) ),
+		);
+
+		$rows_2024 = ANPA_Socios_Actividades_Collapse::collapse( $base, $acy, '2024/2025', array(), array() );
+		$rows_2025 = ANPA_Socios_Actividades_Collapse::collapse( $base, $acy, '2025/2026', array(), array() );
+
+		$this->assertSame( 1, $rows_2024[0]['nivel_min_id'] );
+		$this->assertSame( 3, $rows_2024[0]['nivel_max_id'] );
+		$this->assertSame( 4, $rows_2025[0]['nivel_min_id'] );
+		$this->assertSame( 6, $rows_2025[0]['nivel_max_id'] );
+	}
+
+	/**
 	 * @testdox Multiple activities are each collapsed independently
 	 */
 	public function test_multiple_activities_collapse_independently(): void {

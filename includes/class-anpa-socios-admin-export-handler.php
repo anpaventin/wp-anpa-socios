@@ -53,7 +53,7 @@ final class ANPA_Socios_Admin_Export_Handler {
 	private const ENTITY_COLUMNS = array(
 		'socios'      => array( 'id_familia', 'rol_familia', 'email', 'nome', 'apelidos', 'nif', 'telefono', 'estado', 'segundo_proxenitor_nome', 'segundo_proxenitor_apelidos', 'segundo_proxenitor_email', 'segundo_proxenitor_nif', 'segundo_proxenitor_telefono' ),
 		'empresas'    => array( 'nome', 'email', 'responsable', 'telefono', 'url_web', 'estado' ),
-		'actividades' => array( 'empresa_email', 'nome', 'descripcion', 'curso_escolar', 'min_pupilos', 'max_pupilos', 'curso_min', 'curso_max', 'custo', 'estado' ),
+		'actividades' => array( 'empresa_email', 'nome', 'descripcion', 'curso_escolar', 'min_pupilos', 'max_pupilos', 'curso_min', 'curso_max', 'nivel_min_codigo', 'nivel_max_codigo', 'custo', 'estado' ),
 		'matriculas'  => array( 'proxenitor_email', 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar', 'grupo_curso_range', 'grupo_franxa', 'grupo_dias', 'trimestre', 'posicion', 'comedor', 'tarde', 'observaciones', 'estado' ),
 		'fillos'      => array( 'proxenitor_email', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'curso_escolar', 'image_consent', 'estado' ),
 	);
@@ -251,10 +251,14 @@ final class ANPA_Socios_Admin_Export_Handler {
 
 		if ( 'actividades' === $entity ) {
 			$sql = "SELECT e.email AS empresa_email, a.nome, a.descripcion, ac.curso_escolar,
-					ac.min_pupilos, ac.max_pupilos, a.curso_min, a.curso_max, ac.custo, ac.estado
+					ac.min_pupilos, ac.max_pupilos, a.curso_min, a.curso_max,
+					nmin.codigo AS nivel_min_codigo, nmax.codigo AS nivel_max_codigo,
+					ac.custo, ac.estado
 					FROM {$prefix}anpa_actividades a
 					INNER JOIN {$prefix}anpa_actividades_cursos ac ON ac.actividad_id = a.id
 					LEFT JOIN {$prefix}anpa_empresas e ON e.id = a.empresa_id
+					LEFT JOIN {$prefix}anpa_niveis nmin ON nmin.id = ac.nivel_min_id
+					LEFT JOIN {$prefix}anpa_niveis nmax ON nmax.id = ac.nivel_max_id
 					ORDER BY e.email ASC, a.nome ASC, ac.curso_escolar ASC";
 		} elseif ( 'matriculas' === $entity ) {
 			$sql = "SELECT f.socio_email AS proxenitor_email, f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,

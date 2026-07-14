@@ -493,7 +493,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		$table = ANPA_Socios_DB::tabela_actividades_cursos();
 		$row   = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT actividad_id AS id, curso_escolar, grupos, dias FROM {$table} WHERE actividad_id = %d AND curso_escolar = %s",
+				"SELECT actividad_id AS id, curso_escolar, grupos, dias, nivel_min_id, nivel_max_id FROM {$table} WHERE actividad_id = %d AND curso_escolar = %s",
 				$actividad_id,
 				$curso_escolar
 			),
@@ -565,6 +565,24 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 					array( 'status' => 400 )
 				);
 			}
+
+			// PR-ES9 task 84 point 5: when the activity+year has an explicit
+			// nivel_min_id/nivel_max_id range configured, every nivel the
+			// grupo uses must fall within that range (compared by `orde`,
+			// not id/codigo). No range configured on the activity+year means
+			// no additional restriction (unchanged current behaviour).
+			$nivel_min_id = isset( $activity['nivel_min_id'] ) && null !== $activity['nivel_min_id'] && '' !== $activity['nivel_min_id']
+				? (int) $activity['nivel_min_id']
+				: null;
+			$nivel_max_id = isset( $activity['nivel_max_id'] ) && null !== $activity['nivel_max_id'] && '' !== $activity['nivel_max_id']
+				? (int) $activity['nivel_max_id']
+				: null;
+			if ( null !== $nivel_min_id && null !== $nivel_max_id ) {
+				$range_error = self::assert_niveis_within_range( $nivel_ids, $nivel_min_id, $nivel_max_id );
+				if ( null !== $range_error ) {
+					return $range_error;
+				}
+			}
 		} elseif ( '' !== (string) ( $payload['curso_range'] ?? '' ) ) {
 			// Legacy path: curso_range must be one of the activity's option set.
 			$act_grupos = ANPA_Socios_Actividade_Options::parse( (string) $activity['grupos'], ANPA_Socios_Actividade_Options::GRUPOS );
@@ -592,6 +610,47 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 				return new WP_Error(
 					'anpa_admin_grupo_dias',
 					'Os días do grupo deben estar entre os días da actividade.',
+					array( 'status' => 400 )
+				);
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Asserts every given nivel id has an `orde` within [min_orde, max_orde],
+	 * inclusive. Used by assert_within_activity() to enforce the activity+year
+	 * nivel_min_id/nivel_max_id range on a grupo's nivel_ids.
+	 *
+	 * @since  1.40.0
+	 * @param  int[] $nivel_ids    Grupo's nivel ids (already known to belong to the curso_escolar).
+	 * @param  int   $nivel_min_id Activity+year configured minimum nivel id.
+	 * @param  int   $nivel_max_id Activity+year configured maximum nivel id.
+	 * @return WP_Error|null
+	 */
+	private static function assert_niveis_within_range( array $nivel_ids, int $nivel_min_id, int $nivel_max_id ): ?WP_Error {
+		$ordes = ANPA_Socios_DB::get_niveis_ordes( array_merge( $nivel_ids, array( $nivel_min_id, $nivel_max_id ) ) );
+		if ( ! isset( $ordes[ $nivel_min_id ], $ordes[ $nivel_max_id ] ) ) {
+			// Configured range points to a nivel that no longer exists —
+			// fail closed rather than silently skipping the restriction.
+			return new WP_Error(
+				'anpa_admin_grupo_nivel_range_config',
+				'O rango de niveis configurado na actividade non é válido.',
+				array( 'status' => 409 )
+			);
+		}
+		$min_orde = $ordes[ $nivel_min_id ];
+		$max_orde = $ordes[ $nivel_max_id ];
+
+		foreach ( $nivel_ids as $nid ) {
+			if ( ! isset( $ordes[ $nid ] ) ) {
+				continue;
+			}
+			if ( $ordes[ $nid ] < $min_orde || $ordes[ $nid ] > $max_orde ) {
+				return new WP_Error(
+					'anpa_admin_grupo_nivel_fora_rango',
+					'Os niveis do grupo deben quedar dentro do intervalo mínimo-máximo configurado na actividade para ese curso escolar.',
 					array( 'status' => 400 )
 				);
 			}
