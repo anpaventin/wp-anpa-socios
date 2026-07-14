@@ -1813,10 +1813,33 @@
 		})();
 		syncNiveisPorAno();
 
-		var franxaInput = document.createElement('input'); franxaInput.type = 'text';
-		franxaInput.placeholder = 'ma\u00F1\u00E1s / tardes';
-		franxaInput.value = isEdit ? (act.franxa || '') : '';
-		addField('anpa-act-franxa', 'Franxa', franxaInput);
+		// Franxa: HH:MM start/end time pickers (15-minute steps) instead of a
+		// free-text field. Builds the same canonical "HH:MM-HH:MM" string
+		// consumed by ANPA_Socios_Actividade_Options::normalize_franxa().
+		var existingFranxaParts = isEdit && act.franxa ? /^(\d{2}:\d{2})-(\d{2}:\d{2})$/.exec(act.franxa) : null;
+		var franxaLabel = document.createElement('label');
+		franxaLabel.textContent = 'Franxa';
+		form.appendChild(franxaLabel);
+		var franxaRow = document.createElement('div');
+		franxaRow.className = 'anpa-mgmt-franxa-row';
+		var franxaStartInput = document.createElement('input');
+		franxaStartInput.type = 'time'; franxaStartInput.step = '900'; franxaStartInput.id = 'anpa-act-franxa-inicio';
+		franxaStartInput.value = existingFranxaParts ? existingFranxaParts[1] : '';
+		var franxaSep = document.createElement('span');
+		franxaSep.textContent = '\u2013';
+		var franxaEndInput = document.createElement('input');
+		franxaEndInput.type = 'time'; franxaEndInput.step = '900'; franxaEndInput.id = 'anpa-act-franxa-fin';
+		franxaEndInput.value = existingFranxaParts ? existingFranxaParts[2] : '';
+		franxaRow.appendChild(franxaStartInput);
+		franxaRow.appendChild(franxaSep);
+		franxaRow.appendChild(franxaEndInput);
+		form.appendChild(franxaRow);
+
+		function getFranxaValue() {
+			var start = (franxaStartInput.value || '').trim();
+			var end = (franxaEndInput.value || '').trim();
+			return (start && end) ? (start + '-' + end) : '';
+		}
 
 		// Horarios checkboxes
 		var horariosContainer = document.createElement('div');
@@ -1889,13 +1912,33 @@
 		maxPupInput.value = isEdit ? (act.max_pupilos || 15) : '15';
 		addField('anpa-act-maxpup', 'M\u00E1ximo de pupilos/as', maxPupInput);
 
+		// Legacy curso_min/curso_max (global numeric range, no relation to the
+		// niveis structure): collapsed under a <details> so it does not
+		// visually compete with the modern per-year nivel selectors above.
+		// Kept for back-compat only — see design.md §8.3.
+		var legacyLimitsDetails = document.createElement('details');
+		legacyLimitsDetails.className = 'anpa-mgmt-legacy-limits';
+		var legacyLimitsSummary = document.createElement('summary');
+		legacyLimitsSummary.textContent = 'L\u00EDmites antigos de curso (opcional, uso legado)';
+		legacyLimitsDetails.appendChild(legacyLimitsSummary);
+		form.appendChild(legacyLimitsDetails);
+
+		function addLegacyField(id, labelText, input) {
+			var lbl = document.createElement('label');
+			lbl.setAttribute('for', id);
+			lbl.textContent = labelText;
+			input.id = id;
+			legacyLimitsDetails.appendChild(lbl);
+			legacyLimitsDetails.appendChild(input);
+		}
+
 		var idadeMinInput = document.createElement('input'); idadeMinInput.type = 'number'; idadeMinInput.min = '0';
 		idadeMinInput.value = isEdit && act.curso_min != null ? act.curso_min : '';
-		addField('anpa-act-idademin', 'Curso m\u00EDnimo (opcional)', idadeMinInput);
+		addLegacyField('anpa-act-idademin', 'Curso m\u00EDnimo (opcional)', idadeMinInput);
 
 		var idadeMaxInput = document.createElement('input'); idadeMaxInput.type = 'number'; idadeMaxInput.min = '0';
 		idadeMaxInput.value = isEdit && act.curso_max != null ? act.curso_max : '';
-		addField('anpa-act-idademax', 'Curso m\u00E1ximo (opcional)', idadeMaxInput);
+		addLegacyField('anpa-act-idademax', 'Curso m\u00E1ximo (opcional)', idadeMaxInput);
 
 		var custoInput = document.createElement('input'); custoInput.type = 'text';
 		custoInput.placeholder = '0.00';
@@ -1969,7 +2012,7 @@
 				icono: getSelectedIcono(),
 				descripcion: (descInput.value || '').trim(),
 				curso_escolar: cursoSelect.value,
-				franxa: (franxaInput.value || '').trim(),
+				franxa: getFranxaValue(),
 				horarios: horariosArr.join(','),
 				grupos: gruposArr.join(','),
 				dias: diasArr.join(','),
@@ -2138,10 +2181,34 @@
 		cursoRangeInput.value = isEdit ? (grupo.curso_range || '') : '';
 		addField('anpa-grupo-curso-range', 'Grupo curricular (ex: 1-2, 3-4)', cursoRangeInput);
 
-		var franxaInput = document.createElement('input'); franxaInput.type = 'text';
-		franxaInput.placeholder = 'ma\u00F1\u00E1s / tardes';
-		franxaInput.value = isEdit ? (grupo.franxa || '') : (actividad.franxa || '');
-		addField('anpa-grupo-franxa', 'Franxa', franxaInput);
+		// Franxa: HH:MM start/end time pickers (15-minute steps), same pattern
+		// as the activity form. Defaults to the parent activity's franxa when
+		// creating a new grupo.
+		var grupoFranxaSource = isEdit ? (grupo.franxa || '') : (actividad.franxa || '');
+		var grupoFranxaParts = grupoFranxaSource ? /^(\d{2}:\d{2})-(\d{2}:\d{2})$/.exec(grupoFranxaSource) : null;
+		var grupoFranxaLabel = document.createElement('label');
+		grupoFranxaLabel.textContent = 'Franxa';
+		form.appendChild(grupoFranxaLabel);
+		var grupoFranxaRow = document.createElement('div');
+		grupoFranxaRow.className = 'anpa-mgmt-franxa-row';
+		var grupoFranxaStartInput = document.createElement('input');
+		grupoFranxaStartInput.type = 'time'; grupoFranxaStartInput.step = '900'; grupoFranxaStartInput.id = 'anpa-grupo-franxa-inicio';
+		grupoFranxaStartInput.value = grupoFranxaParts ? grupoFranxaParts[1] : '';
+		var grupoFranxaSep = document.createElement('span');
+		grupoFranxaSep.textContent = '\u2013';
+		var grupoFranxaEndInput = document.createElement('input');
+		grupoFranxaEndInput.type = 'time'; grupoFranxaEndInput.step = '900'; grupoFranxaEndInput.id = 'anpa-grupo-franxa-fin';
+		grupoFranxaEndInput.value = grupoFranxaParts ? grupoFranxaParts[2] : '';
+		grupoFranxaRow.appendChild(grupoFranxaStartInput);
+		grupoFranxaRow.appendChild(grupoFranxaSep);
+		grupoFranxaRow.appendChild(grupoFranxaEndInput);
+		form.appendChild(grupoFranxaRow);
+
+		function getGrupoFranxaValue() {
+			var start = (grupoFranxaStartInput.value || '').trim();
+			var end = (grupoFranxaEndInput.value || '').trim();
+			return (start && end) ? (start + '-' + end) : '';
+		}
 
 		// Días checkboxes — constrained to parent activity's días (subset requirement)
 		var grupoDiasContainer = document.createElement('div');
@@ -2200,7 +2267,7 @@
 			var payload = {
 				curso_escolar: (cursoEscInput.value || '').trim(),
 				curso_range: (cursoRangeInput.value || '').trim(),
-				franxa: (franxaInput.value || '').trim(),
+				franxa: getGrupoFranxaValue(),
 				dias: grupoDiasArr.join(','),
 				min_pupilos: parseInt(minInput.value, 10) || 0,
 				max_pupilos: parseInt(maxInput.value, 10) || 15,
