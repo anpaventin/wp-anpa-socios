@@ -39,6 +39,7 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-horario-builder.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-waitlist.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-trimestre.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-alta-payload.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-actividades-collapse.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-empresa-view.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-csv.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-antibot.php';

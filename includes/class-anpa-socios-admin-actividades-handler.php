@@ -74,6 +74,29 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		) );
 	}
 
+	/**
+	 * GET /admin/actividades
+	 *
+	 * Returns ONE row per base activity (design §8.7), not one row per
+	 * (activity, school year) pair. Each row carries `cursos_ofertados`
+	 * (chronologically sorted, deduplicated list of every school year the
+	 * activity has a row for in `actividades_cursos`) so the admin listing
+	 * can show every offered year without duplicating the activity itself.
+	 *
+	 * The displayed franxa/horarios/grupos/dias/min_pupilos/max_pupilos/
+	 * custo/estado/prazas_* come from a single "source" annual row, chosen
+	 * with this precedence:
+	 *   1. the row for the currently active school year
+	 *      (ANPA_Socios_Curso_Activo::get()), if the activity offers it;
+	 *   2. otherwise the row for the most recent year present in
+	 *      `cursos_ofertados`;
+	 *   3. otherwise (legacy activity with no `actividades_cursos` rows
+	 *      at all) the base `actividades` columns, same as the previous
+	 *      COALESCE-based fallback.
+	 *
+	 * @since 23.0.0
+	 * @return WP_REST_Response
+	 */
 	public static function list_actividades(): WP_REST_Response {
 		global $wpdb;
 
@@ -81,50 +104,62 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		$acy_t = ANPA_Socios_DB::tabela_actividades_cursos();
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
 		$gru_t = ANPA_Socios_DB::tabela_grupos();
-		$rows  = $wpdb->get_results(
-			"SELECT a.id, a.empresa_id, a.nome, a.icono, a.descripcion,
-			        COALESCE(ac.curso_escolar, a.curso_escolar) AS curso_escolar,
-			        COALESCE(ac.franxa, a.franxa) AS franxa,
-			        COALESCE(ac.horarios, a.horarios) AS horarios,
-			        COALESCE(ac.grupos, a.grupos) AS grupos,
-			        COALESCE(ac.dias, a.dias) AS dias,
-			        COALESCE(ac.min_pupilos, a.min_pupilos) AS min_pupilos,
-			        COALESCE(ac.max_pupilos, a.max_pupilos) AS max_pupilos,
-			        COALESCE(ac.custo, a.custo) AS custo,
-			        COALESCE(ac.estado, a.estado) AS estado,
-			        a.curso_min,
-			        a.curso_max,
-			        (SELECT COUNT(*) FROM {$mat_t} m LEFT JOIN {$gru_t} g ON g.id = m.grupo_id WHERE m.activitad_id = a.id AND m.estado = 'activo' AND (ac.curso_escolar IS NULL OR g.curso_escolar = ac.curso_escolar)) AS prazas_ocupadas,
-			        (SELECT COUNT(*) FROM {$mat_t} m LEFT JOIN {$gru_t} g ON g.id = m.grupo_id WHERE m.activitad_id = a.id AND m.estado = 'lista_espera' AND (ac.curso_escolar IS NULL OR g.curso_escolar = ac.curso_escolar)) AS prazas_espera
-			 FROM {$act_t} a
-			 LEFT JOIN {$acy_t} ac ON ac.actividad_id = a.id
-			 ORDER BY COALESCE(ac.curso_escolar, a.curso_escolar) DESC, a.nome ASC",
+
+		// Base activity rows — one per activity id, no join fan-out.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$base_rows = $wpdb->get_results( "SELECT * FROM {$act_t} ORDER BY nome ASC", ARRAY_A );
+		$base_rows = is_array( $base_rows ) ? $base_rows : array();
+		if ( array() === $base_rows ) {
+			return new WP_REST_Response( array(), 200 );
+		}
+
+		$ids     = array_map( static function ( $r ) { return (int) $r['id']; }, $base_rows );
+		$id_list = implode( ',', $ids );
+
+		// Every annual row for these activities, chronologically ordered so
+		// "most recent" is simply the last element per activity.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
+		$acy_rows = $wpdb->get_results(
+			"SELECT * FROM {$acy_t} WHERE actividad_id IN ({$id_list}) ORDER BY curso_escolar ASC",
 			ARRAY_A
 		);
+		$acy_rows = is_array( $acy_rows ) ? $acy_rows : array();
 
-		$rows = is_array( $rows ) ? $rows : array();
+		// Enrolment counts scoped to a specific (actividad_id, curso_escolar)
+		// pair — same scoping rule as the previous query: a matricula only
+		// counts when its grupo's curso_escolar matches the annual row.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
+		$scoped_counts = $wpdb->get_results(
+			"SELECT m.activitad_id AS actividad_id, g.curso_escolar AS curso_escolar, m.estado AS estado, COUNT(*) AS total
+			 FROM {$mat_t} m
+			 LEFT JOIN {$gru_t} g ON g.id = m.grupo_id
+			 WHERE m.activitad_id IN ({$id_list}) AND m.estado IN ('activo','lista_espera')
+			 GROUP BY m.activitad_id, g.curso_escolar, m.estado",
+			ARRAY_A
+		);
+		$scoped_counts = is_array( $scoped_counts ) ? $scoped_counts : array();
 
-		// Attach the list of cursos (school years) each activity is offered in.
-		$all_ids = array();
-		foreach ( $rows as $r ) { $all_ids[ (int) $r['id'] ] = true; }
-		$cursos_map = array();
-		if ( ! empty( $all_ids ) ) {
-			$id_list = implode( ',', array_map( 'intval', array_keys( $all_ids ) ) );
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
-			$cursos_rows = $wpdb->get_results(
-				"SELECT actividad_id, curso_escolar FROM {$acy_t} WHERE actividad_id IN ({$id_list}) ORDER BY curso_escolar ASC",
-				ARRAY_A
-			);
-			if ( is_array( $cursos_rows ) ) {
-				foreach ( $cursos_rows as $cr ) {
-					$cursos_map[ (int) $cr['actividad_id'] ][] = $cr['curso_escolar'];
-				}
-			}
-		}
-		foreach ( $rows as &$r ) {
-			$r['cursos'] = $cursos_map[ (int) $r['id'] ] ?? array();
-		}
-		unset( $r );
+		// Unscoped totals (any curso, any/no grupo) — used only for legacy
+		// activities that have no `actividades_cursos` row at all, mirroring
+		// the previous behaviour where `ac.curso_escolar IS NULL` counted
+		// every matricula regardless of the enrolled group's school year.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
+		$legacy_totals = $wpdb->get_results(
+			"SELECT m.activitad_id AS actividad_id, m.estado AS estado, COUNT(*) AS total
+			 FROM {$mat_t} m
+			 WHERE m.activitad_id IN ({$id_list}) AND m.estado IN ('activo','lista_espera')
+			 GROUP BY m.activitad_id, m.estado",
+			ARRAY_A
+		);
+		$legacy_totals = is_array( $legacy_totals ) ? $legacy_totals : array();
+
+		$rows = ANPA_Socios_Actividades_Collapse::collapse(
+			$base_rows,
+			$acy_rows,
+			ANPA_Socios_Curso_Activo::get(),
+			$scoped_counts,
+			$legacy_totals
+		);
 
 		return new WP_REST_Response( $rows, 200 );
 	}
