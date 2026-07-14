@@ -55,7 +55,7 @@ final class ANPA_Socios_Admin_Export_Handler {
 		'empresas'    => array( 'nome', 'email', 'responsable', 'telefono', 'url_web', 'estado' ),
 		'actividades' => array( 'empresa_email', 'nome', 'descripcion', 'curso_escolar', 'min_pupilos', 'max_pupilos', 'curso_min', 'curso_max', 'custo', 'estado' ),
 		'matriculas'  => array( 'proxenitor_email', 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar', 'grupo_curso_range', 'grupo_franxa', 'grupo_dias', 'trimestre', 'posicion', 'comedor', 'tarde', 'observaciones', 'estado' ),
-		'fillos'      => array( 'proxenitor_email', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'image_consent', 'estado' ),
+		'fillos'      => array( 'proxenitor_email', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'curso_escolar', 'image_consent', 'estado' ),
 	);
 
 	/**
@@ -284,9 +284,20 @@ final class ANPA_Socios_Admin_Export_Handler {
 					WHERE p.rol <> 'master' AND p.rol_familia = 'principal'
 					ORDER BY p.email ASC";
 		} elseif ( 'fillos' === $entity ) {
-			$sql = "SELECT socio_email AS proxenitor_email, nome, apelidos, data_nacemento, curso, aula, image_consent, estado
-					FROM {$prefix}anpa_fillos
-					ORDER BY socio_email ASC";
+			// fillos_cursos holds one row PER SCHOOL YEAR per fillo (UNIQUE(fillo_id,
+			// curso_escolar) — see design.md fase23 §2.4). A bare LEFT JOIN would
+			// duplicate this row once per historical year once a fillo accumulates
+			// more than one. Scope the join to the CURRENT course year only, so the
+			// export stays one row per fillo regardless of history depth.
+			$current_curso = class_exists( 'ANPA_Socios_Curso_Escolar' ) ? ANPA_Socios_Curso_Escolar::current() : '';
+			$sql = $wpdb->prepare(
+				"SELECT socio_email AS proxenitor_email, f.nome, f.apelidos, f.data_nacemento, f.curso, f.aula,
+					COALESCE(fc.curso_escolar, '') AS curso_escolar, f.image_consent, f.estado
+					FROM {$prefix}anpa_fillos f
+					LEFT JOIN {$prefix}anpa_fillos_cursos fc ON fc.fillo_id = f.id AND fc.curso_escolar = %s
+					ORDER BY f.socio_email ASC",
+				$current_curso
+			);
 		} else {
 			return null;
 		}

@@ -1,0 +1,8 @@
+actividade_nome,empresa_email,curso_escolar,niveis_codigos,franxa,dias,min_pupilos,max_pupilos,estado,grupo_curso_range
+Karate,empresa.ficticia@example.com,2026/2027,"1,2,3",16:00-17:00,luns,8,15,activo,1-2-3
+Karate,empresa.ficticia@example.com,2026/2027,"4,5,6",17:00-18:00,luns,8,15,activo,4-5-6
+Pintura,arte.ficticio@example.com,2026/2027,"1,2,3",16:00-17:00,martes,5,12,activo,1-2-3
+Pintura,arte.ficticio@example.com,2026/2027,"4,5,6",17:00-18:00,martes,5,12,activo,4-5-6
+Robótica,tech.ficticio@example.com,2026/2027,"3,4,5,6",16:30-17:30,xoves,6,10,activo,3-4-5-6
+Inglés,idiomas.ficticio@example.com,2026/2027,"1,2",16:00-17:00,venres,10,20,activo,1-2
+Inglés,idiomas.ficticio@example.com,2026/2027,"3,4,5,6",17:00-18:00,venres,10,20,activo,3-4-5-6

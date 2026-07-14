@@ -1,5 +1,5 @@
-proxenitor_email,nome,apelidos,data_nacemento,curso,aula,image_consent,estado
-maria.ficticia@example.com,Lúa,García López,2018-03-15,1EP,A,1,activo
-maria.ficticia@example.com,Uxío,García López,2020-07-22,EI5,B,1,activo
-ana.ficticia@example.com,Noa,Fernández Rodríguez,2017-11-08,2EP,A,0,activo
-brais.ficticio@example.com,Breixo,López Núñez,2019-01-30,EI5,A,1,activo
+proxenitor_email,nome,apelidos,data_nacemento,curso,aula,curso_escolar,image_consent,estado
+maria.ficticia@example.com,Lúa,García López,2018-03-15,1EP,A,2026/2027,1,activo
+maria.ficticia@example.com,Uxío,García López,2020-07-22,EI5,B,2026/2027,1,activo
+ana.ficticia@example.com,Noa,Fernández Rodríguez,2017-11-08,2EP,A,2026/2027,0,activo
+brais.ficticio@example.com,Breixo,López Núñez,2019-01-30,EI5,A,2026/2027,1,activo

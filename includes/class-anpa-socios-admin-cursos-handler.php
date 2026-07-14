@@ -178,6 +178,12 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 		}
 		$wpdb->query( 'COMMIT' );
 
+		// Optional: copy school structure from a previous course on activation.
+		$copiar_de = isset( $body['copiar_estrutura_de'] ) ? (string) $body['copiar_estrutura_de'] : '';
+		if ( '' !== $copiar_de && ANPA_Socios_Curso_Escolar::is_valid( $copiar_de ) && $copiar_de !== $curso ) {
+			self::copiar_estrutura_interna( $curso, $copiar_de );
+		}
+
 		$action = 'activo' === $plan['target_estado'] ? ( $plan['target_open'] ? 'activar_abrir' : 'activar_pechado' ) : 'desactivar_pechar';
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'curso', $curso, $action );
 
@@ -188,5 +194,57 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 			'previous_active'     => $plan['deactivate'],
 			'actualizado_en'      => $now,
 		), 200 );
+	}
+
+	/**
+	 * Copies school structure (niveis + aulas) from one course to another.
+	 *
+	 * Reuses the same INSERT IGNORE logic as ANPA_Socios_Admin_Estrutura_Handler::copiar_estrutura
+	 * but without requiring a WP_REST_Request. Only copies structural data (niveis/aulas),
+	 * never operational data (fillos, matriculas).
+	 *
+	 * @since  1.27.0
+	 * @param  string $destino Course to copy structure INTO.
+	 * @param  string $orixe   Course to copy structure FROM.
+	 * @return bool True on success, false on DB error.
+	 */
+	private static function copiar_estrutura_interna( string $destino, string $orixe ): bool {
+		global $wpdb;
+
+		$niveis_t = ANPA_Socios_DB::tabela_niveis();
+		$aulas_t  = ANPA_Socios_DB::tabela_aulas();
+
+		$wpdb->query( 'START TRANSACTION' );
+
+		// Copy niveis: INSERT IGNORE preserves existing ones.
+		$ok = $wpdb->query( $wpdb->prepare(
+			"INSERT IGNORE INTO {$niveis_t} (curso_escolar, codigo, etiqueta, orde, estado, creado_en, actualizado_en)
+			 SELECT %s, codigo, etiqueta, orde, estado, NOW(), NOW()
+			 FROM {$niveis_t} WHERE curso_escolar = %s",
+			$destino,
+			$orixe
+		) );
+		if ( false === $ok ) {
+			$wpdb->query( 'ROLLBACK' );
+			return false;
+		}
+
+		// Copy aulas: map old nivel_id → new nivel_id via codigo.
+		$ok = $wpdb->query( $wpdb->prepare(
+			"INSERT IGNORE INTO {$aulas_t} (nivel_id, codigo, etiqueta, orde, estado, creado_en, actualizado_en)
+			 SELECT nd.id, a.codigo, a.etiqueta, a.orde, a.estado, NOW(), NOW()
+			 FROM {$aulas_t} a
+			 INNER JOIN {$niveis_t} no ON no.id = a.nivel_id AND no.curso_escolar = %s
+			 INNER JOIN {$niveis_t} nd ON nd.curso_escolar = %s AND nd.codigo = no.codigo",
+			$orixe,
+			$destino
+		) );
+		if ( false === $ok ) {
+			$wpdb->query( 'ROLLBACK' );
+			return false;
+		}
+
+		$wpdb->query( 'COMMIT' );
+		return true;
 	}
 }

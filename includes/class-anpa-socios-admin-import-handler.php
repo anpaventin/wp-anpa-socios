@@ -85,16 +85,29 @@ final class ANPA_Socios_Admin_Import_Handler {
 		// Analyze (normalize + validate + dedup).
 		$report = ANPA_Socios_Csv_Import::analyze( $entity, $rows, $existing_keys );
 
+		// Fillos-specific: validate curso/aula against school structure (parity: same in dry-run and commit).
+		$fillos_warnings = array();
+		if ( 'fillos' === $entity ) {
+			$structure_errors = self::validate_fillos_structure( $report['to_insert'], $fillos_warnings );
+			if ( ! empty( $structure_errors ) ) {
+				$report['errors'] = array_merge( $report['errors'], $structure_errors );
+			}
+		}
+
 		if ( ! $commit ) {
 			// Dry-run response.
 			$preview = array_slice( $report['to_insert'], 0, self::PREVIEW_LIMIT );
-			return new WP_REST_Response( array(
+			$response_data = array(
 				'total'            => count( $rows ),
 				'to_insert_count'  => count( $report['to_insert'] ),
 				'duplicates_count' => count( $report['duplicates'] ),
 				'errors'           => $report['errors'],
 				'preview'          => $preview,
-			), 200 );
+			);
+			if ( ! empty( $fillos_warnings ) ) {
+				$response_data['warnings'] = $fillos_warnings;
+			}
+			return new WP_REST_Response( $response_data, 200 );
 		}
 
 		// Commit mode.
@@ -218,6 +231,41 @@ final class ANPA_Socios_Admin_Import_Handler {
 		}
 
 		return $keys;
+	}
+
+	/**
+	 * Validates fillos rows' curso/aula against the resolved school structure.
+	 *
+	 * Uses the same Payload helpers for dry-run and commit parity (task 46).
+	 * If curso_escolar is missing in a row, falls back to current and appends a warning.
+	 *
+	 * @since  1.27.0
+	 * @param  array $rows     Rows from the analyze step.
+	 * @param  array &$warnings Warnings accumulator (passed by reference).
+	 * @return array Validation errors.
+	 */
+	private static function validate_fillos_structure( array $rows, array &$warnings ): array {
+		$errors = array();
+
+		foreach ( $rows as $idx => $row ) {
+			$curso_escolar = trim( (string) ( $row['curso_escolar'] ?? '' ) );
+			if ( '' === $curso_escolar ) {
+				$curso_escolar = ANPA_Socios_Curso_Escolar::current();
+				$warnings[] = array( 'row' => $idx, 'field' => 'curso_escolar', 'msg' => 'Missing curso_escolar in CSV; defaulted to current course' );
+			}
+
+			$curso = strtoupper( trim( (string) ( $row['curso'] ?? '' ) ) );
+			$aula  = strtoupper( trim( (string) ( $row['aula'] ?? '' ) ) );
+
+			if ( '' !== $curso && ! ANPA_Socios_Admin_Payload::curso_valido_db( $curso, $curso_escolar ) ) {
+				$errors[] = array( 'row' => $idx, 'field' => 'curso', 'msg' => "Curso '{$curso}' non válido para {$curso_escolar}" );
+			}
+			if ( '' !== $aula && ! ANPA_Socios_Admin_Payload::aula_valida_db( $aula, $curso_escolar ) ) {
+				$errors[] = array( 'row' => $idx, 'field' => 'aula', 'msg' => "Aula '{$aula}' non válida para {$curso_escolar}" );
+			}
+		}
+
+		return $errors;
 	}
 
 	/**
@@ -408,6 +456,7 @@ final class ANPA_Socios_Admin_Import_Handler {
 		$inserted = 0;
 		$skipped  = 0;
 		$errors   = array();
+		$warnings = array();
 
 		// Cache email → familia_id resolution.
 		$email_familia_cache = array();
@@ -421,6 +470,27 @@ final class ANPA_Socios_Admin_Import_Handler {
 			$aula             = $row['aula'] ?? '';
 			$consent          = $row['image_consent'] ?? '0';
 			$estado           = $row['estado'] ?? 'activo';
+
+			// Resolve curso_escolar: from CSV row or fallback to current.
+			$curso_escolar = trim( (string) ( $row['curso_escolar'] ?? '' ) );
+			if ( '' === $curso_escolar ) {
+				$curso_escolar = ANPA_Socios_Curso_Escolar::current();
+				$warnings[] = array( 'row' => $idx, 'field' => 'curso_escolar', 'msg' => 'Missing curso_escolar in CSV; defaulted to current course' );
+			}
+
+			// Validate curso + aula against school structure via Payload helpers.
+			if ( '' !== $curso ) {
+				if ( ! ANPA_Socios_Admin_Payload::curso_valido_db( strtoupper( $curso ), $curso_escolar ) ) {
+					$errors[] = array( 'row' => $idx, 'field' => 'curso', 'msg' => "Curso '{$curso}' non válido para {$curso_escolar}" );
+					continue;
+				}
+			}
+			if ( '' !== $aula ) {
+				if ( ! ANPA_Socios_Admin_Payload::aula_valida_db( strtoupper( $aula ), $curso_escolar ) ) {
+					$errors[] = array( 'row' => $idx, 'field' => 'aula', 'msg' => "Aula '{$aula}' non válida para {$curso_escolar}" );
+					continue;
+				}
+			}
 
 			// Resolve real familia_id from parent email.
 			$real_fam = null;
@@ -482,7 +552,7 @@ final class ANPA_Socios_Admin_Import_Handler {
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'import', 'fillos', 'import_commit' );
 		}
 
-		return array( 'inserted' => $inserted, 'skipped' => $skipped, 'errors' => $errors );
+		return array( 'inserted' => $inserted, 'skipped' => $skipped, 'errors' => $errors, 'warnings' => $warnings );
 	}
 
 	/**
