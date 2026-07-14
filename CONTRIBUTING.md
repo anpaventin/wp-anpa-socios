@@ -39,6 +39,13 @@ Examples already in place: `association_name()`, `contact_email()`, `association
 - Installation-specific data (backups, SQL dumps, `.secrets`, deploy scripts) stays
   **out of this repo**.
 - Keep `.gitignore` covering `vendor/`, `node_modules/`, `*.log`, PHPUnit caches.
+- **This repo mirrors ONLY the plugin itself.** Nothing related to how it is developed
+  belongs here: no agent/assistant scratch folders (`.sync/`, `.atl/`, `.hermes/`,
+  `.agents/`, `.claude/`), no migration-test snapshots, no ad-hoc `.zip` bundles, no
+  SDD/planning artefacts (`openspec/`, `IDEA.md`, local notes). If a future tool creates
+  a new dotfolder or scratch file for its own bookkeeping, add it to `.gitignore`
+  immediately rather than letting it get committed — this has happened before
+  (`.sync/` and `.atl/` were committed by mistake and had to be purged from the repo).
 
 ## 3. Architecture & file layout
 
