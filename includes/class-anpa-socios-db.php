@@ -69,11 +69,15 @@ class ANPA_Socios_DB {
 	 *        legacy `grupos.curso_range` + `actividades.horarios`. Non-
 	 *        destructive: legacy columns are removed only in a later
 	 *        migration, gated on a verified backup.
+	 * 1.29.0 (fase24 revised) adds activity-owned group series: `serie_uid`,
+	 *        `nome` and exclusive `horario` on annual groups. It backfills one
+	 *        independent series per legacy annual group. Destructive removal of
+	 *        duplicated fields remains rollout-gated.
 	 *
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.28.0';
+	const DB_VERSION = '1.29.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -209,6 +213,14 @@ class ANPA_Socios_DB {
 		if ( ! self::migrate_to_1_28_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.28.0 (migrate_to_1_28_0): ' . $wpdb->last_error );
+			return;
+		}
+
+		// 1.29.0: activity-owned multi-year group series.
+		$wpdb->last_error = '';
+		if ( ! self::migrate_to_1_29_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.29.0 (migrate_to_1_29_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -2368,6 +2380,71 @@ class ANPA_Socios_DB {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Migration 1.29.0: activity-owned multi-year group series.
+	 *
+	 * Additive by design. Destructive removal of fase24-global and duplicated
+	 * activity columns is deferred to the migration rollout gate.
+	 *
+	 * @since  1.42.0
+	 * @return bool
+	 */
+	private static function migrate_to_1_29_0(): bool {
+		global $wpdb;
+
+		$grupos = self::tabela_grupos();
+		$acts   = self::tabela_actividades();
+
+		if ( ! self::tem_columna( $grupos, 'serie_uid' ) ) {
+			if ( false === $wpdb->query( "ALTER TABLE {$grupos} ADD COLUMN serie_uid char(36) NULL DEFAULT NULL AFTER curso_escolar, ADD KEY serie_uid (serie_uid)" ) ) {
+				return false;
+			}
+		}
+		if ( ! self::tem_columna( $grupos, 'nome' ) ) {
+			if ( false === $wpdb->query( "ALTER TABLE {$grupos} ADD COLUMN nome varchar(80) NOT NULL DEFAULT '' AFTER serie_uid" ) ) {
+				return false;
+			}
+		}
+		if ( ! self::tem_columna( $grupos, 'horario' ) ) {
+			if ( false === $wpdb->query( "ALTER TABLE {$grupos} ADD COLUMN horario enum('manha','tarde') NULL DEFAULT NULL AFTER nome" ) ) {
+				return false;
+			}
+		}
+
+		// One independent series per legacy annual row. Never merge by similar
+		// labels/time slots: that could silently combine unrelated enrolments.
+		if ( false === $wpdb->query( "UPDATE {$grupos} SET serie_uid = UUID() WHERE serie_uid IS NULL OR serie_uid = ''" ) ) {
+			return false;
+		}
+		if ( false === $wpdb->query(
+			"UPDATE {$grupos}
+			 SET nome = CASE
+			   WHEN curso_range <> '' THEN CONCAT('Grupo ', curso_range)
+			   ELSE CONCAT('Grupo ', id)
+			 END
+			 WHERE nome = ''"
+		) ) {
+			return false;
+		}
+
+		// Infer only an unambiguous legacy horario. Ambiguous rows remain NULL
+		// and must be resolved explicitly through the group editor.
+		if ( false === $wpdb->query(
+			"UPDATE {$grupos} g
+			 INNER JOIN {$acts} a ON a.id = g.actividad_id
+			 SET g.horario = CASE
+			   WHEN FIND_IN_SET('manha', a.horarios) > 0 AND FIND_IN_SET('tarde', a.horarios) = 0 THEN 'manha'
+			   WHEN FIND_IN_SET('tarde', a.horarios) > 0 AND FIND_IN_SET('manha', a.horarios) = 0 THEN 'tarde'
+			   ELSE g.horario
+			 END
+			 WHERE g.horario IS NULL"
+		) ) {
+			return false;
+		}
+
+		return '' === (string) $wpdb->last_error;
 	}
 
 	/**

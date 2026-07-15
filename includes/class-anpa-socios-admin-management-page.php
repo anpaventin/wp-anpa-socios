@@ -171,12 +171,17 @@ final class ANPA_Socios_Admin_Management_Page {
 			$nivel_ids[] = (int) $n['id'];
 		}
 		$aulas = ANPA_Socios_DB::get_aulas_for_niveis( $nivel_ids );
+		$cursos_escolares = $wpdb->get_col(
+			'SELECT curso_escolar FROM ' . ANPA_Socios_DB::tabela_cursos() . ' ORDER BY curso_escolar DESC'
+		);
+		$cursos_escolares = is_array( $cursos_escolares ) ? array_values( array_unique( array_map( 'strval', $cursos_escolares ) ) ) : array();
 
 		wp_localize_script( 'anpa-socios-admin-management', 'anpaAdminMgmt', array(
 			'root'       => esc_url_raw( rest_url( 'anpa-socios/v1/admin/' ) ),
 			'nonce'      => wp_create_nonce( 'wp_rest' ),
 			'filloniveis' => $niveis,
 			'filloaulas'  => $aulas,
+			'cursosescolares' => $cursos_escolares,
 		) );
 
 		// admin-management.css.

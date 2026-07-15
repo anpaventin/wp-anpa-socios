@@ -54,10 +54,12 @@ final class Test_ANPA_Socios_Admin_Audit_Hardening extends TestCase {
 		$this->assertStringContainsString( '$wpdb->delete( ANPA_Socios_DB::tabela_actividades()', $source );
 	}
 
-	public function test_management_ui_handles_no_active_course_and_keeps_primary_selected(): void {
+	public function test_management_ui_uses_only_registered_school_years(): void {
 		$source = file_get_contents( $this->root . '/assets/js/admin-management.js' );
-		$this->assertStringNotContainsString( 'if (!current) { return; }', $source );
-		$this->assertStringContainsString( "cursoSelect.addEventListener('change'", $source );
+		$page   = file_get_contents( $this->root . '/includes/class-anpa-socios-admin-management-page.php' );
+		$this->assertStringContainsString( "'cursosescolares'", $page );
+		$this->assertStringContainsString( 'cfg.cursosescolares', $source );
+		$this->assertStringNotContainsString( 'generateCursoRange(selectedCursos', $source );
 	}
 
 	public function test_settings_initialises_master_and_redirects_updates_to_estado(): void {

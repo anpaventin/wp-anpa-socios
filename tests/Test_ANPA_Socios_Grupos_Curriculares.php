@@ -1,11 +1,7 @@
 <?php
 /**
- * Unit tests for the pure ANPA_Socios_Grupos_Curriculares domain (fase24 PR-GC1).
+ * Unit tests for the revised fase24 group-series contract.
  *
- * Covers snapshot normalization, exclusive-horario validation and
- * effective-franxa resolution — all WordPress-independent.
- *
- * @since  1.41.0
  * @package ANPA_Socios
  */
 
@@ -15,174 +11,58 @@ use PHPUnit\Framework\TestCase;
 
 final class Test_ANPA_Socios_Grupos_Curriculares extends TestCase {
 
-	// ── normalize_snapshot ────────────────────────────────────
-
-	public function test_normalize_accepts_valid_group_with_both_franxas(): void {
-		$out = ANPA_Socios_Grupos_Curriculares::normalize_snapshot( array(
-			'etiqueta'     => 'Grupo 1',
-			'orde'         => 10,
-			'niveis'       => array( '1', '2', '3' ),
-			'franxa_manha' => '14:10-15:10',
-			'franxa_tarde' => '16:45-17:45',
-		) );
-
-		$this->assertSame( 'Grupo 1', $out['etiqueta'] );
-		$this->assertSame( 10, $out['orde'] );
-		$this->assertSame( array( '1', '2', '3' ), $out['niveis'] );
-		$this->assertSame( '14:10-15:10', $out['franxa_manha'] );
-		$this->assertSame( '16:45-17:45', $out['franxa_tarde'] );
+	private function validInput(): array {
+		return array(
+			'nome'            => 'Grupo comedor 1º-3º',
+			'cursos'          => array( '2026/2027', '2027/2028' ),
+			'niveis_por_ano'  => array(
+				'2026/2027' => array( 1, 2, 3 ),
+				'2027/2028' => array( 11, 12, 13 ),
+			),
+			'horario'         => 'manha',
+			'franxa'          => '14:10-15:10',
+			'dias'            => array( 'luns', 'mercores' ),
+			'min_pupilos'     => 8,
+			'max_pupilos'     => 15,
+			'estado'          => 'aberto',
+		);
 	}
 
-	public function test_normalize_accepts_group_with_only_morning(): void {
-		$out = ANPA_Socios_Grupos_Curriculares::normalize_snapshot( array(
-			'etiqueta'     => 'Só mañá',
-			'niveis'       => array( '4', '5', '6' ),
-			'franxa_manha' => '15:10-16:10',
-		) );
-
-		$this->assertSame( '15:10-16:10', $out['franxa_manha'] );
-		$this->assertSame( '', $out['franxa_tarde'] );
-		// orde defaults to 10 when absent.
-		$this->assertSame( 10, $out['orde'] );
+	public function test_normalizes_a_multi_year_series(): void {
+		$out = ANPA_Socios_Grupo_Serie::normalize( $this->validInput() );
+		$this->assertSame( 'Grupo comedor 1º-3º', $out['nome'] );
+		$this->assertSame( array( '2026/2027', '2027/2028' ), $out['cursos'] );
+		$this->assertSame( array( 1, 2, 3 ), $out['niveis_por_ano']['2026/2027'] );
+		$this->assertSame( 'manha', $out['horario'] );
+		$this->assertSame( 'luns,mercores', $out['dias'] );
 	}
 
-	public function test_normalize_accepts_group_with_only_afternoon(): void {
-		$out = ANPA_Socios_Grupos_Curriculares::normalize_snapshot( array(
-			'etiqueta'     => 'Só tarde',
-			'niveis'       => array( '1' ),
-			'franxa_tarde' => '16:45-17:45',
-		) );
-
-		$this->assertSame( '', $out['franxa_manha'] );
-		$this->assertSame( '16:45-17:45', $out['franxa_tarde'] );
+	/** @dataProvider invalidInputProvider */
+	public function test_rejects_invalid_series( callable $mutate ): void {
+		$input = $this->validInput();
+		$mutate( $input );
+		$this->assertSame( array(), ANPA_Socios_Grupo_Serie::normalize( $input ) );
 	}
 
-	public function test_normalize_rejects_group_without_label(): void {
-		$this->assertSame( array(), ANPA_Socios_Grupos_Curriculares::normalize_snapshot( array(
-			'etiqueta'     => '   ',
-			'niveis'       => array( '1' ),
-			'franxa_manha' => '14:10-15:10',
-		) ) );
+	public static function invalidInputProvider(): array {
+		return array(
+			'empty name'          => array( static function ( &$v ) { $v['nome'] = ' '; } ),
+			'no years'            => array( static function ( &$v ) { $v['cursos'] = array(); } ),
+			'invalid year'        => array( static function ( &$v ) { $v['cursos'] = array( '2026' ); } ),
+			'missing year levels' => array( static function ( &$v ) { unset( $v['niveis_por_ano']['2027/2028'] ); } ),
+			'foreign year levels' => array( static function ( &$v ) { $v['niveis_por_ano']['2028/2029'] = array( 99 ); } ),
+			'no levels'           => array( static function ( &$v ) { $v['niveis_por_ano']['2026/2027'] = array(); } ),
+			'both horarios'       => array( static function ( &$v ) { $v['horario'] = 'manha,tarde'; } ),
+			'invalid franxa'      => array( static function ( &$v ) { $v['franxa'] = '15:10-14:10'; } ),
+			'no days'             => array( static function ( &$v ) { $v['dias'] = array(); } ),
+			'max below min'       => array( static function ( &$v ) { $v['min_pupilos'] = 16; $v['max_pupilos'] = 15; } ),
+			'invalid state'       => array( static function ( &$v ) { $v['estado'] = 'activo'; } ),
+		);
 	}
 
-	public function test_normalize_rejects_group_without_niveis(): void {
-		$this->assertSame( array(), ANPA_Socios_Grupos_Curriculares::normalize_snapshot( array(
-			'etiqueta'     => 'Sen niveis',
-			'niveis'       => array(),
-			'franxa_manha' => '14:10-15:10',
-		) ) );
-	}
-
-	public function test_normalize_rejects_group_without_any_franxa(): void {
-		$this->assertSame( array(), ANPA_Socios_Grupos_Curriculares::normalize_snapshot( array(
-			'etiqueta' => 'Sen franxa',
-			'niveis'   => array( '1', '2' ),
-		) ) );
-	}
-
-	public function test_normalize_rejects_group_with_only_invalid_franxa(): void {
-		// An invalid franxa string normalises to '' — same as absent.
-		$this->assertSame( array(), ANPA_Socios_Grupos_Curriculares::normalize_snapshot( array(
-			'etiqueta'     => 'Franxa mala',
-			'niveis'       => array( '1' ),
-			'franxa_manha' => '25:99-99:99',
-			'franxa_tarde' => 'non é unha franxa',
-		) ) );
-	}
-
-	public function test_normalize_dedupes_and_sorts_niveis(): void {
-		$out = ANPA_Socios_Grupos_Curriculares::normalize_snapshot( array(
-			'etiqueta'     => 'Grupo',
-			'niveis'       => array( '3', '1', '1', '2' ),
-			'franxa_manha' => '14:10-15:10',
-		) );
-
-		$this->assertSame( array( '1', '2', '3' ), $out['niveis'] );
-	}
-
-	public function test_normalize_accepts_nivel_ids_alias(): void {
-		// The admin form posts `nivel_ids`, not `niveis` — both must work,
-		// otherwise the group is always rejected with a 400 (real bug 2026-07-15).
-		$out = ANPA_Socios_Grupos_Curriculares::normalize_snapshot( array(
-			'etiqueta'     => 'Grupo 1',
-			'nivel_ids'    => array( 12, 15, 18 ),
-			'franxa_manha' => '14:10-15:10',
-		) );
-
-		$this->assertNotSame( array(), $out );
-		$this->assertSame( array( '12', '15', '18' ), $out['niveis'] );
-	}
-
-	public function test_normalize_rejects_overlong_label(): void {
-		$this->assertSame( array(), ANPA_Socios_Grupos_Curriculares::normalize_snapshot( array(
-			'etiqueta'     => str_repeat( 'x', 61 ),
-			'niveis'       => array( '1' ),
-			'franxa_manha' => '14:10-15:10',
-		) ) );
-	}
-
-	// ── is_valid_horario (exclusive) ──────────────────────────
-
-	public function test_is_valid_horario_accepts_single_token(): void {
-		$this->assertTrue( ANPA_Socios_Grupos_Curriculares::is_valid_horario( 'manha' ) );
-		$this->assertTrue( ANPA_Socios_Grupos_Curriculares::is_valid_horario( 'tarde' ) );
-	}
-
-	public function test_is_valid_horario_rejects_both_as_array(): void {
-		// The whole point of fase24: horario is exclusive, never a set.
-		$this->assertFalse( ANPA_Socios_Grupos_Curriculares::is_valid_horario( array( 'manha', 'tarde' ) ) );
-	}
-
-	public function test_is_valid_horario_rejects_empty_and_unknown(): void {
-		$this->assertFalse( ANPA_Socios_Grupos_Curriculares::is_valid_horario( '' ) );
-		$this->assertFalse( ANPA_Socios_Grupos_Curriculares::is_valid_horario( 'noite' ) );
-		$this->assertFalse( ANPA_Socios_Grupos_Curriculares::is_valid_horario( 'manha,tarde' ) );
-		$this->assertFalse( ANPA_Socios_Grupos_Curriculares::is_valid_horario( null ) );
-	}
-
-	// ── franxa_efectiva / offerable_under ─────────────────────
-
-	public function test_franxa_efectiva_resolves_by_horario(): void {
-		$grupo = ANPA_Socios_Grupos_Curriculares::normalize_snapshot( array(
-			'etiqueta'     => 'Grupo 1',
-			'niveis'       => array( '1', '2', '3' ),
-			'franxa_manha' => '14:10-15:10',
-			'franxa_tarde' => '16:45-17:45',
-		) );
-
-		$this->assertSame( '14:10-15:10', ANPA_Socios_Grupos_Curriculares::franxa_efectiva( $grupo, 'manha' ) );
-		$this->assertSame( '16:45-17:45', ANPA_Socios_Grupos_Curriculares::franxa_efectiva( $grupo, 'tarde' ) );
-	}
-
-	public function test_franxa_efectiva_null_when_slot_absent(): void {
-		$grupo = ANPA_Socios_Grupos_Curriculares::normalize_snapshot( array(
-			'etiqueta'     => 'Só mañá',
-			'niveis'       => array( '1' ),
-			'franxa_manha' => '14:10-15:10',
-		) );
-
-		$this->assertSame( '14:10-15:10', ANPA_Socios_Grupos_Curriculares::franxa_efectiva( $grupo, 'manha' ) );
-		$this->assertNull( ANPA_Socios_Grupos_Curriculares::franxa_efectiva( $grupo, 'tarde' ) );
-	}
-
-	public function test_franxa_efectiva_null_for_invalid_horario(): void {
-		$grupo = ANPA_Socios_Grupos_Curriculares::normalize_snapshot( array(
-			'etiqueta'     => 'Grupo',
-			'niveis'       => array( '1' ),
-			'franxa_manha' => '14:10-15:10',
-		) );
-
-		$this->assertNull( ANPA_Socios_Grupos_Curriculares::franxa_efectiva( $grupo, 'noite' ) );
-	}
-
-	public function test_offerable_under_matches_available_slot(): void {
-		$grupo = ANPA_Socios_Grupos_Curriculares::normalize_snapshot( array(
-			'etiqueta'     => 'Só tarde',
-			'niveis'       => array( '4', '5', '6' ),
-			'franxa_tarde' => '16:45-17:45',
-		) );
-
-		$this->assertFalse( ANPA_Socios_Grupos_Curriculares::offerable_under( $grupo, 'manha' ) );
-		$this->assertTrue( ANPA_Socios_Grupos_Curriculares::offerable_under( $grupo, 'tarde' ) );
+	public function test_horario_labels_are_family_facing(): void {
+		$this->assertSame( 'Mañá (comedor)', ANPA_Socios_Grupo_Serie::horario_label( 'manha' ) );
+		$this->assertSame( 'Tarde', ANPA_Socios_Grupo_Serie::horario_label( 'tarde' ) );
+		$this->assertSame( '', ANPA_Socios_Grupo_Serie::horario_label( 'noite' ) );
 	}
 }

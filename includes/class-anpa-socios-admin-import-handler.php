@@ -209,7 +209,7 @@ final class ANPA_Socios_Admin_Import_Handler {
 					        f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
 					        e.email AS empresa_email, a.nome AS actividade_nome,
 					        COALESCE(g.curso_escolar, a.curso_escolar) AS curso_escolar,
-					        g.curso_range AS grupo_curso_range, g.franxa AS grupo_franxa,
+					        g.nome AS grupo_nome, g.curso_range AS grupo_curso_range, g.franxa AS grupo_franxa,
 					        g.dias AS grupo_dias, m.trimestre
 					 FROM {$mat_t} m
 					 JOIN {$fil_t} f ON f.id = m.fillo_id
@@ -928,10 +928,18 @@ final class ANPA_Socios_Admin_Import_Handler {
 				continue;
 			}
 
+			$grupo_nome   = (string) ( $row['grupo_nome'] ?? '' );
 			$grupo_range  = (string) ( $row['grupo_curso_range'] ?? '' );
 			$grupo_franxa = (string) ( $row['grupo_franxa'] ?? '' );
 			$grupo_dias   = (string) ( $row['grupo_dias'] ?? '' );
-			if ( '' !== $grupo_range || '' !== $grupo_franxa || '' !== $grupo_dias ) {
+			if ( '' !== $grupo_nome ) {
+				$grupo_id = $wpdb->get_var( $wpdb->prepare(
+					"SELECT id FROM {$gru_t} WHERE actividad_id = %d AND curso_escolar = %s AND LOWER(nome) = %s LIMIT 1",
+					(int) $actividade_id,
+					$curso_escolar,
+					mb_strtolower( $grupo_nome, 'UTF-8' )
+				) );
+			} elseif ( '' !== $grupo_range || '' !== $grupo_franxa || '' !== $grupo_dias ) {
 				$grupo_id = $wpdb->get_var( $wpdb->prepare(
 					"SELECT id FROM {$gru_t} WHERE actividad_id = %d AND curso_escolar = %s AND curso_range = %s AND franxa = %s AND dias = %s LIMIT 1",
 					(int) $actividade_id,

@@ -24,14 +24,14 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		$this->plugin_file = dirname( __DIR__ ) . '/anpa-socios.php';
 	}
 
-	public function test_db_version_constant_is_1_28_0(): void {
-		$this->assertSame( '1.28.0', ANPA_Socios_DB::DB_VERSION );
+	public function test_db_version_constant_is_1_29_0(): void {
+		$this->assertSame( '1.29.0', ANPA_Socios_DB::DB_VERSION );
 	}
 
-	public function test_anpa_socios_db_version_is_1_28_0(): void {
+	public function test_anpa_socios_db_version_is_1_29_0(): void {
 		$source = file_get_contents( $this->plugin_file );
 		$this->assertIsString( $source );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.28.0' )", $source );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.29.0' )", $source );
 	}
 
 	// ── fase24 PR-GC2: curricular-groups migration (1.28.0) ───────────

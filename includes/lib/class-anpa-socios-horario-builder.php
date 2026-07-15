@@ -34,17 +34,6 @@ final class ANPA_Socios_Horario_Builder {
 	);
 
 	/**
-	 * Human labels for canonical curso ranges.
-	 *
-	 * @since 1.9.0
-	 * @var array<string,string>
-	 */
-	const GRUPO_LABELS = array(
-		'1-2-3' => '1º-2º-3º',
-		'4-5-6' => '4º-5º-6º',
-	);
-
-	/**
 	 * Builds the schedule grid from a list of active activities.
 	 *
 	 * Each activity is an associative array with at least `nome`, `franxa`,
@@ -70,11 +59,15 @@ final class ANPA_Socios_Horario_Builder {
 			}
 
 			$dias   = ANPA_Socios_Actividade_Options::parse( (string) ( $act['dias'] ?? '' ), ANPA_Socios_Actividade_Options::DIAS );
-			$grupos = ANPA_Socios_Actividade_Options::parse( (string) ( $act['grupos'] ?? '' ), ANPA_Socios_Actividade_Options::GRUPOS );
-
+			$grupo_nome = trim( (string) ( $act['grupo_nome'] ?? '' ) );
+			$horario    = (string) ( $act['horario'] ?? '' );
 			$grupo_labels = array();
-			foreach ( $grupos as $g ) {
-				$grupo_labels[] = self::GRUPO_LABELS[ $g ] ?? $g;
+			if ( '' !== $grupo_nome ) {
+				$label = $grupo_nome;
+				if ( '' !== $horario ) {
+					$label .= ' — ' . ANPA_Socios_Grupo_Serie::horario_label( $horario );
+				}
+				$grupo_labels[] = $label;
 			}
 
 			$entry = array(
@@ -109,11 +102,11 @@ final class ANPA_Socios_Horario_Builder {
 	 * can be tested without a database.
 	 *
 	 * @since  1.27.0
-	 * @param  array $activity_row Row with keys: franxa, dias, estado, curso_estado.
+	 * @param  array $activity_row Row with keys: estado and curso_estado.
 	 * @param  array $grupos       All grupos for the (actividad, curso) pair. Each with 'estado' key.
 	 * @param  bool  $curso_is_active Whether the curso_escolar is the active one.
-	 * @return string One of: incluida_por_grupo, incluida_por_horario_anual_provisional,
-	 *               sen_franxa, sen_dias, sen_grupo_aberto, estado_inactivo, curso_non_activo.
+	 * @return string One of: incluida_por_grupo, sen_franxa, sen_dias,
+	 *               sen_grupo_aberto, estado_inactivo, curso_non_activo.
 	 */
 	public static function diagnose( array $activity_row, array $grupos, bool $curso_is_active ): string {
 		// Gate: curso must be active.
@@ -131,33 +124,20 @@ final class ANPA_Socios_Horario_Builder {
 			return 'estado_inactivo';
 		}
 
-		// Gate: valid franxa.
-		$franxa = ANPA_Socios_Actividade_Options::normalize_franxa( $activity_row['franxa'] ?? '' );
-		if ( null === $franxa ) {
-			return 'sen_franxa';
-		}
-
-		// Gate: valid días.
-		$dias = ANPA_Socios_Actividade_Options::parse( (string) ( $activity_row['dias'] ?? '' ), ANPA_Socios_Actividade_Options::DIAS );
-		if ( array() === $dias ) {
-			return 'sen_dias';
-		}
-
-		// If any groups exist for this (actividad, curso) pair:
-		if ( array() !== $grupos ) {
-			// Check if at least one is aberto.
-			foreach ( $grupos as $g ) {
-				if ( 'aberto' === ( $g['estado'] ?? '' ) ) {
-					return 'incluida_por_grupo';
-				}
+		foreach ( $grupos as $g ) {
+			if ( 'aberto' !== ( $g['estado'] ?? '' ) ) {
+				continue;
 			}
-			// Groups exist but none is aberto — the provisional slot is
-			// suppressed per design.md §8.6 point 4.
-			return 'sen_grupo_aberto';
+			if ( null === ANPA_Socios_Actividade_Options::normalize_franxa( $g['franxa'] ?? '' ) ) {
+				return 'sen_franxa';
+			}
+			if ( array() === ANPA_Socios_Actividade_Options::parse( (string) ( $g['dias'] ?? '' ), ANPA_Socios_Actividade_Options::DIAS ) ) {
+				return 'sen_dias';
+			}
+			return 'incluida_por_grupo';
 		}
 
-		// ZERO groups for this (actividad, curso) pair — provisional slot.
-		return 'incluida_por_horario_anual_provisional';
+		return 'sen_grupo_aberto';
 	}
 
 	/**

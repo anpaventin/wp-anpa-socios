@@ -267,6 +267,26 @@
 		return bar;
 	}
 
+	// Wires the search input for a section. Fixes the focus-loss bug: each
+	// keystroke used to re-render the whole panel (destroying the input), so
+	// after 2-3 letters focus was lost. Now we restore focus + caret to the
+	// freshly-built input whenever the last render was triggered by typing.
+	function wireSearchInput(bar, st, render) {
+		var input = bar._searchInput;
+		if (st._searchFocused) {
+			// The panel was just rebuilt due to typing — return focus + caret.
+			input.focus();
+			try { var v = input.value; input.setSelectionRange(v.length, v.length); } catch (e) {}
+		}
+		var timer = null;
+		input.addEventListener('input', function () {
+			st.searchQuery = this.value;
+			st._searchFocused = true;
+			if (timer) { clearTimeout(timer); }
+			timer = setTimeout(function () { st.page = 1; render(); }, 300);
+		});
+	}
+
 	// ── Pagination builder ────────────────────────────────────────────
 	function buildPagination(total, page, size, onPageChange) {
 		var pages = Math.max(1, Math.ceil(total / (size || total)));
@@ -448,13 +468,7 @@
 				}));
 			}
 
-			// Wire search
-			var timer = null;
-			bar._searchInput.addEventListener('input', function () {
-				st.searchQuery = this.value;
-				if (timer) { clearTimeout(timer); }
-				timer = setTimeout(function () { st.page = 1; render(); }, 250);
-			});
+			wireSearchInput(bar, st, render);
 		}
 		render();
 	}
@@ -563,6 +577,24 @@
 		cancelBtn.textContent = 'Volver';
 		cancelBtn.addEventListener('click', function () { renderSocios(allRows); });
 		actions.appendChild(cancelBtn);
+
+		// Definitive deletion is intentionally separate from setting estado=baixa.
+		// The backend refuses it while the family still has another parent,
+		// fillos/school data or a domiciliacion, and never cascades those records.
+		if (socio.estado === 'baixa') {
+			var hardDeleteBtn = document.createElement('button');
+			hardDeleteBtn.type = 'button';
+			hardDeleteBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-danger';
+			hardDeleteBtn.textContent = 'Eliminar definitivamente';
+			hardDeleteBtn.addEventListener('click', function () {
+				if (!window.confirm('Eliminar definitivamente este socio/a? Só é posible se non ten familia, fillos, matrículas nin datos bancarios asociados. Esta acción non se pode desfacer.')) { return; }
+				anpaAdminFetch('socio/' + encodeURIComponent(socio.email), { method: 'DELETE' }).then(function () {
+					showMessage('Socio/a eliminado definitivamente.', 'success');
+					loadSocios();
+				}).catch(function (e) { showMessage(e.message, 'error'); });
+			});
+			actions.appendChild(hardDeleteBtn);
+		}
 		form.appendChild(actions);
 		root.appendChild(form);
 
@@ -959,12 +991,7 @@
 				}));
 			}
 
-			var timer = null;
-			bar._searchInput.addEventListener('input', function () {
-				st.searchQuery = this.value;
-				if (timer) { clearTimeout(timer); }
-				timer = setTimeout(function () { st.page = 1; render(); }, 250);
-			});
+			wireSearchInput(bar, st, render);
 		}
 		render();
 	}
@@ -976,6 +1003,11 @@
 	 */
 	function renderFilloEdit(fillo, allRows) {
 		root.textContent = '';
+		// Dynamic nivel/aula structure (localized via cfg). These were only
+		// defined inside renderFilloForm before, so renderFilloEdit threw a
+		// ReferenceError and rendered nothing when editing a fillo.
+		var anpaNiveis = Array.isArray(cfg.filloniveis) ? cfg.filloniveis : [];
+		var anpaAulas  = Array.isArray(cfg.filloaulas) ? cfg.filloaulas : [];
 		var form = document.createElement('div');
 		form.className = 'anpa-mgmt-form';
 		form.setAttribute('role', 'form');
@@ -1073,7 +1105,71 @@
 		cancelBtn.textContent = 'Volver';
 		cancelBtn.addEventListener('click', function () { renderFillos(allRows); });
 		actions.appendChild(cancelBtn);
+
+		// Definitive delete: only for an already-disabled (baixa) fillo with no
+		// matrículas. The backend enforces the same guard and returns 409 otherwise.
+		if (fillo.estado === 'baixa') {
+			var hardDelBtn = document.createElement('button');
+			hardDelBtn.type = 'button'; hardDelBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-danger';
+			hardDelBtn.textContent = 'Eliminar definitivamente';
+			hardDelBtn.addEventListener('click', function () {
+				if (!window.confirm('Eliminar definitivamente este fillo/a? Só é posible se non ten matrículas. Esta acción non se pode desfacer.')) { return; }
+				anpaAdminFetch('fillo/' + fillo.id + '?hard=1', { method: 'DELETE' }).then(function () {
+					showMessage('Fillo/a eliminado definitivamente.', 'success');
+					loadFillos();
+				}).catch(function (e) { showMessage(e.message, 'error'); });
+			});
+			actions.appendChild(hardDelBtn);
+		}
 		form.appendChild(actions);
+
+		// ── Informational panel: matrículas by year (newest first) ──
+		var matPanel = document.createElement('div');
+		matPanel.className = 'anpa-mgmt-fillo-matriculas';
+		matPanel.style.marginTop = '1.5rem';
+		var matTitle = document.createElement('h4');
+		matTitle.textContent = 'Matrículas asociadas';
+		matPanel.appendChild(matTitle);
+		var matBody = document.createElement('div');
+		matBody.textContent = 'Cargando…';
+		matPanel.appendChild(matBody);
+		form.appendChild(matPanel);
+
+		anpaAdminFetch('fillo/' + fillo.id + '/matriculas').then(function (rows) {
+			matBody.textContent = '';
+			var list = Array.isArray(rows) ? rows : [];
+			if (!list.length) { matBody.appendChild(emptyEl('Este fillo/a non ten matrículas asociadas.')); return; }
+			// Group by curso_escolar, newest year first (backend already sorts desc).
+			var byYear = {};
+			var order = [];
+			list.forEach(function (r) {
+				var y = r.curso_escolar || '—';
+				if (!byYear[y]) { byYear[y] = []; order.push(y); }
+				byYear[y].push(r);
+			});
+			order.forEach(function (y) {
+				var h = document.createElement('h5');
+				h.textContent = y;
+				h.style.margin = '0.75rem 0 0.25rem';
+				matBody.appendChild(h);
+				var t = document.createElement('table');
+				t.className = 'widefat striped';
+				var thead = document.createElement('thead');
+				thead.innerHTML = '<tr><th>Actividade</th><th>Franxa</th><th>Trimestre</th><th>Estado</th></tr>';
+				t.appendChild(thead);
+				var tb = document.createElement('tbody');
+				byYear[y].forEach(function (r) {
+					var tr = document.createElement('tr');
+					[r.actividade, r.franxa, r.trimestre, r.estado].forEach(function (v) {
+						var td = document.createElement('td'); td.textContent = v != null && v !== '' ? String(v) : '—'; tr.appendChild(td);
+					});
+					tb.appendChild(tr);
+				});
+				t.appendChild(tb);
+				matBody.appendChild(t);
+			});
+		}).catch(function () { matBody.textContent = 'Non foi posible cargar as matrículas.'; });
+
 		root.appendChild(form);
 	}
 
@@ -1166,12 +1262,7 @@
 				}));
 			}
 
-			var timer = null;
-			bar._searchInput.addEventListener('input', function () {
-				st.searchQuery = this.value;
-				if (timer) { clearTimeout(timer); }
-				timer = setTimeout(function () { st.page = 1; render(); }, 250);
-			});
+			wireSearchInput(bar, st, render);
 		}
 		render();
 	}
@@ -1309,7 +1400,7 @@
 	}
 
 	// ── Section: Actividades ─────────────────────────────────────────
-	var ACTIV_COLS = ['nome', '_empresa_nome', 'curso_escolar', 'cursos_ofertados', 'franxa', 'estado'];
+	var ACTIV_COLS = ['nome', '_empresa_nome', 'cursos_ofertados', 'estado'];
 	var _cachedEmpresas = null;
 
 	function loadActividades() {
@@ -1436,11 +1527,7 @@
 						var newEstado = row.estado === 'activo' ? 'inactivo' : 'activo';
 						var payload = {
 							empresa_id: row.empresa_id, nome: row.nome, icono: row.icono || '',
-							descripcion: row.descripcion || '', curso_escolar: row.curso_escolar,
-							franxa: row.franxa || '', horarios: row.horarios || '',
-							grupos: row.grupos || '', dias: row.dias || '',
-							curso_min: row.curso_min, curso_max: row.curso_max,
-							min_pupilos: row.min_pupilos, max_pupilos: row.max_pupilos,
+							descripcion: row.descripcion || '',
 							custo: row.custo, estado: newEstado,
 							// Preserve every offered year: omitting this wipes the
 							// activity's actividades_cursos rows for all OTHER years
@@ -1477,12 +1564,7 @@
 				}));
 			}
 
-			var timer = null;
-			bar._searchInput.addEventListener('input', function () {
-				st.searchQuery = this.value;
-				if (timer) { clearTimeout(timer); }
-				timer = setTimeout(function () { st.page = 1; render(); }, 250);
-			});
+			wireSearchInput(bar, st, render);
 		}
 		render();
 	}
@@ -1519,23 +1601,17 @@
 
 		function addField(id, labelText, input) {
 			var lbl = document.createElement('label');
-			lbl.setAttribute('for', id);
-			lbl.textContent = labelText;
-			input.id = id;
-			form.appendChild(lbl);
-			form.appendChild(input);
+			lbl.setAttribute('for', id); lbl.textContent = labelText; input.id = id;
+			form.appendChild(lbl); form.appendChild(input);
 		}
 
-		// Empresa selector (shows nome, stores empresa_id)
 		var empresaSelect = document.createElement('select');
-		var emptyOpt = document.createElement('option');
-		emptyOpt.value = ''; emptyOpt.textContent = '-- Seleccionar empresa --';
-		empresaSelect.appendChild(emptyOpt);
-		empresaList.forEach(function (e) {
+		var emptyEmpresa = document.createElement('option');
+		emptyEmpresa.value = ''; emptyEmpresa.textContent = '-- Seleccionar empresa --';
+		empresaSelect.appendChild(emptyEmpresa);
+		(Array.isArray(empresaList) ? empresaList : []).forEach(function (e) {
 			if (e.estado === 'inactivo') { return; }
-			var opt = document.createElement('option');
-			opt.value = String(e.id);
-			opt.textContent = e.nome;
+			var opt = document.createElement('option'); opt.value = String(e.id); opt.textContent = e.nome;
 			if (isEdit && String(act.empresa_id) === String(e.id)) { opt.selected = true; }
 			empresaSelect.appendChild(opt);
 		});
@@ -1544,505 +1620,105 @@
 		var nomeInput = document.createElement('input'); nomeInput.type = 'text';
 		nomeInput.value = isEdit ? (act.nome || '') : '';
 		addField('anpa-act-nome', 'Nome', nomeInput);
+		var descInput = document.createElement('textarea'); descInput.rows = 3;
+		descInput.value = isEdit ? (act.descripcion || '') : '';
+		addField('anpa-act-descripcion', 'Descrición', descInput);
 
-		var descInput = document.createElement('textarea');
-		descInput.rows = 3; descInput.value = isEdit ? (act.descripcion || '') : '';
-		addField('anpa-act-descripcion', 'Descrici\u00F3n', descInput);
-
-		// ── Icona: presets accesibles + personalizada + vista previa (PR-ES9 task 86) ──
-		// `actividades.icono` é compartido entre todos os anos en que se oferta a
-		// actividade (vive na táboa base, non en actividades_cursos). O payload de
-		// gardado sempre envía o valor seleccionado aquí, nunca fuerza baleiro.
-		var ICONO_PRESETS = [
-			{ emoji: '\uD83C\uDF92', label: 'Xeral' },
-			{ emoji: '\u26BD', label: 'F\u00FAtbol' },
-			{ emoji: '\uD83C\uDFA8', label: 'Debuxo' },
-			{ emoji: '\uD83C\uDFAD', label: 'Teatro' },
-			{ emoji: '\uD83C\uDFB5', label: 'M\u00FAsica' },
-			{ emoji: '\u265F\uFE0F', label: 'Xadrez' },
-			{ emoji: '\uD83E\uDD38', label: 'Deporte' },
-			{ emoji: '\uD83C\uDFAC', label: 'Cine' },
-			{ emoji: '\uD83D\uDD2C', label: 'Ciencia' },
-			{ emoji: '\uD83D\uDCDA', label: 'Lectura' }
+		var iconos = [
+			{ emoji: '🎒', label: 'Xeral' }, { emoji: '⚽', label: 'Fútbol' },
+			{ emoji: '🎨', label: 'Debuxo' }, { emoji: '🎭', label: 'Teatro' },
+			{ emoji: '🎵', label: 'Música' }, { emoji: '♟️', label: 'Xadrez' },
+			{ emoji: '🤸', label: 'Deporte' }, { emoji: '🎬', label: 'Cine' },
+			{ emoji: '🔬', label: 'Ciencia' }, { emoji: '📚', label: 'Lectura' }
 		];
-		var ICONO_DEFAULT = ICONO_PRESETS[0].emoji;
-		var initialIcono = isEdit ? ( act.icono || ICONO_DEFAULT ) : ICONO_DEFAULT;
-		var matchedIconoPreset = null;
-		ICONO_PRESETS.forEach(function (p) {
-			if (p.emoji === initialIcono) { matchedIconoPreset = p; }
-		});
-
-		var iconoLabel = document.createElement('label');
-		iconoLabel.textContent = 'Icona';
-		form.appendChild(iconoLabel);
-
-		var iconoGroup = document.createElement('div');
-		iconoGroup.className = 'anpa-mgmt-icono-group';
-		iconoGroup.setAttribute('role', 'radiogroup');
-		iconoGroup.setAttribute('aria-label', 'Icona da actividade');
-
-		var iconoRadios = [];
-		ICONO_PRESETS.forEach(function (p) {
-			var chkLabel = document.createElement('label');
-			chkLabel.style.display = 'inline-block';
-			chkLabel.style.marginRight = '1em';
-			var radio = document.createElement('input');
-			radio.type = 'radio';
-			radio.name = 'anpa-act-icono-preset';
-			radio.value = p.emoji;
+		var initialIcono = isEdit ? (act.icono || '🎒') : '🎒';
+		var matchedIconoPreset = iconos.some(function (p) { return p.emoji === initialIcono; });
+		var iconWrap = document.createElement('div'); iconWrap.className = 'anpa-mgmt-icono-group';
+		iconWrap.setAttribute('role', 'radiogroup');
+		iconWrap.setAttribute('aria-label', 'Icona da actividade');
+		var iconRadios = [];
+		iconos.forEach(function (p) {
+			var label = document.createElement('label');
+			var radio = document.createElement('input'); radio.type = 'radio'; radio.name = 'anpa-act-icono'; radio.value = p.emoji;
 			radio.setAttribute('aria-label', p.label);
-			if (matchedIconoPreset && matchedIconoPreset.emoji === p.emoji) { radio.checked = true; }
-			chkLabel.appendChild(radio);
-			chkLabel.appendChild(document.createTextNode(' ' + p.emoji + ' ' + p.label));
-			iconoGroup.appendChild(chkLabel);
-			iconoRadios.push(radio);
+			if (initialIcono === p.emoji) { radio.checked = true; }
+			label.appendChild(radio); label.appendChild(document.createTextNode(' ' + p.emoji + ' ' + p.label));
+			iconWrap.appendChild(label); iconRadios.push(radio);
 		});
-		form.appendChild(iconoGroup);
-
-		// Personalizada: conserva/permite calquera emoji legacy fóra da lista de presets.
-		var iconoCustomInput = document.createElement('input');
-		iconoCustomInput.type = 'text';
-		iconoCustomInput.maxLength = 20;
+		var iconLabel = document.createElement('label'); iconLabel.textContent = 'Icona';
+		form.appendChild(iconLabel); form.appendChild(iconWrap);
+		var iconoCustomInput = document.createElement('input'); iconoCustomInput.type = 'text'; iconoCustomInput.maxLength = 20;
 		iconoCustomInput.value = matchedIconoPreset ? '' : initialIcono;
 		addField('anpa-act-icono-custom', 'Icona personalizada (emoji)', iconoCustomInput);
-
-		var iconoPreviewLabel = document.createElement('label');
-		iconoPreviewLabel.textContent = 'Vista previa da icona';
-		form.appendChild(iconoPreviewLabel);
 		var iconoPreview = document.createElement('p');
 		iconoPreview.className = 'anpa-mgmt-icono-preview';
 		iconoPreview.setAttribute('aria-live', 'polite');
 		iconoPreview.textContent = initialIcono;
 		form.appendChild(iconoPreview);
-
-		function updateIconoPreview() {
-			var checkedRadio = null;
-			for (var ri = 0; ri < iconoRadios.length; ri++) {
-				if (iconoRadios[ri].checked) { checkedRadio = iconoRadios[ri]; break; }
-			}
-			if (checkedRadio) {
-				iconoPreview.textContent = checkedRadio.value;
-			} else if ((iconoCustomInput.value || '').trim() !== '') {
-				iconoPreview.textContent = iconoCustomInput.value.trim();
-			} else {
-				iconoPreview.textContent = ICONO_DEFAULT;
-			}
-		}
-		iconoRadios.forEach(function (radio) {
-			radio.addEventListener('change', function () {
-				iconoCustomInput.value = '';
-				updateIconoPreview();
-			});
-		});
+		function updateIconoPreview() { iconoPreview.textContent = getSelectedIcono(); }
 		iconoCustomInput.addEventListener('input', function () {
-			if ((iconoCustomInput.value || '').trim() !== '') {
-				iconoRadios.forEach(function (radio) { radio.checked = false; });
-			}
+			if (iconoCustomInput.value.trim()) { iconRadios.forEach(function (r) { r.checked = false; }); }
 			updateIconoPreview();
 		});
-
+		iconRadios.forEach(function (r) { r.addEventListener('change', function () { iconoCustomInput.value = ''; updateIconoPreview(); }); });
 		function getSelectedIcono() {
-			for (var ri = 0; ri < iconoRadios.length; ri++) {
-				if (iconoRadios[ri].checked) { return iconoRadios[ri].value; }
-			}
-			var custom = (iconoCustomInput.value || '').trim();
-			return custom !== '' ? custom : ICONO_DEFAULT;
+			for (var i = 0; i < iconRadios.length; i++) { if (iconRadios[i].checked) { return iconRadios[i].value; } }
+			return iconoCustomInput.value.trim() || '🎒';
 		}
 
-		var cursoSelect = document.createElement('select');
-		var currentYear = isEdit ? (act.curso_escolar || '') : '';
-		var yearOptions = generateCursoRange(currentYear);
-		yearOptions.forEach(function (yr) {
-			var opt = document.createElement('option'); opt.value = yr; opt.textContent = yr;
-			if (yr === currentYear) { opt.selected = true; }
-			cursoSelect.appendChild(opt);
-		});
-		addField('anpa-act-curso', 'Curso escolar (primario)', cursoSelect);
-
-		// Multi-course selector: checkboxes for available school years.
-		var cursosContainer = document.createElement('div');
-		cursosContainer.className = 'anpa-mgmt-multicurso';
-		var cursosLabel = document.createElement('label');
-		cursosLabel.textContent = 'Cursos nos que se oferta';
+		var cursosLabel = document.createElement('label'); cursosLabel.textContent = 'Cursos nos que se oferta';
 		form.appendChild(cursosLabel);
-		var primaryYear = cursoSelect.value || '';
-		var yearList = generateCursoRange(primaryYear);
-		var selectedCursos = isEdit && Array.isArray(act.cursos_ofertados) ? act.cursos_ofertados : (isEdit && act.curso_escolar ? [act.curso_escolar] : []);
-		yearList.forEach(function (yr) {
-			var chkLabel = document.createElement('label');
-			chkLabel.style.display = 'inline-block';
-			chkLabel.style.marginRight = '1em';
-			var chk = document.createElement('input');
-			chk.type = 'checkbox';
-			chk.value = yr;
-			chk.checked = selectedCursos.indexOf(yr) !== -1;
-			chkLabel.appendChild(chk);
-			chkLabel.appendChild(document.createTextNode(' ' + yr));
-			cursosContainer.appendChild(chkLabel);
+		var cursosContainer = document.createElement('div'); cursosContainer.className = 'anpa-mgmt-multicurso';
+		var cursosDisponibles = Array.isArray(cfg.cursosescolares) ? cfg.cursosescolares : [];
+		var seleccionados = isEdit && Array.isArray(act.cursos_ofertados) ? act.cursos_ofertados : [];
+		cursosDisponibles.forEach(function (yr) {
+			var label = document.createElement('label');
+			var chk = document.createElement('input'); chk.type = 'checkbox'; chk.value = yr;
+			chk.checked = seleccionados.indexOf(yr) !== -1;
+			label.appendChild(chk); label.appendChild(document.createTextNode(' ' + yr)); cursosContainer.appendChild(label);
 		});
+		if (!cursosDisponibles.length) { cursosContainer.appendChild(emptyEl('Non hai cursos escolares dados de alta. Créaos primeiro en Axustes → Cursos.')); }
 		form.appendChild(cursosContainer);
 
-		function syncPrimaryCourseCheckbox() {
-			var checkboxes = cursosContainer.querySelectorAll('input[type="checkbox"]');
-			for (var i = 0; i < checkboxes.length; i++) {
-				checkboxes[i].disabled = false;
-				if (checkboxes[i].value === cursoSelect.value) {
-					checkboxes[i].checked = true;
-					checkboxes[i].disabled = true;
-				}
-			}
-		}
-		cursoSelect.addEventListener('change', function () {
-			syncPrimaryCourseCheckbox();
-			// syncNiveisPorAno is a hoisted function declaration defined below
-			// in this same scope — it re-renders the per-year nivel selects,
-			// needed because programmatically setting `.checked` on the
-			// matching checkbox does NOT fire that checkbox's own 'change'.
-			syncNiveisPorAno();
-		});
-		syncPrimaryCourseCheckbox();
-
-		// ── Per-year nivel mínimo/máximo selectors (PR-ES9 task 85) ──
-		// One pair of <select> per CHECKED curso_escolar checkbox, populated
-		// from GET /admin/estrutura?curso_escolar=<ese ano>. Independent of
-		// the legacy idadeMinInput/idadeMaxInput (curso_min/curso_max) below,
-		// which stay untouched for back-compat.
-		var niveisPorAnoContainer = document.createElement('div');
-		niveisPorAnoContainer.className = 'anpa-mgmt-niveis-por-ano';
-		var niveisPorAnoLabel = document.createElement('label');
-		niveisPorAnoLabel.textContent = 'Niveis m\u00EDnimo/m\u00E1ximo por curso escolar (opcional)';
-		form.appendChild(niveisPorAnoLabel);
-		form.appendChild(niveisPorAnoContainer);
-
-		// yr -> { min: <select>, max: <select> }
-		var niveisPorAnoSelects = {};
-		// Preloaded per-year limits when editing (act.cursos_anuais, if the
-		// backend exposes it) — falls back to act.nivel_min_id/max_id for the
-		// activity's own primary curso_escolar row.
-		var existingNiveisPorAno = {};
-		if (isEdit) {
-			if (act.curso_escolar && (act.nivel_min_id != null || act.nivel_max_id != null)) {
-				existingNiveisPorAno[act.curso_escolar] = { nivel_min_id: act.nivel_min_id, nivel_max_id: act.nivel_max_id };
-			}
-			if (act.cursos_anuais && typeof act.cursos_anuais === 'object') {
-				Object.keys(act.cursos_anuais).forEach(function (yr) {
-					existingNiveisPorAno[yr] = act.cursos_anuais[yr];
-				});
-			}
-		}
-
-		function buildNivelSelect(idPrefix, yr, labelText) {
-			var wrapLabel = document.createElement('label');
-			wrapLabel.setAttribute('for', idPrefix + '-' + yr.replace(/\//g, '-'));
-			wrapLabel.textContent = labelText + ' (' + yr + ')';
-			wrapLabel.style.display = 'inline-block';
-			wrapLabel.style.marginRight = '0.5em';
-			var select = document.createElement('select');
-			select.id = idPrefix + '-' + yr.replace(/\//g, '-');
-			select.style.marginRight = '1em';
-			var emptyOpt = document.createElement('option');
-			emptyOpt.value = ''; emptyOpt.textContent = '-- Sen l\u00EDmite --';
-			select.appendChild(emptyOpt);
-			return { label: wrapLabel, select: select };
-		}
-
-		function populateNivelSelect(select, niveis, preselectId) {
-			niveis.forEach(function (n) {
-				var opt = document.createElement('option');
-				opt.value = String(n.id);
-				opt.textContent = n.etiqueta || n.codigo;
-				// data-orde backs the UI-side mínimo≤máximo check on save —
-				// comparison must use `orde`, never id/codigo (codigos are
-				// arbitrary strings, not necessarily numeric/sequential).
-				opt.setAttribute('data-orde', String(n.orde != null ? n.orde : ''));
-				if (preselectId != null && String(preselectId) === String(n.id)) { opt.selected = true; }
-				select.appendChild(opt);
-			});
-		}
-
-		function renderNivelRowForYear(yr) {
-			if (niveisPorAnoSelects[yr]) { return; }
-			var rowWrap = document.createElement('div');
-			rowWrap.className = 'anpa-mgmt-nivel-ano-row';
-			rowWrap.setAttribute('data-curso-escolar', yr);
-
-			var minParts = buildNivelSelect('anpa-act-nivelmin', yr, 'Nivel m\u00EDnimo');
-			var maxParts = buildNivelSelect('anpa-act-nivelmax', yr, 'Nivel m\u00E1ximo');
-			rowWrap.appendChild(minParts.label);
-			rowWrap.appendChild(minParts.select);
-			rowWrap.appendChild(maxParts.label);
-			rowWrap.appendChild(maxParts.select);
-			niveisPorAnoContainer.appendChild(rowWrap);
-
-			niveisPorAnoSelects[yr] = { min: minParts.select, max: maxParts.select, wrap: rowWrap };
-
-			var existing = existingNiveisPorAno[yr] || {};
-			anpaAdminFetch('estrutura?curso_escolar=' + encodeURIComponent(yr)).then(function (resp) {
-				var niveis = (resp && Array.isArray(resp.niveis)) ? resp.niveis : [];
-				populateNivelSelect(minParts.select, niveis, existing.nivel_min_id);
-				populateNivelSelect(maxParts.select, niveis, existing.nivel_max_id);
-			}).catch(function () {
-				// Estrutura non dispo\u00F1ible para este curso: deixa os selects
-				// so con "Sen l\u00EDmite", sen bloquear o resto do formulario.
-			});
-		}
-
-		function removeNivelRowForYear(yr) {
-			var entry = niveisPorAnoSelects[yr];
-			if (!entry) { return; }
-			if (entry.wrap && entry.wrap.parentNode) { entry.wrap.parentNode.removeChild(entry.wrap); }
-			delete niveisPorAnoSelects[yr];
-		}
-
-		function syncNiveisPorAno() {
-			var checkboxes = cursosContainer.querySelectorAll('input[type="checkbox"]');
-			for (var i = 0; i < checkboxes.length; i++) {
-				var yr = checkboxes[i].value;
-				if (checkboxes[i].checked) {
-					renderNivelRowForYear(yr);
-				} else {
-					removeNivelRowForYear(yr);
-				}
-			}
-		}
-		(function bindNivelSync() {
-			var checkboxes = cursosContainer.querySelectorAll('input[type="checkbox"]');
-			for (var i = 0; i < checkboxes.length; i++) {
-				checkboxes[i].addEventListener('change', syncNiveisPorAno);
-			}
-		})();
-		syncNiveisPorAno();
-
-		// Franxa: HH:MM start/end time pickers (15-minute steps) instead of a
-		// free-text field. Builds the same canonical "HH:MM-HH:MM" string
-		// consumed by ANPA_Socios_Actividade_Options::normalize_franxa().
-		var existingFranxaParts = isEdit && act.franxa ? /^(\d{2}:\d{2})-(\d{2}:\d{2})$/.exec(act.franxa) : null;
-		var franxaLabel = document.createElement('label');
-		franxaLabel.textContent = 'Franxa';
-		form.appendChild(franxaLabel);
-		var franxaRow = document.createElement('div');
-		franxaRow.className = 'anpa-mgmt-franxa-row';
-		var franxaStartInput = document.createElement('input');
-		franxaStartInput.type = 'time'; franxaStartInput.step = '300'; franxaStartInput.id = 'anpa-act-franxa-inicio';
-		franxaStartInput.value = existingFranxaParts ? existingFranxaParts[1] : '';
-		var franxaSep = document.createElement('span');
-		franxaSep.textContent = '\u2013';
-		var franxaEndInput = document.createElement('input');
-		franxaEndInput.type = 'time'; franxaEndInput.step = '300'; franxaEndInput.id = 'anpa-act-franxa-fin';
-		franxaEndInput.value = existingFranxaParts ? existingFranxaParts[2] : '';
-		franxaRow.appendChild(franxaStartInput);
-		franxaRow.appendChild(franxaSep);
-		franxaRow.appendChild(franxaEndInput);
-		form.appendChild(franxaRow);
-
-		function getFranxaValue() {
-			var start = (franxaStartInput.value || '').trim();
-			var end = (franxaEndInput.value || '').trim();
-			return (start && end) ? (start + '-' + end) : '';
-		}
-
-		// Horarios checkboxes
-		var horariosContainer = document.createElement('div');
-		['manha', 'tarde'].forEach(function (v) {
-			var chkLabel = document.createElement('label');
-			chkLabel.style.display = 'inline-block'; chkLabel.style.marginRight = '1em';
-			var chk = document.createElement('input'); chk.type = 'checkbox'; chk.value = v;
-			if (isEdit && act.horarios) {
-				var horariosArr = act.horarios.split(',').map(function (s) { return s.trim(); });
-				if (horariosArr.indexOf(v) !== -1) { chk.checked = true; }
-			}
-			chkLabel.appendChild(chk);
-			chkLabel.appendChild(document.createTextNode(v === 'manha' ? ' Ma\u00F1\u00E1' : ' Tarde'));
-			horariosContainer.appendChild(chkLabel);
-		});
-		var horariosLabel = document.createElement('label');
-		horariosLabel.textContent = 'Horarios';
-		form.appendChild(horariosLabel);
-		form.appendChild(horariosContainer);
-
-		// Grupos curriculares checkboxes — legacy actividades.grupos CSV field.
-		// This stores the legacy curso_range tokens ('1-2-3'/'4-5-6') for the
-		// actividade entity itself (NOT the grupo de actividade entity, which
-		// uses dynamic nivel_ids via grupos_niveis since PR-ES5). Retained for
-		// horario builder compatibility and legacy rendering; not dead code.
-		var gruposContainer = document.createElement('div');
-		['1-2-3', '4-5-6'].forEach(function (v) {
-			var chkLabel = document.createElement('label');
-			chkLabel.style.display = 'inline-block'; chkLabel.style.marginRight = '1em';
-			var chk = document.createElement('input'); chk.type = 'checkbox'; chk.value = v;
-			if (isEdit && act.grupos) {
-				var gruposArr = act.grupos.split(',').map(function (s) { return s.trim(); });
-				if (gruposArr.indexOf(v) !== -1) { chk.checked = true; }
-			}
-			chkLabel.appendChild(chk);
-			chkLabel.appendChild(document.createTextNode(v === '1-2-3' ? ' 1\u00BA ciclo (1-2-3)' : ' 2\u00BA ciclo (4-5-6)'));
-			gruposContainer.appendChild(chkLabel);
-		});
-		var gruposLabel = document.createElement('label');
-		gruposLabel.textContent = 'Grupos curriculares';
-		form.appendChild(gruposLabel);
-		form.appendChild(gruposContainer);
-
-		// Días checkboxes (canonical weekday tokens matching ANPA_Socios_Actividade_Options::DIAS)
-		var diasContainer = document.createElement('div');
-		var diasTokens = ['luns', 'martes', 'mercores', 'xoves', 'venres'];
-		var diasLabels = ['Luns', 'Martes', 'M\u00E9rcores', 'Xoves', 'Venres'];
-		diasTokens.forEach(function (v, idx) {
-			var chkLabel = document.createElement('label');
-			chkLabel.style.display = 'inline-block'; chkLabel.style.marginRight = '1em';
-			var chk = document.createElement('input'); chk.type = 'checkbox'; chk.value = v;
-			if (isEdit && act.dias) {
-				var diasArr = act.dias.split(',').map(function (s) { return s.trim(); });
-				if (diasArr.indexOf(v) !== -1) { chk.checked = true; }
-			}
-			chkLabel.appendChild(chk);
-			chkLabel.appendChild(document.createTextNode(' ' + diasLabels[idx]));
-			diasContainer.appendChild(chkLabel);
-		});
-		var diasLabel = document.createElement('label');
-		diasLabel.textContent = 'D\u00EDas';
-		form.appendChild(diasLabel);
-		form.appendChild(diasContainer);
-
-		var minPupInput = document.createElement('input'); minPupInput.type = 'number'; minPupInput.min = '1';
-		minPupInput.value = isEdit ? (act.min_pupilos || 10) : '10';
-		addField('anpa-act-minpup', 'M\u00EDnimo de alumnos/as', minPupInput);
-
-		var maxPupInput = document.createElement('input'); maxPupInput.type = 'number'; maxPupInput.min = '1';
-		maxPupInput.value = isEdit ? (act.max_pupilos || 15) : '15';
-		addField('anpa-act-maxpup', 'M\u00E1ximo de alumnos/as', maxPupInput);
-
-		// Legacy curso_min/curso_max (global numeric range, no relation to the
-		// niveis structure): collapsed under a <details> so it does not
-		// visually compete with the modern per-year nivel selectors above.
-		// Kept for back-compat only — see design.md §8.3.
-		var legacyLimitsDetails = document.createElement('details');
-		legacyLimitsDetails.className = 'anpa-mgmt-legacy-limits';
-		var legacyLimitsSummary = document.createElement('summary');
-		legacyLimitsSummary.textContent = 'L\u00EDmites antigos de curso (opcional, uso legado)';
-		legacyLimitsDetails.appendChild(legacyLimitsSummary);
-		form.appendChild(legacyLimitsDetails);
-
-		function addLegacyField(id, labelText, input) {
-			var lbl = document.createElement('label');
-			lbl.setAttribute('for', id);
-			lbl.textContent = labelText;
-			input.id = id;
-			legacyLimitsDetails.appendChild(lbl);
-			legacyLimitsDetails.appendChild(input);
-		}
-
-		var idadeMinInput = document.createElement('input'); idadeMinInput.type = 'number'; idadeMinInput.min = '0';
-		idadeMinInput.value = isEdit && act.curso_min != null ? act.curso_min : '';
-		addLegacyField('anpa-act-idademin', 'Curso m\u00EDnimo (opcional)', idadeMinInput);
-
-		var idadeMaxInput = document.createElement('input'); idadeMaxInput.type = 'number'; idadeMaxInput.min = '0';
-		idadeMaxInput.value = isEdit && act.curso_max != null ? act.curso_max : '';
-		addLegacyField('anpa-act-idademax', 'Curso m\u00E1ximo (opcional)', idadeMaxInput);
-
-		var custoInput = document.createElement('input'); custoInput.type = 'text';
-		custoInput.placeholder = '0.00';
+		var custoInput = document.createElement('input'); custoInput.type = 'text'; custoInput.placeholder = '0.00';
 		custoInput.value = isEdit ? (act.custo || '0') : '';
-		addField('anpa-act-custo', 'Custo (\u20AC)', custoInput);
-
+		addField('anpa-act-custo', 'Custo (€)', custoInput);
 		var estadoSelect = document.createElement('select');
 		['activo', 'inactivo'].forEach(function (v) {
 			var opt = document.createElement('option'); opt.value = v; opt.textContent = v;
-			if (isEdit && act.estado === v) { opt.selected = true; }
-			estadoSelect.appendChild(opt);
+			if (isEdit && act.estado === v) { opt.selected = true; } estadoSelect.appendChild(opt);
 		});
 		addField('anpa-act-estado', 'Estado', estadoSelect);
 
-		var actions = document.createElement('div');
-		actions.className = 'anpa-mgmt-form-actions';
-		var saveBtn = document.createElement('button');
-		saveBtn.type = 'button'; saveBtn.className = 'anpa-mgmt-btn';
+		if (isEdit) {
+			var gruposSection = document.createElement('section'); gruposSection.className = 'anpa-mgmt-activity-groups';
+			var gh = document.createElement('h4'); gh.textContent = 'Grupos da actividade'; gruposSection.appendChild(gh);
+			var gp = document.createElement('p'); gp.textContent = 'Nos grupos defínense anos, niveis, horario, franxa, días e capacidade.'; gruposSection.appendChild(gp);
+			var manage = document.createElement('button'); manage.type = 'button'; manage.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary'; manage.textContent = 'Xestionar grupos';
+			manage.addEventListener('click', function () { renderGruposPanel(act); }); gruposSection.appendChild(manage); form.appendChild(gruposSection);
+		}
+
+		var actions = document.createElement('div'); actions.className = 'anpa-mgmt-form-actions';
+		var saveBtn = document.createElement('button'); saveBtn.type = 'button'; saveBtn.className = 'anpa-mgmt-btn';
 		saveBtn.textContent = isEdit ? 'Gardar cambios' : 'Crear actividade';
 		saveBtn.addEventListener('click', function () {
-			clearMessage();
-			// Gather selected courses from checkboxes.
-			var selectedCursosArr = [];
-			var chks = cursosContainer.querySelectorAll('input[type="checkbox"]');
-			for (var ci = 0; ci < chks.length; ci++) {
-				if (chks[ci].checked) { selectedCursosArr.push(chks[ci].value); }
-			}
-			// Horarios from checkboxes
-			var horariosArr = [];
-			var hChks = horariosContainer.querySelectorAll('input[type="checkbox"]');
-			for (var hi = 0; hi < hChks.length; hi++) {
-				if (hChks[hi].checked) { horariosArr.push(hChks[hi].value); }
-			}
-			// Grupos from checkboxes
-			var gruposArr = [];
-			var gChks = gruposContainer.querySelectorAll('input[type="checkbox"]');
-			for (var gi = 0; gi < gChks.length; gi++) {
-				if (gChks[gi].checked) { gruposArr.push(gChks[gi].value); }
-			}
-			// Días from checkboxes
-			var diasArr = [];
-			var dChks = diasContainer.querySelectorAll('input[type="checkbox"]');
-			for (var di = 0; di < dChks.length; di++) {
-				if (dChks[di].checked) { diasArr.push(dChks[di].value); }
-			}
-			// Per-year nivel mínimo/máximo (PR-ES9 task 85): collect from every
-			// visible pair of selects, one entry per curso_escolar.
-			var cursosNiveisArr = [];
-			var niveisOrderError = null;
-			Object.keys(niveisPorAnoSelects).forEach(function (yr) {
-				var entry = niveisPorAnoSelects[yr];
-				var minVal = entry.min.value !== '' ? parseInt(entry.min.value, 10) : null;
-				var maxVal = entry.max.value !== '' ? parseInt(entry.max.value, 10) : null;
-				if (minVal != null && maxVal != null) {
-					var minOpt = entry.min.options[entry.min.selectedIndex];
-					var maxOpt = entry.max.options[entry.max.selectedIndex];
-					var minOrde = minOpt ? parseInt(minOpt.getAttribute('data-orde'), 10) : NaN;
-					var maxOrde = maxOpt ? parseInt(maxOpt.getAttribute('data-orde'), 10) : NaN;
-					if (!isNaN(minOrde) && !isNaN(maxOrde) && minOrde > maxOrde) {
-						niveisOrderError = 'O nivel m\u00EDnimo non pode ser posterior ao nivel m\u00E1ximo (curso ' + yr + ').';
-					}
-				}
-				cursosNiveisArr.push({ curso_escolar: yr, nivel_min_id: minVal, nivel_max_id: maxVal });
-			});
-			if (niveisOrderError) {
-				showMessage(niveisOrderError, 'error'); return;
-			}
+			var cursos = [];
+			cursosContainer.querySelectorAll('input[type="checkbox"]:checked').forEach(function (c) { cursos.push(c.value); });
 			var payload = {
 				empresa_id: parseInt(empresaSelect.value, 10) || 0,
-				nome: (nomeInput.value || '').trim(),
-				icono: getSelectedIcono(),
-				descripcion: (descInput.value || '').trim(),
-				curso_escolar: cursoSelect.value,
-				franxa: getFranxaValue(),
-				horarios: horariosArr.join(','),
-				grupos: gruposArr.join(','),
-				dias: diasArr.join(','),
-				curso_min: idadeMinInput.value !== '' ? parseInt(idadeMinInput.value, 10) : null,
-				curso_max: idadeMaxInput.value !== '' ? parseInt(idadeMaxInput.value, 10) : null,
-				min_pupilos: parseInt(minPupInput.value, 10) || 10,
-				max_pupilos: parseInt(maxPupInput.value, 10) || 15,
-				custo: (custoInput.value || '').trim(),
-				estado: estadoSelect.value,
-				cursos: selectedCursosArr,
-				cursos_niveis: cursosNiveisArr,
+				nome: nomeInput.value.trim(), icono: getSelectedIcono(), descripcion: descInput.value.trim(),
+				custo: custoInput.value.trim(), estado: estadoSelect.value, cursos: cursos
 			};
-			if (!payload.empresa_id || !payload.nome || !payload.descripcion || !payload.curso_escolar) {
-				showMessage('Empresa, nome, descrici\u00F3n e curso escolar son obrigatorios.', 'error'); return;
+			if (!payload.empresa_id || !payload.nome || !payload.descripcion || !payload.cursos.length) {
+				showMessage('Empresa, nome, descrición e polo menos un curso escolar son obrigatorios.', 'error'); return;
 			}
-			var method = isEdit ? 'PUT' : 'POST';
-			var path = isEdit ? 'actividad/' + act.id : 'actividades';
-			anpaAdminFetch(path, { method: method, body: payload }).then(function () {
-				showMessage(isEdit ? 'Actividade actualizada.' : 'Actividade creada.', 'success');
-				loadActividades();
+			anpaAdminFetch(isEdit ? 'actividad/' + act.id : 'actividades', { method: isEdit ? 'PUT' : 'POST', body: payload }).then(function () {
+				showMessage(isEdit ? 'Actividade actualizada.' : 'Actividade creada.', 'success'); loadActividades();
 			}).catch(function (e) { showMessage(e.message, 'error'); });
 		});
 		actions.appendChild(saveBtn);
-
-		var cancelBtn = document.createElement('button');
-		cancelBtn.type = 'button'; cancelBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
-		cancelBtn.textContent = 'Volver';
-		cancelBtn.addEventListener('click', function () { loadActividades(); });
-		actions.appendChild(cancelBtn);
-		form.appendChild(actions);
+		var cancelBtn = document.createElement('button'); cancelBtn.type = 'button'; cancelBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary'; cancelBtn.textContent = 'Volver';
+		cancelBtn.addEventListener('click', loadActividades); actions.appendChild(cancelBtn); form.appendChild(actions);
 		root.appendChild(form);
 	}
 
@@ -2055,257 +1731,125 @@
 	 */
 	function renderGruposPanel(actividad) {
 		root.textContent = '';
-		var panel = document.createElement('div');
-		panel.className = 'anpa-mgmt-form';
-		panel.style.maxWidth = '900px';
-		var h3 = document.createElement('h3');
-		h3.textContent = 'Grupos de: ' + (actividad.nome || '');
-		panel.appendChild(h3);
+		var panel = document.createElement('div'); panel.className = 'anpa-mgmt-form'; panel.style.maxWidth = '1100px';
+		var h3 = document.createElement('h3'); h3.textContent = 'Grupos de: ' + (actividad.nome || ''); panel.appendChild(h3);
+		var listContainer = document.createElement('div'); panel.appendChild(listContainer);
+		var actions = document.createElement('div'); actions.className = 'anpa-mgmt-form-actions';
+		var newBtn = document.createElement('button'); newBtn.type = 'button'; newBtn.className = 'anpa-mgmt-btn'; newBtn.textContent = 'Novo grupo';
+		newBtn.addEventListener('click', function () { renderGrupoForm(null, actividad); }); actions.appendChild(newBtn);
+		var backBtn = document.createElement('button'); backBtn.type = 'button'; backBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary'; backBtn.textContent = 'Volver a actividades';
+		backBtn.addEventListener('click', loadActividades); actions.appendChild(backBtn); panel.appendChild(actions); root.appendChild(panel);
 
-		var listContainer = document.createElement('div');
-		panel.appendChild(listContainer);
-
-		var actions = document.createElement('div');
-		actions.className = 'anpa-mgmt-form-actions';
-		actions.style.marginTop = '0.5rem';
-		var newGrupoBtn = document.createElement('button');
-		newGrupoBtn.type = 'button'; newGrupoBtn.className = 'anpa-mgmt-btn';
-		newGrupoBtn.textContent = 'Novo grupo';
-		newGrupoBtn.addEventListener('click', function () { renderGrupoForm(null, actividad); });
-		actions.appendChild(newGrupoBtn);
-
-		var backBtn = document.createElement('button');
-		backBtn.type = 'button'; backBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
-		backBtn.textContent = 'Volver a actividades';
-		backBtn.addEventListener('click', function () { loadActividades(); });
-		actions.appendChild(backBtn);
-		panel.appendChild(actions);
-		root.appendChild(panel);
-
-		// Load and render grupos list
 		anpaAdminFetch('actividad/' + actividad.id + '/grupos').then(function (rows) {
-			listContainer.textContent = '';
 			var grupos = Array.isArray(rows) ? rows : [];
-			if (!grupos.length) {
-				listContainer.appendChild(emptyEl('Sen grupos para esta actividade.'));
-				return;
-			}
-			var table = document.createElement('table');
-			table.className = 'anpa-mgmt-table';
-			var thead = document.createElement('thead');
-			var hr = document.createElement('tr');
-			['Curso', 'Franxa', 'D\u00EDas', 'Min', 'Max', 'Estado', ''].forEach(function (t) {
-				var th = document.createElement('th'); th.textContent = t; hr.appendChild(th);
+			listContainer.textContent = '';
+			if (!grupos.length) { listContainer.appendChild(emptyEl('Sen grupos.')); return; }
+			var table = document.createElement('table'); table.className = 'anpa-mgmt-table';
+			var thead = document.createElement('thead'); var hr = document.createElement('tr');
+			['Grupo', 'Horario', 'Franxa', 'Días', 'Cursos escolares', 'Min', 'Max', 'Estado', ''].forEach(function (label) {
+				var th = document.createElement('th'); th.textContent = label; hr.appendChild(th);
 			});
-			thead.appendChild(hr); table.appendChild(thead);
-			var tbody = document.createElement('tbody');
+			thead.appendChild(hr); table.appendChild(thead); var tbody = document.createElement('tbody');
 			grupos.forEach(function (g) {
 				var tr = document.createElement('tr');
-				[g.curso_range, g.franxa, g.dias, g.min_pupilos, g.max_pupilos, g.estado].forEach(function (v) {
+				[g.nome, g.horario_label || (g.horario === 'manha' ? 'Mañá (comedor)' : 'Tarde'), g.franxa, g.dias,
+				 (Array.isArray(g.cursos) ? g.cursos.join(', ') : ''), g.min_pupilos, g.max_pupilos, g.estado].forEach(function (v) {
 					var td = document.createElement('td'); td.textContent = v != null ? String(v) : ''; tr.appendChild(td);
 				});
-				var actionsTd = document.createElement('td');
-				actionsTd.className = 'anpa-mgmt-actions';
-
-				// Edit button
-				var editBtn = document.createElement('button');
-				editBtn.type = 'button'; editBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
-				editBtn.textContent = 'Editar';
-				editBtn.addEventListener('click', function () { renderGrupoForm(g, actividad); });
-				actionsTd.appendChild(editBtn);
-
-				// Toggle estado (aberto/pechado)
-				var toggleBtn = document.createElement('button');
-				toggleBtn.type = 'button';
-				toggleBtn.className = g.estado === 'aberto' ? 'anpa-mgmt-btn anpa-mgmt-btn-danger' : 'anpa-mgmt-btn';
-				toggleBtn.textContent = g.estado === 'aberto' ? 'Pechar' : 'Abrir';
-				toggleBtn.addEventListener('click', function () {
-					var newEstado = g.estado === 'aberto' ? 'pechado' : 'aberto';
-					anpaAdminFetch('grupo/' + g.id + '/estado', { method: 'POST', body: { estado: newEstado } }).then(function () {
-						showMessage('Estado do grupo actualizado.', 'success');
-						renderGruposPanel(actividad);
-					}).catch(function (e) { showMessage(e.message, 'error'); });
-				});
-				actionsTd.appendChild(toggleBtn);
-
-				// View matrículas button
-				var matBtn = document.createElement('button');
-				matBtn.type = 'button'; matBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
-				matBtn.textContent = 'Matr\u00EDculas';
-				matBtn.addEventListener('click', function () { renderGrupoMatriculas(g, actividad); });
-				actionsTd.appendChild(matBtn);
-
-				tr.appendChild(actionsTd);
-				tbody.appendChild(tr);
+				var tdActions = document.createElement('td'); tdActions.className = 'anpa-mgmt-actions';
+				var edit = document.createElement('button'); edit.type = 'button'; edit.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary'; edit.textContent = 'Editar';
+				edit.addEventListener('click', function () { renderGrupoForm(g, actividad); }); tdActions.appendChild(edit);
+				var toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = g.estado === 'aberto' ? 'anpa-mgmt-btn anpa-mgmt-btn-danger' : 'anpa-mgmt-btn';
+				toggle.textContent = g.estado === 'aberto' ? 'Pechar' : 'Abrir'; toggle.addEventListener('click', function () {
+					anpaAdminFetch('grupo/' + g.id + '/estado', { method: 'POST', body: { estado: g.estado === 'aberto' ? 'pechado' : 'aberto' } }).then(function () { renderGruposPanel(actividad); }).catch(function (e) { showMessage(e.message, 'error'); });
+				}); tdActions.appendChild(toggle);
+				var mats = document.createElement('button'); mats.type = 'button'; mats.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary'; mats.textContent = 'Matrículas';
+				mats.addEventListener('click', function () { renderGrupoMatriculas(g, actividad); }); tdActions.appendChild(mats);
+				var del = document.createElement('button'); del.type = 'button'; del.className = 'anpa-mgmt-btn anpa-mgmt-btn-danger'; del.textContent = 'Eliminar';
+				del.addEventListener('click', function () {
+					if (!confirm('Eliminar definitivamente esta serie de grupo? Só é posible se non ten matrículas nin histórico.')) { return; }
+					anpaAdminFetch('grupo/' + g.id, { method: 'DELETE' }).then(function () { renderGruposPanel(actividad); }).catch(function (e) { showMessage(e.message, 'error'); });
+				}); tdActions.appendChild(del);
+				tr.appendChild(tdActions); tbody.appendChild(tr);
 			});
-			table.appendChild(tbody);
-			listContainer.appendChild(table);
-		}).catch(function (e) {
-			listContainer.textContent = '';
-			listContainer.appendChild(emptyEl('Erro ao cargar grupos: ' + e.message));
-		});
+			table.appendChild(tbody); listContainer.appendChild(table);
+		}).catch(function (e) { listContainer.appendChild(emptyEl('Erro ao cargar grupos: ' + e.message)); });
 	}
 
-	/**
-	 * Renders create/edit form for a grupo.
-	 * @param {object|null} grupo - Existing grupo row or null for create.
-	 * @param {object} actividad - Parent actividad row.
-	 */
 	function renderGrupoForm(grupo, actividad) {
 		root.textContent = '';
-		var isEdit = grupo !== null;
-		var form = document.createElement('div');
-		form.className = 'anpa-mgmt-form';
-		form.setAttribute('role', 'form');
-		form.setAttribute('aria-label', isEdit ? 'Editar grupo' : 'Novo grupo');
-		var h3 = document.createElement('h3');
-		h3.textContent = (isEdit ? 'Editar grupo' : 'Novo grupo') + ' \u2014 ' + (actividad.nome || '');
-		form.appendChild(h3);
+		var isEdit = grupo !== null; var form = document.createElement('div'); form.className = 'anpa-mgmt-form';
+		var h3 = document.createElement('h3'); h3.textContent = (isEdit ? 'Editar grupo' : 'Novo grupo') + ' — ' + (actividad.nome || ''); form.appendChild(h3);
+		function addField(id, label, input) { var l = document.createElement('label'); l.htmlFor = id; l.textContent = label; input.id = id; form.appendChild(l); form.appendChild(input); }
 
-		function addField(id, labelText, input) {
-			var lbl = document.createElement('label');
-			lbl.setAttribute('for', id);
-			lbl.textContent = labelText;
-			input.id = id;
-			form.appendChild(lbl);
-			form.appendChild(input);
+		var nome = document.createElement('input'); nome.type = 'text'; nome.value = isEdit ? (grupo.nome || '') : ''; addField('anpa-grupo-nome', 'Nome do grupo', nome);
+		var yearsLabel = document.createElement('label'); yearsLabel.textContent = 'Cursos escolares'; form.appendChild(yearsLabel);
+		var yearsWrap = document.createElement('div'); yearsWrap.className = 'anpa-mgmt-multicurso'; form.appendChild(yearsWrap);
+		var offered = Array.isArray(actividad.cursos_ofertados) ? actividad.cursos_ofertados : [];
+		var selected = isEdit && Array.isArray(grupo.cursos) ? grupo.cursos : [];
+		var levelHost = document.createElement('div'); levelHost.className = 'anpa-mgmt-niveis-por-ano'; form.appendChild(levelHost);
+		var levelControls = {};
+
+		function addLevelYear(year) {
+			if (levelControls[year]) { return; }
+			var fieldset = document.createElement('fieldset'); fieldset.setAttribute('data-curso', year);
+			var legend = document.createElement('legend'); legend.textContent = 'Niveis (' + year + ')'; fieldset.appendChild(legend);
+			var body = document.createElement('div'); body.textContent = 'Cargando…'; fieldset.appendChild(body); levelHost.appendChild(fieldset);
+			levelControls[year] = { fieldset: fieldset, body: body };
+			anpaAdminFetch('estrutura?curso_escolar=' + encodeURIComponent(year)).then(function (resp) {
+				body.textContent = ''; var levels = resp && Array.isArray(resp.niveis) ? resp.niveis : [];
+				var pre = isEdit && grupo.niveis_por_ano && Array.isArray(grupo.niveis_por_ano[year]) ? grupo.niveis_por_ano[year].map(String) : [];
+				levels.forEach(function (n) {
+					var label = document.createElement('label'); var chk = document.createElement('input'); chk.type = 'checkbox'; chk.value = String(n.id); chk.checked = pre.indexOf(String(n.id)) !== -1;
+					label.appendChild(chk); label.appendChild(document.createTextNode(' ' + (n.etiqueta || n.codigo))); body.appendChild(label);
+				});
+				if (!levels.length) { body.appendChild(emptyEl('Este curso non ten niveis dados de alta.')); }
+			}).catch(function () { body.textContent = 'Non foi posible cargar os niveis.'; });
 		}
-
-		var cursoEscInput = document.createElement('input'); cursoEscInput.type = 'text';
-		cursoEscInput.placeholder = '2025/2026';
-		cursoEscInput.value = isEdit ? (grupo.curso_escolar || '') : (actividad.curso_escolar || '');
-		addField('anpa-grupo-curso-esc', 'Curso escolar', cursoEscInput);
-
-		var cursoRangeInput = document.createElement('input'); cursoRangeInput.type = 'text';
-		cursoRangeInput.placeholder = '1-2';
-		cursoRangeInput.value = isEdit ? (grupo.curso_range || '') : '';
-		addField('anpa-grupo-curso-range', 'Grupo curricular (ex: 1-2, 3-4)', cursoRangeInput);
-
-		// Franxa: HH:MM start/end time pickers (15-minute steps), same pattern
-		// as the activity form. Defaults to the parent activity's franxa when
-		// creating a new grupo.
-		var grupoFranxaSource = isEdit ? (grupo.franxa || '') : (actividad.franxa || '');
-		var grupoFranxaParts = grupoFranxaSource ? /^(\d{2}:\d{2})-(\d{2}:\d{2})$/.exec(grupoFranxaSource) : null;
-		var grupoFranxaLabel = document.createElement('label');
-		grupoFranxaLabel.textContent = 'Franxa';
-		form.appendChild(grupoFranxaLabel);
-		var grupoFranxaRow = document.createElement('div');
-		grupoFranxaRow.className = 'anpa-mgmt-franxa-row';
-		var grupoFranxaStartInput = document.createElement('input');
-		grupoFranxaStartInput.type = 'time'; grupoFranxaStartInput.step = '300'; grupoFranxaStartInput.id = 'anpa-grupo-franxa-inicio';
-		grupoFranxaStartInput.value = grupoFranxaParts ? grupoFranxaParts[1] : '';
-		var grupoFranxaSep = document.createElement('span');
-		grupoFranxaSep.textContent = '\u2013';
-		var grupoFranxaEndInput = document.createElement('input');
-		grupoFranxaEndInput.type = 'time'; grupoFranxaEndInput.step = '300'; grupoFranxaEndInput.id = 'anpa-grupo-franxa-fin';
-		grupoFranxaEndInput.value = grupoFranxaParts ? grupoFranxaParts[2] : '';
-		grupoFranxaRow.appendChild(grupoFranxaStartInput);
-		grupoFranxaRow.appendChild(grupoFranxaSep);
-		grupoFranxaRow.appendChild(grupoFranxaEndInput);
-		form.appendChild(grupoFranxaRow);
-
-		function getGrupoFranxaValue() {
-			var start = (grupoFranxaStartInput.value || '').trim();
-			var end = (grupoFranxaEndInput.value || '').trim();
-			return (start && end) ? (start + '-' + end) : '';
-		}
-
-		// Días checkboxes — constrained to parent activity's días (subset requirement)
-		var grupoDiasContainer = document.createElement('div');
-		var actDias = (actividad.dias || '').split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s !== ''; });
-		var allDiasTokens = ['luns', 'martes', 'mercores', 'xoves', 'venres'];
-		var allDiasLabels = ['Luns', 'Martes', 'M\u00E9rcores', 'Xoves', 'Venres'];
-		var grupoDiasToShow = actDias.length > 0 ? actDias : allDiasTokens;
-		grupoDiasToShow.forEach(function (v) {
-			var idx = allDiasTokens.indexOf(v);
-			if (idx === -1) { return; }
-			var chkLabel = document.createElement('label');
-			chkLabel.style.display = 'inline-block'; chkLabel.style.marginRight = '1em';
-			var chk = document.createElement('input'); chk.type = 'checkbox'; chk.value = v;
-			if (isEdit && grupo.dias) {
-				var grupoDiasArr = grupo.dias.split(',').map(function (s) { return s.trim(); });
-				if (grupoDiasArr.indexOf(v) !== -1) { chk.checked = true; }
-			}
-			chkLabel.appendChild(chk);
-			chkLabel.appendChild(document.createTextNode(' ' + allDiasLabels[idx]));
-			grupoDiasContainer.appendChild(chkLabel);
+		function removeLevelYear(year) { if (levelControls[year]) { levelControls[year].fieldset.remove(); delete levelControls[year]; } }
+		offered.forEach(function (year) {
+			var label = document.createElement('label'); var chk = document.createElement('input'); chk.type = 'checkbox'; chk.value = year; chk.checked = selected.indexOf(year) !== -1;
+			chk.addEventListener('change', function () { if (chk.checked) { addLevelYear(year); } else { removeLevelYear(year); } });
+			label.appendChild(chk); label.appendChild(document.createTextNode(' ' + year)); yearsWrap.appendChild(label); if (chk.checked) { addLevelYear(year); }
 		});
-		var grupoDiasLabel = document.createElement('label');
-		grupoDiasLabel.textContent = 'D\u00EDas';
-		form.appendChild(grupoDiasLabel);
-		form.appendChild(grupoDiasContainer);
 
-		var minInput = document.createElement('input'); minInput.type = 'number'; minInput.min = '0';
-		minInput.value = isEdit ? (grupo.min_pupilos || 0) : '10';
-		addField('anpa-grupo-min', 'M\u00EDnimo alumnos/as', minInput);
-
-		var maxInput = document.createElement('input'); maxInput.type = 'number'; maxInput.min = '1';
-		maxInput.value = isEdit ? (grupo.max_pupilos || 15) : '15';
-		addField('anpa-grupo-max', 'M\u00E1ximo alumnos/as', maxInput);
-
-		var estadoSelect = document.createElement('select');
-		['aberto', 'pechado'].forEach(function (v) {
-			var opt = document.createElement('option'); opt.value = v; opt.textContent = v;
-			if (isEdit && grupo.estado === v) { opt.selected = true; }
-			estadoSelect.appendChild(opt);
+		var horario = document.createElement('div');
+		[['manha', 'Mañá (comedor)'], ['tarde', 'Tarde']].forEach(function (pair) {
+			var label = document.createElement('label'); var radio = document.createElement('input'); radio.type = 'radio'; radio.name = 'anpa-grupo-horario'; radio.value = pair[0]; radio.checked = isEdit ? grupo.horario === pair[0] : pair[0] === 'tarde';
+			label.appendChild(radio); label.appendChild(document.createTextNode(' ' + pair[1])); horario.appendChild(label);
 		});
-		addField('anpa-grupo-estado', 'Estado', estadoSelect);
+		var horarioLabel = document.createElement('label'); horarioLabel.textContent = 'Horario'; form.appendChild(horarioLabel); form.appendChild(horario);
 
-		var formActions = document.createElement('div');
-		formActions.className = 'anpa-mgmt-form-actions';
-		var saveBtn = document.createElement('button');
-		saveBtn.type = 'button'; saveBtn.className = 'anpa-mgmt-btn';
-		saveBtn.textContent = isEdit ? 'Gardar cambios' : 'Crear grupo';
-		saveBtn.addEventListener('click', function () {
-			clearMessage();
-			// Gather grupo días from checkboxes
-			var grupoDiasArr = [];
-			var gdChks = grupoDiasContainer.querySelectorAll('input[type="checkbox"]');
-			for (var gdi = 0; gdi < gdChks.length; gdi++) {
-				if (gdChks[gdi].checked) { grupoDiasArr.push(gdChks[gdi].value); }
-			}
-			var payload = {
-				curso_escolar: (cursoEscInput.value || '').trim(),
-				curso_range: (cursoRangeInput.value || '').trim(),
-				franxa: getGrupoFranxaValue(),
-				dias: grupoDiasArr.join(','),
-				min_pupilos: parseInt(minInput.value, 10) || 0,
-				max_pupilos: parseInt(maxInput.value, 10) || 15,
-				estado: estadoSelect.value,
-			};
-			if (!payload.curso_escolar || !payload.curso_range || !payload.dias) {
-				showMessage('Curso escolar, grupo curricular e d\u00EDas son obrigatorios.', 'error'); return;
-			}
-			var method = isEdit ? 'PUT' : 'POST';
-			var path = isEdit ? 'grupo/' + grupo.id : 'actividad/' + actividad.id + '/grupos';
-			anpaAdminFetch(path, { method: method, body: payload }).then(function () {
-				showMessage(isEdit ? 'Grupo actualizado.' : 'Grupo creado.', 'success');
-				renderGruposPanel(actividad);
-			}).catch(function (e) { showMessage(e.message, 'error'); });
-		});
-		formActions.appendChild(saveBtn);
+		var parts = isEdit && grupo.franxa ? /^(\d{2}:\d{2})-(\d{2}:\d{2})$/.exec(grupo.franxa) : null;
+		var timeWrap = document.createElement('div'); timeWrap.className = 'anpa-mgmt-franxa-row'; var start = document.createElement('input'); start.type = 'time'; start.step = '300'; start.value = parts ? parts[1] : '';
+		var sep = document.createElement('span'); sep.textContent = '–'; var end = document.createElement('input'); end.type = 'time'; end.step = '300'; end.value = parts ? parts[2] : '';
+		timeWrap.appendChild(start); timeWrap.appendChild(sep); timeWrap.appendChild(end); var timeLabel = document.createElement('label'); timeLabel.textContent = 'Franxa horaria'; form.appendChild(timeLabel); form.appendChild(timeWrap);
 
-		var cancelBtn = document.createElement('button');
-		cancelBtn.type = 'button'; cancelBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
-		cancelBtn.textContent = 'Volver a grupos';
-		cancelBtn.addEventListener('click', function () { renderGruposPanel(actividad); });
-		formActions.appendChild(cancelBtn);
-		form.appendChild(formActions);
-		root.appendChild(form);
+		var days = document.createElement('div'); var dayTokens = ['luns','martes','mercores','xoves','venres']; var dayLabels = ['Luns','Martes','Mércores','Xoves','Venres']; var existingDays = isEdit ? String(grupo.dias || '').split(',') : [];
+		dayTokens.forEach(function (day, i) { var label = document.createElement('label'); var chk = document.createElement('input'); chk.type = 'checkbox'; chk.value = day; chk.checked = existingDays.indexOf(day) !== -1; label.appendChild(chk); label.appendChild(document.createTextNode(' ' + dayLabels[i])); days.appendChild(label); });
+		var daysLabel = document.createElement('label'); daysLabel.textContent = 'Días'; form.appendChild(daysLabel); form.appendChild(days);
+		var min = document.createElement('input'); min.type = 'number'; min.min = '1'; min.value = isEdit ? grupo.min_pupilos : '8'; addField('anpa-grupo-min', 'Mínimo de alumnos/as', min);
+		var max = document.createElement('input'); max.type = 'number'; max.min = '1'; max.value = isEdit ? grupo.max_pupilos : '15'; addField('anpa-grupo-max', 'Máximo de alumnos/as', max);
+		var state = document.createElement('select'); ['aberto','pechado'].forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v; o.selected = isEdit && grupo.estado === v; state.appendChild(o); }); addField('anpa-grupo-estado', 'Estado', state);
+
+		var actions = document.createElement('div'); actions.className = 'anpa-mgmt-form-actions'; var save = document.createElement('button'); save.type = 'button'; save.className = 'anpa-mgmt-btn'; save.textContent = isEdit ? 'Gardar cambios' : 'Crear grupo';
+		save.addEventListener('click', function () {
+			var cursos = []; yearsWrap.querySelectorAll('input:checked').forEach(function (c) { cursos.push(c.value); }); var levels = {};
+			cursos.forEach(function (year) { levels[year] = []; if (levelControls[year]) { levelControls[year].body.querySelectorAll('input:checked').forEach(function (c) { levels[year].push(parseInt(c.value,10)); }); } });
+			var checkedHorario = horario.querySelector('input:checked'); var selectedDays = []; days.querySelectorAll('input:checked').forEach(function (c) { selectedDays.push(c.value); });
+			var payload = { nome: nome.value.trim(), cursos: cursos, niveis_por_ano: levels, horario: checkedHorario ? checkedHorario.value : '', franxa: start.value && end.value ? start.value + '-' + end.value : '', dias: selectedDays, min_pupilos: parseInt(min.value,10), max_pupilos: parseInt(max.value,10), estado: state.value };
+			anpaAdminFetch(isEdit ? 'grupo/' + grupo.id : 'actividad/' + actividad.id + '/grupos', { method: isEdit ? 'PATCH' : 'POST', body: payload }).then(function () { renderGruposPanel(actividad); }).catch(function (e) { showMessage(e.message, 'error'); });
+		}); actions.appendChild(save);
+		var cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary'; cancel.textContent = 'Volver'; cancel.addEventListener('click', function () { renderGruposPanel(actividad); }); actions.appendChild(cancel); form.appendChild(actions); root.appendChild(form);
 	}
 
-	/**
-	 * Shows the matrículas of a grupo and allows mover.
-	 * @param {object} grupo - The grupo row.
-	 * @param {object} actividad - Parent actividad row.
-	 */
 	function renderGrupoMatriculas(grupo, actividad) {
 		root.textContent = '';
 		var panel = document.createElement('div');
 		panel.className = 'anpa-mgmt-form';
 		panel.style.maxWidth = '900px';
 		var h3 = document.createElement('h3');
-		h3.textContent = 'Matr\u00EDculas do grupo ' + (grupo.curso_range || '') + ' \u2014 ' + (actividad.nome || '');
+		h3.textContent = 'Matr\u00EDculas do grupo ' + (grupo.nome || '') + ' \u2014 ' + (actividad.nome || '');
 		panel.appendChild(h3);
 
 		var listEl = document.createElement('div');
@@ -2350,7 +1894,10 @@
 				actionsTd.className = 'anpa-mgmt-actions';
 
 				// Move button (show select with other grupos)
-				var otherGrupos = allGrupos.filter(function (g) { return g.id !== grupo.id; });
+				var sourceYear = Array.isArray(grupo.cursos) && grupo.cursos.length ? grupo.cursos[0] : '';
+				var otherGrupos = allGrupos.filter(function (g) {
+					return g.id !== grupo.id && g.annual_ids && g.annual_ids[sourceYear];
+				});
 				if (otherGrupos.length > 0) {
 					var moverBtn = document.createElement('button');
 					moverBtn.type = 'button'; moverBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
@@ -2365,8 +1912,8 @@
 						sel.appendChild(defOpt);
 						otherGrupos.forEach(function (g) {
 							var opt = document.createElement('option');
-							opt.value = String(g.id);
-							opt.textContent = g.curso_range + ' (' + g.dias + ')';
+							opt.value = String(g.annual_ids[sourceYear]);
+							opt.textContent = (g.nome || 'Grupo') + ' — ' + (g.horario_label || '') + ' (' + g.dias + ')';
 							sel.appendChild(opt);
 						});
 						actionsTd.appendChild(sel);
@@ -2554,12 +2101,7 @@
 							matSt.page = p; matSt.size = s; renderMat();
 						}));
 					}
-					var timer = null;
-						bar._searchInput.addEventListener('input', function () {
-							matSt.searchQuery = this.value;
-							if (timer) { clearTimeout(timer); }
-							timer = setTimeout(function () { matSt.page = 1; renderMat(); }, 250);
-						});
+					wireSearchInput(bar, matSt, renderMat);
 					}
 					renderMat();
 					}).catch(function (e) { matHost.textContent = ''; showMessage(e.message, 'error'); });
@@ -2598,12 +2140,7 @@
 				}));
 			}
 
-			var timer = null;
-			bar._searchInput.addEventListener('input', function () {
-				st.searchQuery = this.value;
-				if (timer) { clearTimeout(timer); }
-				timer = setTimeout(function () { st.page = 1; render(); }, 250);
-			});
+			wireSearchInput(bar, st, render);
 		}
 		render();
 	}
@@ -2841,6 +2378,13 @@
 	function navigateTo(section) {
 		currentSection = section;
 		clearMessage();
+		// Reset the search state when entering a section so a previous query
+		// (and its "Sen resultados") does not persist across tab switches.
+		if (sectionState[section]) {
+			sectionState[section].searchQuery = '';
+			sectionState[section]._searchFocused = false;
+			sectionState[section].page = 1;
+		}
 		// Update nav active state
 		if (navEl) {
 			navEl.querySelectorAll('button').forEach(function (btn) {

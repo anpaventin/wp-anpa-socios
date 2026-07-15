@@ -786,11 +786,7 @@
 		});
 
 		// ── Extraescolares (socio self-enrolment, fase7 PR-7d) ───────────
-		// Labels below are for legacy curso_range display ('1-2-3'/'4-5-6').
-		// Dynamic grupos using grupos_niveis render nivel names from the backend;
-		// full horario rework with dynamic labels is out of scope here (PR-ES9).
 		const EXTRA_DIA_LABELS = { luns: 'Luns', martes: 'Martes', mercores: 'Mércores', xoves: 'Xoves', venres: 'Venres' };
-		const EXTRA_RANGE_LABELS = { '1-2-3': '1º-2º-3º', '4-5-6': '4º-5º-6º' };
 		const EXTRA_ESTADO_LABELS = {
 			activo: 'Matriculado/a',
 			lista_espera: __( 'En lista de espera', 'anpa-socios' ),
@@ -850,7 +846,7 @@
 				const who = ((m.fillo_nome || '') + ' ' + (m.fillo_apelidos || '')).trim();
 				const estado = EXTRA_ESTADO_LABELS[m.estado] || m.estado;
 				let txt = who + ' — ' + (m.actividade || '') ;
-				if (m.curso_range) { txt += ' (' + (EXTRA_RANGE_LABELS[m.curso_range] || m.curso_range) + ')'; }
+				if (m.grupo_nome) { txt += ' (' + m.grupo_nome + (m.horario ? ' — ' + (m.horario === 'manha' ? 'Mañá (comedor)' : 'Tarde') : '') + ')'; }
 				txt += ' · ' + estado;
 				if (m.estado === 'lista_espera' && m.posicion) { txt += ' (posición ' + m.posicion + ')'; }
 				const span = document.createElement('span');
@@ -966,7 +962,7 @@
 					const o = document.createElement('option');
 					o.value = String(g.id);
 					o.dataset.franxa = String(g.franxa || '');
-					let label = (EXTRA_RANGE_LABELS[g.curso_range] || g.curso_range) + ' · ' + (g.franxa || '') + ' · ' + extraDiasText(g.dias);
+					let label = (g.nome || 'Grupo') + ' · ' + (g.horario_label || '') + ' · ' + (g.franxa || '') + ' · ' + extraDiasText(g.dias);
 					label += g.cheo ? ' (completo — lista de espera)' : ' (' + (g.max_pupilos - g.activos) + ' prazas)';
 					o.textContent = label;
 					grupoSel.appendChild(o);
