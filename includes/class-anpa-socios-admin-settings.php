@@ -70,14 +70,26 @@ final class ANPA_Socios_Admin_Settings {
 	 * @return void
 	 */
 	public static function register_menu(): void {
+		// Top-level entry shows the plugin name "ANPA Socios" in the sidebar.
+		// Its first submenu is renamed to "Axustes" (WordPress otherwise
+		// duplicates the parent label), followed by "Xestión ANPA" and
+		// "Documentación".
 		add_menu_page(
-			'ANPA Socios — Axustes',
-			'Axustes',
+			'ANPA Socios',
+			'ANPA Socios',
 			self::CAP,
 			self::SETTINGS_SLUG,
 			array( __CLASS__, 'render_settings_page' ),
 			'dashicons-groups',
 			58
+		);
+		add_submenu_page(
+			self::SETTINGS_SLUG,
+			'Axustes ANPA Socios',
+			'Axustes',
+			self::CAP,
+			self::SETTINGS_SLUG,
+			array( __CLASS__, 'render_settings_page' )
 		);
 		ANPA_Socios_Admin_Management_Page::register_menu( self::SETTINGS_SLUG, self::CAP );
 		add_submenu_page( self::SETTINGS_SLUG, 'Documentación ANPA Socios', 'Documentación', self::CAP, self::DOCS_SLUG, array( __CLASS__, 'render_docs_page' ) );

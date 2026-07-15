@@ -133,13 +133,15 @@ final class ANPA_Socios_Grupos_Curriculares_Page {
 		}
 		echo '</td></tr>';
 		printf(
-			'<tr><th scope="row"><label for="gc-manha">%s</label></th><td><input type="time" id="gc-manha" step="900"> <span class="description">%s</span></td></tr>',
-			esc_html__( 'Horario de mañá', 'anpa-socios' ),
+			'<tr><th scope="row"><label for="gc-manha">%s</label></th><td><input type="time" id="gc-manha" step="300"> <span class="description">%s</span> <input type="time" id="gc-manha-fin" step="300"></td></tr>',
+			esc_html__( 'Horario de mañá (inicio – fin)', 'anpa-socios' ),
 			esc_html__( 'a', 'anpa-socios' )
 		);
-		printf( '<tr><th scope="row"><label for="gc-manha-fin">%s</label></th><td><input type="time" id="gc-manha-fin" step="900"></td></tr>', esc_html__( 'Fin mañá', 'anpa-socios' ) );
-		printf( '<tr><th scope="row"><label for="gc-tarde">%s</label></th><td><input type="time" id="gc-tarde" step="900"> <span class="description">%s</span></td></tr>', esc_html__( 'Horario de tarde', 'anpa-socios' ), esc_html__( 'a', 'anpa-socios' ) );
-		printf( '<tr><th scope="row"><label for="gc-tarde-fin">%s</label></th><td><input type="time" id="gc-tarde-fin" step="900"></td></tr>', esc_html__( 'Fin tarde', 'anpa-socios' ) );
+		printf(
+			'<tr><th scope="row"><label for="gc-tarde">%s</label></th><td><input type="time" id="gc-tarde" step="300"> <span class="description">%s</span> <input type="time" id="gc-tarde-fin" step="300"></td></tr>',
+			esc_html__( 'Horario de tarde (inicio – fin)', 'anpa-socios' ),
+			esc_html__( 'a', 'anpa-socios' )
+		);
 		echo '</tbody></table>';
 		echo '<p class="description">' . esc_html__( 'Debes indicar polo menos unha franxa completa (mañá ou tarde).', 'anpa-socios' ) . '</p>';
 		printf( '<button type="submit" class="button button-primary">%s</button>', esc_html__( 'Engadir grupo curricular', 'anpa-socios' ) );

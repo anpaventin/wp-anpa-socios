@@ -126,11 +126,174 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
         switch ( $accion ) {
             case 'engadir_nivel':
                 return self::engadir_nivel( $curso, $request );
+            case 'editar_nivel':
+                return self::editar_nivel( $curso, $request );
+            case 'set_aulas':
+                return self::set_aulas( $curso, $request );
             case 'copiar_estrutura':
                 return self::copiar_estrutura( $curso, $request );
             default:
                 return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Acción descoñecida.', 'anpa-socios' ) ), 400 );
         }
+    }
+
+    /**
+     * Valid classroom letters offered per level (A..H). Not hardcoded to any
+     * subset — each level picks its own last letter within this range.
+     *
+     * @return string[]
+     */
+    private static function aula_letras(): array {
+        return range( 'A', 'H' );
+    }
+
+    /**
+     * Ensures a level has active aulas A..$ultima and deactivates/removes any
+     * beyond it. Aulas still referenced by a fillo assignment are deactivated
+     * (never hard-deleted) to preserve history; unreferenced extras are removed.
+     *
+     * @param  int    $nivel_id Nivel id.
+     * @param  string $ultima   Last classroom letter (A..H).
+     * @return void
+     */
+    private static function sync_aulas_nivel( int $nivel_id, string $ultima ): void {
+        global $wpdb;
+
+        $aulas_t = ANPA_Socios_DB::tabela_aulas();
+        $fc_t    = ANPA_Socios_DB::tabela_fillos_cursos();
+        $letras  = self::aula_letras();
+        $ultima  = strtoupper( trim( $ultima ) );
+        $max_idx = array_search( $ultima, $letras, true );
+        if ( false === $max_idx ) {
+            $max_idx = 3; // default to 'D' when the letter is out of range.
+        }
+
+        // Ensure A..ultima exist and are active.
+        for ( $i = 0; $i <= $max_idx; $i++ ) {
+            $letra = $letras[ $i ];
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded upsert within admin handler.
+            $wpdb->query( $wpdb->prepare(
+                "INSERT INTO {$aulas_t} (nivel_id, codigo, etiqueta, orde, estado, creado_en, actualizado_en)
+                 VALUES (%d, %s, %s, %d, 'activo', NOW(), NOW())
+                 ON DUPLICATE KEY UPDATE estado = 'activo', etiqueta = VALUES(etiqueta), orde = VALUES(orde), actualizado_en = NOW()",
+                $nivel_id,
+                $letra,
+                $letra,
+                ( $i + 1 ) * 10
+            ) );
+        }
+
+        // Handle letters beyond ultima: deactivate if referenced, else delete.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin handler read.
+        $extras = $wpdb->get_results( $wpdb->prepare(
+            "SELECT id, codigo FROM {$aulas_t} WHERE nivel_id = %d",
+            $nivel_id
+        ), ARRAY_A );
+        if ( is_array( $extras ) ) {
+            foreach ( $extras as $a ) {
+                $idx = array_search( strtoupper( (string) $a['codigo'] ), $letras, true );
+                if ( false !== $idx && $idx <= $max_idx ) {
+                    continue; // within range, already handled above.
+                }
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin handler read.
+                $refs = (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$fc_t} WHERE aula_id = %d",
+                    (int) $a['id']
+                ) );
+                if ( $refs > 0 ) {
+                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin handler write.
+                    $wpdb->query( $wpdb->prepare( "UPDATE {$aulas_t} SET estado = 'inactivo', actualizado_en = NOW() WHERE id = %d", (int) $a['id'] ) );
+                } else {
+                    // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin handler write.
+                    $wpdb->query( $wpdb->prepare( "DELETE FROM {$aulas_t} WHERE id = %d", (int) $a['id'] ) );
+                }
+            }
+        }
+    }
+
+    /**
+     * POST accion=set_aulas — set a level's last classroom letter.
+     *
+     * @param  string          $curso   Curso escolar.
+     * @param  WP_REST_Request $request Incoming request.
+     * @return WP_REST_Response
+     */
+    private static function set_aulas( string $curso, WP_REST_Request $request ): WP_REST_Response {
+        global $wpdb;
+
+        $nivel_id = (int) $request->get_param( 'nivel_id' );
+        $ultima   = strtoupper( trim( (string) $request->get_param( 'ultima_aula' ) ) );
+        if ( $nivel_id < 1 || ! in_array( $ultima, self::aula_letras(), true ) ) {
+            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Datos inválidos.', 'anpa-socios' ) ), 400 );
+        }
+
+        // Confirm the nivel belongs to this curso escolar.
+        $niveis_t = ANPA_Socios_DB::tabela_niveis();
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin handler read.
+        $owned = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$niveis_t} WHERE id = %d AND curso_escolar = %s",
+            $nivel_id,
+            $curso
+        ) );
+        if ( $owned < 1 ) {
+            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Nivel non atopado.', 'anpa-socios' ) ), 404 );
+        }
+
+        $wpdb->query( 'START TRANSACTION' );
+        self::sync_aulas_nivel( $nivel_id, $ultima );
+        $wpdb->query( 'COMMIT' );
+
+        return new WP_REST_Response( array( 'success' => true, 'message' => __( 'Aulas actualizadas.', 'anpa-socios' ) ), 200 );
+    }
+
+    /**
+     * POST accion=editar_nivel — rename a level's label/orde.
+     *
+     * The single "Nivel" value is stored as both `codigo` and `etiqueta`
+     * (they were historically split into a relation key + a display label,
+     * but the editor now uses one field to avoid the redundancy).
+     *
+     * @param  string          $curso   Curso escolar.
+     * @param  WP_REST_Request $request Incoming request.
+     * @return WP_REST_Response
+     */
+    private static function editar_nivel( string $curso, WP_REST_Request $request ): WP_REST_Response {
+        global $wpdb;
+
+        $nivel_id = (int) $request->get_param( 'nivel_id' );
+        $codigo   = trim( (string) $request->get_param( 'codigo' ) );
+        $orde     = (int) $request->get_param( 'orde' );
+        if ( $nivel_id < 1 || '' === $codigo ) {
+            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Datos inválidos.', 'anpa-socios' ) ), 400 );
+        }
+
+        $niveis_t = ANPA_Socios_DB::tabela_niveis();
+
+        // Reject a duplicate codigo within the same curso (excluding this row).
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin handler read.
+        $dup = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$niveis_t} WHERE curso_escolar = %s AND codigo = %s AND id <> %d",
+            $curso,
+            $codigo,
+            $nivel_id
+        ) );
+        if ( $dup > 0 ) {
+            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Xa existe outro nivel con ese código neste curso.', 'anpa-socios' ) ), 409 );
+        }
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin handler write.
+        $updated = $wpdb->update(
+            $niveis_t,
+            array( 'codigo' => $codigo, 'etiqueta' => $codigo, 'orde' => $orde > 0 ? $orde : 10, 'actualizado_en' => current_time( 'mysql' ) ),
+            array( 'id' => $nivel_id, 'curso_escolar' => $curso ),
+            array( '%s', '%s', '%d', '%s' ),
+            array( '%d', '%s' )
+        );
+        if ( false === $updated ) {
+            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido gardar o nivel.', 'anpa-socios' ) ), 500 );
+        }
+
+        return new WP_REST_Response( array( 'success' => true, 'message' => __( 'Nivel actualizado.', 'anpa-socios' ) ), 200 );
     }
 
     /**
@@ -143,12 +306,17 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
     private static function engadir_nivel( string $curso, WP_REST_Request $request ): WP_REST_Response {
         global $wpdb;
 
-        $codigo  = trim( $request->get_param( 'codigo' ) );
-        $etiqueta = trim( $request->get_param( 'etiqueta' ) );
-        $orde    = (int) $request->get_param( 'orde' );
+        // Single "Nivel" value used as both codigo (relation key) and etiqueta
+        // (display) — the editor no longer asks for both separately.
+        $codigo = trim( (string) $request->get_param( 'codigo' ) );
+        $orde   = (int) $request->get_param( 'orde' );
+        $ultima = strtoupper( trim( (string) $request->get_param( 'ultima_aula' ) ) );
+        if ( ! in_array( $ultima, self::aula_letras(), true ) ) {
+            $ultima = 'D';
+        }
 
-        if ( '' === $codigo || '' === $etiqueta ) {
-            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Código e etiqueta son obrigatorios.', 'anpa-socios' ) ), 400 );
+        if ( '' === $codigo ) {
+            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'O nivel é obrigatorio.', 'anpa-socios' ) ), 400 );
         }
 
         $niveis_t = ANPA_Socios_DB::tabela_niveis();
@@ -164,6 +332,15 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Xa existe un nivel con ese código neste curso.', 'anpa-socios' ) ), 409 );
         }
 
+        // Default orde to the end of the list when not provided.
+        if ( $orde <= 0 ) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin REST handler read.
+            $orde = 10 + (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COALESCE(MAX(orde), 0) FROM {$niveis_t} WHERE curso_escolar = %s",
+                $curso
+            ) );
+        }
+
         $wpdb->query( 'START TRANSACTION' );
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin REST handler with transaction.
@@ -172,7 +349,7 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
             array(
                 'curso_escolar' => $curso,
                 'codigo'        => $codigo,
-                'etiqueta'      => $etiqueta,
+                'etiqueta'      => $codigo,
                 'orde'          => $orde,
                 'estado'        => 'activo',
                 'creado_en'     => current_time( 'mysql' ),
@@ -185,6 +362,9 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
             $wpdb->query( 'ROLLBACK' );
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido gardar o nivel.', 'anpa-socios' ) ), 500 );
         }
+
+        // Create the level's classrooms A..ultima in the same transaction.
+        self::sync_aulas_nivel( (int) $wpdb->insert_id, $ultima );
 
         $wpdb->query( 'COMMIT' );
 
