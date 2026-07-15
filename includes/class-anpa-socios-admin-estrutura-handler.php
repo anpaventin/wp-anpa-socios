@@ -67,7 +67,7 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only REST endpoint.
         $niveis = $wpdb->get_results( $wpdb->prepare(
-            "SELECT id, codigo, etiqueta, orde, estado FROM {$niveis_t} WHERE curso_escolar = %s ORDER BY orde ASC, codigo ASC",
+            "SELECT id, codigo, etiqueta, orde, estado FROM {$niveis_t} WHERE curso_escolar = %s AND estado = 'activo' ORDER BY orde ASC, codigo ASC",
             $curso
         ), ARRAY_A );
 
@@ -321,17 +321,6 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
 
         $niveis_t = ANPA_Socios_DB::tabela_niveis();
 
-        // Check duplicate.
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin REST handler.
-        $existing = $wpdb->get_var( $wpdb->prepare(
-            "SELECT id FROM {$niveis_t} WHERE curso_escolar = %s AND codigo = %s",
-            $curso,
-            $codigo
-        ) );
-        if ( null !== $existing ) {
-            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Xa existe un nivel con ese código neste curso.', 'anpa-socios' ) ), 409 );
-        }
-
         // Default orde to the end of the list when not provided.
         if ( $orde <= 0 ) {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin REST handler read.
@@ -360,6 +349,9 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
 
         if ( false === $inserted ) {
             $wpdb->query( 'ROLLBACK' );
+            if ( false !== strpos( $wpdb->last_error, 'Duplicate entry' ) ) {
+                return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Xa existe un nivel con ese código neste curso.', 'anpa-socios' ) ), 409 );
+            }
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido gardar o nivel.', 'anpa-socios' ) ), 500 );
         }
 
@@ -449,9 +441,11 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
         $aulas_t    = ANPA_Socios_DB::tabela_aulas();
         $fc_t       = ANPA_Socios_DB::tabela_fillos_cursos();
         $gn_t       = ANPA_Socios_DB::tabela_grupos_niveis();
-        $ac_t       = ANPA_Socios_DB::tabela_actividades_cursos();
 
-        // Check references.
+        // Check real references (fillos_cursos, grupos_niveis).
+        // NOTE: nivel_min_id / nivel_max_id in actividades_cursos are legacy
+        // columns no longer functionally used — they are NOT checked here so
+        // that every historically-referenced nivel is not blocked from deletion.
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin REST handler.
         $fc_refs = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(*) FROM {$fc_t} WHERE nivel_id = %d",
@@ -462,14 +456,8 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
             "SELECT COUNT(*) FROM {$gn_t} WHERE nivel_id = %d",
             $nivel_id
         ) );
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin REST handler.
-        $ac_refs = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$ac_t} WHERE nivel_min_id = %d OR nivel_max_id = %d",
-            $nivel_id,
-            $nivel_id
-        ) );
 
-        $has_references = ( $fc_refs + $gn_refs + $ac_refs ) > 0;
+        $has_references = ( $fc_refs + $gn_refs ) > 0;
 
         $wpdb->query( 'START TRANSACTION' );
 
