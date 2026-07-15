@@ -658,8 +658,12 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		);
 
 		$wpdb->last_error = '';
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
 		$ok = $wpdb->insert( $act_t, $copy );
 		if ( false === $ok ) {
+			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_socios_db_error', 'Erro ao crear a actividade duplicada.', array( 'status' => 500 ) );
 		}
 		$new_id = (int) $wpdb->insert_id;
@@ -685,7 +689,14 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			'estado'         => 'activo',
 			'actualizado_en' => current_time( 'mysql' ),
 		);
-		$wpdb->insert( $acy_t, $acy_copy );
+		if ( false === $wpdb->insert( $acy_t, $acy_copy ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_socios_db_error', 'Erro ao crear o curso duplicado.', array( 'status' => 500 ) );
+		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'actividad', (string) $new_id, 'duplicate_from_' . $src_id . '_to_' . $target );
 

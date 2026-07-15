@@ -503,13 +503,16 @@ final class ANPA_Socios_Extraescolares_REST {
 		$id    = (int) $mat['id'];
 
 		if ( 'activo' === $mat['estado'] ) {
-			$wpdb->update(
+			$updated = $wpdb->update(
 				$mat_t,
 				array( 'estado' => 'baixa_solicitada', 'actualizado_en' => current_time( 'mysql' ) ),
 				array( 'id' => $id ),
 				array( '%s', '%s' ),
 				array( '%d' )
 			);
+			if ( false === $updated ) {
+				return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
+			}
 			ANPA_Socios_Email::enviar_aviso_baixa_extraescolar( $email, self::pupil_name( (int) $mat['fillo_id'] ), self::activity_name( (int) $mat['activitad_id'] ) );
 			return new WP_REST_Response( array( 'id' => $id, 'estado' => 'baixa_solicitada' ), 200 );
 		}
@@ -558,13 +561,16 @@ final class ANPA_Socios_Extraescolares_REST {
 			return self::err( 'anpa_extra_curso_pechado', 'Este curso está pechado para novas matrículas ou baixas.', 409 );
 		}
 
-		$wpdb->update(
+		$updated = $wpdb->update(
 			ANPA_Socios_DB::tabela_matriculas(),
 			array( 'estado' => 'activo', 'actualizado_en' => current_time( 'mysql' ) ),
 			array( 'id' => (int) $mat['id'] ),
 			array( '%s', '%s' ),
 			array( '%d' )
 		);
+		if ( false === $updated ) {
+			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
+		}
 
 		return new WP_REST_Response( array( 'id' => (int) $mat['id'], 'estado' => 'activo' ), 200 );
 	}
