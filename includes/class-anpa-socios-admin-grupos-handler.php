@@ -553,12 +553,12 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 
 		$updated = $wpdb->update(
 			$mat_t,
-			array( 'estado' => 'baixa', 'actualizado_en' => current_time( 'mysql' ) ),
-			array( 'id' => $id ),
-			array( '%s', '%s' ),
-			array( '%d' )
+			array( 'estado' => 'baixa', 'baixa_en' => current_time( 'mysql' ), 'actualizado_en' => current_time( 'mysql' ) ),
+			array( 'id' => $id, 'estado' => 'baixa_solicitada' ),
+			array( '%s', '%s', '%s' ),
+			array( '%d', '%s' )
 		);
-		if ( false === $updated ) {
+		if ( 1 !== (int) $updated ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
