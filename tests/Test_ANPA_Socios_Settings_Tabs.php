@@ -68,4 +68,20 @@ class Test_ANPA_Socios_Settings_Tabs extends TestCase {
 		$this->assertStringContainsString( "'anpa_msg' => 'settings_saved'", $src );
 		$this->assertStringContainsString( 'render_tab_cursos', $src );
 	}
+
+	/**
+	 * Regression (2026-07-15): the "Email do equipo administrador" field in
+	 * Axustes → Xeral → Configuración read from an undefined $master variable
+	 * (PHP 8 warning, silently coerced to '') — the field always rendered
+	 * empty regardless of what was actually saved via
+	 * ANPA_Socios_Config::master_email(), making the setting look broken
+	 * even though handle_save_settings() persisted it correctly.
+	 */
+	public function test_master_email_field_reads_from_config_not_undefined_variable(): void {
+		$file = dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-settings.php';
+		$src  = file_get_contents( $file );
+
+		$this->assertStringContainsString( "esc_attr( ANPA_Socios_Config::master_email() )", $src );
+		$this->assertStringNotContainsString( "esc_attr( \$master )", $src );
+	}
 }

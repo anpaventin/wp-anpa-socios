@@ -139,6 +139,48 @@ class Test_ANPA_Socios_Admin_Payload extends TestCase {
 		$this->assertSame( '🎒', $result['icono'] );
 	}
 
+	public function test_validar_actividad_captures_exclusive_horario(): void {
+		// fase24: an offer can carry an exclusive morning/afternoon horario.
+		$result = ANPA_Socios_Admin_Payload::validar_actividad( array(
+			'empresa_id'    => 1,
+			'nome'          => 'Teatro',
+			'descripcion'   => 'desc',
+			'curso_escolar' => '2025/2026',
+			'franxa'        => '16:45-17:45',
+			'horarios'      => array( 'tarde' ),
+			'grupos'        => array( '1-2-3' ),
+			'dias'          => array( 'luns' ),
+			'custo'         => '30.00',
+			'horario'       => 'tarde',
+		) );
+		$this->assertIsArray( $result );
+		$this->assertSame( 'tarde', $result['horario'] );
+	}
+
+	public function test_validar_actividad_rejects_non_exclusive_horario_to_null(): void {
+		// A non-exclusive/absent horario resolves to null (not both).
+		$base = array(
+			'empresa_id'    => 1,
+			'nome'          => 'Teatro',
+			'descripcion'   => 'desc',
+			'curso_escolar' => '2025/2026',
+			'franxa'        => '16:45-17:45',
+			'horarios'      => array( 'tarde' ),
+			'grupos'        => array( '1-2-3' ),
+			'dias'          => array( 'luns' ),
+			'custo'         => '30.00',
+		);
+
+		$absent = ANPA_Socios_Admin_Payload::validar_actividad( $base );
+		$this->assertNull( $absent['horario'] );
+
+		$both = ANPA_Socios_Admin_Payload::validar_actividad( array_merge( $base, array( 'horario' => array( 'manha', 'tarde' ) ) ) );
+		$this->assertNull( $both['horario'] );
+
+		$bogus = ANPA_Socios_Admin_Payload::validar_actividad( array_merge( $base, array( 'horario' => 'noite' ) ) );
+		$this->assertNull( $bogus['horario'] );
+	}
+
 	public function test_validar_actividad_accepts_custom_icono(): void {
 		$result = ANPA_Socios_Admin_Payload::validar_actividad( array(
 			'empresa_id'    => 1,

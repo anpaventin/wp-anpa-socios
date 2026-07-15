@@ -148,7 +148,7 @@ class ANPA_Socios_Socios_Page {
 				</fieldset>
 
 				<fieldset class="anpa-fieldset">
-					<legend><?php esc_html_e( 'Fillos e fillas', 'anpa-socios' ); ?></legend>
+					<legend><?php esc_html_e( 'Fillos/as', 'anpa-socios' ); ?></legend>
 					<p class="anpa-muted"><?php esc_html_e( 'Engade os teus fillos/as. Completa os datos e preme «Gardar fillo/a»; despois poderás engadir outro ou modificar/quitar os xa gardados. O curso e o grupo escóllense das listas.', 'anpa-socios' ); ?></p>
 					<p class="anpa-consent-text"><?php echo sprintf( __( 'AUTORIZO á %s á toma de imaxes (fotos ou vídeos) nas que apareza o meu fillo/a. En ningún caso a asociación divulgará as imaxes e vídeos de forma pública. Marca a casa de cada fillo/a para autorizalo.', 'anpa-socios' ), $assoc ); ?></p>
 					<div data-fillos-container></div>

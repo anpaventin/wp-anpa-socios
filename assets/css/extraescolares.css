@@ -119,3 +119,21 @@
 	font-size: 0.92rem;
 	line-height: 1.45;
 }
+
+/* Prazas (places) semantic colours — fase22 S8.7/S8.8.
+   Only the activos number and the espera number are coloured; the
+   denominator and surrounding text keep the default colour. */
+.anpa-extra-prazas-ok {
+	color: #1a7f37; /* green — free places available */
+	font-weight: 600;
+}
+
+.anpa-extra-prazas-completo {
+	color: #cf222e; /* red — full */
+	font-weight: 600;
+}
+
+.anpa-extra-prazas-espera {
+	color: #bc4c00; /* orange — waitlist count */
+	font-weight: 600;
+}

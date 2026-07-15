@@ -94,18 +94,34 @@ class Test_ANPA_Socios_Admin_Estrutura_Handler extends TestCase {
     public function test_admin_nav_has_estrutura_section(): void {
         $nav_file = dirname( __DIR__ ) . '/includes/lib/class-anpa-socios-admin-nav.php';
         $source   = file_get_contents( $nav_file );
-        $this->assertStringContainsString( "'estrutura' => 'Estrutura escolar'", $source );
+        $this->assertStringContainsString( "'estrutura'", $source );
+        $this->assertStringContainsString( "=> 'Estrutura escolar'", $source );
     }
 
     /**
      * @testdox Admin_Settings dispatches 'estrutura' section to the page renderer.
+     *
+     * Regression (2026-07-15): render_tab_cursos() registered the 'estrutura'
+     * section in the nav (ANPA_Socios_Admin_Nav::SETTINGS_SECTIONS) and the
+     * dedicated Estrutura_Escolar_Page/handler existed, but render_tab_cursos()
+     * itself never checked for section === 'estrutura' — it always fell
+     * through to the legacy curso-escolar/aula_max editor. The section was
+     * therefore unreachable from the settings UI since PR-ES3 shipped, even
+     * though every other piece (route, page class, nav entry) was correct.
      */
     public function test_settings_dispatches_estrutura(): void {
-    	$settings_file = dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-settings.php';
-    	$source        = file_get_contents( $settings_file );
-    	// Estrutura section is handled by the admin-nav section subnav (cursos tab
-    	// dispatch routes through render_tab_cursos).
-    	$this->assertStringContainsString( 'render_tab_cursos', $source );
+        $settings_file = dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-settings.php';
+        $source        = file_get_contents( $settings_file );
+        // Estrutura section is handled by the admin-nav section subnav (cursos tab
+        // dispatch routes through render_tab_cursos).
+        $this->assertStringContainsString( 'render_tab_cursos', $source );
+        // render_tab_cursos() must actually dispatch section === 'estrutura' to
+        // the dedicated page renderer before falling through to the legacy editor.
+        $this->assertMatchesRegularExpression(
+            "/if\\s*\\(\\s*'estrutura'\\s*===\\s*\\\$section\\s*\\)\\s*\\{\\s*\\n\\s*ANPA_Socios_Estrutura_Escolar_Page::render\\(\\);/",
+            $source,
+            "render_tab_cursos() must dispatch section='estrutura' to ANPA_Socios_Estrutura_Escolar_Page::render() before the legacy curso-escolar/aula_max editor."
+        );
     }
 
     /**

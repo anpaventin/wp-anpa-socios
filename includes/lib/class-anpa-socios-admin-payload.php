@@ -468,6 +468,13 @@ final class ANPA_Socios_Admin_Payload {
 		$curso_max     = isset( $input['curso_max'] ) && '' !== $input['curso_max'] ? (int) $input['curso_max'] : null;
 		$custo         = self::parse_custo( $input['custo'] ?? null );
 		$franxa        = ANPA_Socios_Actividade_Options::normalize_franxa( $input['franxa'] ?? null );
+		// fase24: exclusive morning/afternoon horario for the yearly offer.
+		// Optional during the transition (legacy offers have it NULL until the
+		// admin edits them); when provided it MUST be exactly 'manha' or
+		// 'tarde', never both. Invalid/absent → null.
+		$horario       = ANPA_Socios_Grupos_Curriculares::is_valid_horario( $input['horario'] ?? null )
+			? (string) $input['horario']
+			: null;
 		$estado        = isset( $input['estado'] ) ? (string) $input['estado'] : 'activo';
 		if ( ! in_array( $estado, self::EMPRESA_ESTADO, true ) ) {
 			return null;
@@ -513,6 +520,7 @@ final class ANPA_Socios_Admin_Payload {
 			'icono'         => ( null === $icono || '' === $icono ) ? '🎒' : $icono,
 			'descripcion'   => $descripcion,
 			'curso_escolar' => $curso_escolar,
+			'horario'       => $horario,
 			'franxa'        => null === $franxa ? '' : $franxa,
 			'horarios'      => ANPA_Socios_Actividade_Options::serialize( $horarios, ANPA_Socios_Actividade_Options::HORARIOS ),
 			'grupos'        => ANPA_Socios_Actividade_Options::serialize( $grupos, ANPA_Socios_Actividade_Options::GRUPOS ),

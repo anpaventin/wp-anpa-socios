@@ -159,10 +159,11 @@ final class ANPA_Socios_Admin_Approvals_Handler {
 			return new WP_Error( 'anpa_admin_invalid', 'Non se indicou ningún socio/a.', array( 'status' => 400 ) );
 		}
 
-		$table     = $wpdb->prefix . 'anpa_socios';
-		$login_url = class_exists( 'ANPA_Socios_Admin_Settings' ) ? ANPA_Socios_Admin_Settings::landing_page_url() : '';
-		$processed = 0;
-		$skipped   = array();
+		$table            = $wpdb->prefix . 'anpa_socios';
+		$login_url        = class_exists( 'ANPA_Socios_Admin_Settings' ) ? ANPA_Socios_Admin_Settings::landing_page_url() : '';
+		$processed        = 0;
+		$skipped          = array();
+		$processed_emails = array();
 
 		foreach ( $emails as $raw ) {
 			$email = ANPA_Socios_Admin_Payload::sanitise_email( rawurldecode( (string) $raw ) );
@@ -196,9 +197,34 @@ final class ANPA_Socios_Admin_Approvals_Handler {
 
 			if ( 'approve' === $mode ) {
 				ANPA_Socios_Email::enviar_aprobacion( $email, $login_url );
+
+				// Approve the family as a unit: activate + welcome-email every
+				// other pending socio sharing this one's familia_id, so the 2nd
+				// parent also gets the confirmation even if the master only
+				// clicked one member (fase20 second-parent fix). Best-effort
+				// and never fails the batch.
+				foreach ( self::pending_family_siblings( $email ) as $sibling ) {
+					if ( in_array( $sibling, $processed_emails, true ) ) {
+						continue;
+					}
+					$sib_updated = $wpdb->update(
+						$table,
+						array( 'estado' => 'activo', 'actualizado_en' => current_time( 'mysql' ) ),
+						array( 'email' => $sibling, 'estado' => self::PENDING_ESTADO ),
+						array( '%s', '%s' ),
+						array( '%s', '%s' )
+					);
+					if ( is_int( $sib_updated ) && $sib_updated > 0 ) {
+						++$processed;
+						$processed_emails[] = $sibling;
+						ANPA_Socios_Admin_Shared::write_audit( $request, 'socio', $sibling, 'approval_approve' );
+						ANPA_Socios_Email::enviar_aprobacion( $sibling, $login_url );
+					}
+				}
 			} else {
 				ANPA_Socios_Email::enviar_rexeitamento( $email );
 			}
+			$processed_emails[] = $email;
 		}
 
 		return new WP_REST_Response( array(
@@ -206,5 +232,47 @@ final class ANPA_Socios_Admin_Approvals_Handler {
 			'processed' => $processed,
 			'skipped'   => $skipped,
 		), 200 );
+	}
+
+	/**
+	 * Returns the emails of socios that share $email's familia_id and are still
+	 * pending approval (excluding $email itself and the protected master).
+	 *
+	 * Used to approve a family as a unit so the 2nd parent also receives the
+	 * welcome email (fase20 second-parent fix).
+	 *
+	 * @since  1.41.0
+	 * @param  string $email Email of an approved family member.
+	 * @return string[] Sibling emails still pending approval.
+	 */
+	private static function pending_family_siblings( string $email ): array {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'anpa_socios';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- scoped read for family cascade.
+		$familia_id = $wpdb->get_var( $wpdb->prepare(
+			"SELECT familia_id FROM {$table} WHERE email = %s",
+			$email
+		) );
+		if ( null === $familia_id || (int) $familia_id <= 0 ) {
+			return array();
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- scoped read for family cascade.
+		$siblings = $wpdb->get_col( $wpdb->prepare(
+			"SELECT email FROM {$table} WHERE familia_id = %d AND email <> %s AND estado = %s",
+			(int) $familia_id,
+			$email,
+			self::PENDING_ESTADO
+		) );
+		if ( ! is_array( $siblings ) ) {
+			return array();
+		}
+
+		$master = ANPA_Socios_Config::master_email();
+		return array_values( array_filter( $siblings, static function ( $s ) use ( $master ) {
+			return ! ANPA_Socios_Roles::is_protected_admin( (string) $s, $master );
+		} ) );
 	}
 }

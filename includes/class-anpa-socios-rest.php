@@ -402,7 +402,12 @@ class ANPA_Socios_REST {
 		// an existing socio it is left completely untouched (no hijack, no
 		// reactivation, no familia_id reassignment) — see upsert_socio.
 		if ( null !== $clean['parent2'] ) {
-			if ( ! self::upsert_socio( $clean['parent2']['email'], $clean['parent2'], $familia_id, true ) ) {
+			// Parent 2 inherits parent 1's estado so the whole family is gated
+			// as a unit: when approval is required, parent 2 is also parked in
+			// 'pendente_aprobacion' (instead of being silently created active),
+			// so the junta approves the family together and BOTH parents get
+			// the welcome email on approval (fase20 second-parent fix).
+			if ( ! self::upsert_socio( $clean['parent2']['email'], $clean['parent2'], $familia_id, true, $owner_estado ) ) {
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback on failed parent2 write.
 				$wpdb->query( 'ROLLBACK' );
 				return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
