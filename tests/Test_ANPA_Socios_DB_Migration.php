@@ -24,14 +24,57 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		$this->plugin_file = dirname( __DIR__ ) . '/anpa-socios.php';
 	}
 
-	public function test_db_version_constant_is_1_27_0(): void {
-		$this->assertSame( '1.27.0', ANPA_Socios_DB::DB_VERSION );
+	public function test_db_version_constant_is_1_28_0(): void {
+		$this->assertSame( '1.28.0', ANPA_Socios_DB::DB_VERSION );
 	}
 
-	public function test_anpa_socios_db_version_is_1_27_0(): void {
+	public function test_anpa_socios_db_version_is_1_28_0(): void {
 		$source = file_get_contents( $this->plugin_file );
 		$this->assertIsString( $source );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.27.0' )", $source );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.28.0' )", $source );
+	}
+
+	// ── fase24 PR-GC2: curricular-groups migration (1.28.0) ───────────
+
+	public function test_tabela_grupos_curriculares_helpers_exist(): void {
+		$source = file_get_contents( $this->db_file );
+		$this->assertStringContainsString( 'tabela_grupos_curriculares', $source );
+		$this->assertStringContainsString( 'anpa_grupos_curriculares', $source );
+		$this->assertStringContainsString( 'tabela_grupos_curriculares_niveis', $source );
+		$this->assertStringContainsString( 'tabela_actividades_cursos_grupos_curriculares', $source );
+	}
+
+	public function test_migrate_to_1_28_0_exists_and_is_gated(): void {
+		$source = file_get_contents( $this->db_file );
+		$this->assertStringContainsString( 'migrate_to_1_28_0', $source );
+		$this->assertStringContainsString( 'if ( ! self::migrate_to_1_28_0() )', $source );
+	}
+
+	public function test_migrate_to_1_28_0_adds_exclusive_horario_enum(): void {
+		$source = file_get_contents( $this->db_file );
+		$this->assertStringContainsString( "ADD COLUMN horario enum('manha','tarde')", $source );
+	}
+
+	public function test_migrate_to_1_28_0_adds_grupo_curricular_id_to_grupos(): void {
+		$source = file_get_contents( $this->db_file );
+		$this->assertStringContainsString( 'ADD COLUMN grupo_curricular_id', $source );
+	}
+
+	public function test_migrate_to_1_28_0_creates_curricular_group_tables(): void {
+		$source = file_get_contents( $this->db_file );
+		$this->assertStringContainsString( 'franxa_manha', $source );
+		$this->assertStringContainsString( 'franxa_tarde', $source );
+		$this->assertStringContainsString( 'UNIQUE KEY curso_etiqueta (curso_escolar, etiqueta)', $source );
+		$this->assertStringContainsString( 'anpa_actividades_cursos_grupos_curriculares', $source );
+	}
+
+	public function test_migrate_to_1_28_0_backfills_horario_non_destructively(): void {
+		$source = file_get_contents( $this->db_file );
+		// manha-only and tarde-only inference, leaving ambiguous rows NULL.
+		$this->assertStringContainsString( "SET horario = 'manha'", $source );
+		$this->assertStringContainsString( "SET horario = 'tarde'", $source );
+		$this->assertStringContainsString( "horarios NOT LIKE '%tarde%'", $source );
+		$this->assertStringContainsString( "horarios NOT LIKE '%manha%'", $source );
 	}
 
 	public function test_tabela_niveis_returns_string_with_anpa_niveis(): void {

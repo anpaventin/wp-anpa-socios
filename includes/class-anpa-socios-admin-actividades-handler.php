@@ -400,6 +400,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		return array(
 			'actividad_id'   => $actividad_id,
 			'curso_escolar'  => (string) $payload['curso_escolar'],
+			'horario'        => isset( $payload['horario'] ) ? $payload['horario'] : null,
 			'franxa'         => (string) $payload['franxa'],
 			'horarios'       => (string) $payload['horarios'],
 			'grupos'         => (string) $payload['grupos'],
@@ -428,12 +429,18 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			)
 		);
 
+		// Format array matches year_payload() key order:
+		// actividad_id, curso_escolar, horario, franxa, horarios, grupos,
+		// nivel_min_id, nivel_max_id, dias, min_pupilos, max_pupilos, custo,
+		// estado, actualizado_en.
+		$formats = array( '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%d', '%d', '%f', '%s', '%s' );
+
 		if ( $exists > 0 ) {
 			$updated = $wpdb->update(
 				$table,
 				$row,
 				array( 'id' => $exists ),
-				array( '%d', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%d', '%d', '%f', '%s', '%s' ),
+				$formats,
 				array( '%d' )
 			);
 			if ( false === $updated ) {
@@ -445,7 +452,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		$inserted = $wpdb->insert(
 			$table,
 			$row,
-			array( '%d', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%d', '%d', '%f', '%s', '%s' )
+			$formats
 		);
 		if ( false === $inserted ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
@@ -472,6 +479,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 				        COALESCE(ac.estado, a.estado) AS estado,
 				        ac.nivel_min_id AS nivel_min_id,
 				        ac.nivel_max_id AS nivel_max_id,
+				        ac.horario AS horario,
 				        0 AS prazas_ocupadas,
 				        0 AS prazas_espera
 				 FROM {$act_t} a

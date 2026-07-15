@@ -1906,11 +1906,11 @@
 
 		var minPupInput = document.createElement('input'); minPupInput.type = 'number'; minPupInput.min = '1';
 		minPupInput.value = isEdit ? (act.min_pupilos || 10) : '10';
-		addField('anpa-act-minpup', 'M\u00EDnimo de pupilos/as', minPupInput);
+		addField('anpa-act-minpup', 'M\u00EDnimo de alumnos/as', minPupInput);
 
 		var maxPupInput = document.createElement('input'); maxPupInput.type = 'number'; maxPupInput.min = '1';
 		maxPupInput.value = isEdit ? (act.max_pupilos || 15) : '15';
-		addField('anpa-act-maxpup', 'M\u00E1ximo de pupilos/as', maxPupInput);
+		addField('anpa-act-maxpup', 'M\u00E1ximo de alumnos/as', maxPupInput);
 
 		// Legacy curso_min/curso_max (global numeric range, no relation to the
 		// niveis structure): collapsed under a <details> so it does not
@@ -2237,11 +2237,11 @@
 
 		var minInput = document.createElement('input'); minInput.type = 'number'; minInput.min = '0';
 		minInput.value = isEdit ? (grupo.min_pupilos || 0) : '10';
-		addField('anpa-grupo-min', 'M\u00EDnimo pupilos/as', minInput);
+		addField('anpa-grupo-min', 'M\u00EDnimo alumnos/as', minInput);
 
 		var maxInput = document.createElement('input'); maxInput.type = 'number'; maxInput.min = '1';
 		maxInput.value = isEdit ? (grupo.max_pupilos || 15) : '15';
-		addField('anpa-grupo-max', 'M\u00E1ximo pupilos/as', maxInput);
+		addField('anpa-grupo-max', 'M\u00E1ximo alumnos/as', maxInput);
 
 		var estadoSelect = document.createElement('select');
 		['aberto', 'pechado'].forEach(function (v) {

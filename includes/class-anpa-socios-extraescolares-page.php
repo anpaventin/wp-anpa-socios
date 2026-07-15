@@ -101,13 +101,16 @@ final class ANPA_Socios_Extraescolares_Page {
 			$html .= '<p class="anpa-icon-circle">' . esc_html( self::activity_icon( (string) ( $act['icono'] ?? '' ) ) ) . '</p>';
 			$html .= '<h3>' . esc_html( (string) ( $act['nome'] ?? '' ) ) . '</h3>';
 
-			// Empresa.
+			// Empresa — the name itself is the link when a website is set
+			// (fase22 S8.1); no bare URL in parentheses.
 			$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Empresa:', 'anpa-socios' ) . '</strong> ';
 			if ( ! empty( $act['empresa_nome'] ) ) {
-				$html .= esc_html( (string) $act['empresa_nome'] );
+				$empresa_nome = (string) $act['empresa_nome'];
 				if ( ! empty( $act['url_web'] ) ) {
-					$html .= ' (<a href="' . esc_url( $act['url_web'] ) . '" target="_blank" rel="noopener">'
-						. esc_html( $act['url_web'] ) . '</a>)';
+					$html .= '<a href="' . esc_url( $act['url_web'] ) . '" target="_blank" rel="noopener">'
+						. esc_html( $empresa_nome ) . '</a>';
+				} else {
+					$html .= esc_html( $empresa_nome );
 				}
 			}
 			$html .= '</p>';
@@ -121,6 +124,10 @@ final class ANPA_Socios_Extraescolares_Page {
 			// Horario — días e franxa separados.
 			$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Horario:', 'anpa-socios' ) . '</strong></p>';
 			$html .= self::schedule_detail_html( $act );
+
+			// Prazas (fase22 S8): aggregated activos/max con cor semántica.
+			// Omítese cando non hai grupos abertos (caso do slot provisional).
+			$html .= self::prazas_html( $act );
 
 			// Prezo.
 			$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Prezo:', 'anpa-socios' ) . '</strong> '
@@ -367,6 +374,45 @@ final class ANPA_Socios_Extraescolares_Page {
 			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line">' . esc_html( $part['dias'] ) . '</p>';
 			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line">' . esc_html( $part['franxa'] ) . '</p>';
 		}
+		return $html;
+	}
+
+	/**
+	 * Returns the "Prazas:" block HTML for an activity card (fase22 S8).
+	 *
+	 * Aggregates the open groups' places via the pure ANPA_Socios_Prazas
+	 * helper. Omits the block entirely when the activity has no open groups
+	 * (the provisional-slot case has no real capacity to show). The waitlist
+	 * part is only appended when the activity is full. Colours are applied via
+	 * semantic CSS classes, never inline.
+	 *
+	 * @since  1.41.0
+	 * @param  array $act Activity row (needs 'grupos_detail' JSON).
+	 * @return string Escaped HTML, or '' when there is nothing to show.
+	 */
+	private static function prazas_html( array $act ): string {
+		$grupos = json_decode( (string) ( $act['grupos_detail'] ?? '[]' ), true );
+		if ( ! is_array( $grupos ) ) {
+			$grupos = array();
+		}
+
+		$s = ANPA_Socios_Prazas::summary( $grupos );
+		if ( empty( $s['has_groups'] ) ) {
+			return '';
+		}
+
+		$activos_class = ANPA_Socios_Prazas::activos_class( $s );
+
+		$html  = '<p class="anpa-extra-meta anpa-extra-prazas"><strong>' . esc_html__( 'Prazas:', 'anpa-socios' ) . '</strong> ';
+		$html .= '<span class="' . esc_attr( $activos_class ) . '">' . (int) $s['activos'] . '</span>';
+		$html .= '/' . (int) $s['max_pupilos'];
+		if ( ! empty( $s['espera_visible'] ) ) {
+			/* translators: %s: number of people on the waitlist */
+			$html .= ' + <span class="anpa-extra-prazas-espera">' . (int) $s['espera'] . '</span> '
+				. esc_html__( 'en espera', 'anpa-socios' );
+		}
+		$html .= '</p>';
+
 		return $html;
 	}
 

@@ -459,7 +459,12 @@ final class ANPA_Socios_Admin_Settings {
 		}
 
 		echo '<h2>' . esc_html__( 'Configuración', 'anpa-socios' ) . '</h2>';
-		printf( '<tr><th scope="row"><label for="cfg-master">%s</label></th><td><input name="master_email" id="cfg-master" type="email" class="regular-text" value="%s"></td></tr>', esc_html__( 'Email do equipo administrador', 'anpa-socios' ), esc_attr( $master ) );
+		printf(
+			'<tr><th scope="row"><label for="cfg-master">%s</label></th><td><input name="master_email" id="cfg-master" type="email" class="regular-text" value="%s"><p class="description">%s</p></td></tr>',
+			esc_html__( 'Email do administrador raíz', 'anpa-socios' ),
+			esc_attr( ANPA_Socios_Config::master_email() ),
+			esc_html__( 'Identifica a conta de administrador raíz protexida (nunca pode darse de baixa nin eliminarse). Non controla o remitente dos correos — iso configúrase en WP Mail SMTP.', 'anpa-socios' )
+		);
 		printf(
 			'<tr><th scope="row"><label for="cfg-assoc">%s</label></th><td><input name="association_name" id="cfg-assoc" type="text" class="regular-text" value="%s"><p class="description">%s</p></td></tr>',
 			esc_html__( 'Nome da asociación', 'anpa-socios' ),
@@ -493,6 +498,24 @@ final class ANPA_Socios_Admin_Settings {
 	 * @return void
 	 */
 	private static function render_tab_cursos( string $section = 'curso-escolar' ): void {
+		// Estrutura escolar (PR-ES3, fase23) has its own dedicated renderer —
+		// it must never fall through to the legacy curso-escolar/aula_max
+		// editor below. This dispatch was missing since PR-ES3 shipped, so
+		// the section was unreachable from the settings UI despite its route
+		// and handler existing.
+		if ( 'estrutura' === $section ) {
+			ANPA_Socios_Estrutura_Escolar_Page::render();
+			return;
+		}
+
+		// Grupos curriculares (fase24) — dedicated renderer, must not fall
+		// through to the legacy curso-escolar editor (same class of routing
+		// bug fixed for 'estrutura' on 2026-07-15).
+		if ( 'grupos-curriculares' === $section ) {
+			ANPA_Socios_Grupos_Curriculares_Page::render();
+			return;
+		}
+
 		global $wpdb;
 		$post_url = esc_url( admin_url( 'admin-post.php' ) );
 		$self_url = esc_url( admin_url( 'admin.php' ) );

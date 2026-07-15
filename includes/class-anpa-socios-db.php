@@ -61,11 +61,19 @@ class ANPA_Socios_DB {
 	 *        and level/classroom foreign ids; converts `grupos.curso_range`
 	 *        to varchar; adds `actividades_cursos.nivel_min/max_id`;
 	 *        backfills legacy data into new structure.
+	 * 1.28.0 (fase24) adds curricular groups: `grupos_curriculares`,
+	 *        `grupos_curriculares_niveis`,
+	 *        `actividades_cursos_grupos_curriculares` tables; adds
+	 *        `actividades_cursos.horario` (manha/tarde, exclusive) and
+	 *        `grupos.grupo_curricular_id`; backfills curricular groups from
+	 *        legacy `grupos.curso_range` + `actividades.horarios`. Non-
+	 *        destructive: legacy columns are removed only in a later
+	 *        migration, gated on a verified backup.
 	 *
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.27.0';
+	const DB_VERSION = '1.28.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -193,6 +201,14 @@ class ANPA_Socios_DB {
 		if ( ! self::migrate_to_1_27_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.27.0 (migrate_to_1_27_0): ' . $wpdb->last_error );
+			return;
+		}
+
+		// 1.28.0: curricular groups (tables + columns + best-effort backfill).
+		$wpdb->last_error = '';
+		if ( ! self::migrate_to_1_28_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.28.0 (migrate_to_1_28_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -568,6 +584,19 @@ class ANPA_Socios_DB {
 	 * `Curso_Activo::get()` can return null (no active course configured);
 	 * in that case the mirror is intentionally left untouched.
 	 *
+	 * `nivel_id`/`aula_id` on the row are also resolved here (from the
+	 * `curso`/`aula` text codes) before the write, via
+	 * `resolve_nivel_aula_ids()`. This is the SINGLE write point for
+	 * fillos_cursos, so it is the only place that can keep those FK columns
+	 * populated for every write made after the 1.27.0 backfill — without
+	 * this, `nivel_id`/`aula_id` stay NULL on any post-migration write,
+	 * silently undercounting the reference-check in
+	 * `ANPA_Socios_Admin_Estrutura_Handler::delete_nivel()` and letting an
+	 * in-use nivel/aula be hard-deleted instead of deactivated. If the
+	 * codes do not resolve to an existing nivel/aula for that curso_escolar
+	 * (e.g. a stale or foreign code), the FK columns are left NULL rather
+	 * than failing the whole upsert — the text codes remain authoritative.
+	 *
 	 * @since  1.39.0
 	 * @param  int    $fillo_id      Fillo id.
 	 * @param  string $curso_escolar School year (e.g. "2025/2026").
@@ -585,17 +614,31 @@ class ANPA_Socios_DB {
 		$fc_table = self::tabela_fillos_cursos();
 		$now      = current_time( 'mysql' );
 
+		list( $nivel_id, $aula_id ) = self::resolve_nivel_aula_ids( $curso_escolar, $curso, $aula );
+
+		// %d would coerce an unresolved null to 0 (a real, wrong value), so
+		// the nivel_id/aula_id placeholders are literal NULL or %d chosen
+		// per-value instead of always going through wpdb->prepare's %d.
+		$nivel_placeholder = null === $nivel_id ? 'NULL' : '%d';
+		$aula_placeholder  = null === $aula_id ? 'NULL' : '%d';
+		$fk_params         = array_filter(
+			array( $nivel_id, $aula_id ),
+			static function ( $v ) {
+				return null !== $v;
+			}
+		);
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- atomic upsert participating in caller's transaction.
 		$result = $wpdb->query(
 			$wpdb->prepare(
-				"INSERT INTO {$fc_table} (fillo_id, curso_escolar, curso, aula)
-				VALUES (%d, %s, %s, %s)
-				ON DUPLICATE KEY UPDATE curso = VALUES(curso), aula = VALUES(aula), actualizado_en = %s",
-				$fillo_id,
-				$curso_escolar,
-				$curso,
-				$aula,
-				$now
+				"INSERT INTO {$fc_table} (fillo_id, curso_escolar, curso, aula, nivel_id, aula_id)
+				VALUES (%d, %s, %s, %s, {$nivel_placeholder}, {$aula_placeholder})
+				ON DUPLICATE KEY UPDATE curso = VALUES(curso), aula = VALUES(aula), nivel_id = VALUES(nivel_id), aula_id = VALUES(aula_id), actualizado_en = %s",
+				array_merge(
+					array( $fillo_id, $curso_escolar, $curso, $aula ),
+					array_values( $fk_params ),
+					array( $now )
+				)
 			)
 		);
 
@@ -683,6 +726,148 @@ class ANPA_Socios_DB {
 	}
 
 	/**
+	 * Returns the full anpa_grupos_curriculares table name (fase24).
+	 *
+	 * @since  1.28.0
+	 * @return string
+	 */
+	public static function tabela_grupos_curriculares(): string {
+		global $wpdb;
+
+		return $wpdb->prefix . 'anpa_grupos_curriculares';
+	}
+
+	/**
+	 * Returns the full anpa_grupos_curriculares_niveis table name (fase24).
+	 *
+	 * @since  1.28.0
+	 * @return string
+	 */
+	public static function tabela_grupos_curriculares_niveis(): string {
+		global $wpdb;
+
+		return $wpdb->prefix . 'anpa_grupos_curriculares_niveis';
+	}
+
+	/**
+	 * Returns the full anpa_actividades_cursos_grupos_curriculares table name (fase24).
+	 *
+	 * @since  1.28.0
+	 * @return string
+	 */
+	public static function tabela_actividades_cursos_grupos_curriculares(): string {
+		global $wpdb;
+
+		return $wpdb->prefix . 'anpa_actividades_cursos_grupos_curriculares';
+	}
+
+	/**
+	 * Lists curricular groups for a curso_escolar, with their nivel ids.
+	 *
+	 * @since  1.28.0
+	 * @param  string $curso_escolar   Course school year.
+	 * @param  bool   $include_inactive Include inactive groups.
+	 * @return array[] Rows with keys id, curso_escolar, etiqueta, orde,
+	 *                 franxa_manha, franxa_tarde, estado, nivel_ids (int[]).
+	 */
+	public static function get_grupos_curriculares( string $curso_escolar, bool $include_inactive = false ): array {
+		global $wpdb;
+
+		$gc     = self::tabela_grupos_curriculares();
+		$gc_niv = self::tabela_grupos_curriculares_niveis();
+		$estado = $include_inactive ? '' : " AND estado = 'activo'";
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $estado is a constant literal, curso is prepared.
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT id, curso_escolar, etiqueta, orde, franxa_manha, franxa_tarde, estado
+			 FROM {$gc} WHERE curso_escolar = %s{$estado} ORDER BY orde ASC, etiqueta ASC",
+			$curso_escolar
+		), ARRAY_A );
+		if ( ! is_array( $rows ) || array() === $rows ) {
+			return array();
+		}
+
+		$ids = array_map( static function ( $r ) { return (int) $r['id']; }, $rows );
+		$in  = implode( ',', $ids );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $in is a list of ints from the trusted query above.
+		$niv_rows = $wpdb->get_results(
+			"SELECT grupo_curricular_id, nivel_id FROM {$gc_niv} WHERE grupo_curricular_id IN ({$in})",
+			ARRAY_A
+		);
+		$niveis_by_gc = array();
+		if ( is_array( $niv_rows ) ) {
+			foreach ( $niv_rows as $nr ) {
+				$niveis_by_gc[ (int) $nr['grupo_curricular_id'] ][] = (int) $nr['nivel_id'];
+			}
+		}
+
+		foreach ( $rows as &$row ) {
+			$row['nivel_ids'] = $niveis_by_gc[ (int) $row['id'] ] ?? array();
+		}
+		unset( $row );
+
+		return $rows;
+	}
+
+	/**
+	 * Returns a single curricular group with its nivel ids, or null.
+	 *
+	 * @since  1.28.0
+	 * @param  int $id Curricular group id.
+	 * @return array|null
+	 */
+	public static function get_grupo_curricular( int $id ): ?array {
+		global $wpdb;
+
+		$gc = self::tabela_grupos_curriculares();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- explicit read helper.
+		$row = $wpdb->get_row( $wpdb->prepare(
+			"SELECT id, curso_escolar, etiqueta, orde, franxa_manha, franxa_tarde, estado FROM {$gc} WHERE id = %d",
+			$id
+		), ARRAY_A );
+		if ( ! is_array( $row ) ) {
+			return null;
+		}
+
+		$gc_niv = self::tabela_grupos_curriculares_niveis();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- explicit read helper.
+		$ids = $wpdb->get_col( $wpdb->prepare(
+			"SELECT nivel_id FROM {$gc_niv} WHERE grupo_curricular_id = %d",
+			$id
+		) );
+		$row['nivel_ids'] = is_array( $ids ) ? array_map( 'intval', $ids ) : array();
+
+		return $row;
+	}
+
+	/**
+	 * Whether a curricular group is referenced by a yearly offer or a group.
+	 *
+	 * @since  1.28.0
+	 * @param  int $id Curricular group id.
+	 * @return bool
+	 */
+	public static function grupo_curricular_in_use( int $id ): bool {
+		global $wpdb;
+
+		$acy_gc = self::tabela_actividades_cursos_grupos_curriculares();
+		$grupos = self::tabela_grupos();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- explicit read helper.
+		$in_offers = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$acy_gc} WHERE grupo_curricular_id = %d",
+			$id
+		) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- explicit read helper.
+		$in_groups = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$grupos} WHERE grupo_curricular_id = %d",
+			$id
+		) );
+
+		return ( $in_offers + $in_groups ) > 0;
+	}
+
+	/**
 	 * Inserts a single grupo↔nivel relationship. Idempotent (INSERT IGNORE).
 	 *
 	 * @since  1.27.0
@@ -724,6 +909,56 @@ class ANPA_Socios_DB {
 		);
 
 		return is_array( $results ) ? $results : array();
+	}
+
+	/**
+	 * Resolves a nivel/aula text-code pair to their (id) foreign keys for a
+	 * given curso_escolar.
+	 *
+	 * Used by `upsert_fillo_curso_assignment()` (the single write point for
+	 * `fillos_cursos`) to keep `nivel_id`/`aula_id` populated on every write,
+	 * not just the one-off 1.27.0 migration backfill. Matching is scoped by
+	 * `curso_escolar` + `codigo` (niveis are per-year rows, so the same code
+	 * "3" resolves to a different nivel id across school years) and the
+	 * aula lookup is additionally scoped to that resolved nivel_id. Either
+	 * lookup can legitimately miss (stale/foreign code, or nivel/aula not
+	 * yet created for that curso_escolar) — in that case the corresponding
+	 * slot is `null` and the caller must NOT fail the write, since the text
+	 * columns (`curso`/`aula`) remain authoritative.
+	 *
+	 * @since  1.41.0
+	 * @param  string $curso_escolar Course school year e.g. '2025/2026'.
+	 * @param  string $curso         Nivel codigo, e.g. "3".
+	 * @param  string $aula          Aula codigo, e.g. "B".
+	 * @return array{0: int|null, 1: int|null} [nivel_id, aula_id].
+	 */
+	private static function resolve_nivel_aula_ids( string $curso_escolar, string $curso, string $aula ): array {
+		global $wpdb;
+
+		$niveis_t = self::tabela_niveis();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- scoped read helper.
+		$nivel_id = $wpdb->get_var( $wpdb->prepare(
+			"SELECT id FROM {$niveis_t} WHERE curso_escolar = %s AND codigo = %s LIMIT 1",
+			$curso_escolar,
+			$curso
+		) );
+
+		if ( null === $nivel_id ) {
+			return array( null, null );
+		}
+
+		$nivel_id = (int) $nivel_id;
+		$aulas_t  = self::tabela_aulas();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- scoped read helper.
+		$aula_id = $wpdb->get_var( $wpdb->prepare(
+			"SELECT id FROM {$aulas_t} WHERE nivel_id = %d AND codigo = %s LIMIT 1",
+			$nivel_id,
+			$aula
+		) );
+
+		return array( $nivel_id, null === $aula_id ? null : (int) $aula_id );
 	}
 
 	/**
@@ -1923,6 +2158,212 @@ class ANPA_Socios_DB {
 						$code
 					) );
 				}
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Migration to 1.28.0 (fase24): curricular groups.
+	 *
+	 * Creates {grupos_curriculares, grupos_curriculares_niveis,
+	 * actividades_cursos_grupos_curriculares} tables, adds the exclusive
+	 * `actividades_cursos.horario` column and `grupos.grupo_curricular_id`,
+	 * and backfills curricular groups from legacy `grupos.curso_range` plus
+	 * `actividades.horarios` franxas.
+	 *
+	 * NON-DESTRUCTIVE by design: legacy columns (`curso_range`, `franxa`,
+	 * `curso_min/max`, `grupos`, `nivel_min/max_id`) and the `grupos_niveis`
+	 * table are NOT removed here — that physical retirement happens in a later
+	 * migration gated on a verified backup (fase24 PR-GC7). The backfill is
+	 * best-effort and never halts the migration: rows whose horario cannot be
+	 * unambiguously inferred keep `horario = NULL` and are resolved by the
+	 * admin on the next edit (the write-path validation requires a non-null
+	 * horario). This avoids bricking the migration chain on ambiguous legacy
+	 * data.
+	 *
+	 * Idempotent via INSERT IGNORE and guarded ALTER TABLE.
+	 *
+	 * @since  1.28.0
+	 * @return bool Whether the migration completed without a hard DB error.
+	 */
+	private static function migrate_to_1_28_0(): bool {
+		global $wpdb;
+
+		$charset_collate = $wpdb->get_charset_collate();
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		$gc      = self::tabela_grupos_curriculares();
+		$gc_niv  = self::tabela_grupos_curriculares_niveis();
+		$acy_gc  = self::tabela_actividades_cursos_grupos_curriculares();
+		$grupos  = self::tabela_grupos();
+		$act_cur = self::tabela_actividades_cursos();
+		$niveis  = self::tabela_niveis();
+
+		// ── Step 1: Create new tables ──────────────────────────────────
+		dbDelta( "CREATE TABLE {$gc} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			curso_escolar varchar(9) NOT NULL,
+			etiqueta varchar(60) NOT NULL,
+			orde smallint(5) unsigned NOT NULL DEFAULT 10,
+			franxa_manha varchar(20) NOT NULL DEFAULT '',
+			franxa_tarde varchar(20) NOT NULL DEFAULT '',
+			estado enum('activo','inactivo') NOT NULL DEFAULT 'activo',
+			creado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			actualizado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE KEY curso_etiqueta (curso_escolar, etiqueta),
+			INDEX curso_estado_orde (curso_escolar, estado, orde),
+			PRIMARY KEY  (id)
+		) {$charset_collate};" );
+
+		dbDelta( "CREATE TABLE {$gc_niv} (
+			grupo_curricular_id bigint(20) unsigned NOT NULL,
+			nivel_id bigint(20) unsigned NOT NULL,
+			PRIMARY KEY  (grupo_curricular_id, nivel_id),
+			INDEX nivel_id (nivel_id)
+		) {$charset_collate};" );
+
+		dbDelta( "CREATE TABLE {$acy_gc} (
+			actividad_curso_id bigint(20) unsigned NOT NULL,
+			grupo_curricular_id bigint(20) unsigned NOT NULL,
+			PRIMARY KEY  (actividad_curso_id, grupo_curricular_id),
+			INDEX grupo_curricular_id (grupo_curricular_id)
+		) {$charset_collate};" );
+
+		// ── Step 2: Guarded ALTER of existing tables ───────────────────
+		if ( ! self::tem_columna( $act_cur, 'horario' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$act_cur} ADD COLUMN horario enum('manha','tarde') NULL DEFAULT NULL AFTER curso_escolar" ) ) {
+				return false;
+			}
+		}
+		if ( ! self::tem_columna( $grupos, 'grupo_curricular_id' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$grupos} ADD COLUMN grupo_curricular_id bigint(20) unsigned NULL DEFAULT NULL AFTER curso_escolar, ADD KEY grupo_curricular_id (grupo_curricular_id)" ) ) {
+				return false;
+			}
+		}
+
+		// ── Step 3: Backfill actividades_cursos.horario (best-effort) ──
+		// manha-only → 'manha'; tarde-only → 'tarde'; both/neither → leave NULL
+		// (admin resolves on next edit). horarios is a CSV token set.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent best-effort backfill.
+		$wpdb->query(
+			"UPDATE {$act_cur} SET horario = 'manha'
+			 WHERE horario IS NULL AND horarios LIKE '%manha%' AND horarios NOT LIKE '%tarde%'"
+		);
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent best-effort backfill.
+		$wpdb->query(
+			"UPDATE {$act_cur} SET horario = 'tarde'
+			 WHERE horario IS NULL AND horarios LIKE '%tarde%' AND horarios NOT LIKE '%manha%'"
+		);
+
+		// ── Step 4: Backfill curricular groups from legacy curso_range ─
+		// For each (curso_escolar, curso_range) present in grupos, create one
+		// curricular group, link its niveis, and set franxa_manha/tarde from a
+		// representative group's franxa according to the parent activity's
+		// horario.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- safe read for backfill.
+		$combos = $wpdb->get_results(
+			"SELECT DISTINCT g.curso_escolar AS curso_escolar, g.curso_range AS curso_range
+			 FROM {$grupos} g
+			 WHERE g.curso_range IN ('1-2-3','4-5-6') AND g.curso_escolar <> ''",
+			ARRAY_A
+		);
+		if ( is_array( $combos ) ) {
+			foreach ( $combos as $combo ) {
+				$curso_escolar = (string) $combo['curso_escolar'];
+				$range         = (string) $combo['curso_range'];
+				$codes         = explode( '-', $range );
+				$etiqueta      = implode( 'º-', $codes ) . 'º'; // '1-2-3' → '1º-2º-3º'
+
+				// Representative franxa per horario for this combo.
+				$franxa_manha = (string) $wpdb->get_var( $wpdb->prepare(
+					"SELECT g.franxa FROM {$grupos} g
+					 INNER JOIN " . self::tabela_actividades() . " a ON a.id = g.actividad_id
+					 WHERE g.curso_escolar = %s AND g.curso_range = %s AND g.franxa <> ''
+					   AND a.horarios LIKE '%manha%'
+					 ORDER BY g.id ASC LIMIT 1",
+					$curso_escolar,
+					$range
+				) );
+				$franxa_tarde = (string) $wpdb->get_var( $wpdb->prepare(
+					"SELECT g.franxa FROM {$grupos} g
+					 INNER JOIN " . self::tabela_actividades() . " a ON a.id = g.actividad_id
+					 WHERE g.curso_escolar = %s AND g.curso_range = %s AND g.franxa <> ''
+					   AND a.horarios LIKE '%tarde%'
+					 ORDER BY g.id ASC LIMIT 1",
+					$curso_escolar,
+					$range
+				) );
+
+				// A curricular group needs at least one franxa; if neither
+				// resolved, fall back to any non-empty franxa as tarde so the
+				// group is still selectable and the admin can correct it.
+				if ( '' === $franxa_manha && '' === $franxa_tarde ) {
+					$franxa_tarde = (string) $wpdb->get_var( $wpdb->prepare(
+						"SELECT franxa FROM {$grupos} WHERE curso_escolar = %s AND curso_range = %s AND franxa <> '' ORDER BY id ASC LIMIT 1",
+						$curso_escolar,
+						$range
+					) );
+				}
+
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent data backfill.
+				$wpdb->query( $wpdb->prepare(
+					"INSERT IGNORE INTO {$gc} (curso_escolar, etiqueta, orde, franxa_manha, franxa_tarde, estado, creado_en, actualizado_en)
+					 VALUES (%s, %s, %d, %s, %s, 'activo', NOW(), NOW())",
+					$curso_escolar,
+					$etiqueta,
+					'1-2-3' === $range ? 10 : 20,
+					$franxa_manha,
+					$franxa_tarde
+				) );
+
+				$gc_id = (int) $wpdb->get_var( $wpdb->prepare(
+					"SELECT id FROM {$gc} WHERE curso_escolar = %s AND etiqueta = %s LIMIT 1",
+					$curso_escolar,
+					$etiqueta
+				) );
+				if ( $gc_id <= 0 ) {
+					continue;
+				}
+
+				// Link niveis of this curso_escolar matching the range codes.
+				foreach ( $codes as $code ) {
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent data backfill.
+					$wpdb->query( $wpdb->prepare(
+						"INSERT IGNORE INTO {$gc_niv} (grupo_curricular_id, nivel_id)
+						 SELECT %d, id FROM {$niveis} WHERE curso_escolar = %s AND codigo = %s",
+						$gc_id,
+						$curso_escolar,
+						$code
+					) );
+				}
+
+				// Point every legacy group of this combo at the curricular group.
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent data backfill.
+				$wpdb->query( $wpdb->prepare(
+					"UPDATE {$grupos} SET grupo_curricular_id = %d
+					 WHERE curso_escolar = %s AND curso_range = %s AND grupo_curricular_id IS NULL",
+					$gc_id,
+					$curso_escolar,
+					$range
+				) );
+
+				// Link the curricular group to every actividades_cursos offer
+				// of the activities that own those legacy groups.
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent data backfill.
+				$wpdb->query( $wpdb->prepare(
+					"INSERT IGNORE INTO {$acy_gc} (actividad_curso_id, grupo_curricular_id)
+					 SELECT DISTINCT ac.id, %d
+					 FROM {$act_cur} ac
+					 INNER JOIN {$grupos} g ON g.actividad_id = ac.actividad_id AND g.curso_escolar = ac.curso_escolar
+					 WHERE ac.curso_escolar = %s AND g.curso_range = %s",
+					$gc_id,
+					$curso_escolar,
+					$range
+				) );
 			}
 		}
 

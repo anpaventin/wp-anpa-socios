@@ -620,7 +620,12 @@
 				field(__( 'Curso', 'anpa-socios' ), curso),
 				field(__( 'Grupo', 'anpa-socios' ), aula),
 			].forEach((el) => row.appendChild(el));
-			[consentLabel, save, edit, remove].forEach((el) => row.appendChild(el));
+			row.appendChild(consentLabel);
+			// Buttons live in their own full-width row BELOW the fields.
+			const actions = document.createElement('div');
+			actions.className = 'anpa-fillo-actions';
+			[save, edit, remove].forEach((el) => actions.appendChild(el));
+			row.appendChild(actions);
 			return row;
 		}
 
@@ -648,6 +653,21 @@
 			if (!hasEditable) {
 				fillosContainer.appendChild(createFilloRow());
 			}
+		}
+
+		// Whether any editable (unsaved) fillo row has data typed in it. Used to
+		// block the alta submit so a half-filled fillo/a is never silently
+		// dropped — the user must press «Gardar fillo/a» first.
+		function hasUnsavedFilloData() {
+			const rows = Array.from(fillosContainer.querySelectorAll('[data-fillo-row]'));
+			return rows.some((row) => {
+				if (row.dataset.filloSaved === '1') { return false; }
+				const get = (f) => {
+					const el = row.querySelector('[data-f="' + f + '"]');
+					return el ? el.value.trim() : '';
+				};
+				return !!( get('nome') || get('apelidos') || get('data_nacemento') || get('curso') || get('aula') );
+			});
 		}
 
 		fillosContainer.appendChild(createFilloRow());
@@ -882,6 +902,14 @@
 				const rgpd = !!(form.querySelector('#anpa-rgpd') || {}).checked;
 				if (!rgpd) {
 					errEl.textContent = __( 'Debes aceptar a política de protección de datos.', 'anpa-socios' );
+					errEl.parentElement.hidden = false;
+					return;
+				}
+
+				// Block if a fillo/a has data typed but was not saved with
+				// «Gardar fillo/a» — otherwise it would be silently dropped.
+				if (hasUnsavedFilloData()) {
+					errEl.textContent = __( 'Tes un fillo/a con datos sen gardar. Preme «Gardar fillo/a» ou baleira eses campos antes de continuar.', 'anpa-socios' );
 					errEl.parentElement.hidden = false;
 					return;
 				}

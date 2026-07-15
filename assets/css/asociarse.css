@@ -5,8 +5,10 @@
 
 #anpa-asociarse {
 	font-family: inherit;
-	max-width: 600px;
-	margin: 1.5rem auto;
+	/* Adopt the theme content width instead of forcing a narrow column. */
+	width: 100%;
+	max-width: 100%;
+	margin: 1.5rem 0;
 }
 
 #anpa-asociarse [data-step] {
@@ -36,6 +38,38 @@
 	width: 100%;
 	box-sizing: border-box;
 	background: var(--anpa-surface, #fff);
+}
+
+/* Cap field widths by the kind of data they hold, so a full-width theme
+   container does not stretch a postcode box across the whole page. Fields
+   inside fillo rows manage their own width via .anpa-fillo-field. */
+#anpa-asociarse [data-step="datos"] > .anpa-fieldset input[type="email"],
+#anpa-asociarse [data-step="datos"] > .anpa-fieldset input[type="text"],
+#anpa-asociarse [data-step="datos"] > .anpa-fieldset input[type="tel"],
+#anpa-asociarse [data-step="datos"] > .anpa-fieldset input[type="date"] {
+	max-width: 32rem;
+}
+
+/* Short data types get proportionally narrower boxes. */
+#anpa-asociarse #anpa-sepa-cp {
+	max-width: 8rem;
+}
+
+#anpa-asociarse #anpa-nif,
+#anpa-asociarse #anpa-p2-nif,
+#anpa-asociarse #anpa-sepa-nif,
+#anpa-asociarse #anpa-telefono,
+#anpa-asociarse #anpa-p2-telefono {
+	max-width: 16rem;
+}
+
+#anpa-asociarse #anpa-sepa-iban {
+	max-width: 24rem;
+}
+
+/* The email entry box keeps its card width regardless of the wider form. */
+#anpa-asociarse .anpa-alta-emailbox input[type="email"] {
+	max-width: 100%;
 }
 
 #anpa-asociarse input:focus,
@@ -196,12 +230,34 @@
 #anpa-asociarse [data-fillo-row] {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0.5rem;
-	align-items: center;
-	padding: 0.6rem;
+	gap: 0.5rem 0.75rem;
+	align-items: flex-end; /* align field bottoms so unequal-height controls line up */
+	padding: 0.75rem;
 	border: 1px solid var(--anpa-border, #e5e7eb);
 	border-radius: var(--anpa-radius-md, 8px);
 	margin-bottom: 0.6rem;
+}
+
+/* The image-consent checkbox and the action buttons drop to their own full
+   width row BELOW the fields, instead of floating in the middle of them. */
+#anpa-asociarse [data-fillo-row] .anpa-check,
+#anpa-asociarse [data-fillo-row] .anpa-fillo-actions {
+	flex: 1 1 100%;
+}
+
+#anpa-asociarse [data-fillo-row] .anpa-fillo-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-top: 0.25rem;
+}
+
+/* Keep every fillo control the same height regardless of type (date inputs
+   render taller than text inputs in some browsers otherwise). */
+#anpa-asociarse [data-fillo-row] input,
+#anpa-asociarse [data-fillo-row] select {
+	height: 2.6rem;
+	line-height: normal;
 }
 
 #anpa-asociarse [data-fillo-row].anpa-fillo-saved {
