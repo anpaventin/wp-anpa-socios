@@ -414,6 +414,39 @@ class ANPA_Socios_Email {
 	}
 
 	/**
+	 * Welcome/confirmation email sent right after a completed alta when NO
+	 * admin approval is required. Sent to every parent of the family so both
+	 * proxenitores get the initial confirmation and access instructions.
+	 *
+	 * @since  1.41.0
+	 * @param  string $email_socio Socio email.
+	 * @param  string $login_url   URL of the socios login/area page.
+	 * @return bool
+	 */
+	public static function enviar_benvida_alta( string $email_socio, string $login_url = '' ): bool {
+		$assoc = ANPA_Socios_Config::association_name();
+
+		/* translators: %s: association name */
+		$asunto = sprintf( __( 'Alta completada — %s', 'anpa-socios' ), $assoc );
+		$corpo  = '<!DOCTYPE html>'
+			. '<html><head><meta charset="UTF-8"></head>'
+			. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
+			/* translators: %s: association name */
+			. '<h2>' . sprintf( esc_html__( 'Benvido/a a %s', 'anpa-socios' ), esc_html( $assoc ) ) . '</h2>'
+			/* translators: %s: association name */
+			. '<p>' . sprintf( esc_html__( 'A túa alta como socio/a en %s completouse correctamente. Xa podes acceder á túa área persoal.', 'anpa-socios' ), esc_html( $assoc ) ) . '</p>'
+			. ( '' !== $login_url
+				? '<p>' . esc_html__( 'Entra na área de socios e inicia sesión co teu correo (recibirás un código de acceso):', 'anpa-socios' ) . '</p>'
+					. '<p><a href="' . esc_url( $login_url ) . '">' . esc_html( $login_url ) . '</a></p>'
+				: '<p>' . esc_html__( 'Entra na área de socios da web e inicia sesión co teu correo; recibirás un código de acceso.', 'anpa-socios' ) . '</p>' )
+			. '<p>' . esc_html__( 'Desde a túa área persoal poderás xestionar os teus datos, os teus fillos/as e as actividades extraescolares.', 'anpa-socios' ) . '</p>'
+			. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
+			. '</body></html>';
+
+		return self::send_from_master( $email_socio, $asunto, $corpo );
+	}
+
+	/**
 	 * Notifies a socio that their alta was rejected by the junta directiva.
 	 *
 	 * @since  1.23.0

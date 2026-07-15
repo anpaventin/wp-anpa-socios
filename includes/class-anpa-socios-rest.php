@@ -524,6 +524,16 @@ class ANPA_Socios_REST {
 			);
 		}
 
+		// No approval required: the alta is immediately active, so send the
+		// welcome/confirmation email to BOTH parents now (best-effort). When
+		// approval IS required the confirmation is sent on approval instead
+		// (see the approvals handler family cascade).
+		$login_url = class_exists( 'ANPA_Socios_Admin_Settings' ) ? ANPA_Socios_Admin_Settings::landing_page_url() : '';
+		ANPA_Socios_Email::enviar_benvida_alta( $email, $login_url );
+		if ( null !== $clean['parent2'] && ! empty( $clean['parent2']['email'] ) && strtolower( (string) $clean['parent2']['email'] ) !== strtolower( $email ) ) {
+			ANPA_Socios_Email::enviar_benvida_alta( (string) $clean['parent2']['email'], $login_url );
+		}
+
 		return new WP_REST_Response(
 			array(
 				'success' => true,

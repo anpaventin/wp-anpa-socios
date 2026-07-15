@@ -59,7 +59,11 @@ final class ANPA_Socios_Grupos_Curriculares {
 			return array();
 		}
 
-		$niveis = ANPA_Socios_Grupo_Niveis::normalize( $input['niveis'] ?? array() );
+		// Accept either `niveis` or `nivel_ids` (the admin form and the rest of
+		// the codebase use `nivel_ids`; the pure contract historically used
+		// `niveis`). Either one, non-empty, is required.
+		$niveis_raw = $input['niveis'] ?? ( $input['nivel_ids'] ?? array() );
+		$niveis     = ANPA_Socios_Grupo_Niveis::normalize( $niveis_raw );
 		if ( array() === $niveis ) {
 			return array();
 		}

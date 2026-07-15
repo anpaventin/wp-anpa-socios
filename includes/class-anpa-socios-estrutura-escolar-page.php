@@ -99,8 +99,27 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
             }
         }
 
+        // Classroom letters offered (A..H). Not hardcoded to any subset —
+        // each level picks its own last letter.
+        $letras = range( 'A', 'H' );
+
+        // Current last active classroom letter per nivel (for the select default).
+        $ultima_por_nivel = array();
+        foreach ( $niveis as $n ) {
+            $nid = (int) $n['id'];
+            $max = '';
+            foreach ( ( $aulas_by_nivel[ $nid ] ?? array() ) as $a ) {
+                $code = strtoupper( (string) $a['codigo'] );
+                if ( 'activo' === $a['estado'] && in_array( $code, $letras, true ) && $code > $max ) {
+                    $max = $code;
+                }
+            }
+            $ultima_por_nivel[ $nid ] = '' !== $max ? $max : 'D';
+        }
+
         // ── Niveis list ───────────────────────────────────────────
         echo '<div id="anpa-estrutura-editor" data-curso="' . esc_attr( $sel ) . '">';
+        echo '<p class="description">' . esc_html__( 'Cada nivel garda un só nome (por exemplo «1º»), que se usa tanto internamente como para amosalo. Escolle a última aula de cada nivel (A ata a letra que indiques); crearanse as aulas desde A ata esa letra.', 'anpa-socios' ) . '</p>';
 
         if ( empty( $niveis ) ) {
             echo '<div class="notice notice-info inline"><p>' . esc_html__( 'Aínda non hai niveis definidos para este curso. Crea o primeiro nivel usando o formulario de abaixo.', 'anpa-socios' ) . '</p></div>';
@@ -108,29 +127,36 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
             echo '<table class="widefat striped">';
             echo '<thead><tr>';
             echo '<th>' . esc_html__( 'Nivel', 'anpa-socios' ) . '</th>';
-            echo '<th>' . esc_html__( 'Código', 'anpa-socios' ) . '</th>';
-            echo '<th>' . esc_html__( 'Orde', 'anpa-socios' ) . '</th>';
-            echo '<th>' . esc_html__( 'Estado', 'anpa-socios' ) . '</th>';
-            echo '<th>' . esc_html__( 'Aulas', 'anpa-socios' ) . '</th>';
+            echo '<th>' . esc_html__( 'Última aula', 'anpa-socios' ) . '</th>';
+            echo '<th>' . esc_html__( 'Aulas actuais', 'anpa-socios' ) . '</th>';
             echo '<th>' . esc_html__( 'Accións', 'anpa-socios' ) . '</th>';
             echo '</tr></thead><tbody>';
 
             foreach ( $niveis as $n ) {
-                $nid   = (int) $n['id'];
-                $aulas = $aulas_by_nivel[ $nid ] ?? array();
-                $aula_labels = array_map( function ( $a ) {
-                    return esc_html( $a['codigo'] . ( $a['estado'] !== 'activo' ? ' (' . $a['estado'] . ')' : '' ) );
-                }, $aulas );
-                $aula_count = count( $aulas );
+                $nid    = (int) $n['id'];
+                $aulas  = $aulas_by_nivel[ $nid ] ?? array();
+                $activas = array();
+                foreach ( $aulas as $a ) {
+                    if ( 'activo' === $a['estado'] ) {
+                        $activas[] = esc_html( $a['codigo'] );
+                    }
+                }
+                $ultima = $ultima_por_nivel[ $nid ] ?? 'D';
 
-                echo '<tr>';
-                echo '<td>' . esc_html( $n['etiqueta'] ) . '</td>';
-                echo '<td>' . esc_html( $n['codigo'] ) . '</td>';
-                echo '<td>' . (int) $n['orde'] . '</td>';
-                echo '<td>' . esc_html( $n['estado'] ) . '</td>';
-                echo '<td>' . ( $aula_count > 0 ? implode( ', ', $aula_labels ) : '—' ) . '</td>';
+                echo '<tr data-nivel-row data-id="' . $nid . '">';
+                printf(
+                    '<td><input type="text" class="est-nivel-nome regular-text" value="%s" data-orde="%d" style="max-width:10rem"></td>',
+                    esc_attr( $n['codigo'] ),
+                    (int) $n['orde']
+                );
+                echo '<td><select class="est-nivel-ultima">';
+                foreach ( $letras as $l ) {
+                    printf( '<option value="%1$s"%2$s>A–%1$s</option>', esc_attr( $l ), selected( $ultima, $l, false ) );
+                }
+                echo '</select></td>';
+                echo '<td>' . ( ! empty( $activas ) ? implode( ', ', $activas ) : '—' ) . '</td>';
                 echo '<td>';
-                printf( '<button class="button button-small est-editar-nivel" data-id="%d">%s</button> ', $nid, esc_html__( 'Editar', 'anpa-socios' ) );
+                printf( '<button class="button button-small est-gardar-nivel" data-id="%d">%s</button> ', $nid, esc_html__( 'Gardar', 'anpa-socios' ) );
                 printf( '<button class="button button-small est-eliminar-nivel" data-id="%d">%s</button>', $nid, esc_html__( 'Eliminar', 'anpa-socios' ) );
                 echo '</td>';
                 echo '</tr>';
@@ -149,18 +175,14 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
         echo '<table class="form-table" role="presentation"><tbody>';
         printf(
             '<tr><th scope="row"><label for="est-nivel-codigo">%s</label></th><td><input type="text" id="est-nivel-codigo" name="codigo" class="regular-text" required placeholder="%s"></td></tr>',
-            esc_html__( 'Código', 'anpa-socios' ),
-            esc_attr__( 'ex: 1, 2, INF-3, PRIM-4', 'anpa-socios' )
+            esc_html__( 'Nivel', 'anpa-socios' ),
+            esc_attr__( 'ex: 1º, 2º, Infantil 3', 'anpa-socios' )
         );
-        printf(
-            '<tr><th scope="row"><label for="est-nivel-etiqueta">%s</label></th><td><input type="text" id="est-nivel-etiqueta" name="etiqueta" class="regular-text" required placeholder="%s"></td></tr>',
-            esc_html__( 'Etiqueta', 'anpa-socios' ),
-            esc_attr__( 'ex: 1º, 2º, Infantil 3, Primaria 4', 'anpa-socios' )
-        );
-        printf(
-            '<tr><th scope="row"><label for="est-nivel-orde">%s</label></th><td><input type="number" id="est-nivel-orde" name="orde" class="small-text" value="10" min="0" step="10"></td></tr>',
-            esc_html__( 'Orde', 'anpa-socios' )
-        );
+        echo '<tr><th scope="row"><label for="est-nivel-ultima">' . esc_html__( 'Última aula', 'anpa-socios' ) . '</label></th><td><select id="est-nivel-ultima" name="ultima_aula">';
+        foreach ( $letras as $l ) {
+            printf( '<option value="%1$s"%2$s>A–%1$s</option>', esc_attr( $l ), selected( 'D', $l, false ) );
+        }
+        echo '</select></td></tr>';
         echo '</tbody></table>';
         printf( '<button type="submit" class="button button-primary">%s</button>', esc_html__( 'Engadir nivel', 'anpa-socios' ) );
         echo '</form>';
@@ -195,26 +217,46 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
             const nonce = '<?php echo esc_js( $nonce ); ?>';
             const curso = '<?php echo esc_js( $sel ); ?>';
 
+            async function postAccion(fields) {
+                const data = new FormData();
+                data.append('curso_escolar', curso);
+                Object.keys(fields).forEach(function(k) { data.append(k, fields[k]); });
+                const res = await fetch(api, { method: 'POST', headers: { 'X-WP-Nonce': nonce }, body: data });
+                return res.json();
+            }
+
             document.getElementById('anpa-est-nivel-form')?.addEventListener('submit', async function(e) {
                 e.preventDefault();
-                const data = new FormData(this);
-                data.append('accion', 'engadir_nivel');
-                data.append('curso_escolar', curso);
+                const codigo = (document.getElementById('est-nivel-codigo').value || '').trim();
+                if (!codigo) { alert('<?php echo esc_js( __( 'Indica o nome do nivel.', 'anpa-socios' ) ); ?>'); return; }
                 try {
-                    const res = await fetch(api, {
-                        method: 'POST',
-                        headers: { 'X-WP-Nonce': nonce },
-                        body: data,
+                    const json = await postAccion({
+                        accion: 'engadir_nivel',
+                        codigo: codigo,
+                        ultima_aula: document.getElementById('est-nivel-ultima').value,
                     });
-                    const json = await res.json();
-                    if (json.success) {
+                    if (json.success) { location.reload(); } else { alert('Erro: ' + (json.message || 'descoñecido')); }
+                } catch(err) { alert('Erro de rede: ' + err.message); }
+            });
+
+            // Per-row save: rename the nivel and set its last classroom letter.
+            document.querySelectorAll('.est-gardar-nivel').forEach(function(btn) {
+                btn.addEventListener('click', async function() {
+                    const row = this.closest('[data-nivel-row]');
+                    const id = row.dataset.id;
+                    const nomeInput = row.querySelector('.est-nivel-nome');
+                    const nome = (nomeInput.value || '').trim();
+                    const orde = nomeInput.dataset.orde || '0';
+                    const ultima = row.querySelector('.est-nivel-ultima').value;
+                    if (!nome) { alert('<?php echo esc_js( __( 'O nome do nivel non pode quedar baleiro.', 'anpa-socios' ) ); ?>'); return; }
+                    try {
+                        const r1 = await postAccion({ accion: 'editar_nivel', nivel_id: id, codigo: nome, orde: orde });
+                        if (!r1.success) { alert('Erro: ' + (r1.message || 'descoñecido')); return; }
+                        const r2 = await postAccion({ accion: 'set_aulas', nivel_id: id, ultima_aula: ultima });
+                        if (!r2.success) { alert('Erro: ' + (r2.message || 'descoñecido')); return; }
                         location.reload();
-                    } else {
-                        alert('Erro: ' + (json.message || 'descoñecido'));
-                    }
-                } catch(err) {
-                    alert('Erro de rede: ' + err.message);
-                }
+                    } catch(err) { alert('Erro de rede: ' + err.message); }
+                });
             });
 
             document.getElementById('anpa-est-copy-form')?.addEventListener('submit', async function(e) {

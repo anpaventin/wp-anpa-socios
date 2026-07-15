@@ -64,12 +64,23 @@ final class ANPA_Socios_Admin_Approvals_Handler {
 	public static function list_pending(): WP_REST_Response {
 		global $wpdb;
 
-		$rows = $wpdb->get_results(
+		// One pending entry PER FAMILY, not per parent: only the family head
+		// (id = familia_id, i.e. parent 1) is listed. Approving the head
+		// cascades activation + welcome email to the pending 2nd parent (see
+		// process() / pending_family_siblings). Legacy rows without a familia_id
+		// are still shown so they are never hidden.
+		$table = $wpdb->prefix . 'anpa_socios';
+		$rows  = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT email, nome, apelidos, telefono, nif, creado_en
-				 FROM {$wpdb->prefix}anpa_socios
-				 WHERE estado = %s
-				 ORDER BY creado_en ASC",
+				"SELECT h.email, h.nome, h.apelidos, h.telefono, h.nif, h.creado_en,
+				        ( SELECT GROUP_CONCAT(c.email SEPARATOR ', ')
+				          FROM {$table} c
+				          WHERE c.familia_id = h.familia_id AND c.email <> h.email AND c.estado = %s
+				        ) AS co_proxenitores
+				 FROM {$table} h
+				 WHERE h.estado = %s AND ( h.familia_id IS NULL OR h.familia_id = h.id )
+				 ORDER BY h.creado_en ASC",
+				self::PENDING_ESTADO,
 				self::PENDING_ESTADO
 			),
 			ARRAY_A

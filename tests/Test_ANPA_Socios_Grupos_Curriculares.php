@@ -100,6 +100,19 @@ final class Test_ANPA_Socios_Grupos_Curriculares extends TestCase {
 		$this->assertSame( array( '1', '2', '3' ), $out['niveis'] );
 	}
 
+	public function test_normalize_accepts_nivel_ids_alias(): void {
+		// The admin form posts `nivel_ids`, not `niveis` — both must work,
+		// otherwise the group is always rejected with a 400 (real bug 2026-07-15).
+		$out = ANPA_Socios_Grupos_Curriculares::normalize_snapshot( array(
+			'etiqueta'     => 'Grupo 1',
+			'nivel_ids'    => array( 12, 15, 18 ),
+			'franxa_manha' => '14:10-15:10',
+		) );
+
+		$this->assertNotSame( array(), $out );
+		$this->assertSame( array( '12', '15', '18' ), $out['niveis'] );
+	}
+
 	public function test_normalize_rejects_overlong_label(): void {
 		$this->assertSame( array(), ANPA_Socios_Grupos_Curriculares::normalize_snapshot( array(
 			'etiqueta'     => str_repeat( 'x', 61 ),
