@@ -470,7 +470,7 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 			'empresa_email' => 'e@example.com', 'actividade_nome' => 'Futbol', 'curso_escolar' => '2025/2026',
 		);
 		$key = ANPA_Socios_Csv_Import::compute_natural_key( 'matriculas', $row );
-		$this->assertSame( 'matriculas:parent@example.com|lúa|garcía|e@example.com|futbol|2025/2026||||', $key );
+		$this->assertSame( 'matriculas:parent@example.com|lúa|garcía|e@example.com|futbol|2025/2026|||||', $key );
 	}
 
 	public function test_compute_natural_key_returns_null_on_missing_fields(): void {
@@ -579,7 +579,22 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 			'curso_escolar' => '2025/2026',
 		);
 		$key = ANPA_Socios_Csv_Import::compute_natural_key( 'matriculas', $row );
-		$this->assertSame( 'matriculas:parent@example.com|noa|lópez|empresa@example.com|piano|2025/2026||||', $key );
+		$this->assertSame( 'matriculas:parent@example.com|noa|lópez|empresa@example.com|piano|2025/2026|||||', $key );
+	}
+
+	public function test_matriculas_natural_key_distinguishes_group_name(): void {
+		$base = array(
+			'proxenitor_email' => 'parent@example.com',
+			'fillo_nome' => 'Noa',
+			'fillo_apelidos' => 'López',
+			'empresa_email' => 'empresa@example.com',
+			'actividade_nome' => 'Piano',
+			'curso_escolar' => '2025/2026',
+			'trimestre' => '1',
+		);
+		$first = ANPA_Socios_Csv_Import::compute_natural_key( 'matriculas', $base + array( 'grupo_nome' => 'Grupo A' ) );
+		$second = ANPA_Socios_Csv_Import::compute_natural_key( 'matriculas', $base + array( 'grupo_nome' => 'Grupo B' ) );
+		$this->assertNotSame( $first, $second );
 	}
 
 	public function test_matriculas_natural_key_null_when_proxenitor_email_empty(): void {
@@ -611,7 +626,7 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 		$rows = array(
 			array( 'proxenitor_email' => 'parent@example.com', 'fillo_nome' => 'Lúa', 'fillo_apelidos' => 'García', 'empresa_email' => 'e@example.com', 'actividade_nome' => 'Futbol', 'curso_escolar' => '2025/2026', 'comedor' => '1', 'tarde' => '0', 'observaciones' => '', 'estado' => 'activo' ),
 		);
-		$existing = array( 'matriculas:parent@example.com|lúa|garcía|e@example.com|futbol|2025/2026||||' );
+		$existing = array( 'matriculas:parent@example.com|lúa|garcía|e@example.com|futbol|2025/2026|||||' );
 
 		$result = ANPA_Socios_Csv_Import::analyze( 'matriculas', $rows, $existing );
 

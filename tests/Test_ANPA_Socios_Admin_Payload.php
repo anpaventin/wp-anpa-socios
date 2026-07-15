@@ -120,130 +120,78 @@ class Test_ANPA_Socios_Admin_Payload extends TestCase {
 	// validar_actividad
 	// ──────────────────────────────────────────────
 
+	private function validActividadInput(): array {
+		return array(
+			'empresa_id'  => 1,
+			'nome'        => 'Teatro infantil',
+			'descripcion' => 'Iniciación ao teatro',
+			'cursos'      => array( '2025/2026', '2026/2027' ),
+			'custo'       => '30.00',
+			'estado'      => 'activo',
+		);
+	}
+
 	public function test_validar_actividad_ok(): void {
-		$result = ANPA_Socios_Admin_Payload::validar_actividad( array(
-			'empresa_id'    => 1,
-			'nome'          => 'Teatro infantil',
-			'descripcion'   => 'Iniciación ao teatro',
-			'curso_escolar' => '2025/2026',
-			'franxa'        => '16:45-17:45',
-			'horarios'      => array( 'tarde' ),
-			'grupos'        => array( '1-2-3' ),
-			'dias'          => array( 'luns' ),
-			'idade_min'     => 6,
-			'idade_max'     => 10,
-			'custo'         => '30.00',
-		) );
+		$result = ANPA_Socios_Admin_Payload::validar_actividad( $this->validActividadInput() );
 		$this->assertIsArray( $result );
 		$this->assertSame( 'Teatro infantil', $result['nome'] );
+		$this->assertSame( '2025/2026', $result['curso_escolar'] );
 		$this->assertSame( '🎒', $result['icono'] );
 	}
 
-	public function test_validar_actividad_captures_exclusive_horario(): void {
-		// fase24: an offer can carry an exclusive morning/afternoon horario.
-		$result = ANPA_Socios_Admin_Payload::validar_actividad( array(
-			'empresa_id'    => 1,
-			'nome'          => 'Teatro',
-			'descripcion'   => 'desc',
-			'curso_escolar' => '2025/2026',
-			'franxa'        => '16:45-17:45',
-			'horarios'      => array( 'tarde' ),
-			'grupos'        => array( '1-2-3' ),
-			'dias'          => array( 'luns' ),
-			'custo'         => '30.00',
-			'horario'       => 'tarde',
+	public function test_validar_actividad_clears_fields_that_belong_to_groups(): void {
+		$input = array_merge( $this->validActividadInput(), array(
+			'franxa'      => '16:45-17:45',
+			'horarios'    => array( 'tarde' ),
+			'horario'     => 'tarde',
+			'grupos'      => array( '1-2-3' ),
+			'dias'        => array( 'luns' ),
+			'curso_min'   => 1,
+			'curso_max'   => 6,
+			'min_pupilos' => 8,
+			'max_pupilos' => 15,
 		) );
+		$result = ANPA_Socios_Admin_Payload::validar_actividad( $input );
 		$this->assertIsArray( $result );
-		$this->assertSame( 'tarde', $result['horario'] );
-	}
-
-	public function test_validar_actividad_rejects_non_exclusive_horario_to_null(): void {
-		// A non-exclusive/absent horario resolves to null (not both).
-		$base = array(
-			'empresa_id'    => 1,
-			'nome'          => 'Teatro',
-			'descripcion'   => 'desc',
-			'curso_escolar' => '2025/2026',
-			'franxa'        => '16:45-17:45',
-			'horarios'      => array( 'tarde' ),
-			'grupos'        => array( '1-2-3' ),
-			'dias'          => array( 'luns' ),
-			'custo'         => '30.00',
-		);
-
-		$absent = ANPA_Socios_Admin_Payload::validar_actividad( $base );
-		$this->assertNull( $absent['horario'] );
-
-		$both = ANPA_Socios_Admin_Payload::validar_actividad( array_merge( $base, array( 'horario' => array( 'manha', 'tarde' ) ) ) );
-		$this->assertNull( $both['horario'] );
-
-		$bogus = ANPA_Socios_Admin_Payload::validar_actividad( array_merge( $base, array( 'horario' => 'noite' ) ) );
-		$this->assertNull( $bogus['horario'] );
+		$this->assertNull( $result['horario'] );
+		$this->assertSame( '', $result['franxa'] );
+		$this->assertSame( '', $result['horarios'] );
+		$this->assertSame( '', $result['grupos'] );
+		$this->assertSame( '', $result['dias'] );
+		$this->assertNull( $result['curso_min'] );
+		$this->assertNull( $result['curso_max'] );
+		$this->assertSame( 0, $result['min_pupilos'] );
+		$this->assertSame( 0, $result['max_pupilos'] );
 	}
 
 	public function test_validar_actividad_accepts_custom_icono(): void {
-		$result = ANPA_Socios_Admin_Payload::validar_actividad( array(
-			'empresa_id'    => 1,
-			'nome'          => 'Ecoarte',
-			'icono'         => '🌿',
-			'descripcion'   => 'Arte e natureza',
-			'curso_escolar' => '2025/2026',
-			'franxa'        => '14:20-15:10',
-			'horarios'      => array( 'manha' ),
-			'grupos'        => array( '1-2-3' ),
-			'dias'          => array( 'luns' ),
-			'custo'         => '11.50',
-		) );
+		$input = array_merge( $this->validActividadInput(), array( 'icono' => '🌿' ) );
+		$result = ANPA_Socios_Admin_Payload::validar_actividad( $input );
 		$this->assertIsArray( $result );
 		$this->assertSame( '🌿', $result['icono'] );
 	}
 
 	public function test_validar_actividad_invalid_empresa_id(): void {
-		$result = ANPA_Socios_Admin_Payload::validar_actividad( array(
-			'empresa_id'    => 0,
-			'nome'          => 'X',
-			'descripcion'   => 'X',
-			'curso_escolar' => '2025/2026',
-			'franxa'        => '16:45-17:45',
-			'horarios'      => array( 'tarde' ),
-			'grupos'        => array( '1-2-3' ),
-			'dias'          => array( 'luns' ),
-		) );
-		$this->assertNull( $result );
+		$input = array_merge( $this->validActividadInput(), array( 'empresa_id' => 0 ) );
+		$this->assertNull( ANPA_Socios_Admin_Payload::validar_actividad( $input ) );
 	}
 
 	public function test_validar_actividad_invalid_custo(): void {
-		$result = ANPA_Socios_Admin_Payload::validar_actividad( array(
-			'empresa_id'    => 1,
-			'nome'          => 'X',
-			'descripcion'   => 'X',
-			'curso_escolar' => '2025/2026',
-			'franxa'        => '16:45-17:45',
-			'horarios'      => array( 'tarde' ),
-			'grupos'        => array( '1-2-3' ),
-			'dias'          => array( 'luns' ),
-			'custo'         => 'not-a-number',
-		) );
-		$this->assertNull( $result );
+		$input = array_merge( $this->validActividadInput(), array( 'custo' => 'not-a-number' ) );
+		$this->assertNull( ANPA_Socios_Admin_Payload::validar_actividad( $input ) );
 	}
 
-	public function test_diagnosticar_actividad_identifies_option_and_value_errors(): void {
-		$base = array(
-			'empresa_id'    => 1,
-			'nome'          => 'Teatro',
-			'descripcion'   => 'Teatro infantil',
-			'curso_escolar' => '2025/2026',
-			'horarios'      => array( 'tarde' ),
-			'grupos'        => array( '1-2-3' ),
-			'dias'          => array( 'luns' ),
-			'custo'         => '30.00',
-		);
+	public function test_validar_actividad_requires_registered_year_shape(): void {
+		$input = array_merge( $this->validActividadInput(), array( 'cursos' => array() ) );
+		$this->assertNull( ANPA_Socios_Admin_Payload::validar_actividad( $input ) );
+		$input['cursos'] = array( '2025' );
+		$this->assertNull( ANPA_Socios_Admin_Payload::validar_actividad( $input ) );
+	}
 
+	public function test_diagnosticar_actividad_identifies_current_contract_errors(): void {
+		$base = $this->validActividadInput();
 		$this->assertNull( ANPA_Socios_Admin_Payload::diagnosticar_actividad( $base ) );
-		$this->assertSame( 'horarios_required', ANPA_Socios_Admin_Payload::diagnosticar_actividad( array_replace( $base, array( 'horarios' => array() ) ) ) );
-		$this->assertSame( 'grupos_required', ANPA_Socios_Admin_Payload::diagnosticar_actividad( array_replace( $base, array( 'grupos' => array() ) ) ) );
-		$this->assertSame( 'dias_required', ANPA_Socios_Admin_Payload::diagnosticar_actividad( array_replace( $base, array( 'dias' => array() ) ) ) );
-		$this->assertSame( 'curso_escolar_invalid', ANPA_Socios_Admin_Payload::diagnosticar_actividad( array_replace( $base, array( 'curso_escolar' => '2025' ) ) ) );
+		$this->assertSame( 'cursos_required', ANPA_Socios_Admin_Payload::diagnosticar_actividad( array_replace( $base, array( 'cursos' => array() ) ) ) );
 		$this->assertSame( 'custo_invalid', ANPA_Socios_Admin_Payload::diagnosticar_actividad( array_replace( $base, array( 'custo' => 'abc' ) ) ) );
 	}
 

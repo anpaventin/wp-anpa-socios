@@ -521,12 +521,6 @@ final class ANPA_Socios_Admin_Settings {
 		}
 
 		// Grupos curriculares (fase24) — dedicated renderer, must not fall
-		// through to the legacy curso-escolar editor (same class of routing
-		// bug fixed for 'estrutura' on 2026-07-15).
-		if ( 'grupos-curriculares' === $section ) {
-			ANPA_Socios_Grupos_Curriculares_Page::render();
-			return;
-		}
 
 		global $wpdb;
 		$post_url = esc_url( admin_url( 'admin-post.php' ) );

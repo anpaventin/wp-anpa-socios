@@ -31,7 +31,7 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 			array_keys( ANPA_Socios_Admin_Nav::settings_sections( 'xeral' ) )
 		);
 		$this->assertSame(
-			array( 'estrutura', 'grupos-curriculares' ),
+			array( 'estrutura' ),
 			array_keys( ANPA_Socios_Admin_Nav::settings_sections( 'cursos' ) )
 		);
 		$this->assertSame(

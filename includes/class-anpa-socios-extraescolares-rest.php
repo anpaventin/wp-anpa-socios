@@ -98,6 +98,7 @@ final class ANPA_Socios_Extraescolares_REST {
 
 		$fillo_id    = (int) $request->get_param( 'fillo_id' );
 		$curso_fillo = null;
+		$nivel_fillo_id = null;
 		$sen_curso   = false;
 		$sql         = "SELECT a.id, a.nome, a.descripcion FROM {$act_t} a INNER JOIN {$acy_t} ac ON ac.actividad_id = a.id AND ac.curso_escolar = %s WHERE a.estado = 'activo' AND ac.estado = 'activo'";
 		$params      = array( $curso );
@@ -114,7 +115,7 @@ final class ANPA_Socios_Extraescolares_REST {
 				$fc_t   = ANPA_Socios_DB::tabela_fillos_cursos();
 				$fc_row = $wpdb->get_row(
 					$wpdb->prepare(
-						"SELECT curso FROM {$fc_t} WHERE fillo_id = %d AND curso_escolar = %s LIMIT 1",
+						"SELECT curso, nivel_id FROM {$fc_t} WHERE fillo_id = %d AND curso_escolar = %s LIMIT 1",
 						$fillo_id,
 						$curso
 					),
@@ -122,6 +123,7 @@ final class ANPA_Socios_Extraescolares_REST {
 				);
 				if ( is_array( $fc_row ) ) {
 					$curso_fillo = (string) $fc_row['curso'];
+					$nivel_fillo_id = (int) ( $fc_row['nivel_id'] ?? 0 );
 				} else {
 					$sen_curso = true;
 				}
@@ -136,7 +138,7 @@ final class ANPA_Socios_Extraescolares_REST {
 		foreach ( $acts as $act ) {
 			$grupos = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT id, curso_escolar, curso_range, franxa, dias, max_pupilos, estado FROM {$gru_t} WHERE actividad_id = %d AND curso_escolar = %s AND estado = 'aberto' ORDER BY franxa ASC, id ASC",
+					"SELECT id, nome, horario, curso_escolar, franxa, dias, max_pupilos, estado FROM {$gru_t} WHERE actividad_id = %d AND curso_escolar = %s AND estado = 'aberto' ORDER BY franxa ASC, nome ASC, id ASC",
 					(int) $act['id'],
 					$curso
 				),
@@ -149,7 +151,7 @@ final class ANPA_Socios_Extraescolares_REST {
 
 			$grupo_out = array();
 			foreach ( $grupos as $g ) {
-				if ( null !== $curso_fillo && ! ANPA_Socios_Curso_Fit::fits( $curso_fillo, (string) $g['curso_range'] ) ) {
+				if ( null !== $curso_fillo && ( $nivel_fillo_id <= 0 || ! in_array( $nivel_fillo_id, ANPA_Socios_DB::get_niveis_for_grupo( (int) $g['id'] ), true ) ) ) {
 					continue;
 				}
 
@@ -161,7 +163,9 @@ final class ANPA_Socios_Extraescolares_REST {
 				);
 				$grupo_out[] = array(
 					'id'          => (int) $g['id'],
-					'curso_range' => $g['curso_range'],
+					'nome'        => $g['nome'],
+					'horario'     => $g['horario'],
+					'horario_label' => ANPA_Socios_Grupo_Serie::horario_label( (string) $g['horario'] ),
 					'franxa'      => $g['franxa'],
 					'dias'        => $g['dias'],
 					'max_pupilos' => (int) $g['max_pupilos'],
@@ -234,7 +238,7 @@ final class ANPA_Socios_Extraescolares_REST {
 		$gru_t = ANPA_Socios_DB::tabela_grupos();
 		$grupo = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT g.id, g.actividad_id, g.curso_escolar, g.curso_range, g.franxa, g.max_pupilos, g.estado
+				"SELECT g.id, g.actividad_id, g.curso_escolar, g.nome, g.horario, g.franxa, g.max_pupilos, g.estado
 				 FROM {$gru_t} g
 				 WHERE g.id = %d",
 				$grupo_id
@@ -255,15 +259,16 @@ final class ANPA_Socios_Extraescolares_REST {
 		$fc_t       = ANPA_Socios_DB::tabela_fillos_cursos();
 		$fc_row     = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT curso, aula FROM {$fc_t} WHERE fillo_id = %d AND curso_escolar = %s LIMIT 1",
+				"SELECT curso, aula, nivel_id FROM {$fc_t} WHERE fillo_id = %d AND curso_escolar = %s LIMIT 1",
 				$fillo_id,
 				$curso_act
 			),
 			ARRAY_A
 		);
 		if ( is_array( $fc_row ) ) {
-			// R-I2: use the fillo_cursos assignment for fit check.
-			if ( ! ANPA_Socios_Curso_Fit::fits( (string) $fc_row['curso'], (string) $grupo['curso_range'] ) ) {
+			// Dynamic fit: the annual fillo level must be explicitly linked to the group.
+			$nivel_id = (int) ( $fc_row['nivel_id'] ?? 0 );
+			if ( $nivel_id <= 0 || ! in_array( $nivel_id, ANPA_Socios_DB::get_niveis_for_grupo( $grupo_id ), true ) ) {
 				return self::err( 'anpa_extra_curso', 'O curso do alumno/a non encaixa neste grupo', 400 );
 			}
 		} else {
@@ -408,7 +413,7 @@ final class ANPA_Socios_Extraescolares_REST {
 		$curso_filter = $request->get_param( 'curso_escolar' );
 		$sql  = "SELECT m.id, m.estado, m.posicion, m.trimestre, m.grupo_id,
 			        f.id AS fillo_id, f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
-			        a.nome AS actividade, g.curso_escolar, g.curso_range, g.franxa, g.dias
+			        a.nome AS actividade, g.curso_escolar, g.nome AS grupo_nome, g.horario, g.franxa, g.dias
 			 FROM {$mat_t} m
 			 INNER JOIN {$fil_t} f ON f.id = m.fillo_id
 			 LEFT JOIN {$act_t} a ON a.id = m.activitad_id

@@ -386,12 +386,14 @@ final class ANPA_Socios_Admin_Payload {
 	 * @param  string  $curso_primary Primary year.
 	 * @return string[]|null Normalized years, or null on invalid input.
 	 */
-	public static function normalizar_cursos_actividad( array $cursos, string $curso_primary ): ?array {
-		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso_primary ) ) {
-			return null;
+	public static function normalizar_cursos_actividad( array $cursos, string $curso_primary = '' ): ?array {
+		$normalized = array();
+		if ( '' !== $curso_primary ) {
+			if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso_primary ) ) {
+				return null;
+			}
+			$normalized[] = $curso_primary;
 		}
-
-		$normalized = array( $curso_primary );
 		foreach ( $cursos as $curso ) {
 			$curso = is_string( $curso ) ? trim( $curso ) : '';
 			if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
@@ -402,7 +404,7 @@ final class ANPA_Socios_Admin_Payload {
 			}
 		}
 
-		return $normalized;
+		return array() === $normalized ? null : $normalized;
 	}
 
 	/**
@@ -416,31 +418,18 @@ final class ANPA_Socios_Admin_Payload {
 		if ( ! isset( $input['empresa_id'] ) || (int) $input['empresa_id'] <= 0 ) {
 			return 'empresa_required';
 		}
-		foreach ( array( 'nome', 'descripcion', 'curso_escolar' ) as $field ) {
+		foreach ( array( 'nome', 'descripcion' ) as $field ) {
 			if ( ! isset( $input[ $field ] ) || '' === trim( (string) $input[ $field ] ) ) {
 				return $field . '_required';
 			}
 		}
-		if ( ! ANPA_Socios_Curso_Escolar::is_valid( (string) $input['curso_escolar'] ) ) {
-			return 'curso_escolar_invalid';
-		}
-		if ( array() === ANPA_Socios_Actividade_Options::normalize( $input['horarios'] ?? null, ANPA_Socios_Actividade_Options::HORARIOS ) ) {
-			return 'horarios_required';
-		}
-		if ( array() === ANPA_Socios_Actividade_Options::normalize( $input['grupos'] ?? null, ANPA_Socios_Actividade_Options::GRUPOS ) ) {
-			return 'grupos_required';
-		}
-		if ( array() === ANPA_Socios_Actividade_Options::normalize( $input['dias'] ?? null, ANPA_Socios_Actividade_Options::DIAS ) ) {
-			return 'dias_required';
+		if ( ! isset( $input['cursos'] ) || ! is_array( $input['cursos'] ) || null === self::normalizar_cursos_actividad( $input['cursos'] ) ) {
+			return 'cursos_required';
 		}
 		if ( null === self::parse_custo( $input['custo'] ?? null ) ) {
 			return 'custo_invalid';
 		}
-		$curso_min = isset( $input['curso_min'] ) && '' !== $input['curso_min'] ? (int) $input['curso_min'] : null;
-		$curso_max = isset( $input['curso_max'] ) && '' !== $input['curso_max'] ? (int) $input['curso_max'] : null;
-		if ( null !== $curso_min && null !== $curso_max && $curso_min > $curso_max ) {
-			return 'curso_range_invalid';
-		}
+
 		if ( isset( $input['estado'] ) && ! in_array( (string) $input['estado'], self::EMPRESA_ESTADO, true ) ) {
 			return 'estado_invalid';
 		}
@@ -463,36 +452,18 @@ final class ANPA_Socios_Admin_Payload {
 		$nome          = self::sanitise_optional_string( $input['nome'] ?? null, self::ACTIVIDAD_NOME_MAX_LEN );
 		$icono         = self::sanitise_optional_string( $input['icono'] ?? null, 20 );
 		$descripcion   = self::sanitise_optional_string( $input['descripcion'] ?? null, self::ACTIVIDAD_DESC_MAX_LEN );
-		$curso_escolar = self::sanitise_optional_string( $input['curso_escolar'] ?? null, 20 );
-		$curso_min     = isset( $input['curso_min'] ) && '' !== $input['curso_min'] ? (int) $input['curso_min'] : null;
-		$curso_max     = isset( $input['curso_max'] ) && '' !== $input['curso_max'] ? (int) $input['curso_max'] : null;
+		$cursos        = isset( $input['cursos'] ) && is_array( $input['cursos'] ) ? self::normalizar_cursos_actividad( $input['cursos'] ) : null;
+		$curso_escolar = is_array( $cursos ) ? (string) $cursos[0] : '';
 		$custo         = self::parse_custo( $input['custo'] ?? null );
-		$franxa        = ANPA_Socios_Actividade_Options::normalize_franxa( $input['franxa'] ?? null );
-		// fase24: exclusive morning/afternoon horario for the yearly offer.
-		// Optional during the transition (legacy offers have it NULL until the
-		// admin edits them); when provided it MUST be exactly 'manha' or
-		// 'tarde', never both. Invalid/absent → null.
-		$horario       = ANPA_Socios_Grupos_Curriculares::is_valid_horario( $input['horario'] ?? null )
-			? (string) $input['horario']
-			: null;
 		$estado        = isset( $input['estado'] ) ? (string) $input['estado'] : 'activo';
 		if ( ! in_array( $estado, self::EMPRESA_ESTADO, true ) ) {
-			return null;
-		}
-
-		// fase7: an activity defines option sets (horario / grupo curricular /
-		// días) instead of a numeric age range. At least one of each is required.
-		$horarios = $input['horarios'] ?? null;
-		$grupos   = $input['grupos'] ?? null;
-		$dias     = $input['dias'] ?? null;
-		if ( ! ANPA_Socios_Actividade_Options::validate( $horarios, $grupos, $dias ) ) {
 			return null;
 		}
 
 		if ( $empresa_id <= 0 ) {
 			return null;
 		}
-		if ( null === $nome || null === $descripcion || null === $curso_escolar ) {
+		if ( null === $nome || null === $descripcion || null === $cursos ) {
 			return null;
 		}
 		if ( '' === $nome || '' === $descripcion || '' === $curso_escolar ) {
@@ -504,15 +475,6 @@ final class ANPA_Socios_Admin_Payload {
 		if ( null === $custo ) {
 			return null;
 		}
-		if ( null !== $curso_min && null !== $curso_max && $curso_min > $curso_max ) {
-			return null;
-		}
-
-		// 1.16.0: per-activity place capacity, parsed with defaults.
-		$min_pupilos = isset( $input['min_pupilos'] ) ? (int) $input['min_pupilos'] : 10;
-		$max_pupilos = isset( $input['max_pupilos'] ) ? (int) $input['max_pupilos'] : 15;
-		if ( $min_pupilos < 1 ) { $min_pupilos = 10; }
-		if ( $max_pupilos < 1 || $max_pupilos < $min_pupilos ) { $max_pupilos = 15; }
 
 		return array(
 			'empresa_id'    => $empresa_id,
@@ -520,15 +482,15 @@ final class ANPA_Socios_Admin_Payload {
 			'icono'         => ( null === $icono || '' === $icono ) ? '🎒' : $icono,
 			'descripcion'   => $descripcion,
 			'curso_escolar' => $curso_escolar,
-			'horario'       => $horario,
-			'franxa'        => null === $franxa ? '' : $franxa,
-			'horarios'      => ANPA_Socios_Actividade_Options::serialize( $horarios, ANPA_Socios_Actividade_Options::HORARIOS ),
-			'grupos'        => ANPA_Socios_Actividade_Options::serialize( $grupos, ANPA_Socios_Actividade_Options::GRUPOS ),
-			'dias'          => ANPA_Socios_Actividade_Options::serialize( $dias, ANPA_Socios_Actividade_Options::DIAS ),
-			'curso_min'     => $curso_min,
-			'curso_max'     => $curso_max,
-			'min_pupilos'   => $min_pupilos,
-			'max_pupilos'   => $max_pupilos,
+			'horario'       => null,
+			'franxa'        => '',
+			'horarios'      => '',
+			'grupos'        => '',
+			'dias'          => '',
+			'curso_min'     => null,
+			'curso_max'     => null,
+			'min_pupilos'   => 0,
+			'max_pupilos'   => 0,
 			'custo'         => $custo,
 			'estado'        => $estado,
 		);

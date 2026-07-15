@@ -54,6 +54,11 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 				'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
 			),
 		) );
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/fillo/(?P<id>\d+)/matriculas', array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => array( __CLASS__, 'list_fillo_matriculas' ),
+			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+		) );
 		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/fillo/(?P<id>\d+)/cursos', array(
 			array(
 				'methods'             => WP_REST_Server::READABLE,
@@ -216,6 +221,42 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 	}
 
 	/**
+	 * GET /admin/fillo/<id>/matriculas
+	 *
+	 * Read-only list of a fillo's matrículas across all years, newest school
+	 * year first, for the informational panel under the fillo editor.
+	 *
+	 * @since  1.41.2
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public static function list_fillo_matriculas( WP_REST_Request $request ): WP_REST_Response {
+		global $wpdb;
+
+		$id  = (int) $request->get_param( 'id' );
+		$mat = ANPA_Socios_DB::tabela_matriculas();
+		$gru = ANPA_Socios_DB::tabela_grupos();
+		$act = ANPA_Socios_DB::tabela_actividades();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only informational list.
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT m.id,
+			        COALESCE(g.curso_escolar, '') AS curso_escolar,
+			        COALESCE(a.nome, '') AS actividade,
+			        COALESCE(g.franxa, '') AS franxa,
+			        m.trimestre, m.estado, m.creado_en
+			 FROM {$mat} m
+			 LEFT JOIN {$gru} g ON g.id = m.grupo_id
+			 LEFT JOIN {$act} a ON a.id = m.activitad_id
+			 WHERE m.fillo_id = %d
+			 ORDER BY g.curso_escolar DESC, m.creado_en DESC",
+			$id
+		), ARRAY_A );
+
+		return new WP_REST_Response( is_array( $rows ) ? $rows : array(), 200 );
+	}
+
+	/**
 	 * GET /admin/fillo/<id>/cursos
 	 */
 	public static function list_fillo_cursos( WP_REST_Request $request ) {
@@ -310,14 +351,59 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 	}
 
 	/**
-	 * DELETE /admin/fillo/<id> (soft delete to estado=baixa).
+	 * DELETE /admin/fillo/<id>
+	 *
+	 * Default: soft delete (estado=baixa). With `?hard=1`: definitive removal,
+	 * only allowed when the fillo/a is already in baixa AND has no matrículas
+	 * associated; the annual assignments (fillos_cursos) are removed in the same
+	 * transaction. Any matrícula blocks the hard delete with a 409.
 	 */
 	public static function delete_fillo( WP_REST_Request $request ) {
 		global $wpdb;
 
-		$id = (int) $request->get_param( 'id' );
+		$id   = (int) $request->get_param( 'id' );
+		$hard = in_array( (string) $request->get_param( 'hard' ), array( '1', 'true' ), true );
+
+		$fillos_t = ANPA_Socios_DB::tabela_fillos();
+		$estado   = $wpdb->get_var( $wpdb->prepare( "SELECT estado FROM {$fillos_t} WHERE id = %d", $id ) );
+		if ( null === $estado ) {
+			return new WP_Error( 'anpa_admin_not_found', __( 'Fillo/a non atopado.', 'anpa-socios' ), array( 'status' => 404 ) );
+		}
+
+		if ( $hard ) {
+			if ( 'baixa' !== $estado ) {
+				return new WP_Error( 'anpa_admin_must_deactivate', __( 'Desactiva o fillo/a antes de eliminalo definitivamente.', 'anpa-socios' ), array( 'status' => 409 ) );
+			}
+			$mat_t = ANPA_Socios_DB::tabela_matriculas();
+			$refs  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$mat_t} WHERE fillo_id = %d", $id ) );
+			if ( $refs > 0 ) {
+				return new WP_Error( 'anpa_admin_fillo_has_data', __( 'Non se pode eliminar: o fillo/a ten matrículas asociadas.', 'anpa-socios' ), array( 'status' => 409 ) );
+			}
+
+			$fc_t = ANPA_Socios_DB::tabela_fillos_cursos();
+			if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+				return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+			}
+			$deleted_assignments = $wpdb->query( $wpdb->prepare( "DELETE FROM {$fc_t} WHERE fillo_id = %d", $id ) );
+			if ( false === $deleted_assignments ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+			}
+			$deleted = $wpdb->delete( $fillos_t, array( 'id' => $id ), array( '%d' ) );
+			if ( 1 !== $deleted ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+			}
+			if ( false === $wpdb->query( 'COMMIT' ) ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+			}
+			ANPA_Socios_Admin_Shared::write_audit( $request, 'fillo', (string) $id, 'delete_hard' );
+			return new WP_REST_Response( null, 204 );
+		}
+
 		$updated = $wpdb->update(
-			$wpdb->prefix . 'anpa_fillos',
+			$fillos_t,
 			array(
 				'estado'         => 'baixa',
 				'actualizado_en' => current_time( 'mysql' ),

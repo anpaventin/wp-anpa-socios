@@ -183,60 +183,23 @@ final class ANPA_Socios_Extraescolares_Page {
 			return array();
 		}
 
-		// 1. Real group slots (existing query).
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only public schedule from activity/group tables.
+		// Only real annual groups are schedule sources. There is no activity-level
+		// provisional fallback in the revised fase24 model.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT a.nome, g.franxa, g.curso_range AS grupos, g.dias
+				"SELECT a.nome, g.nome AS grupo_nome, g.horario, g.franxa, g.dias
 				 FROM {$act_t} a
 				 INNER JOIN {$acy_t} ac ON ac.actividad_id = a.id AND ac.curso_escolar = %s
 				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = ac.curso_escolar
 				 WHERE a.estado = 'activo' AND ac.estado = 'activo' AND g.estado = 'aberto'
-				 ORDER BY g.franxa ASC, a.nome ASC, g.curso_range ASC",
+				   AND g.horario IN ('manha','tarde') AND g.franxa <> '' AND g.dias <> ''
+				 ORDER BY g.franxa ASC, a.nome ASC, g.nome ASC",
 				$curso
 			),
 			ARRAY_A
 		);
 
-		if ( ! is_array( $rows ) ) {
-			$rows = array();
-		}
-
-		// 2. Provisional slots: activities with valid franxa + dias on
-		//    actividades_cursos but ZERO groups for this (actividad, curso) pair.
-		//    Per design.md §8.6 point 4: never use the annual fallback when
-		//    ANY group exists (even pechado) for that pair.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only provisional schedule check.
-		$provisional = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT a.nome, ac.franxa, '' AS grupos, ac.dias
-				 FROM {$act_t} a
-				 INNER JOIN {$acy_t} ac ON ac.actividad_id = a.id AND ac.curso_escolar = %s
-				 WHERE a.estado = 'activo'
-				   AND ac.estado = 'activo'
-				   AND ac.franxa IS NOT NULL AND ac.franxa != ''
-				   AND ac.dias IS NOT NULL AND ac.dias != ''
-				   AND NOT EXISTS (
-				       SELECT 1 FROM {$gru_t} g
-				       WHERE g.actividad_id = a.id AND g.curso_escolar = ac.curso_escolar
-				   )
-				 ORDER BY ac.franxa ASC, a.nome ASC",
-				$curso
-			),
-			ARRAY_A
-		);
-
-		if ( is_array( $provisional ) ) {
-			foreach ( $provisional as $row ) {
-				// Only include if franxa normalises correctly (guard against
-				// text values like "tardes" stored in the DB).
-				if ( null !== ANPA_Socios_Actividade_Options::normalize_franxa( $row['franxa'] ?? '' ) ) {
-					$rows[] = $row;
-				}
-			}
-		}
-
-		return $rows;
+		return is_array( $rows ) ? $rows : array();
 	}
 
 	/**
@@ -266,12 +229,12 @@ final class ANPA_Socios_Extraescolares_Page {
 				"SELECT a.id, a.nome, a.icono, a.descripcion, ac.custo,
 				        e.nome AS empresa_nome, e.url_web,
 				        MIN(g.franxa) AS sort_franxa,
-				        GROUP_CONCAT(DISTINCT g.curso_range ORDER BY g.curso_range SEPARATOR ',') AS grupos,
-				        GROUP_CONCAT(DISTINCT CONCAT(g.franxa, '|', g.dias) ORDER BY g.franxa, g.dias SEPARATOR ';;') AS horarios_grupos
+				        GROUP_CONCAT(DISTINCT g.nome ORDER BY g.nome SEPARATOR ',') AS grupos,
+				        GROUP_CONCAT(DISTINCT CONCAT(g.nome, '|', g.horario, '|', g.franxa, '|', g.dias) ORDER BY g.franxa, g.nome SEPARATOR ';;') AS horarios_grupos
 				 FROM {$act_t} a
 				 INNER JOIN {$acy_t} ac ON ac.actividad_id = a.id AND ac.curso_escolar = %s
 				 LEFT JOIN {$empresas} e ON e.id = a.empresa_id
-				 LEFT JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = ac.curso_escolar AND g.estado = 'aberto'
+				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = ac.curso_escolar AND g.estado = 'aberto'
 				 WHERE a.estado = 'activo' AND ac.estado = 'activo'
 				 GROUP BY a.id, a.nome, a.icono, a.descripcion, ac.custo, e.nome, e.url_web
 				 ORDER BY sort_franxa ASC, a.nome ASC",
@@ -294,14 +257,14 @@ final class ANPA_Socios_Extraescolares_Page {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only group enrolment stats.
 		$grupos_raw = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT g.actividad_id, g.curso_range, g.min_pupilos, g.max_pupilos,
+				"SELECT g.id, g.actividad_id, g.nome, g.min_pupilos, g.max_pupilos,
 				        COUNT(DISTINCT CASE WHEN m.estado = 'activo' THEN m.id END) AS activos,
 				        COUNT(DISTINCT CASE WHEN m.estado = 'lista_espera' THEN m.id END) AS espera
 				 FROM {$gru_t} g
 				 LEFT JOIN {$mat_t} m ON m.grupo_id = g.id
 				 WHERE g.actividad_id IN ({$placeholders}) AND g.curso_escolar = %s AND g.estado = 'aberto'
-				 GROUP BY g.actividad_id, g.curso_range, g.min_pupilos, g.max_pupilos
-				 ORDER BY g.curso_range ASC",
+				 GROUP BY g.id, g.actividad_id, g.nome, g.min_pupilos, g.max_pupilos
+				 ORDER BY g.nome ASC",
 				...array_merge( $act_ids, array( $curso ) )
 			),
 			ARRAY_A
@@ -314,7 +277,7 @@ final class ANPA_Socios_Extraescolares_Page {
 				$by_act[ $aid ] = array();
 			}
 			$by_act[ $aid ][] = array(
-				'curso_range' => $g['curso_range'],
+				'nome'        => $g['nome'],
 				'min_pupilos' => $g['min_pupilos'],
 				'max_pupilos' => $g['max_pupilos'],
 				'activos'     => $g['activos'],
@@ -352,13 +315,15 @@ final class ANPA_Socios_Extraescolares_Page {
 		$raw   = (string) ( $act['horarios_grupos'] ?? '' );
 		$parts = array();
 		foreach ( array_filter( explode( ';;', $raw ) ) as $chunk ) {
-			list( $franxa, $dias_csv ) = array_pad( explode( '|', $chunk, 2 ), 2, '' );
+			list( $grupo_nome, $horario, $franxa, $dias_csv ) = array_pad( explode( '|', $chunk, 4 ), 4, '' );
 			$dias   = ANPA_Socios_Actividade_Options::parse( $dias_csv, ANPA_Socios_Actividade_Options::DIAS );
 			$labels = array();
 			foreach ( $dias as $dia ) {
 				$labels[] = ANPA_Socios_Horario_Builder::DIA_LABELS[ $dia ] ?? $dia;
 			}
 			$parts[] = array(
+				'grupo'  => $grupo_nome,
+				'horario'=> ANPA_Socios_Grupo_Serie::horario_label( $horario ),
 				'dias'   => implode( ', ', $labels ),
 				'franxa' => self::franxa_label( $franxa ),
 			);
@@ -371,6 +336,7 @@ final class ANPA_Socios_Extraescolares_Page {
 
 		$html = '';
 		foreach ( $parts as $part ) {
+			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line"><strong>' . esc_html( $part['grupo'] ) . '</strong> — ' . esc_html( $part['horario'] ) . '</p>';
 			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line">' . esc_html( $part['dias'] ) . '</p>';
 			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line">' . esc_html( $part['franxa'] ) . '</p>';
 		}

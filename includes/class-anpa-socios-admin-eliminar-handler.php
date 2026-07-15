@@ -13,9 +13,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Routes and callbacks for socio deletion (admin/master only).
  *
- * WARNING: this handler permanently removes a socio and all associated
- * data (fillos, matriculas, domiciliacions, sesions). The action is
- * irreversible and audited server-side. Use the two-step UI confirm.
+ * This handler permanently removes a socio only after baixa and only when
+ * there are no family, pupil, enrolment or banking records to preserve.
  *
  * @since 1.21.0
  */
@@ -38,8 +37,8 @@ final class ANPA_Socios_Admin_Eliminar_Handler {
 	/**
 	 * DELETE /admin/socio/<email>
 	 *
-	 * Permanently removes a socio and all related records. The root master
-	 * account is protected and cannot be deleted.
+	 * Permanently removes an already-disabled socio with no associated data.
+	 * The root master account is protected and cannot be deleted.
 	 *
 	 * @since  1.21.0
 	 * @param  WP_REST_Request $request Incoming request.
@@ -60,49 +59,65 @@ final class ANPA_Socios_Admin_Eliminar_Handler {
 				array( 'status' => 403 ) );
 		}
 
-		// Verify the socio exists.
-		$socios_table = $wpdb->prefix . 'anpa_socios';
-		$socio        = $wpdb->get_var( $wpdb->prepare( "SELECT email FROM {$socios_table} WHERE email = %s", $email ) );
-		if ( null === $socio ) {
+		// Verify the socio exists and is already disabled.
+		$socios_table = ANPA_Socios_DB::tabela_socios();
+		$socio        = $wpdb->get_row(
+			$wpdb->prepare( "SELECT id, email, estado, rol, familia_id FROM {$socios_table} WHERE email = %s", $email ),
+			ARRAY_A
+		);
+		if ( ! is_array( $socio ) ) {
 			return new WP_Error( 'anpa_admin_socio_not_found', __( 'Socio non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
-
-		$fillos_table       = $wpdb->prefix . 'anpa_fillos';
-		$matriculas_table   = $wpdb->prefix . 'anpa_matriculas';
-		$fillos_cursos_table = ANPA_Socios_DB::tabela_fillos_cursos();
-		$domiciliacions_table = ANPA_Socios_DB::tabela_domiciliacions();
-		$sesions_table      = ANPA_Socios_DB::tabela_sesions();
-
-		// Collect fillo IDs for cascade.
-		$fillo_ids = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$fillos_table} WHERE socio_email = %s", $email ) );
-
-		if ( ! empty( $fillo_ids ) ) {
-			$ids_placeholder = implode( ',', array_fill( 0, count( $fillo_ids ), '%d' ) );
-
-			// Delete matriculas.
-			$wpdb->query( $wpdb->prepare(
-				"DELETE FROM {$matriculas_table} WHERE fillo_id IN ({$ids_placeholder})",
-				$fillo_ids
-			) );
-
-			// Delete fillos_cursos.
-			$wpdb->query( $wpdb->prepare(
-				"DELETE FROM {$fillos_cursos_table} WHERE fillo_id IN ({$ids_placeholder})",
-				$fillo_ids
-			) );
-
-			// Delete fillos.
-			$wpdb->delete( $fillos_table, array( 'socio_email' => $email ), array( '%s' ) );
+		if ( 'baixa' !== $socio['estado'] ) {
+			return new WP_Error( 'anpa_admin_must_deactivate', __( 'Desactiva o socio/a antes de eliminalo definitivamente.', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+		if ( 'master' === $socio['rol'] ) {
+			return new WP_Error( 'anpa_admin_master_delete', __( 'Non se pode eliminar un administrador.', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
 
-		// Delete domiciliacions.
-		$wpdb->delete( $domiciliacions_table, array( 'socio_email' => $email ), array( '%s' ) );
+		$familia_id           = ! empty( $socio['familia_id'] ) ? (int) $socio['familia_id'] : (int) $socio['id'];
+		$fillos_table         = ANPA_Socios_DB::tabela_fillos();
+		$domiciliacions_table = ANPA_Socios_DB::tabela_domiciliacions();
+		$sesions_table        = ANPA_Socios_DB::tabela_sesions();
 
-		// Delete sesions.
-		$wpdb->delete( $sesions_table, array( 'socio_email' => $email ), array( '%s' ) );
+		$family_refs = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$socios_table} WHERE id <> %d AND COALESCE(NULLIF(familia_id, 0), id) = %d",
+			(int) $socio['id'],
+			$familia_id
+		) );
+		if ( $family_refs > 0 ) {
+			return new WP_Error( 'anpa_admin_socio_has_family', __( 'Non se pode eliminar: hai outro proxenitor asociado á familia.', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
 
-		// Delete the socio row.
-		$wpdb->delete( $socios_table, array( 'email' => $email ), array( '%s' ) );
+		$fillo_refs = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$fillos_table} WHERE socio_email = %s OR familia_id = %d",
+			$email,
+			$familia_id
+		) );
+		if ( $fillo_refs > 0 ) {
+			return new WP_Error( 'anpa_admin_socio_has_fillos', __( 'Non se pode eliminar: o socio/a ten fillos ou datos escolares asociados.', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+
+		$bank_refs = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$domiciliacions_table} WHERE familia_id = %d",
+			$familia_id
+		) );
+		if ( $bank_refs > 0 ) {
+			return new WP_Error( 'anpa_admin_socio_has_domiciliacion', __( 'Non se pode eliminar: o socio/a ten unha domiciliación asociada.', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		if ( false === $wpdb->delete( $sesions_table, array( 'email' => $email ), array( '%s' ) ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		$deleted = $wpdb->delete( $socios_table, array( 'email' => $email ), array( '%s' ) );
+		if ( 1 !== $deleted || false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
 
 		// Audit trail (write AFTER deletion).
 		ANPA_Socios_Admin_Shared::write_audit_actor(
@@ -114,9 +129,8 @@ final class ANPA_Socios_Admin_Eliminar_Handler {
 		);
 
 		return new WP_REST_Response( array(
-			'message'  => 'Socio/a e todos os seus datos foron eliminados permanentemente.',
+			'message'  => 'Socio/a eliminado permanentemente.',
 			'email'    => $email,
-			'fillos'   => count( $fillo_ids ),
 		), 200 );
 	}
 }
