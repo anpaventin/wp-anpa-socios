@@ -71,7 +71,7 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
         // ── Load existing structure ───────────────────────────────
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only list in admin context.
         $niveis = $wpdb->get_results( $wpdb->prepare(
-            "SELECT id, codigo, etiqueta, orde, estado FROM {$niveis_t} WHERE curso_escolar = %s ORDER BY orde ASC, codigo ASC",
+            "SELECT id, codigo, etiqueta, orde, estado FROM {$niveis_t} WHERE curso_escolar = %s AND estado = 'activo' ORDER BY orde ASC, codigo ASC",
             $sel
         ), ARRAY_A );
         if ( ! is_array( $niveis ) ) {
