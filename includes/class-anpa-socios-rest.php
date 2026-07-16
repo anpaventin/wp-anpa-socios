@@ -560,9 +560,8 @@ class ANPA_Socios_REST {
 	 * @param  array<string,string|null> $parent           Validated parent block.
 	 * @param  int|null                  $familia_id       Family id to link, or null.
 	 * @param  bool                      $link_only_on_dup Preserve existing identity on duplicate.
-	 * @param  string                    $estado           Target estado for the owner branches
+	 * @param  string                    $estado           Target estado for new family members
 	 *                                                     ('activo' or 'pendente_aprobacion').
-	 *                                                     Ignored when $link_only_on_dup is true.
 	 * @return bool True on success (including 1062 no-op), false on real DB error.
 	 */
 	private static function upsert_socio( string $email, array $parent, ?int $familia_id, bool $link_only_on_dup, string $estado = 'activo' ): bool {
@@ -584,8 +583,8 @@ class ANPA_Socios_REST {
 			// no-op (email = email) so another person's alta can NEVER
 			// reassign, reactivate, or clobber that existing socio. Linking
 			// a pre-existing socio to a family requires its own verified flow.
-			$sql = "INSERT INTO {$socios} (email, nome, apelidos, nif, telefono, familia_id, estado, creado_en, actualizado_en)
-				VALUES (%s, %s, %s, %s, %s, %d, 'activo', NOW(), NOW())
+			$sql = "INSERT INTO {$socios} (email, nome, apelidos, nif, telefono, familia_id, rol_familia, estado, creado_en, actualizado_en)
+				VALUES (%s, %s, %s, %s, %s, %d, 'secundario', '{$estado}', NOW(), NOW())
 				ON DUPLICATE KEY UPDATE email = email";
 			$prepared = $wpdb->prepare( $sql, $email, $nome, $apelidos, $nif, $telefono, $fam );
 		} elseif ( null === $familia_id ) {
