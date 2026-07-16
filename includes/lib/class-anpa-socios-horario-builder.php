@@ -71,8 +71,9 @@ final class ANPA_Socios_Horario_Builder {
 			}
 
 			$entry = array(
-				'nome'   => (string) ( $act['nome'] ?? '' ),
-				'grupos' => $grupo_labels,
+				'nome'    => (string) ( $act['nome'] ?? '' ),
+				'grupos'  => $grupo_labels,
+				'horario' => $horario,
 			);
 
 			foreach ( $dias as $dia ) {
@@ -84,11 +85,24 @@ final class ANPA_Socios_Horario_Builder {
 
 		$grid = array_values( $by_franxa );
 		foreach ( $grid as &$row ) {
+			$periodo = '';
 			foreach ( ANPA_Socios_Actividade_Options::DIAS as $dia ) {
 				usort( $row['dias'][ $dia ], static function ( $a, $b ) {
 					return strcasecmp( $a['nome'], $b['nome'] );
 				} );
+				if ( '' === $periodo ) {
+					foreach ( $row['dias'][ $dia ] as $entry ) {
+						if ( 'tarde' === ( $entry['horario'] ?? '' ) ) {
+							$periodo = 'tarde';
+							break 2;
+						}
+						if ( 'manha' === ( $entry['horario'] ?? '' ) ) {
+							$periodo = 'manha';
+						}
+					}
+				}
 			}
+			$row['periodo'] = $periodo;
 		}
 		unset( $row );
 

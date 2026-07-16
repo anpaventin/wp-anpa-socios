@@ -44,8 +44,16 @@ final class ANPA_Socios_Extraescolares_Page {
 			$html .= '<th scope="col">' . esc_html( $label ) . '</th>';
 		}
 		$html .= '</tr></thead><tbody>';
+		$tarde_shown = false;
 		foreach ( $grid as $row ) {
-			$html .= '<tr>';
+			$is_tarde = 'tarde' === ( $row['periodo'] ?? '' );
+			if ( $is_tarde && ! $tarde_shown ) {
+				$tarde_shown = true;
+				$colspan    = 1 + count( ANPA_Socios_Actividade_Options::DIAS );
+				$html      .= '<tr class="anpa-extra-periodo"><td class="anpa-extra-periodo-cell" colspan="' . (int) $colspan . '">'
+					. esc_html__( 'Tarde', 'anpa-socios' ) . '</td></tr>';
+			}
+			$html .= '<tr class="' . ( $is_tarde ? 'anpa-extra-fila-tarde' : '' ) . '">';
 			$html .= '<th scope="row">' . esc_html( $row['label'] ) . '</th>';
 			foreach ( ANPA_Socios_Actividade_Options::DIAS as $dia ) {
 				$html .= '<td>';
@@ -325,7 +333,7 @@ final class ANPA_Socios_Extraescolares_Page {
 				'grupo'  => $grupo_nome,
 				'horario'=> ANPA_Socios_Grupo_Serie::horario_label( $horario ),
 				'dias'   => implode( ', ', $labels ),
-				'franxa' => self::franxa_label( $franxa ),
+				'franxa' => self::franxa_label( $franxa, $horario ),
 			);
 		}
 
@@ -383,18 +391,28 @@ final class ANPA_Socios_Extraescolares_Page {
 	}
 
 	/**
-	 * Formats a raw franxa (HH:MM-HH:MM) into a human label with Mañá/Tarde.
+	 * Formats a raw franxa (HH:MM-HH:MM) into a human label with Mañá (comedor)/Tarde.
 	 *
 	 * @since  1.39.0
-	 * @param  string $franxa Raw time range, e.g. "16:45-17:45".
+	 * @param  string $franxa  Raw time range, e.g. "16:45-17:45".
+	 * @param  string $horario Optional. Group's horario ('manha'|'tarde').
+	 *                         When provided, it overrides the hour-based inference
+	 *                         so that a comedor group (manha) always says 'Mañá
+	 *                         (comedor)' regardless of start time.
 	 * @return string Human label, e.g. "Tarde de 16:45 a 17:45".
 	 */
-	private static function franxa_label( string $franxa ): string {
+	private static function franxa_label( string $franxa, string $horario = '' ): string {
 		if ( preg_match( '/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/', $franxa, $m ) ) {
-			$period = (int) $m[1] < 12
-				? __( 'Mañá', 'anpa-socios' )
-				: __( 'Tarde', 'anpa-socios' );
-			/* translators: %1$s: Mañá/Tarde, %2$s: HH:MM, %3$s: HH:MM */
+			if ( 'manha' === $horario ) {
+				$period = __( 'Mañá (comedor)', 'anpa-socios' );
+			} elseif ( 'tarde' === $horario ) {
+				$period = __( 'Tarde', 'anpa-socios' );
+			} else {
+				$period = (int) $m[1] < 12
+					? __( 'Mañá (comedor)', 'anpa-socios' )
+					: __( 'Tarde', 'anpa-socios' );
+			}
+			/* translators: %1$s: Mañá (comedor)/Tarde, %2$s: HH:MM, %3$s: HH:MM */
 			return sprintf( __( '%1$s de %2$s a %3$s', 'anpa-socios' ), $period, "{$m[1]}:{$m[2]}", "{$m[3]}:{$m[4]}" );
 		}
 		return str_replace( '-', '–', $franxa );
