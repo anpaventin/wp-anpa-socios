@@ -19,7 +19,7 @@
 	border-collapse: collapse;
 	background: #fff;
 	font-size: 0.95rem;
-	table-layout: fixed;
+	min-width: 600px;
 }
 
 .anpa-extra-grid th,
@@ -147,4 +147,26 @@
 .anpa-extra-prazas-espera {
 	color: #bc4c00; /* orange — waitlist count */
 	font-weight: 600;
+}
+
+/* ── Responsive: mobile ───────────────────────────────────────── */
+@media (max-width: 720px) {
+	.anpa-extra-horario {
+		-webkit-overflow-scrolling: touch;
+	}
+	.anpa-extra-grid {
+		font-size: 0.82rem;
+		min-width: 500px;
+	}
+	.anpa-extra-grid th,
+	.anpa-extra-grid td {
+		padding: 0.4rem 0.45rem;
+	}
+	.anpa-extra-periodo td {
+		padding: 0.5rem;
+		font-size: 0.82rem;
+	}
+	.anpa-extra-lista li {
+		padding: 0.25rem 0.35rem;
+	}
 }
