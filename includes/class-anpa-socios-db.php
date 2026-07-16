@@ -73,11 +73,13 @@ class ANPA_Socios_DB {
 	 *        `nome` and exclusive `horario` on annual groups. It backfills one
 	 *        independent series per legacy annual group. Destructive removal of
 	 *        duplicated fields remains rollout-gated.
+	 * 1.30.0 widens grupos.horario to accept the three UI periods:
+	 *        `maña` (Mañá), `manha` (Comedor) and `tarde` (Tarde).
 	 *
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.29.0';
+	const DB_VERSION = '1.30.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -221,6 +223,14 @@ class ANPA_Socios_DB {
 		if ( ! self::migrate_to_1_29_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.29.0 (migrate_to_1_29_0): ' . $wpdb->last_error );
+			return;
+		}
+
+		// 1.30.0: align the group horario enum with the three UI values.
+		$wpdb->last_error = '';
+		if ( ! self::migrate_to_1_30_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.30.0 (migrate_to_1_30_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -2445,6 +2455,35 @@ class ANPA_Socios_DB {
 		}
 
 		return '' === (string) $wpdb->last_error;
+	}
+
+	/**
+	 * Migration 1.30.0: support Mañá, Comedor and Tarde on annual groups.
+	 *
+	 * The previous enum only accepted `manha` and `tarde`; saving `maña`
+	 * therefore produced an empty value in non-strict MySQL installations.
+	 * The guarded ALTER is idempotent and preserves all existing values.
+	 *
+	 * @since  1.43.0
+	 * @return bool Whether the schema accepts all three horario values.
+	 */
+	private static function migrate_to_1_30_0(): bool {
+		global $wpdb;
+
+		$grupos = self::tabela_grupos();
+		$column = $wpdb->get_row(
+			$wpdb->prepare( "SHOW COLUMNS FROM {$grupos} LIKE %s", 'horario' ),
+			ARRAY_A
+		);
+		$type = is_array( $column ) ? (string) ( $column['Type'] ?? '' ) : '';
+		if ( false !== strpos( $type, "'maña'" ) ) {
+			return true;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+		return false !== $wpdb->query(
+			"ALTER TABLE {$grupos} MODIFY COLUMN horario enum('maña','manha','tarde') NULL DEFAULT NULL"
+		);
 	}
 
 	/**
