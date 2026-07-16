@@ -1807,7 +1807,7 @@
 		function removeLevelYear(year) { if (levelControls[year]) { levelControls[year].body.remove(); delete levelControls[year]; } }
 		offered.forEach(function (year) {
 			var block = document.createElement('div'); block.className = 'anpa-mgmt-ano-block'; block.setAttribute('data-ano', year);
-			var label = document.createElement('label'); var chk = document.createElement('input'); chk.type = 'checkbox'; chk.value = year; chk.checked = selected.indexOf(year) !== -1;
+			var label = document.createElement('label'); var chk = document.createElement('input'); chk.type = 'checkbox'; chk.className = 'anpa-mgmt-ano-check'; chk.value = year; chk.checked = selected.indexOf(year) !== -1;
 			chk.addEventListener('change', function () { if (chk.checked) { addLevelYear(year); } else { removeLevelYear(year); } });
 			label.appendChild(chk); label.appendChild(document.createTextNode(' ' + year)); block.appendChild(label); yearsWrap.appendChild(block);
 			if (chk.checked) { addLevelYear(year); }
@@ -1834,7 +1834,7 @@
 
 		var actions = document.createElement('div'); actions.className = 'anpa-mgmt-form-actions'; var save = document.createElement('button'); save.type = 'button'; save.className = 'anpa-mgmt-btn'; save.textContent = isEdit ? 'Gardar cambios' : 'Crear grupo';
 		save.addEventListener('click', function () {
-			var cursos = []; yearsWrap.querySelectorAll('input:checked').forEach(function (c) { cursos.push(c.value); }); var levels = {};
+			var cursos = []; yearsWrap.querySelectorAll('.anpa-mgmt-ano-check:checked').forEach(function (c) { cursos.push(c.value); }); var levels = {};
 			cursos.forEach(function (year) { levels[year] = []; if (levelControls[year]) { levelControls[year].body.querySelectorAll('input:checked').forEach(function (c) { levels[year].push(parseInt(c.value,10)); }); } });
 			var checkedHorario = horario.querySelector('input:checked'); var selectedDays = []; days.querySelectorAll('input:checked').forEach(function (c) { selectedDays.push(c.value); });
 			var payload = { nome: nome.value.trim(), cursos: cursos, niveis_por_ano: levels, horario: checkedHorario ? checkedHorario.value : '', franxa: start.value && end.value ? start.value + '-' + end.value : '', dias: selectedDays, min_pupilos: parseInt(min.value,10), max_pupilos: parseInt(max.value,10), estado: state.value };

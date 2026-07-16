@@ -21,12 +21,20 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 	}
 
 	public function test_schema_adds_group_series_fields_and_backfill(): void {
-		$this->assertStringContainsString( "const DB_VERSION = '1.29.0'", $this->db );
+		$this->assertStringContainsString( "const DB_VERSION = '1.30.0'", $this->db );
 		$this->assertStringContainsString( 'function migrate_to_1_29_0', $this->db );
 		$this->assertStringContainsString( 'ADD COLUMN serie_uid', $this->db );
 		$this->assertStringContainsString( 'ADD COLUMN nome', $this->db );
 		$this->assertStringContainsString( "ADD COLUMN horario enum('manha','tarde')", $this->db );
 		$this->assertStringContainsString( 'SET serie_uid = UUID()', $this->db );
+	}
+
+	public function test_schema_accepts_mana_comedor_and_tarde_horarios(): void {
+		$this->assertStringContainsString( 'function migrate_to_1_30_0', $this->db );
+		$this->assertStringContainsString(
+			"MODIFY COLUMN horario enum('maña','manha','tarde') NULL DEFAULT NULL",
+			$this->db
+		);
 	}
 
 	public function test_handler_persists_series_transactionally_and_blocks_history_loss(): void {
@@ -41,7 +49,7 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 
 	public function test_series_delete_rolls_back_when_level_relations_cannot_be_deleted(): void {
 		$this->assertStringContainsString( '! ANPA_Socios_DB::delete_grupo_niveis( $row_id )', $this->handler );
-		$this->assertStringContainsString( "$wpdb->query( 'ROLLBACK' )", $this->handler );
+		$this->assertStringContainsString( '$wpdb->query( \'ROLLBACK\' )', $this->handler );
 	}
 
 	public function test_activity_list_has_no_primary_course_or_franxa_columns(): void {
@@ -70,5 +78,15 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 		foreach ( array( 'Nome do grupo', 'Cursos escolares', 'niveis_por_ano', 'Comedor', 'Franxa horaria', 'Días', 'Mínimo de alumnos/as', 'Máximo de alumnos/as' ) as $label ) {
 			$this->assertStringContainsString( $label, $form );
 		}
+	}
+
+	public function test_group_payload_collects_only_school_year_checkboxes(): void {
+		$start = strpos( $this->js, 'function renderGrupoForm' );
+		$end   = strpos( $this->js, 'function renderGrupoMatriculas', $start );
+		$form  = substr( $this->js, $start, $end - $start );
+
+		$this->assertStringContainsString( "chk.className = 'anpa-mgmt-ano-check'", $form );
+		$this->assertStringContainsString( "yearsWrap.querySelectorAll('.anpa-mgmt-ano-check:checked')", $form );
+		$this->assertStringNotContainsString( "yearsWrap.querySelectorAll('input:checked')", $form );
 	}
 }
