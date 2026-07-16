@@ -71,7 +71,7 @@ final class Test_ANPA_Socios_PR_ES9_Horario extends TestCase {
 				'dias'       => 'luns,mercores',
 			),
 		) );
-		$this->assertSame( array( 'Grupo iniciación — Mañá (comedor)' ), $grid[0]['dias']['luns'][0]['grupos'] );
+		$this->assertSame( array( 'Grupo iniciación — Comedor' ), $grid[0]['dias']['luns'][0]['grupos'] );
 	}
 
 	public function test_public_query_has_no_provisional_activity_slot(): void {
@@ -79,7 +79,7 @@ final class Test_ANPA_Socios_PR_ES9_Horario extends TestCase {
 		$this->assertStringNotContainsString( 'NOT EXISTS', $src );
 		$this->assertStringNotContainsString( "'' AS grupos", $src );
 		$this->assertStringContainsString( 'g.nome AS grupo_nome', $src );
-		$this->assertStringContainsString( "g.horario IN ('manha','tarde')", $src );
+		$this->assertStringContainsString( "g.horario IN ('maña','manha','tarde')", $src );
 	}
 
 	public function test_horario_diagnostic_route_remains_registered(): void {

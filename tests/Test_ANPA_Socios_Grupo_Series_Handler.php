@@ -67,7 +67,7 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 		$start = strpos( $this->js, 'function renderGrupoForm' );
 		$end   = strpos( $this->js, 'function renderGrupoMatriculas', $start );
 		$form  = substr( $this->js, $start, $end - $start );
-		foreach ( array( 'Nome do grupo', 'Cursos escolares', 'niveis_por_ano', 'Mañá (comedor)', 'Franxa horaria', 'Días', 'Mínimo de alumnos/as', 'Máximo de alumnos/as' ) as $label ) {
+		foreach ( array( 'Nome do grupo', 'Cursos escolares', 'niveis_por_ano', 'Comedor', 'Franxa horaria', 'Días', 'Mínimo de alumnos/as', 'Máximo de alumnos/as' ) as $label ) {
 			$this->assertStringContainsString( $label, $form );
 		}
 	}

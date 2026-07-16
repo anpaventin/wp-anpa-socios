@@ -61,7 +61,8 @@ final class Test_ANPA_Socios_Grupos_Curriculares extends TestCase {
 	}
 
 	public function test_horario_labels_are_family_facing(): void {
-		$this->assertSame( 'Mañá (comedor)', ANPA_Socios_Grupo_Serie::horario_label( 'manha' ) );
+		$this->assertSame( 'Mañá', ANPA_Socios_Grupo_Serie::horario_label( 'maña' ) );
+		$this->assertSame( 'Comedor', ANPA_Socios_Grupo_Serie::horario_label( 'manha' ) );
 		$this->assertSame( 'Tarde', ANPA_Socios_Grupo_Serie::horario_label( 'tarde' ) );
 		$this->assertSame( '', ANPA_Socios_Grupo_Serie::horario_label( 'noite' ) );
 	}

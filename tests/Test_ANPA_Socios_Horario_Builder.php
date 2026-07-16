@@ -56,7 +56,7 @@ class Test_ANPA_Socios_Horario_Builder extends TestCase {
 
 		$this->assertSame( 'Inglés', $grid[0]['dias']['luns'][0]['nome'] );
 		$this->assertSame( 'Inglés', $grid[0]['dias']['mercores'][0]['nome'] );
-		$this->assertSame( array( 'Grupo mixto — Mañá (comedor)' ), $grid[0]['dias']['luns'][0]['grupos'] );
+		$this->assertSame( array( 'Grupo mixto — Comedor' ), $grid[0]['dias']['luns'][0]['grupos'] );
 	}
 
 	public function test_invalid_or_missing_franxa_is_ignored(): void {

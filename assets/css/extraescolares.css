@@ -19,6 +19,7 @@
 	border-collapse: collapse;
 	background: #fff;
 	font-size: 0.95rem;
+	table-layout: fixed;
 }
 
 .anpa-extra-grid th,
