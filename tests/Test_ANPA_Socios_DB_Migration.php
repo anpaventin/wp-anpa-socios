@@ -1,10 +1,10 @@
 <?php
 /**
- * Source-inspection contract tests for DB migration PR-ES2.
+ * Source-inspection contract tests for additive DB migrations.
  *
  * Reads the actual source of class-anpa-socios-db.php and anpa-socios.php
  * to verify schema contracts without a real database. These tests assert
- * the structural requirements of the 1.27.0 migration.
+ * the structural requirements introduced from schema 1.27.0 through 1.30.0.
  *
  * @since  23.0.0
  * @package ANPA_Socios
