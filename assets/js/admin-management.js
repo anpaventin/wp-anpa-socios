@@ -1752,7 +1752,7 @@
 			thead.appendChild(hr); table.appendChild(thead); var tbody = document.createElement('tbody');
 			grupos.forEach(function (g) {
 				var tr = document.createElement('tr');
-				[g.nome, g.horario_label || (g.horario === 'manha' ? 'Mañá (comedor)' : 'Tarde'), g.franxa, g.dias,
+				[g.nome, g.horario_label || (g.horario === 'maña' ? 'Mañá' : g.horario === 'manha' ? 'Comedor' : 'Tarde'), g.franxa, g.dias,
 				 (Array.isArray(g.cursos) ? g.cursos.join(', ') : ''), g.min_pupilos, g.max_pupilos, g.estado].forEach(function (v) {
 					var td = document.createElement('td'); td.textContent = v != null ? String(v) : ''; tr.appendChild(td);
 				});
@@ -1787,15 +1787,13 @@
 		var yearsWrap = document.createElement('div'); yearsWrap.className = 'anpa-mgmt-multicurso'; form.appendChild(yearsWrap);
 		var offered = Array.isArray(actividad.cursos_ofertados) ? actividad.cursos_ofertados : [];
 		var selected = isEdit && Array.isArray(grupo.cursos) ? grupo.cursos : [];
-		var levelHost = document.createElement('div'); levelHost.className = 'anpa-mgmt-niveis-por-ano'; form.appendChild(levelHost);
 		var levelControls = {};
-
 		function addLevelYear(year) {
 			if (levelControls[year]) { return; }
-			var fieldset = document.createElement('fieldset'); fieldset.setAttribute('data-curso', year);
-			var legend = document.createElement('legend'); legend.textContent = 'Niveis (' + year + ')'; fieldset.appendChild(legend);
-			var body = document.createElement('div'); body.textContent = 'Cargando…'; fieldset.appendChild(body); levelHost.appendChild(fieldset);
-			levelControls[year] = { fieldset: fieldset, body: body };
+			var body = document.createElement('div'); body.className = 'anpa-mgmt-niveis-row'; body.textContent = 'Cargando…';
+			var block = yearsWrap.querySelector('[data-ano="' + year + '"]');
+			if (block) { block.appendChild(body); }
+			levelControls[year] = { body: body, block: block };
 			anpaAdminFetch('estrutura?curso_escolar=' + encodeURIComponent(year)).then(function (resp) {
 				body.textContent = ''; var levels = resp && Array.isArray(resp.niveis) ? resp.niveis : [];
 				var pre = isEdit && grupo.niveis_por_ano && Array.isArray(grupo.niveis_por_ano[year]) ? grupo.niveis_por_ano[year].map(String) : [];
@@ -1806,15 +1804,17 @@
 				if (!levels.length) { body.appendChild(emptyEl('Este curso non ten niveis dados de alta.')); }
 			}).catch(function () { body.textContent = 'Non foi posible cargar os niveis.'; });
 		}
-		function removeLevelYear(year) { if (levelControls[year]) { levelControls[year].fieldset.remove(); delete levelControls[year]; } }
+		function removeLevelYear(year) { if (levelControls[year]) { levelControls[year].body.remove(); delete levelControls[year]; } }
 		offered.forEach(function (year) {
+			var block = document.createElement('div'); block.className = 'anpa-mgmt-ano-block'; block.setAttribute('data-ano', year);
 			var label = document.createElement('label'); var chk = document.createElement('input'); chk.type = 'checkbox'; chk.value = year; chk.checked = selected.indexOf(year) !== -1;
 			chk.addEventListener('change', function () { if (chk.checked) { addLevelYear(year); } else { removeLevelYear(year); } });
-			label.appendChild(chk); label.appendChild(document.createTextNode(' ' + year)); yearsWrap.appendChild(label); if (chk.checked) { addLevelYear(year); }
+			label.appendChild(chk); label.appendChild(document.createTextNode(' ' + year)); block.appendChild(label); yearsWrap.appendChild(block);
+			if (chk.checked) { addLevelYear(year); }
 		});
 
 		var horario = document.createElement('div');
-		[['manha', 'Mañá (comedor)'], ['tarde', 'Tarde']].forEach(function (pair) {
+		[['maña', 'Mañá'], ['manha', 'Comedor'], ['tarde', 'Tarde']].forEach(function (pair) {
 			var label = document.createElement('label'); var radio = document.createElement('input'); radio.type = 'radio'; radio.name = 'anpa-grupo-horario'; radio.value = pair[0]; radio.checked = isEdit ? grupo.horario === pair[0] : pair[0] === 'tarde';
 			label.appendChild(radio); label.appendChild(document.createTextNode(' ' + pair[1])); horario.appendChild(label);
 		});

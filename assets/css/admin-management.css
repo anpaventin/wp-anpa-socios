@@ -308,15 +308,13 @@
    Overrides the generic full-width input rule above: these groups lay
    out several small labelled controls (checkbox/radio + text) on one
    flexible row instead of one full-width 400px control each. ──── */
-.anpa-mgmt-icono-group,
-.anpa-mgmt-multicurso {
+.anpa-mgmt-icono-group {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 0.3rem 1.2rem;
 	align-items: center;
 	max-width: none;
 }
-
 .anpa-mgmt-icono-group label,
 .anpa-mgmt-multicurso label {
 	display: inline-flex;
@@ -325,6 +323,49 @@
 	width: auto;
 	margin: 0;
 	font-weight: 400;
+}
+
+/* ── Cursos escolares anos + niveis inline blocks ──────────────
+   Each year is a small box; its niveles appear inline below the
+   year label inside the same block. Blocks wrap horizontally. */
+.anpa-mgmt-multicurso {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: 0.8rem;
+	max-width: none;
+}
+.anpa-mgmt-ano-block {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	padding: 0.45rem 0.65rem;
+	background: #fafafa;
+	min-width: 120px;
+}
+.anpa-mgmt-ano-block > label {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	font-weight: 600;
+	margin: 0 0 0.25rem;
+	width: auto;
+}
+.anpa-mgmt-niveis-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.3rem 0.6rem;
+}
+.anpa-mgmt-niveis-row label {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.2rem;
+	font-weight: 400;
+	margin: 0;
+	width: auto;
+}
 }
 
 .anpa-mgmt-icono-preview {

@@ -44,16 +44,28 @@ final class ANPA_Socios_Extraescolares_Page {
 			$html .= '<th scope="col">' . esc_html( $label ) . '</th>';
 		}
 		$html .= '</tr></thead><tbody>';
-		$tarde_shown = false;
+		$maña_shown   = false;
+		$com_shown    = false;
+		$tarde_shown  = false;
+		$colspan      = 1 + count( ANPA_Socios_Actividade_Options::DIAS );
 		foreach ( $grid as $row ) {
-			$is_tarde = 'tarde' === ( $row['periodo'] ?? '' );
-			if ( $is_tarde && ! $tarde_shown ) {
-				$tarde_shown = true;
-				$colspan    = 1 + count( ANPA_Socios_Actividade_Options::DIAS );
+			$periodo = $row['periodo'] ?? '';
+			if ( 'maña' === $periodo && ! $maña_shown ) {
+				$maña_shown = true;
 				$html      .= '<tr class="anpa-extra-periodo"><td class="anpa-extra-periodo-cell" colspan="' . (int) $colspan . '">'
+					. esc_html__( 'Mañá', 'anpa-socios' ) . '</td></tr>';
+			}
+			if ( 'manha' === $periodo && ! $com_shown ) {
+				$com_shown = true;
+				$html     .= '<tr class="anpa-extra-periodo"><td class="anpa-extra-periodo-cell" colspan="' . (int) $colspan . '">'
+					. esc_html__( 'Comedor', 'anpa-socios' ) . '</td></tr>';
+			}
+			if ( 'tarde' === $periodo && ! $tarde_shown ) {
+				$tarde_shown = true;
+				$html       .= '<tr class="anpa-extra-periodo"><td class="anpa-extra-periodo-cell" colspan="' . (int) $colspan . '">'
 					. esc_html__( 'Tarde', 'anpa-socios' ) . '</td></tr>';
 			}
-			$html .= '<tr class="' . ( $is_tarde ? 'anpa-extra-fila-tarde' : '' ) . '">';
+			$html .= '<tr class="' . ( 'tarde' === $periodo ? 'anpa-extra-fila-tarde' : '' ) . '">';
 			$html .= '<th scope="row">' . esc_html( $row['label'] ) . '</th>';
 			foreach ( ANPA_Socios_Actividade_Options::DIAS as $dia ) {
 				$html .= '<td>';
@@ -200,7 +212,7 @@ final class ANPA_Socios_Extraescolares_Page {
 				 INNER JOIN {$acy_t} ac ON ac.actividad_id = a.id AND ac.curso_escolar = %s
 				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = ac.curso_escolar
 				 WHERE a.estado = 'activo' AND ac.estado = 'activo' AND g.estado = 'aberto'
-				   AND g.horario IN ('manha','tarde') AND g.franxa <> '' AND g.dias <> ''
+				   AND g.horario IN ('maña','manha','tarde') AND g.franxa <> '' AND g.dias <> ''
 				 ORDER BY g.franxa ASC, a.nome ASC, g.nome ASC",
 				$curso
 			),
@@ -391,28 +403,30 @@ final class ANPA_Socios_Extraescolares_Page {
 	}
 
 	/**
-	 * Formats a raw franxa (HH:MM-HH:MM) into a human label with Mañá (comedor)/Tarde.
+	 * Formats a raw franxa (HH:MM-HH:MM) into a human label with Mañá/Comedor/Tarde.
 	 *
 	 * @since  1.39.0
 	 * @param  string $franxa  Raw time range, e.g. "16:45-17:45".
-	 * @param  string $horario Optional. Group's horario ('manha'|'tarde').
+	 * @param  string $horario Optional. Group's horario ('maña'|'manha'|'tarde').
 	 *                         When provided, it overrides the hour-based inference
-	 *                         so that a comedor group (manha) always says 'Mañá
-	 *                         (comedor)' regardless of start time.
+	 *                         so a comedor group (manha) always says 'Comedor'
+	 *                         regardless of start time.
 	 * @return string Human label, e.g. "Tarde de 16:45 a 17:45".
 	 */
 	private static function franxa_label( string $franxa, string $horario = '' ): string {
 		if ( preg_match( '/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/', $franxa, $m ) ) {
-			if ( 'manha' === $horario ) {
-				$period = __( 'Mañá (comedor)', 'anpa-socios' );
+			if ( 'maña' === $horario ) {
+				$period = __( 'Mañá', 'anpa-socios' );
+			} elseif ( 'manha' === $horario ) {
+				$period = __( 'Comedor', 'anpa-socios' );
 			} elseif ( 'tarde' === $horario ) {
 				$period = __( 'Tarde', 'anpa-socios' );
 			} else {
 				$period = (int) $m[1] < 12
-					? __( 'Mañá (comedor)', 'anpa-socios' )
+					? __( 'Mañá', 'anpa-socios' )
 					: __( 'Tarde', 'anpa-socios' );
 			}
-			/* translators: %1$s: Mañá (comedor)/Tarde, %2$s: HH:MM, %3$s: HH:MM */
+			/* translators: %1$s: Mañá/Comedor/Tarde, %2$s: HH:MM, %3$s: HH:MM */
 			return sprintf( __( '%1$s de %2$s a %3$s', 'anpa-socios' ), $period, "{$m[1]}:{$m[2]}", "{$m[3]}:{$m[4]}" );
 		}
 		return str_replace( '-', '–', $franxa );

@@ -92,12 +92,16 @@ final class ANPA_Socios_Horario_Builder {
 				} );
 				if ( '' === $periodo ) {
 					foreach ( $row['dias'][ $dia ] as $entry ) {
-						if ( 'tarde' === ( $entry['horario'] ?? '' ) ) {
+						$h = $entry['horario'] ?? '';
+						if ( 'tarde' === $h ) {
 							$periodo = 'tarde';
 							break 2;
 						}
-						if ( 'manha' === ( $entry['horario'] ?? '' ) ) {
+						if ( 'manha' === $h ) {
 							$periodo = 'manha';
+						}
+						if ( 'maña' === $h && '' === $periodo ) {
+							$periodo = 'maña';
 						}
 					}
 				}

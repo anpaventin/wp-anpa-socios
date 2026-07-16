@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class ANPA_Socios_Grupo_Serie {
 
 	private const NOME_MAX_LEN = 80;
-	private const HORARIOS = array( 'manha', 'tarde' );
+	private const HORARIOS = array( 'maña', 'manha', 'tarde' );
 	private const ESTADOS = array( 'aberto', 'pechado' );
 
 	/**
@@ -97,8 +97,11 @@ final class ANPA_Socios_Grupo_Serie {
 	}
 
 	public static function horario_label( string $horario ): string {
+		if ( 'maña' === $horario ) {
+			return 'Mañá';
+		}
 		if ( 'manha' === $horario ) {
-			return 'Mañá (comedor)';
+			return 'Comedor';
 		}
 		return 'tarde' === $horario ? 'Tarde' : '';
 	}

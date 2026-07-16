@@ -846,7 +846,7 @@
 				const who = ((m.fillo_nome || '') + ' ' + (m.fillo_apelidos || '')).trim();
 				const estado = EXTRA_ESTADO_LABELS[m.estado] || m.estado;
 				let txt = who + ' — ' + (m.actividade || '') ;
-				if (m.grupo_nome) { txt += ' (' + m.grupo_nome + (m.horario ? ' — ' + (m.horario === 'manha' ? 'Mañá (comedor)' : 'Tarde') : '') + ')'; }
+				if (m.grupo_nome) { txt += ' (' + m.grupo_nome + (m.horario ? ' — ' + (m.horario === 'maña' ? 'Mañá' : m.horario === 'manha' ? 'Comedor' : 'Tarde') : '') + ')'; }
 				txt += ' · ' + estado;
 				if (m.estado === 'lista_espera' && m.posicion) { txt += ' (posición ' + m.posicion + ')'; }
 				const span = document.createElement('span');
