@@ -255,7 +255,7 @@ final class ANPA_Socios_Admin_Payload {
 			return null;
 		}
 
-		if ( null === $nome || null === $apelidos || null === $data_nacemento || null === $curso || null === $aula ) {
+		if ( null === $nome || null === $apelidos || null === $curso || null === $aula ) {
 			return null;
 		}
 		if ( '' === $nome || '' === $apelidos || '' === $curso || '' === $aula ) {
@@ -264,8 +264,12 @@ final class ANPA_Socios_Admin_Payload {
 		if ( strlen( $nome ) < 1 || strlen( $apelidos ) < 1 ) {
 			return null;
 		}
-		if ( ! self::data_nacemento_valida( $data_nacemento ) ) {
-			return null;
+		if ( null !== $data_nacemento && '' !== $data_nacemento ) {
+			if ( ! self::data_nacemento_valida( $data_nacemento ) ) {
+				return null;
+			}
+		} else {
+			$data_nacemento = null;
 		}
 
 		// Dynamic validation with DB fallback when curso_escolar is provided.

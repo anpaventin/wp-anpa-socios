@@ -127,6 +127,7 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
             echo '<table class="widefat striped">';
             echo '<thead><tr>';
             echo '<th>' . esc_html__( 'Nivel', 'anpa-socios' ) . '</th>';
+            echo '<th>' . esc_html__( 'Orde', 'anpa-socios' ) . '</th>';
             echo '<th>' . esc_html__( 'Última aula', 'anpa-socios' ) . '</th>';
             echo '<th>' . esc_html__( 'Aulas actuais', 'anpa-socios' ) . '</th>';
             echo '<th>' . esc_html__( 'Accións', 'anpa-socios' ) . '</th>';
@@ -142,12 +143,16 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
                     }
                 }
                 $ultima = $ultima_por_nivel[ $nid ] ?? 'D';
+                $orde   = (int) $n['orde'];
 
                 echo '<tr data-nivel-row data-id="' . $nid . '">';
                 printf(
-                    '<td><input type="text" class="est-nivel-nome regular-text" value="%s" data-orde="%d" style="max-width:10rem"></td>',
-                    esc_attr( $n['codigo'] ),
-                    (int) $n['orde']
+                    '<td><input type="text" class="est-nivel-nome regular-text" value="%s" style="max-width:10rem"></td>',
+                    esc_attr( $n['codigo'] )
+                );
+                printf(
+                    '<td><input type="number" class="est-nivel-orde small-text" value="%d" min="1" step="1" style="width:5rem"></td>',
+                    $orde
                 );
                 echo '<td><select class="est-nivel-ultima">';
                 foreach ( $letras as $l ) {
@@ -246,7 +251,8 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
                     const id = row.dataset.id;
                     const nomeInput = row.querySelector('.est-nivel-nome');
                     const nome = (nomeInput.value || '').trim();
-                    const orde = nomeInput.dataset.orde || '0';
+                    const ordeInput = row.querySelector('.est-nivel-orde');
+                    const orde = ordeInput ? ordeInput.value : '0';
                     const ultima = row.querySelector('.est-nivel-ultima').value;
                     if (!nome) { alert('<?php echo esc_js( __( 'O nome do nivel non pode quedar baleiro.', 'anpa-socios' ) ); ?>'); return; }
                     try {

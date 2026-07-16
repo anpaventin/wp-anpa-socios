@@ -120,9 +120,17 @@ final class ANPA_Socios_Fillos_REST {
 
 		$body = self::json_body( $request );
 		$curso_escolar = isset( $body['curso_escolar'] ) ? (string) $body['curso_escolar'] : '';
+		if ( '' === $curso_escolar ) {
+			$curso_escolar = ANPA_Socios_Curso_Activo::get() ?? '';
+		}
 		$payload = ANPA_Socios_Admin_Payload::validar_fillo( $body, $curso_escolar );
 		if ( null === $payload ) {
 			return self::invalid_payload_error();
+		}
+
+		// data_nacemento is required for new fillos.
+		if ( null === $payload['data_nacemento'] ) {
+			return new WP_Error( 'anpa_rest_invalid', __( 'A data de nacemento é obrigatoria.', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		// ── Fase 8b: Check for duplicate fillo by normalized name + apelidos ──
@@ -177,6 +185,9 @@ final class ANPA_Socios_Fillos_REST {
 
 		$body = self::json_body( $request );
 		$curso_escolar = isset( $body['curso_escolar'] ) ? (string) $body['curso_escolar'] : '';
+		if ( '' === $curso_escolar ) {
+			$curso_escolar = ANPA_Socios_Curso_Activo::get() ?? '';
+		}
 		$payload = ANPA_Socios_Admin_Payload::validar_fillo( $body, $curso_escolar );
 		if ( null === $payload ) {
 			return self::invalid_payload_error();
@@ -186,11 +197,14 @@ final class ANPA_Socios_Fillos_REST {
 		$update = array(
 			'nome'           => $payload['nome'],
 			'apelidos'       => $payload['apelidos'],
-			'data_nacemento' => $payload['data_nacemento'],
 			'curso'          => $payload['curso'],
 			'aula'           => $payload['aula'],
 			'actualizado_en' => current_time( 'mysql' ),
 		);
+		// data_nacemento is optional on update; keep existing value when not provided.
+		if ( null !== $payload['data_nacemento'] ) {
+			$update['data_nacemento'] = $payload['data_nacemento'];
+		}
 
 		global $wpdb;
 		$table = $wpdb->prefix . 'anpa_fillos';
