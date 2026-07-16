@@ -4,6 +4,16 @@
 	overflow-x: auto;
 }
 
+.anpa-extra-periodo td {
+	background: #f8fbfa;
+	font-weight: 700;
+	padding: 0.75rem;
+}
+
+.anpa-extra-periodo-cell {
+	padding: 0.4rem 0.75rem;
+}
+
 .anpa-extra-grid {
 	width: 100%;
 	border-collapse: collapse;
