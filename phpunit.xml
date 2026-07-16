@@ -31,6 +31,7 @@
       <file>tests/Test_ANPA_Socios_Fillo_Curso_Grupo.php</file>
       <file>tests/Test_ANPA_Socios_Forms_Identity.php</file>
       <file>tests/Test_ANPA_Socios_Alta_Payload.php</file>
+      <file>tests/Test_ANPA_Socios_Approval_Second_Parent.php</file>
       <file>tests/Test_ANPA_Socios_Crypto.php</file>
       <file>tests/Test_ANPA_Socios_Export_Exclusion.php</file>
       <file>tests/Test_ANPA_Socios_Actividade_Options.php</file>
