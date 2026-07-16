@@ -143,6 +143,10 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 		if ( null === $payload ) {
 			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
+		// data_nacemento is required for new fillos.
+		if ( null === $payload['data_nacemento'] ) {
+			return new WP_Error( 'anpa_admin_invalid', __( 'Data de nacemento obrigatoria', 'anpa-socios' ), array( 'status' => 400 ) );
+		}
 		$payload['socio_email'] = $email;
 
 		// Resolve familia_id from the owning socio (fase18 schema slice).
@@ -195,11 +199,18 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 		global $wpdb;
 
 		$id      = (int) $request->get_param( 'id' );
-		$body = ANPA_Socios_Admin_Shared::json_body( $request );
+		$body    = ANPA_Socios_Admin_Shared::json_body( $request );
 		$curso_escolar = isset( $body['curso_escolar'] ) ? (string) $body['curso_escolar'] : '';
+		if ( '' === $curso_escolar ) {
+			$curso_escolar = ANPA_Socios_Curso_Activo::get() ?? '';
+		}
 		$payload = ANPA_Socios_Admin_Payload::validar_fillo( $body, $curso_escolar );
 		if ( null === $payload ) {
 			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
+		}
+		// data_nacemento is optional on update; keep existing value when not provided.
+		if ( null === $payload['data_nacemento'] ) {
+			unset( $payload['data_nacemento'] );
 		}
 		$payload['actualizado_en'] = current_time( 'mysql' );
 
