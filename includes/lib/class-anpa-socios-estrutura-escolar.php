@@ -24,7 +24,22 @@ final class ANPA_Socios_Estrutura_Escolar {
 			return array();
 		}
 
-		$niveis = self::normalize_niveis( $snapshot['niveis'] ?? array() );
+		$raw_niveis = $snapshot['niveis'] ?? array();
+		if ( is_array( $raw_niveis ) ) {
+			foreach ( $raw_niveis as $raw_nivel ) {
+				if ( ! is_array( $raw_nivel ) ) {
+					continue;
+				}
+				if ( null === ANPA_Socios_Disponibilidade_Horaria::normalize_interval(
+					$raw_nivel['comedor_inicio'] ?? null,
+					$raw_nivel['comedor_fin'] ?? null
+				) ) {
+					return array();
+				}
+			}
+		}
+
+		$niveis = self::normalize_niveis( $raw_niveis );
 
 		return array(
 			'curso_escolar' => $curso_escolar,
@@ -132,11 +147,21 @@ final class ANPA_Socios_Estrutura_Escolar {
 			return null;
 		}
 
+		$comedor = ANPA_Socios_Disponibilidade_Horaria::normalize_interval(
+			$row['comedor_inicio'] ?? null,
+			$row['comedor_fin'] ?? null
+		);
+		if ( null === $comedor ) {
+			return null;
+		}
+
 		return array(
-			'codigo'   => $codigo,
-			'etiqueta' => $etiqueta,
-			'orde'     => $orde,
-			'aulas'    => self::normalize_aulas( $row['aulas'] ?? array() ),
+			'codigo'         => $codigo,
+			'etiqueta'       => $etiqueta,
+			'orde'           => $orde,
+			'comedor_inicio' => $comedor['inicio'] ?? null,
+			'comedor_fin'    => $comedor['fin'] ?? null,
+			'aulas'          => self::normalize_aulas( $row['aulas'] ?? array() ),
 		);
 	}
 

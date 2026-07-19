@@ -115,7 +115,7 @@ final class Test_ANPA_Socios_Csv_Import_Iban extends TestCase {
 		$result = ANPA_Socios_Csv_Import::analyze( 'socios_iban', $rows );
 
 		$iban_errors = array_filter( $result['errors'], function ( $e ) {
-			return 'iban' === $e['field'] && str_contains( $e['msg'], 'too short' );
+			return 'iban' === $e['field'] && false !== strpos( $e['msg'], 'too short' );
 		} );
 		$this->assertNotEmpty( $iban_errors );
 	}

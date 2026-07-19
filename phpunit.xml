@@ -17,9 +17,11 @@
       <file>tests/Test_ANPA_Socios_Flow.php</file>
       <file>tests/Test_ANPA_Socios_Admin_Payload.php</file>
       <file>tests/Test_ANPA_Socios_Legacy_Hardcodes.php</file>
+      <file>tests/Test_ANPA_Socios_Config_Menu_Name.php</file>
       <file>tests/Test_ANPA_Socios_Estrutura_Escolar.php</file>
       <file>tests/Test_ANPA_Socios_Grupo_Niveis.php</file>
       <file>tests/Test_ANPA_Socios_DB_Migration.php</file>
+      <file>tests/Test_ANPA_Socios_Disponibilidade_Horaria.php</file>
       <file>tests/Test_ANPA_Socios_Admin_Estrutura_Handler.php</file>
       <file>tests/Test_ANPA_Socios_Fillos_Handlers_ES4.php</file>
       <file>tests/Test_ANPA_Socios_Fillos_Dinamicos.php</file>
@@ -32,6 +34,7 @@
       <file>tests/Test_ANPA_Socios_Forms_Identity.php</file>
       <file>tests/Test_ANPA_Socios_Alta_Payload.php</file>
       <file>tests/Test_ANPA_Socios_Approval_Second_Parent.php</file>
+      <file>tests/Test_ANPA_Socios_Single_Page.php</file>
       <file>tests/Test_ANPA_Socios_Crypto.php</file>
       <file>tests/Test_ANPA_Socios_Export_Exclusion.php</file>
       <file>tests/Test_ANPA_Socios_Actividade_Options.php</file>
@@ -39,7 +42,6 @@
       <file>tests/Test_ANPA_Socios_Curso_Lifecycle.php</file>
       <file>tests/Test_ANPA_Socios_Course_Settings.php</file>
       <file>tests/Test_ANPA_Socios_Horario_Builder.php</file>
-      <file>tests/Test_ANPA_Socios_Settings_Tabs.php</file>
       <file>tests/Test_ANPA_Socios_Admin_Nav.php</file>
       <file>tests/Test_ANPA_Socios_Verificacion_Guard.php</file>
       <file>tests/Test_ANPA_Socios_Admin_Auth.php</file>
@@ -70,6 +72,7 @@
       <file>tests/Test_ANPA_Socios_Grupos_Curriculares.php</file>
       <file>tests/Test_ANPA_Socios_Admin_Grupos_Curriculares_Handler.php</file>
       <file>tests/Test_ANPA_Socios_Prazas.php</file>
+      <file>tests/Test_ANPA_Socios_PR_GA11.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

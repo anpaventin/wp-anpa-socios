@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.29.0-blue">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.43.0-blue">
   <img alt="WordPress" src="https://img.shields.io/badge/WordPress-6.0%2B-21759b">
   <img alt="PHP" src="https://img.shields.io/badge/PHP-7.4%2B-777bb4">
   <img alt="Tests" src="https://img.shields.io/badge/PHPUnit-strict%20TDD-2eac68">
@@ -47,7 +47,7 @@ content and secrets strictly separated.
    page and upload it in *WordPress → Plugins → Add New → Upload Plugin*, or clone this
    repo into `wp-content/plugins/anpa-socios/`.
 2. **Activate** the plugin in WordPress.
-3. **Configure** it once in *ANPA Socios → Axustes*: master email, banking passphrase,
+3. **Configure** it once in *Xestión ANPA → Axustes*: master email, banking passphrase,
    admin password, socios page and current school year. This creates the database,
    the master account and the members page.
 4. **Log in** on the socios page with the master email (a one-time code is emailed).
@@ -60,8 +60,8 @@ content and secrets strictly separated.
 - **Passwordless member area** — email one-time-code login; no passwords for families.
 - **Membership lifecycle** — alta, baixa, reactivation, optional **board approval** of
   new members, and a protected master/admin role.
-- **Children & extracurriculars** — per-child enrolment, group capacity, waitlists,
-  authorisations, per-activity min/max places and school-year scoping.
+- **Children & extracurriculars** — per-child enrolment, per-group capacity and minimum,
+  waitlists, authorisations and school-year scoping.
 - **Encrypted SEPA banking** — sealed-box (public-key) encryption of IBAN/NIF.
 - **Season lifecycle** — automatic course open/close with configurable dates.
 - **Admin dashboard** — members, activities, courses, enrolments, exports (CSV),
@@ -73,10 +73,10 @@ content and secrets strictly separated.
 
 ## 📖 Documentation
 
-- In-plugin **Docs** screen (*ANPA Socios → Docs*): setup, season cycle, and the
+- In-plugin **Documentation** screen (*Xestión ANPA → Documentación*): setup, season cycle, and the
   shortcodes for the public extracurriculars/timetable pages.
-- Shortcodes: `[anpa_socios_area_unified]` (login/area), `[anpa_socios_asociarse]`
-  (signup), `[anpa_extraescolares_ofertadas]`, `[anpa_extraescolares_horario]`.
+- Shortcodes: `[anpa_socios_area]` (single canonical login, signup and personal area),
+  `[anpa_extraescolares_ofertadas]`, `[anpa_extraescolares_horario]`.
 - Development specs live in the private project repo under `openspec/`.
 
 ## 🏫 About the name (ANPA / AMPA)
@@ -91,7 +91,7 @@ site language (Galician and Spanish are bundled — see *Translating the plugin*
 
 This plugin is built to be reused by **any parents' association (ANPA/AMPA)**. Every
 association-specific value — name, contact email, address, membership fee, country,
-province and town — is configured from *ANPA Socios → Axustes*; nothing is hardcoded.
+province and town — is configured from *Xestión ANPA → Axustes*; nothing is hardcoded.
 Issues and suggestions are welcome via the repository's issue tracker.
 
 ## 🙌 Shout Outs

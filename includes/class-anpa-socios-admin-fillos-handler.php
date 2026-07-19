@@ -176,12 +176,16 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
-		ANPA_Socios_Admin_Shared::write_audit( $request, 'fillo', (string) $wpdb->insert_id, 'create' );
+		// D94 root cause: write_audit() inserts its own row, clobbering
+		// $wpdb->insert_id. Capture the fillo id FIRST or the re-select
+		// misses, the fillos_cursos sync is skipped and the 201 body is [].
+		$fillo_id = (int) $wpdb->insert_id;
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'fillo', (string) $fillo_id, 'create' );
 
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
 				"SELECT id, socio_email, nome, apelidos, data_nacemento, curso, aula, estado FROM {$wpdb->prefix}anpa_fillos WHERE id = %d",
-				$wpdb->insert_id
+				$fillo_id
 			),
 			ARRAY_A
 		);
@@ -522,11 +526,9 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 			return;
 		}
 
-		// Validate against dynamic per-curso_escolar structure.
-		if ( ! ANPA_Socios_Admin_Payload::curso_valido_db( $curso, $curso_escolar ) || ! ANPA_Socios_Admin_Payload::aula_valida_db( $aula, $curso_escolar ) ) {
-			return;
-		}
-
+		// D94: the payload was already validated by validar_fillo() and the
+		// upsert resolves nivel_id/aula_id safely (NULL when unmapped), so
+		// re-validating here silently skipped the annual row on create.
 		ANPA_Socios_DB::upsert_fillo_curso_assignment( $fillo_id, $curso_escolar, $curso, $aula );
 	}
 }

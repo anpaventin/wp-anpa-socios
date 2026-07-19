@@ -22,6 +22,7 @@ final class Test_ANPA_Socios_PR_ES8_Second_Half extends TestCase {
 	private string $db_file;
 	private string $backup_file;
 	private string $export_file;
+	private string $extraescolares_rest;
 
 	protected function setUp(): void {
 		$base = dirname( __DIR__ ) . '/includes';
@@ -31,6 +32,7 @@ final class Test_ANPA_Socios_PR_ES8_Second_Half extends TestCase {
 		$this->db_file             = $base . '/class-anpa-socios-db.php';
 		$this->backup_file         = $base . '/class-anpa-socios-backup.php';
 		$this->export_file         = $base . '/lib/class-anpa-socios-alumnos-export.php';
+		$this->extraescolares_rest = $base . '/class-anpa-socios-extraescolares-rest.php';
 	}
 
 	// ────────────────────────────────────────────────────────────────────
@@ -62,6 +64,16 @@ final class Test_ANPA_Socios_PR_ES8_Second_Half extends TestCase {
 		$this->assertIsInt( $pos_error );
 		$nearby = substr( $body, $pos_error, 200 );
 		$this->assertStringContainsString( '409', $nearby );
+	}
+
+	public function test_enrol_capacity_transaction_fails_closed_on_db_errors(): void {
+		$body = $this->extract_method_body( file_get_contents( $this->extraescolares_rest ), 'enrol' );
+
+		$this->assertStringContainsString( "false === \$wpdb->query( 'START TRANSACTION' )", $body );
+		$this->assertGreaterThanOrEqual( 5, substr_count( $body, "\$wpdb->last_error = '';" ) );
+		$this->assertStringContainsString( "'' !== (string) \$wpdb->last_error", $body );
+		$this->assertStringContainsString( "false === \$wpdb->query( 'COMMIT' )", $body );
+		$this->assertStringContainsString( "query( 'ROLLBACK' )", $body );
 	}
 
 	// ────────────────────────────────────────────────────────────────────
@@ -129,9 +141,9 @@ final class Test_ANPA_Socios_PR_ES8_Second_Half extends TestCase {
 	// Task 70: Backup version bump and v1 restore compatibility
 	// ────────────────────────────────────────────────────────────────────
 
-	public function test_backup_version_is_2(): void {
+	public function test_backup_version_is_3_after_phase24_redefinition(): void {
 		require_once $this->backup_file;
-		$this->assertSame( 2, ANPA_Socios_Backup::VERSION );
+		$this->assertSame( 3, ANPA_Socios_Backup::VERSION );
 	}
 
 	public function test_restore_reads_payload_version(): void {

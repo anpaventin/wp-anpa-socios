@@ -92,17 +92,33 @@ final class Test_ANPA_Socios_Actividades_Collapse extends TestCase {
 	}
 
 	/**
-	 * @testdox Falls back to the legacy base actividades row when there is no annual row at all
+	 * @testdox PR-GA5: without annual rows the schedule/capacity fields come back EMPTY, never from legacy activity columns
 	 */
-	public function test_falls_back_to_legacy_base_row_when_no_annual_rows(): void {
-		$base = array( $this->base_row( 1, 'Legado', array( 'curso_escolar' => '2022/2023', 'franxa' => 'legacy-franxa' ) ) );
+	public function test_no_annual_rows_yields_empty_fields_not_legacy_activity_columns(): void {
+		$base = array( $this->base_row( 1, 'Legado', array( 'curso_escolar' => '2022/2023', 'franxa' => 'legacy-franxa', 'horarios' => 'legacy-h', 'grupos' => 'legacy-g', 'dias' => 'legacy-d', 'min_pupilos' => 4, 'max_pupilos' => 12, 'curso_min' => '2', 'curso_max' => '5' ) ) );
 
 		$rows = ANPA_Socios_Actividades_Collapse::collapse( $base, array(), '2025/2026', array(), array() );
 
 		$this->assertCount( 1, $rows );
-		$this->assertSame( '2022/2023', $rows[0]['curso_escolar'] );
-		$this->assertSame( 'legacy-franxa', $rows[0]['franxa'] );
+		$this->assertSame( '', $rows[0]['curso_escolar'] );
+		$this->assertSame( '', $rows[0]['franxa'] );
+		$this->assertSame( '', $rows[0]['horarios'] );
+		$this->assertSame( '', $rows[0]['grupos'] );
+		$this->assertSame( '', $rows[0]['dias'] );
+		$this->assertSame( 0, $rows[0]['min_pupilos'] );
+		$this->assertSame( 0, $rows[0]['max_pupilos'] );
 		$this->assertSame( array(), $rows[0]['cursos_ofertados'], 'No annual rows means cursos_ofertados = [] (not null)' );
+	}
+
+	/**
+	 * @testdox PR-GA5: curso_min/curso_max no longer leak from the base activity row
+	 */
+	public function test_curso_min_max_not_read_from_base_row(): void {
+		$src = file_get_contents( dirname( __DIR__ ) . '/includes/lib/class-anpa-socios-actividades-collapse.php' );
+
+		foreach ( array( 'franxa', 'horarios', 'grupos', 'dias', 'min_pupilos', 'max_pupilos', 'curso_min', 'curso_max', 'curso_escolar' ) as $field ) {
+			$this->assertStringNotContainsString( "\$base['{$field}']", $src, "collapse must not read legacy activity column {$field}" );
+		}
 	}
 
 	/**

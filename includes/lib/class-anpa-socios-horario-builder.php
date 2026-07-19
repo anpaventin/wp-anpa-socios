@@ -67,6 +67,10 @@ final class ANPA_Socios_Horario_Builder {
 				if ( '' !== $horario ) {
 					$label .= ' — ' . ANPA_Socios_Grupo_Serie::horario_label( $horario );
 				}
+				$max_pupilos = (int) ( $act['max_pupilos'] ?? 0 );
+				if ( $max_pupilos > 0 ) {
+					$label .= ' ' . max( 0, (int) ( $act['activos'] ?? 0 ) ) . '/' . $max_pupilos;
+				}
 				$grupo_labels[] = $label;
 			}
 

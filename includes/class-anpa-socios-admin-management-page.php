@@ -45,13 +45,13 @@ final class ANPA_Socios_Admin_Management_Page {
 	 * @return void
 	 */
 	public static function register_menu( string $parent_slug, string $capability ): void {
-		$page = ANPA_Socios_Admin_Nav::native_management_page();
+		$menu_name = ANPA_Socios_Config::menu_name();
 		$hook = add_submenu_page(
 			$parent_slug,
-			$page['page_title'],
-			$page['menu_label'],
+			$menu_name,
+			$menu_name,
 			$capability,
-			$page['slug'],
+			self::MANAGEMENT_SLUG,
 			array( __CLASS__, 'render_page' )
 		);
 		if ( false !== $hook ) {
@@ -87,31 +87,38 @@ final class ANPA_Socios_Admin_Management_Page {
 			wp_die( esc_html__( 'Acceso non permitido.', 'anpa-socios' ) );
 		}
 
-		$sections = ANPA_Socios_Admin_Nav::management_sections();
+		$groups = ANPA_Socios_Admin_Nav::management_sections();
 
 		echo '<div class="wrap anpa-mgmt-wrap">';
-		echo '<h1>' . esc_html__( 'Xestión ANPA', 'anpa-socios' ) . '</h1>';
+		echo '<h1>' . esc_html( ANPA_Socios_Config::menu_name() ) . '</h1>';
 		echo '<div id="anpa-mgmt-message" class="anpa-mgmt-message"></div>';
 
-		// Section navigation tabs.
+		// Section navigation grouped by domain.
 		echo '<nav class="anpa-mgmt-nav" aria-label="' . esc_attr__( 'Seccións de xestión', 'anpa-socios' ) . '">';
 		$first = true;
-		foreach ( $sections as $slug => $label ) {
-			// Skip 'inicio' — not a data section.
-			if ( 'inicio' === $slug ) {
-				continue;
+		foreach ( $groups as $group_slug => $group ) {
+			$group_id    = 'anpa-mgmt-nav-group-' . $group_slug;
+			$group_label = isset( $group['label'] ) ? (string) $group['label'] : ucfirst( (string) $group_slug );
+			$sections    = isset( $group['sections'] ) && is_array( $group['sections'] ) ? $group['sections'] : array();
+
+			echo '<section class="anpa-mgmt-nav-group" aria-labelledby="' . esc_attr( $group_id ) . '">';
+			echo '<h2 id="' . esc_attr( $group_id ) . '" class="anpa-mgmt-nav-group-title">' . esc_html( $group_label ) . '</h2>';
+			echo '<div class="anpa-mgmt-nav-buttons" role="tablist" aria-label="' . esc_attr( $group_label ) . '">';
+			foreach ( $sections as $slug => $label ) {
+				printf(
+					'<button type="button" role="tab" data-section="%s" aria-controls="anpa-management-root" aria-selected="%s">%s</button>',
+					esc_attr( $slug ),
+					$first ? 'true' : 'false',
+					esc_html( (string) $label )
+				);
+				$first = false;
 			}
-			printf(
-				'<button type="button" data-section="%s" aria-selected="%s">%s</button>',
-				esc_attr( $slug ),
-				$first ? 'true' : 'false',
-				esc_html( $label )
-			);
-			$first = false;
+			echo '</div>';
+			echo '</section>';
 		}
 		echo '</nav>';
 
-		echo '<div id="anpa-management-root"></div>';
+		echo '<div id="anpa-management-root" tabindex="-1"></div>';
 		echo '</div>';
 	}
 
@@ -175,6 +182,7 @@ final class ANPA_Socios_Admin_Management_Page {
 			'SELECT curso_escolar FROM ' . ANPA_Socios_DB::tabela_cursos() . ' ORDER BY curso_escolar DESC'
 		);
 		$cursos_escolares = is_array( $cursos_escolares ) ? array_values( array_unique( array_map( 'strval', $cursos_escolares ) ) ) : array();
+		$curso_activo      = ANPA_Socios_Curso_Activo::get();
 
 		wp_localize_script( 'anpa-socios-admin-management', 'anpaAdminMgmt', array(
 			'root'       => esc_url_raw( rest_url( 'anpa-socios/v1/admin/' ) ),
@@ -182,6 +190,7 @@ final class ANPA_Socios_Admin_Management_Page {
 			'filloniveis' => $niveis,
 			'filloaulas'  => $aulas,
 			'cursosescolares' => $cursos_escolares,
+			'cursoactivo' => null === $curso_activo ? '' : $curso_activo,
 		) );
 
 		// admin-management.css.

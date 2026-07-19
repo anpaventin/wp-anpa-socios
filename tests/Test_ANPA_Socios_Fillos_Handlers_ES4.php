@@ -56,4 +56,42 @@ class Test_ANPA_Socios_Fillos_Handlers_ES4 extends TestCase {
         $this->assertStringContainsString( 'aula_valida_db', $src );
         $this->assertStringContainsString( '\'\' !== $curso_escolar', $src );
     }
+
+    /**
+     * D94 (fase23 E2E): POST /fillos created the fillo but silently skipped
+     * the fillos_cursos row because sync_current_course_assignment() gated
+     * the upsert behind a redundant curso/aula re-validation and returned
+     * void. The payload is already validated by validar_fillo() and the
+     * upsert itself resolves nivel_id/aula_id safely (NULL when unmapped),
+     * so the sync MUST always upsert for the active year (spec R5: atomic
+     * annual assignment on create/edit).
+     */
+    public function test_sync_current_course_assignment_always_upserts_for_active_year(): void {
+        $src   = file_get_contents( $this->handler_file );
+        $start = strpos( $src, 'private static function sync_current_course_assignment' );
+        $this->assertNotFalse( $start );
+        $body = substr( $src, $start, strpos( $src, "\n\t}", $start ) - $start );
+
+        $this->assertStringContainsString( 'upsert_fillo_curso_assignment', $body );
+        $this->assertStringNotContainsString( 'curso_valido_db', $body, 'sync must not silently gate the annual upsert behind re-validation' );
+        $this->assertStringNotContainsString( 'aula_valida_db', $body, 'sync must not silently gate the annual upsert behind re-validation' );
+    }
+
+    /**
+     * D94 root cause: create_fillo() read $wpdb->insert_id AFTER
+     * write_audit() performed its own INSERT, so the re-select targeted the
+     * audit row id, returned null, skipped the fillos_cursos sync and sent
+     * an empty 201 body. The fillo id MUST be captured before the audit.
+     */
+    public function test_create_fillo_captures_insert_id_before_audit(): void {
+        $src   = file_get_contents( $this->handler_file );
+        $start = strpos( $src, 'public static function create_fillo' );
+        $body  = substr( $src, $start, strpos( $src, "\n\t}", $start ) - $start );
+
+        $capture = strpos( $body, '$fillo_id = (int) $wpdb->insert_id' );
+        $audit   = strpos( $body, 'ANPA_Socios_Admin_Shared::write_audit' );
+        $this->assertNotFalse( $capture, 'create_fillo must capture the fillo insert_id into $fillo_id' );
+        $this->assertLessThan( $audit, $capture, 'the fillo id must be captured before write_audit inserts the audit row' );
+        $this->assertStringNotContainsString( 'WHERE id = %d", $wpdb->insert_id', $body, 'the re-select must use the captured id, not the post-audit insert_id' );
+    }
 }

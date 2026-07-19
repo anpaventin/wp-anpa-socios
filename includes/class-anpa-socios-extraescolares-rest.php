@@ -291,19 +291,27 @@ final class ANPA_Socios_Extraescolares_REST {
 		// Serialize concurrent enrolments for this group so the capacity check is
 		// atomic (prevents two requests both taking the last seat). The group row
 		// is locked FOR UPDATE for the duration of the transaction.
-		$wpdb->query( 'START TRANSACTION' );
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return self::err( 'anpa_extra_db', 'Erro interno ao matricular', 500 );
+		}
 
+		$wpdb->last_error = '';
 		$locked = $wpdb->get_row(
 			$wpdb->prepare( "SELECT id, max_pupilos, estado FROM {$gru_t} WHERE id = %d FOR UPDATE", $grupo_id ),
 			ARRAY_A
 		);
+		if ( '' !== (string) $wpdb->last_error ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_db', 'Erro interno ao matricular', 500 );
+		}
 		if ( ! is_array( $locked ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return self::err( 'anpa_extra_grupo', 'Grupo non válido', 400 );
 		}
 
 		// One non-baixa matrícula per fillo + activity + trimester (under lock).
-		$existing = (int) $wpdb->get_var(
+		$wpdb->last_error = '';
+		$existing_result  = $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(1) FROM {$mat_t} WHERE fillo_id = %d AND activitad_id = %d AND trimestre = %d AND estado <> 'baixa'",
 				$fillo_id,
@@ -311,29 +319,46 @@ final class ANPA_Socios_Extraescolares_REST {
 				$trimestre
 			)
 		);
+		if ( '' !== (string) $wpdb->last_error ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_db', 'Erro interno ao matricular', 500 );
+		}
+		$existing = (int) $existing_result;
 		if ( $existing > 0 ) {
 			$wpdb->query( 'ROLLBACK' );
 			return self::err( 'anpa_extra_dup', 'Este alumno/a xa está matriculado nesta actividade neste trimestre', 409 );
 		}
 
 		// Capacity gate → activo or lista_espera.
-		$activos = (int) $wpdb->get_var(
+		$wpdb->last_error = '';
+		$activos_result   = $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(1) FROM {$mat_t} WHERE grupo_id = %d AND trimestre = %d AND estado = 'activo'",
 				$grupo_id,
 				$trimestre
 			)
 		);
+		if ( '' !== (string) $wpdb->last_error ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_db', 'Erro interno ao matricular', 500 );
+		}
+		$activos = (int) $activos_result;
 		$full = ( 'pechado' === (string) $locked['estado'] ) || ( $activos >= (int) $locked['max_pupilos'] );
 
-		$estado   = $full ? 'lista_espera' : 'activo';
-		$posicion = 1 + (int) $wpdb->get_var(
+		$estado           = $full ? 'lista_espera' : 'activo';
+		$wpdb->last_error = '';
+		$posicion_result  = $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(1) FROM {$mat_t} WHERE activitad_id = %d AND trimestre = %d",
 				$actividad_id,
 				$trimestre
 			)
 		);
+		if ( '' !== (string) $wpdb->last_error ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_db', 'Erro interno ao matricular', 500 );
+		}
+		$posicion = 1 + (int) $posicion_result;
 
 		$fields = array(
 			'grupo_id'                   => $grupo_id,
@@ -350,7 +375,8 @@ final class ANPA_Socios_Extraescolares_REST {
 
 		// A prior 'baixa' row for the same (fillo, activity, trimester) collides
 		// with the unique key on INSERT — reactivate it instead of failing.
-		$baixa_id = (int) $wpdb->get_var(
+		$wpdb->last_error = '';
+		$baixa_result     = $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT id FROM {$mat_t} WHERE fillo_id = %d AND activitad_id = %d AND trimestre = %d AND estado = 'baixa' LIMIT 1",
 				$fillo_id,
@@ -358,6 +384,11 @@ final class ANPA_Socios_Extraescolares_REST {
 				$trimestre
 			)
 		);
+		if ( '' !== (string) $wpdb->last_error ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_db', 'Erro interno ao matricular', 500 );
+		}
+		$baixa_id = (int) $baixa_result;
 
 		if ( $baixa_id > 0 ) {
 			$ok     = $wpdb->update( $mat_t, $fields, array( 'id' => $baixa_id ) );
@@ -380,7 +411,10 @@ final class ANPA_Socios_Extraescolares_REST {
 			return self::err( 'anpa_extra_db', 'Erro interno ao matricular', 500 );
 		}
 
-		$wpdb->query( 'COMMIT' );
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_db', 'Erro interno ao matricular', 500 );
+		}
 
 		return new WP_REST_Response( array(
 			'id'        => $mat_id,

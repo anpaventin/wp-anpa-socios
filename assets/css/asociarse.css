@@ -21,23 +21,13 @@
 	display: none;
 }
 
-#anpa-asociarse label {
-	font-weight: 600;
-	font-size: 0.95rem;
-}
-
 #anpa-asociarse input[type="email"],
 #anpa-asociarse input[type="text"],
 #anpa-asociarse input[type="tel"],
 #anpa-asociarse input[type="date"],
 #anpa-asociarse select {
-	padding: 0.6rem 0.8rem;
-	font-size: 1rem;
-	border: 1px solid var(--anpa-border-strong, #9ca3af);
-	border-radius: var(--anpa-radius-sm, 4px);
 	width: 100%;
 	box-sizing: border-box;
-	background: var(--anpa-surface, #fff);
 }
 
 /* Cap field widths by the kind of data they hold, so a full-width theme
@@ -79,27 +69,8 @@
 }
 
 #anpa-asociarse button {
-	padding: 0.7rem 1.2rem;
-	font-size: 1rem;
-	font-weight: var(--anpa-fw-strong, 600);
 	cursor: pointer;
-	background: var(--anpa-primary, #2d6a4f);
-	color: var(--anpa-text-on-primary, #fff);
-	border: 1px solid var(--anpa-primary, #2d6a4f);
-	border-radius: var(--anpa-radius-md, 8px);
 	align-self: flex-start;
-	transition: background var(--anpa-transition, .15s), border-color var(--anpa-transition, .15s);
-}
-
-#anpa-asociarse button:hover {
-	background: var(--anpa-primary-hover, #1f513b);
-	border-color: var(--anpa-primary-hover, #1f513b);
-}
-
-#anpa-asociarse button:disabled {
-	background: var(--anpa-text-muted, #5f6670);
-	border-color: var(--anpa-border-strong, #9ca3af);
-	cursor: not-allowed;
 }
 
 #anpa-asociarse [data-step="error"] {
@@ -109,6 +80,10 @@
 	border: 1px solid #d63638;
 	border-radius: 4px;
 	color: #8b1a1a;
+}
+
+#anpa-asociarse [data-anpasocio-error] {
+	white-space: pre-line;
 }
 
 #anpa-asociarse [data-step="ok"] {
@@ -130,11 +105,19 @@
 	border-radius: var(--anpa-radius-lg, 12px);
 	padding: 1rem;
 	margin: 0 0 1rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.65rem;
 }
 
 #anpa-asociarse .anpa-fieldset legend {
 	font-weight: var(--anpa-fw-strong, 600);
 	padding: 0 0.4rem;
+}
+
+#anpa-asociarse .anpa-fieldset label {
+	display: block;
+	width: 100%;
 }
 
 #anpa-asociarse .anpa-muted {
@@ -157,23 +140,6 @@
 	overflow-y: auto;
 }
 
-#anpa-asociarse .anpa-fillo-row {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.5rem;
-	align-items: center;
-	border: 1px solid var(--anpa-border, #e5e7eb);
-	border-radius: var(--anpa-radius-md, 8px);
-	padding: 0.6rem;
-	margin: 0 0 0.5rem;
-}
-
-#anpa-asociarse .anpa-fillo-row input[type="text"],
-#anpa-asociarse .anpa-fillo-row input[type="date"],
-#anpa-asociarse .anpa-fillo-row select {
-	flex: 1 1 8rem;
-	min-width: 0;
-}
 
 #anpa-asociarse .anpa-check {
 	display: inline-flex;
@@ -182,10 +148,9 @@
 	font-size: 0.9rem;
 }
 
-#anpa-asociarse .anpa-secondary {
-	background: transparent;
-	border: 1px solid var(--anpa-border-strong, #9ca3af);
-	color: var(--anpa-text, #1f2937);
+#anpa-asociarse .anpa-fieldset label.anpa-check {
+	display: flex;
+	width: auto;
 }
 
 /* Personal-area access CTA (fase6) — shown above the alta form. */
@@ -252,36 +217,6 @@
 	margin-top: 0.25rem;
 }
 
-/* Keep every fillo control the same height regardless of type (date inputs
-   render taller than text inputs in some browsers otherwise). */
-#anpa-asociarse [data-fillo-row] input,
-#anpa-asociarse [data-fillo-row] select {
-	height: 2.6rem;
-	line-height: normal;
-}
-
-#anpa-asociarse [data-fillo-row].anpa-fillo-saved {
-	background: var(--anpa-surface-accent, #edf7f1);
-	border-color: var(--anpa-border, #e5e7eb);
-}
-
-#anpa-asociarse [data-fillo-row] [data-f][disabled] {
-	background: var(--anpa-surface-subtle, #f3faf6);
-	color: var(--anpa-text, #17412f);
-	border-color: var(--anpa-border, #cfe3d8);
-	opacity: 1;
-	-webkit-text-fill-color: var(--anpa-text, #17412f);
-}
-
-#anpa-asociarse [data-fillo-row] button[data-fillo-save] {
-	background: var(--anpa-primary, #2d6a4f);
-	border: 1px solid var(--anpa-primary, #2d6a4f);
-	color: var(--anpa-text-on-primary, #fff);
-	border-radius: var(--anpa-radius-md, 6px);
-	padding: 0.5rem 0.9rem;
-	font-weight: var(--anpa-fw-strong, 700);
-	cursor: pointer;
-}
 
 /* Unified Socios hub (fase8 PR-8b) */
 .anpa-hub {
@@ -410,14 +345,135 @@
 	min-width: 0;
 }
 
+/* Override the generic fieldset label rule: this label is also the
+   responsive field wrapper, not a standalone bank-form caption. */
+#anpa-asociarse .anpa-fieldset label.anpa-fillo-field {
+	display: flex;
+	width: auto;
+}
+
 #anpa-asociarse .anpa-fillo-field-label {
-	font-size: 0.78rem;
-	font-weight: 600;
-	color: var(--anpa-text-body, #374151);
+	font: inherit;
 }
 
 #anpa-asociarse .anpa-fillo-field input,
 #anpa-asociarse .anpa-fillo-field select {
 	width: 100%;
 	box-sizing: border-box;
+}
+
+/* Fillo rows: three field groups that sit side-by-side on wide screens
+   (Nome+Apelidos, then Data de nacemento, then Curso+Grupo) and stack on mobile. */
+#anpa-asociarse .anpa-fillo-grupo {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem 1rem;
+	width: 100%;
+}
+#anpa-asociarse .anpa-fillo-grupo-1 .anpa-fillo-field {
+	flex: 1 1 10rem;
+	min-width: 0;
+}
+#anpa-asociarse .anpa-fillo-grupo-2 .anpa-fillo-field {
+	flex: 1 1 14rem;
+	min-width: 0;
+}
+#anpa-asociarse .anpa-fillo-grupo-3 .anpa-fillo-field {
+	flex: 1 1 10rem;
+	min-width: 0;
+}
+
+/* Keep the consent checkbox on its own tidy line, aligned, never floating
+   above the fields. */
+#anpa-asociarse .anpa-fillo-consent {
+	display: flex;
+	align-items: center;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	gap: 0.4rem;
+	width: 100%;
+	margin: 0.2rem 0 0;
+}
+
+.anpa-required {
+	font-weight: 700;
+}
+
+/* Parent fieldsets: Nome+Apelidos on one row, Teléfono+NIF on the next
+   (wide screens); stacks naturally because .anpa-fieldset is flex column. */
+#anpa-asociarse .anpa-parent-grupo {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem 1rem;
+	width: 100%;
+}
+#anpa-asociarse .anpa-parent-field {
+	flex: 1 1 14rem;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+}
+#anpa-asociarse .anpa-parent-field input {
+	width: 100%;
+}
+
+#anpa-asociarse .anpa-parent-field-wide {
+	flex: 0 1 auto;
+	max-width: 32rem;
+}
+
+#anpa-asociarse .anpa-alta-submit-actions {
+	display: flex;
+	justify-content: flex-end;
+	width: 100%;
+}
+
+#anpa-asociarse .anpa-alta-pending {
+	display: grid;
+	gap: 0.75rem;
+}
+
+#anpa-asociarse .anpa-alta-pending h2,
+#anpa-asociarse .anpa-alta-pending p {
+	margin: 0;
+}
+
+/* Layout only: colour and typography come from WordPress/theme classes. */
+#anpa-asociarse .anpa-alta-logout {
+	margin-left: auto;
+	display: block;
+}
+
+/* Fillo row heading (Fillo/a 1, Fillo/a 2...) */
+.anpa-fillo-row-heading {
+	font-weight: 700;
+	font-size: 0.9rem;
+	width: 100%;
+	margin-bottom: 0.25rem;
+	color: var(--anpa-primary, #2d6a4f);
+}
+
+#anpa-asociarse .anpa-fillo-toolbar {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	margin-top: 0.25rem;
+}
+
+#anpa-asociarse [data-fillo-row] .anpa-fillo-actions {
+	justify-content: flex-end;
+}
+
+/* Mobile: stack fillo controls full-width so they are never too narrow
+   to type comfortably on a small screen. */
+@media (max-width: 720px) {
+	#anpa-asociarse [data-fillo-row] {
+		flex-direction: column;
+		align-items: stretch;
+	}
+	#anpa-asociarse .anpa-fillo-field {
+		flex: 1 1 100%;
+		min-width: 0;
+	}
 }

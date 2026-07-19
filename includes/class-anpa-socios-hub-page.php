@@ -3,7 +3,7 @@
  * Unified "Socios" hub page + area-link shortcode (fase8 PR-8b).
  *
  * [anpa_socios_hub]        — three clear cards: Facerme socio/a, Xa es socio/a?,
- *                            Darme de baixa, linking to the asociarse + area pages.
+ *                            Darme de baixa, linking to the canonical socios page.
  * [anpa_socios_area_link]  — a simple link to the personal-area page, for menus.
  *
  * Page URLs are auto-detected (transient-cached) from the published page that
@@ -72,7 +72,6 @@ final class ANPA_Socios_Hub_Page {
 	 */
 	public static function render( $atts ): string {
 		$area_url = self::find_page_url( 'anpa_socios_area' );
-		$alta_url = self::find_page_url( 'anpa_socios_asociarse' );
 		$assoc    = esc_html( ANPA_Socios_Config::association_name() );
 		$fee      = esc_html( ANPA_Socios_Config::membership_fee() );
 
@@ -82,8 +81,8 @@ final class ANPA_Socios_Hub_Page {
 			<div class="anpa-hub-card anpa-hub-alta">
 				<h3><?php esc_html_e( 'Facerme socio/a', 'anpa-socios' ); ?></h3>
 				<p><?php echo sprintf( esc_html__( 'Dáte de alta na %1$s. A cota é de %2$s € por familia e curso.', 'anpa-socios' ), $assoc, $fee ); ?></p>
-				<?php if ( '' !== $alta_url ) : ?>
-					<a class="anpa-hub-btn" href="<?php echo esc_url( $alta_url ); ?>"><?php esc_html_e( 'Asociarme', 'anpa-socios' ); ?></a>
+				<?php if ( '' !== $area_url ) : ?>
+					<a class="anpa-hub-btn" href="<?php echo esc_url( $area_url ); ?>"><?php esc_html_e( 'Asociarme', 'anpa-socios' ); ?></a>
 				<?php endif; ?>
 			</div>
 			<div class="anpa-hub-card anpa-hub-login">

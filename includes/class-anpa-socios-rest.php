@@ -534,13 +534,23 @@ class ANPA_Socios_REST {
 			ANPA_Socios_Email::enviar_benvida_alta( (string) $clean['parent2']['email'], $login_url );
 		}
 
-		return new WP_REST_Response(
-			array(
-				'success' => true,
-				'message' => __( 'Alta completada', 'anpa-socios' ),
-			),
-			200
+		$response = array(
+			'success' => true,
+			'message' => __( 'Alta completada', 'anpa-socios' ),
 		);
+
+		// The verified alta has just created an active account, so issue the
+		// same canonical area session used by POST /area/session. This lets the
+		// unified page open the dashboard inline without asking for a second
+		// code. Pending approvals returned above never reach this branch.
+		$session = ANPA_Socios_Area_REST::issue_session( ANPA_Socios_DB::tabela_sesions(), $email );
+		if ( ! is_wp_error( $session ) ) {
+			$response['session_token'] = $session['session_token'];
+			$response['expires_in']    = $session['expires_in'];
+			$response['max_uses']      = $session['max_uses'];
+		}
+
+		return new WP_REST_Response( $response, 200 );
 	}
 
 	/**

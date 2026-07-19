@@ -151,10 +151,10 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 
 		// Errors reported for missing email/nif on secundario.
 		$email_errors = array_filter( $result['errors'], function ( $e ) {
-			return 'email' === $e['field'] && str_contains( $e['msg'], 'secundario' );
+			return 'email' === $e['field'] && false !== strpos( $e['msg'], 'secundario' );
 		} );
 		$nif_errors = array_filter( $result['errors'], function ( $e ) {
-			return 'nif' === $e['field'] && str_contains( $e['msg'], 'secundario' );
+			return 'nif' === $e['field'] && false !== strpos( $e['msg'], 'secundario' );
 		} );
 		$this->assertNotEmpty( $email_errors );
 		$this->assertNotEmpty( $nif_errors );
@@ -367,7 +367,7 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 
 	public function test_analyze_normalizes_curso_escolar(): void {
 		$rows = array(
-			array( 'empresa_email' => 'e@example.com', 'nome' => 'Futbol', 'descripcion' => '', 'curso_escolar' => '2025 - 2026', 'min_pupilos' => '', 'max_pupilos' => '', 'curso_min' => '', 'curso_max' => '', 'custo' => '', 'estado' => 'activo' ),
+			array( 'empresa_email' => 'e@example.com', 'nome' => 'Futbol', 'descripcion' => '', 'curso_escolar' => '2025 - 2026', 'custo' => '', 'estado' => 'activo' ),
 		);
 
 		$result = ANPA_Socios_Csv_Import::analyze( 'actividades', $rows );
@@ -641,14 +641,15 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 		$this->assertContains( 'url_web', $headers );
 	}
 
-	// ─── actividades curso_min/curso_max in headers (task 18) ──────
+	// ─── actividades legacy capacity columns removed from headers ──────
 
-	public function test_actividades_entity_headers_uses_curso_min_max(): void {
+	public function test_actividades_entity_headers_drop_legacy_capacity_columns(): void {
 		$headers = ANPA_Socios_Csv_Import::ENTITY_HEADERS['actividades'];
-		$this->assertContains( 'curso_min', $headers );
-		$this->assertContains( 'curso_max', $headers );
-		$this->assertNotContains( 'idade_min', $headers );
-		$this->assertNotContains( 'idade_max', $headers );
+		$this->assertContains( 'nivel_min_codigo', $headers );
+		$this->assertContains( 'nivel_max_codigo', $headers );
+		foreach ( array( 'min_pupilos', 'max_pupilos', 'curso_min', 'curso_max' ) as $field ) {
+			$this->assertNotContains( $field, $headers );
+		}
 	}
 
 	// ─── actividades nivel_min_codigo/nivel_max_codigo (PR-ES9 task 84) ──
@@ -661,7 +662,7 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 
 	public function test_analyze_actividades_trims_nivel_codigo_columns(): void {
 		$rows = array(
-			array( 'empresa_email' => 'e@example.com', 'nome' => 'Futbol', 'descripcion' => 'desc', 'curso_escolar' => '2025/2026', 'min_pupilos' => '5', 'max_pupilos' => '15', 'curso_min' => '', 'curso_max' => '', 'nivel_min_codigo' => '  1  ', 'nivel_max_codigo' => '  3  ', 'custo' => '10', 'estado' => 'activo' ),
+			array( 'empresa_email' => 'e@example.com', 'nome' => 'Futbol', 'descripcion' => 'desc', 'curso_escolar' => '2025/2026', 'nivel_min_codigo' => '  1  ', 'nivel_max_codigo' => '  3  ', 'custo' => '10', 'estado' => 'activo' ),
 		);
 
 		$result = ANPA_Socios_Csv_Import::analyze( 'actividades', $rows );
@@ -672,12 +673,28 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 
 	public function test_analyze_actividades_nivel_codigo_columns_default_to_empty_string(): void {
 		$rows = array(
-			array( 'empresa_email' => 'e@example.com', 'nome' => 'Futbol', 'descripcion' => 'desc', 'curso_escolar' => '2025/2026', 'min_pupilos' => '5', 'max_pupilos' => '15', 'curso_min' => '', 'curso_max' => '', 'custo' => '10', 'estado' => 'activo' ),
+			array( 'empresa_email' => 'e@example.com', 'nome' => 'Futbol', 'descripcion' => 'desc', 'curso_escolar' => '2025/2026', 'custo' => '10', 'estado' => 'activo' ),
 		);
 
 		$result = ANPA_Socios_Csv_Import::analyze( 'actividades', $rows );
 
 		// Row has no nivel_min_codigo/nivel_max_codigo keys at all — must not error.
+		$this->assertNotEmpty( $result['to_insert'] );
+	}
+
+	public function test_parse_and_analyze_actividades_with_legacy_capacity_columns_still_work(): void {
+		$csv = "empresa_email,nome,descripcion,curso_escolar,min_pupilos,max_pupilos,curso_min,curso_max,nivel_min_codigo,nivel_max_codigo,custo,estado\n"
+			. "e@example.com,Futbol,desc,2025 - 2026,5,15,1,6, 1 , 3 ,10,activo\n";
+
+		$rows = ANPA_Socios_Csv_Import::parse( $csv );
+
+		$this->assertSame( '5', $rows[0]['min_pupilos'] );
+		$this->assertSame( '6', $rows[0]['curso_max'] );
+
+		$result = ANPA_Socios_Csv_Import::analyze( 'actividades', $rows );
+
+		$this->assertSame( '2025/2026', $result['rows'][0]['curso_escolar'] );
+		$this->assertSame( '1', $result['rows'][0]['nivel_min_codigo'] );
 		$this->assertNotEmpty( $result['to_insert'] );
 	}
 

@@ -53,7 +53,7 @@ final class ANPA_Socios_Admin_Export_Handler {
 	private const ENTITY_COLUMNS = array(
 		'socios'      => array( 'id_familia', 'rol_familia', 'email', 'nome', 'apelidos', 'nif', 'telefono', 'estado', 'segundo_proxenitor_nome', 'segundo_proxenitor_apelidos', 'segundo_proxenitor_email', 'segundo_proxenitor_nif', 'segundo_proxenitor_telefono' ),
 		'empresas'    => array( 'nome', 'email', 'responsable', 'telefono', 'url_web', 'estado' ),
-		'actividades' => array( 'empresa_email', 'nome', 'icono', 'descripcion', 'curso_escolar', 'min_pupilos', 'max_pupilos', 'curso_min', 'curso_max', 'nivel_min_codigo', 'nivel_max_codigo', 'custo', 'estado' ),
+		'actividades' => array( 'empresa_email', 'nome', 'icono', 'descripcion', 'curso_escolar', 'nivel_min_codigo', 'nivel_max_codigo', 'custo', 'estado' ),
 		'matriculas'  => array( 'proxenitor_email', 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar', 'grupo_nome', 'grupo_curso_range', 'grupo_franxa', 'grupo_dias', 'trimestre', 'posicion', 'comedor', 'tarde', 'observaciones', 'estado' ),
 		'fillos'      => array( 'proxenitor_email', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'curso_escolar', 'image_consent', 'estado' ),
 	);
@@ -251,7 +251,6 @@ final class ANPA_Socios_Admin_Export_Handler {
 
 		if ( 'actividades' === $entity ) {
 			$sql = "SELECT e.email AS empresa_email, a.nome, a.icono, a.descripcion, ac.curso_escolar,
-					ac.min_pupilos, ac.max_pupilos, a.curso_min, a.curso_max,
 					nmin.codigo AS nivel_min_codigo, nmax.codigo AS nivel_max_codigo,
 					ac.custo, ac.estado
 					FROM {$prefix}anpa_actividades a
@@ -261,15 +260,19 @@ final class ANPA_Socios_Admin_Export_Handler {
 					LEFT JOIN {$prefix}anpa_niveis nmax ON nmax.id = ac.nivel_max_id
 					ORDER BY e.email ASC, a.nome ASC, ac.curso_escolar ASC";
 		} elseif ( 'matriculas' === $entity ) {
+			// Modern matrículas reference the annual group; activitad_id can be
+			// 0, so resolve the activity through the group as fallback or the
+			// exported empresa_email/actividade_nome arrive empty and the
+			// importer rejects the row (broken round-trip).
 			$sql = "SELECT f.socio_email AS proxenitor_email, f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
 					e.email AS empresa_email, act.nome AS actividade_nome,
 					g.curso_escolar, g.nome AS grupo_nome, g.curso_range AS grupo_curso_range, g.franxa AS grupo_franxa,
 					g.dias AS grupo_dias, m.trimestre, m.posicion, m.comedor, m.tarde, m.observaciones, m.estado
 					FROM {$prefix}anpa_matriculas m
 					LEFT JOIN {$prefix}anpa_fillos f ON f.id = m.fillo_id
-					LEFT JOIN {$prefix}anpa_actividades act ON act.id = m.activitad_id
-					LEFT JOIN {$prefix}anpa_empresas e ON e.id = act.empresa_id
 					LEFT JOIN {$prefix}anpa_grupos g ON g.id = m.grupo_id
+					LEFT JOIN {$prefix}anpa_actividades act ON act.id = COALESCE(NULLIF(m.activitad_id, 0), g.actividad_id)
+					LEFT JOIN {$prefix}anpa_empresas e ON e.id = act.empresa_id
 					ORDER BY f.socio_email ASC, f.nome ASC, f.apelidos ASC";
 		} elseif ( 'socios' === $entity ) {
 			$sql = "SELECT COALESCE(NULLIF(p.familia_id, 0), p.id) AS id_familia,

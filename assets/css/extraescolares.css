@@ -84,7 +84,24 @@
 	padding-left: 1.25rem;
 	margin: 0.15rem 0;
 }
-.anpa-extra-ofertadas.anpa-card-grid {
+
+.anpa-extra-card .anpa-extra-horario-line {
+	margin: 0.1rem 0;
+}
+
+.anpa-extra-card .anpa-extra-horario-dias {
+	padding-left: 2rem;
+}
+
+.anpa-extra-horario-grupo {
+	margin-bottom: 0.75rem;
+}
+
+.anpa-extra-horario-grupo .anpa-extra-prazas,
+.anpa-extra-horario-grupo .anpa-extra-prazas-minimo {
+	padding-left: 2rem;
+}
+.anpa-extra-ofertadas .anpa-card-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 	gap: 1rem;
@@ -147,6 +164,10 @@
 .anpa-extra-prazas-espera {
 	color: #bc4c00; /* orange — waitlist count */
 	font-weight: 600;
+}
+
+.anpa-extra-prazas-minimo {
+	color: #5a6b60;
 }
 
 /* ── Responsive: mobile ───────────────────────────────────────── */

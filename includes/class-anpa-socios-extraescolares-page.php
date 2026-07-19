@@ -145,10 +145,6 @@ final class ANPA_Socios_Extraescolares_Page {
 			$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Horario:', 'anpa-socios' ) . '</strong></p>';
 			$html .= self::schedule_detail_html( $act );
 
-			// Prazas (fase22 S8): aggregated activos/max con cor semántica.
-			// Omítese cando non hai grupos abertos (caso do slot provisional).
-			$html .= self::prazas_html( $act );
-
 			// Prezo.
 			$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Prezo:', 'anpa-socios' ) . '</strong> '
 				. esc_html( self::price_label( $act['custo'] ?? null ) ) . '</p>';
@@ -198,6 +194,7 @@ final class ANPA_Socios_Extraescolares_Page {
 		$act_t = ANPA_Socios_DB::tabela_actividades();
 		$acy_t = ANPA_Socios_DB::tabela_actividades_cursos();
 		$gru_t = ANPA_Socios_DB::tabela_grupos();
+		$mat_t = ANPA_Socios_DB::tabela_matriculas();
 		$curso = ANPA_Socios_Curso_Activo::get();
 		if ( null === $curso ) {
 			return array();
@@ -207,12 +204,15 @@ final class ANPA_Socios_Extraescolares_Page {
 		// provisional fallback in the revised fase24 model.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT a.nome, g.nome AS grupo_nome, g.horario, g.franxa, g.dias
+				"SELECT a.nome, g.nome AS grupo_nome, g.horario, g.franxa, g.dias, g.max_pupilos,
+				        COUNT(DISTINCT CASE WHEN m.estado = 'activo' THEN m.id END) AS activos
 				 FROM {$act_t} a
 				 INNER JOIN {$acy_t} ac ON ac.actividad_id = a.id AND ac.curso_escolar = %s
 				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = ac.curso_escolar
+				 LEFT JOIN {$mat_t} m ON m.grupo_id = g.id
 				 WHERE a.estado = 'activo' AND ac.estado = 'activo' AND g.estado = 'aberto'
 				   AND g.horario IN ('maña','manha','tarde') AND g.franxa <> '' AND g.dias <> ''
+				 GROUP BY g.id, a.nome, g.nome, g.horario, g.franxa, g.dias, g.max_pupilos
 				 ORDER BY g.franxa ASC, a.nome ASC, g.nome ASC",
 				$curso
 			),
@@ -250,7 +250,7 @@ final class ANPA_Socios_Extraescolares_Page {
 				        e.nome AS empresa_nome, e.url_web,
 				        MIN(g.franxa) AS sort_franxa,
 				        GROUP_CONCAT(DISTINCT g.nome ORDER BY g.nome SEPARATOR ',') AS grupos,
-				        GROUP_CONCAT(DISTINCT CONCAT(g.nome, '|', g.horario, '|', g.franxa, '|', g.dias) ORDER BY g.franxa, g.nome SEPARATOR ';;') AS horarios_grupos
+				        GROUP_CONCAT(DISTINCT CONCAT(g.id, '|', g.nome, '|', g.horario, '|', g.franxa, '|', g.dias) ORDER BY g.franxa, g.nome SEPARATOR ';;') AS horarios_grupos
 				 FROM {$act_t} a
 				 INNER JOIN {$acy_t} ac ON ac.actividad_id = a.id AND ac.curso_escolar = %s
 				 LEFT JOIN {$empresas} e ON e.id = a.empresa_id
@@ -297,6 +297,7 @@ final class ANPA_Socios_Extraescolares_Page {
 				$by_act[ $aid ] = array();
 			}
 			$by_act[ $aid ][] = array(
+				'id'          => $g['id'],
 				'nome'        => $g['nome'],
 				'min_pupilos' => $g['min_pupilos'],
 				'max_pupilos' => $g['max_pupilos'],
@@ -332,20 +333,34 @@ final class ANPA_Socios_Extraescolares_Page {
 	 * @return string Escaped HTML.
 	 */
 	private static function schedule_detail_html( array $act ): string {
-		$raw   = (string) ( $act['horarios_grupos'] ?? '' );
+		$raw           = (string) ( $act['horarios_grupos'] ?? '' );
+		$group_details = json_decode( (string) ( $act['grupos_detail'] ?? '[]' ), true );
+		$details_by_id = array();
+		foreach ( is_array( $group_details ) ? $group_details : array() as $group ) {
+			$details_by_id[ (int) ( $group['id'] ?? 0 ) ] = $group;
+		}
 		$parts = array();
 		foreach ( array_filter( explode( ';;', $raw ) ) as $chunk ) {
-			list( $grupo_nome, $horario, $franxa, $dias_csv ) = array_pad( explode( '|', $chunk, 4 ), 4, '' );
+			// Chunk layout: id|nome|horario|franxa|dias. The NAME is the
+			// only field allowed to contain a literal '|', so split defensively:
+			// take segment 0 as id, the last 3 as horario/franxa/dias, and
+			// re-join everything in between back into the group name.
+			$segs         = explode( '|', $chunk );
+			$grupo_id     = (int) ( $segs[0] ?? 0 );
+			$horario      = (string) ( $segs[ count( $segs ) - 3 ] ?? '' );
+			$franxa       = (string) ( $segs[ count( $segs ) - 2 ] ?? '' );
+			$dias_csv     = (string) ( $segs[ count( $segs ) - 1 ] ?? '' );
+			$grupo_nome   = implode( '|', array_slice( $segs, 1, -3 ) );
 			$dias   = ANPA_Socios_Actividade_Options::parse( $dias_csv, ANPA_Socios_Actividade_Options::DIAS );
 			$labels = array();
 			foreach ( $dias as $dia ) {
 				$labels[] = ANPA_Socios_Horario_Builder::DIA_LABELS[ $dia ] ?? $dia;
 			}
 			$parts[] = array(
-				'grupo'  => $grupo_nome,
-				'horario'=> ANPA_Socios_Grupo_Serie::horario_label( $horario ),
-				'dias'   => implode( ', ', $labels ),
-				'franxa' => self::franxa_label( $franxa, $horario ),
+				'grupo'   => $grupo_nome,
+				'dias'    => implode( ', ', $labels ),
+				'franxa'  => self::franxa_label( $franxa, $horario ),
+				'capacity' => $details_by_id[ (int) $grupo_id ] ?? null,
 			);
 		}
 
@@ -356,37 +371,29 @@ final class ANPA_Socios_Extraescolares_Page {
 
 		$html = '';
 		foreach ( $parts as $part ) {
-			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line"><strong>' . esc_html( $part['grupo'] ) . '</strong> — ' . esc_html( $part['horario'] ) . '</p>';
-			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line">' . esc_html( $part['dias'] ) . '</p>';
-			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line">' . esc_html( $part['franxa'] ) . '</p>';
+			$html .= '<div class="anpa-extra-horario-grupo">';
+			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line"><strong>' . esc_html( $part['grupo'] ) . '</strong> — ' . esc_html( $part['franxa'] ) . '</p>';
+			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line anpa-extra-horario-dias">' . esc_html( $part['dias'] ) . '</p>';
+			if ( is_array( $part['capacity'] ) ) {
+				$html .= self::group_prazas_html( $part['capacity'] );
+			}
+			$html .= '</div>';
 		}
 		return $html;
 	}
 
 	/**
-	 * Returns the "Prazas:" block HTML for an activity card (fase22 S8).
+	 * Returns the "Prazas:" block HTML for one annual group.
 	 *
-	 * Aggregates the open groups' places via the pure ANPA_Socios_Prazas
-	 * helper. Omits the block entirely when the activity has no open groups
-	 * (the provisional-slot case has no real capacity to show). The waitlist
-	 * part is only appended when the activity is full. Colours are applied via
-	 * semantic CSS classes, never inline.
+	 * Capacity and minimum are group properties and must never be aggregated at
+	 * activity level. The waitlist is only appended when this group is full.
 	 *
-	 * @since  1.41.0
-	 * @param  array $act Activity row (needs 'grupos_detail' JSON).
-	 * @return string Escaped HTML, or '' when there is nothing to show.
+	 * @since  1.42.2
+	 * @param  array $group Annual group capacity row.
+	 * @return string Escaped HTML.
 	 */
-	private static function prazas_html( array $act ): string {
-		$grupos = json_decode( (string) ( $act['grupos_detail'] ?? '[]' ), true );
-		if ( ! is_array( $grupos ) ) {
-			$grupos = array();
-		}
-
-		$s = ANPA_Socios_Prazas::summary( $grupos );
-		if ( empty( $s['has_groups'] ) ) {
-			return '';
-		}
-
+	private static function group_prazas_html( array $group ): string {
+		$s              = ANPA_Socios_Prazas::summary( array( $group ) );
 		$activos_class = ANPA_Socios_Prazas::activos_class( $s );
 
 		$html  = '<p class="anpa-extra-meta anpa-extra-prazas"><strong>' . esc_html__( 'Prazas:', 'anpa-socios' ) . '</strong> ';
@@ -398,6 +405,13 @@ final class ANPA_Socios_Extraescolares_Page {
 				. esc_html__( 'en espera', 'anpa-socios' );
 		}
 		$html .= '</p>';
+		$minimo = (int) ( $group['min_pupilos'] ?? 0 );
+		if ( $minimo > 0 ) {
+			/* translators: %d: minimum pupils required to form this group. */
+			$html .= '<p class="anpa-extra-meta anpa-extra-prazas-minimo">'
+				. esc_html( sprintf( __( 'Mínimo de %d para crear grupo.', 'anpa-socios' ), $minimo ) )
+				. '</p>';
+		}
 
 		return $html;
 	}

@@ -158,10 +158,40 @@ class Test_ANPA_Socios_Admin_Payload extends TestCase {
 		$this->assertSame( '', $result['horarios'] );
 		$this->assertSame( '', $result['grupos'] );
 		$this->assertSame( '', $result['dias'] );
-		$this->assertNull( $result['curso_min'] );
-		$this->assertNull( $result['curso_max'] );
+		// PR-GA5: activity-level range is gone from the payload shape, not zeroed.
+		$this->assertArrayNotHasKey( 'curso_min', $result );
+		$this->assertArrayNotHasKey( 'curso_max', $result );
 		$this->assertSame( 0, $result['min_pupilos'] );
 		$this->assertSame( 0, $result['max_pupilos'] );
+	}
+
+	/**
+	 * PR-GA5 (fase24): the actividades base row write and the duplicate copy
+	 * must stop persisting legacy schedule/capacity/range columns; those live
+	 * in annual offer rows and groups only.
+	 */
+	public function test_actividades_handler_base_write_has_no_legacy_columns(): void {
+		$src   = file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-actividades-handler.php' );
+		$start = strpos( $src, 'private static function base_payload' );
+		$this->assertNotFalse( $start );
+		$body = substr( $src, $start, strpos( $src, "\n	}", $start ) - $start );
+
+		foreach ( array( 'franxa', 'horarios', 'grupos', 'dias', 'curso_min', 'curso_max', 'min_pupilos', 'max_pupilos', 'curso_escolar' ) as $field ) {
+			$this->assertStringNotContainsString( "'{$field}'", $body, "base_payload must not write legacy column {$field}" );
+		}
+
+		$dup = strpos( $src, "'curso_escolar' => \$target," );
+		$this->assertNotFalse( $dup );
+		$copy_block = substr( $src, strpos( $src, '$copy = array(' ), strpos( $src, '$wpdb->last_error', $dup ) - strpos( $src, '$copy = array(' ) );
+		foreach ( array( 'franxa', 'horarios', 'grupos', 'dias', 'curso_min', 'curso_max', 'min_pupilos', 'max_pupilos' ) as $field ) {
+			$this->assertStringNotContainsString( "\$src['{$field}']", $copy_block, "duplicate must not copy legacy activity column {$field}" );
+		}
+	}
+
+	/** PR-GA5: dead get_activity() helper is removed from the grupos handler. */
+	public function test_grupos_handler_dead_get_activity_removed(): void {
+		$src = file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-grupos-handler.php' );
+		$this->assertStringNotContainsString( 'function get_activity(', $src );
 	}
 
 	public function test_validar_actividad_accepts_custom_icono(): void {

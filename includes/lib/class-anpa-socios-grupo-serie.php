@@ -73,8 +73,8 @@ final class ANPA_Socios_Grupo_Serie {
 			return array();
 		}
 
-		$min = isset( $input['min_pupilos'] ) ? (int) $input['min_pupilos'] : 0;
-		$max = isset( $input['max_pupilos'] ) ? (int) $input['max_pupilos'] : 0;
+		$min = isset( $input['min_pupilos'] ) ? (int) $input['min_pupilos'] : 10;
+		$max = isset( $input['max_pupilos'] ) ? (int) $input['max_pupilos'] : 15;
 		if ( $min < 1 || $max < $min ) {
 			return array();
 		}
