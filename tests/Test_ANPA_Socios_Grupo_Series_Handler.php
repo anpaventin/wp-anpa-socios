@@ -21,7 +21,7 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 	}
 
 	public function test_schema_adds_group_series_fields_and_backfill(): void {
-		$this->assertStringContainsString( "const DB_VERSION = '1.30.0'", $this->db );
+		$this->assertStringContainsString( "const DB_VERSION = '1.31.0'", $this->db );
 		$this->assertStringContainsString( 'function migrate_to_1_29_0', $this->db );
 		$this->assertStringContainsString( 'ADD COLUMN serie_uid', $this->db );
 		$this->assertStringContainsString( 'ADD COLUMN nome', $this->db );
@@ -54,7 +54,7 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 
 	public function test_activity_list_has_no_primary_course_or_franxa_columns(): void {
 		$this->assertStringContainsString(
-			"var ACTIV_COLS = ['nome', '_empresa_nome', 'cursos_ofertados', 'estado'];",
+			"var ACTIV_COLS = ['_empresa_nome', 'nome', 'custo', 'estado'];",
 			$this->js
 		);
 	}
@@ -63,7 +63,8 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 		$start = strpos( $this->js, 'function renderActividadForm' );
 		$end   = strpos( $this->js, '// ── Grupos sub-panel', $start );
 		$form  = substr( $this->js, $start, $end - $start );
-		$this->assertStringContainsString( "cursosescolares", $form );
+		$this->assertStringContainsString( "activeCourse", $form );
+		$this->assertStringContainsString( "Cursos nos que se ofertou", $form );
 		$this->assertStringContainsString( "Grupos da actividade", $form );
 		$this->assertStringNotContainsString( "Niveis mínimo/máximo", $form );
 		$this->assertStringNotContainsString( "Límites antigos", $form );

@@ -571,29 +571,6 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 	}
 
 	/**
-	 * Returns the activity row (grupos + días option sets) or null.
-	 *
-	 * @since  1.9.0
-	 * @param  int $actividad_id Activity id.
-	 * @return array<string,mixed>|null
-	 */
-	private static function get_activity( int $actividad_id, string $curso_escolar ): ?array {
-		global $wpdb;
-
-		$table = ANPA_Socios_DB::tabela_actividades_cursos();
-		$row   = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT actividad_id AS id, curso_escolar, grupos, dias, nivel_min_id, nivel_max_id FROM {$table} WHERE actividad_id = %d AND curso_escolar = %s",
-				$actividad_id,
-				$curso_escolar
-			),
-			ARRAY_A
-		);
-
-		return is_array( $row ) ? $row : null;
-	}
-
-	/**
 	 * Returns a grupo row or null.
 	 *
 	 * @since  1.9.0

@@ -71,7 +71,7 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
         // ── Load existing structure ───────────────────────────────
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only list in admin context.
         $niveis = $wpdb->get_results( $wpdb->prepare(
-            "SELECT id, codigo, etiqueta, orde, estado FROM {$niveis_t} WHERE curso_escolar = %s AND estado = 'activo' ORDER BY orde ASC, codigo ASC",
+            "SELECT id, codigo, etiqueta, orde, comedor_inicio, comedor_fin, estado FROM {$niveis_t} WHERE curso_escolar = %s AND estado = 'activo' ORDER BY orde ASC, codigo ASC",
             $sel
         ), ARRAY_A );
         if ( ! is_array( $niveis ) ) {
@@ -119,6 +119,37 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
 
         // ── Niveis list ───────────────────────────────────────────
         echo '<div id="anpa-estrutura-editor" data-curso="' . esc_attr( $sel ) . '">';
+        echo '<style>
+        #anpa-estrutura-editor .anpa-required { color: #b42318; font-weight: 700; }
+        #anpa-estrutura-editor .est-comedor-row td { background: #fbfcfe; }
+        #anpa-estrutura-editor .est-comedor-fieldset {
+            border: 1px solid #d0d7de;
+            border-radius: 8px;
+            margin: .75rem 0 0;
+            padding: .75rem;
+        }
+        #anpa-estrutura-editor .est-comedor-grid {
+            display: grid;
+            gap: .75rem 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+            align-items: end;
+        }
+        #anpa-estrutura-editor .est-comedor-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem;
+            align-items: center;
+        }
+        #anpa-estrutura-editor .est-comedor-status {
+            margin-top: .5rem;
+            white-space: pre-line;
+        }
+        @media (max-width: 782px) {
+            #anpa-estrutura-editor .est-comedor-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        </style>';
         echo '<p class="description">' . esc_html__( 'Cada nivel garda un só nome (por exemplo «1º»), que se usa tanto internamente como para amosalo. Escolle a última aula de cada nivel (A ata a letra que indiques); crearanse as aulas desde A ata esa letra.', 'anpa-socios' ) . '</p>';
 
         if ( empty( $niveis ) ) {
@@ -144,6 +175,8 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
                 }
                 $ultima = $ultima_por_nivel[ $nid ] ?? 'D';
                 $orde   = (int) $n['orde'];
+                $comedor_inicio = (string) ( $n['comedor_inicio'] ?? '' );
+                $comedor_fin    = (string) ( $n['comedor_fin'] ?? '' );
 
                 echo '<tr data-nivel-row data-id="' . $nid . '">';
                 printf(
@@ -165,6 +198,46 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
                 printf( '<button class="button button-small est-eliminar-nivel" data-id="%d">%s</button>', $nid, esc_html__( 'Eliminar', 'anpa-socios' ) );
                 echo '</td>';
                 echo '</tr>';
+
+                echo '<tr class="est-comedor-row" data-comedor-row data-id="' . $nid . '">';
+                echo '<td colspan="5">';
+                echo '<fieldset class="est-comedor-fieldset">';
+                echo '<legend>' . esc_html__( 'Horario de comedor por nivel', 'anpa-socios' ) . '</legend>';
+                printf(
+                    '<p id="est-comedor-help-%1$d" class="description">%2$s</p>',
+                    $nid,
+                    esc_html__( 'Completa as dúas horas ou preme Limpar para deixar este nivel sen horario. A validación do navegador é só unha axuda: o servidor revisa os solapes con grupos abertos.', 'anpa-socios' )
+                );
+                echo '<div class="est-comedor-grid">';
+                printf(
+                    '<div><label for="est-comedor-inicio-%1$d">%2$s</label><input type="time" id="est-comedor-inicio-%1$d" class="regular-text est-comedor-inicio" value="%3$s" aria-describedby="est-comedor-help-%1$d est-comedor-status-%1$d"></div>',
+                    $nid,
+                    esc_html__( 'Inicio', 'anpa-socios' ),
+                    esc_attr( $comedor_inicio )
+                );
+                printf(
+                    '<div><label for="est-comedor-fin-%1$d">%2$s</label><input type="time" id="est-comedor-fin-%1$d" class="regular-text est-comedor-fin" value="%3$s" aria-describedby="est-comedor-help-%1$d est-comedor-status-%1$d"></div>',
+                    $nid,
+                    esc_html__( 'Fin', 'anpa-socios' ),
+                    esc_attr( $comedor_fin )
+                );
+                echo '<div class="est-comedor-actions">';
+                printf( '<button type="button" class="button est-comedor-limpar" data-id="%d">%s</button>', $nid, esc_html__( 'Limpar', 'anpa-socios' ) );
+                printf( '<button type="button" class="button button-primary est-gardar-comedor" data-id="%d">%s</button>', $nid, esc_html__( 'Gardar horario de comedor', 'anpa-socios' ) );
+                echo '</div>';
+                echo '</div>';
+                printf(
+                    '<p id="est-comedor-status-%1$d" class="description est-comedor-status" aria-live="polite" tabindex="-1">%2$s</p>',
+                    $nid,
+                    esc_html( sprintf(
+                        /* translators: 1: meal start, 2: meal end. */
+                        __( 'Horario actual: %1$s → %2$s', 'anpa-socios' ),
+                        '' !== $comedor_inicio ? $comedor_inicio : '—',
+                        '' !== $comedor_fin ? $comedor_fin : '—'
+                    ) )
+                );
+                echo '</fieldset>';
+                echo '</td></tr>';
             }
 
             echo '</tbody></table>';
@@ -179,7 +252,7 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
         echo '<input type="hidden" name="curso_escolar" value="' . esc_attr( $sel ) . '">';
         echo '<table class="form-table" role="presentation"><tbody>';
         printf(
-            '<tr><th scope="row"><label for="est-nivel-codigo">%s</label></th><td><input type="text" id="est-nivel-codigo" name="codigo" class="regular-text" required placeholder="%s"></td></tr>',
+            '<tr><th scope="row"><label for="est-nivel-codigo">%s <span class="anpa-required" aria-hidden="true">*</span></label></th><td><input type="text" id="est-nivel-codigo" name="codigo" class="regular-text" required placeholder="%s"></td></tr>',
             esc_html__( 'Nivel', 'anpa-socios' ),
             esc_attr__( 'ex: 1º, 2º, Infantil 3', 'anpa-socios' )
         );
@@ -229,6 +302,104 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
                 const res = await fetch(api, { method: 'POST', headers: { 'X-WP-Nonce': nonce }, body: data });
                 return res.json();
             }
+
+            function mealFields(row) {
+                return {
+                    start: row.querySelector('.est-comedor-inicio'),
+                    end: row.querySelector('.est-comedor-fin'),
+                    status: row.querySelector('.est-comedor-status'),
+                };
+            }
+
+            function clearMealPair(row) {
+                const fields = mealFields(row);
+                if (!fields.start || !fields.end) { return; }
+                fields.start.value = '';
+                fields.end.value = '';
+                fields.start.setCustomValidity('');
+                fields.end.setCustomValidity('');
+                if (fields.status) {
+                    fields.status.textContent = '<?php echo esc_js( __( 'Horario de comedor limpo.', 'anpa-socios' ) ); ?>';
+                }
+            }
+
+            function validateMealPair(row, focus) {
+                const fields = mealFields(row);
+                if (!fields.start || !fields.end) { return false; }
+                const start = (fields.start.value || '').trim();
+                const end = (fields.end.value || '').trim();
+                let message = '';
+                if ((start && !end) || (!start && end)) {
+                    message = '<?php echo esc_js( __( 'Completa as dúas horas ou limpa o horario.', 'anpa-socios' ) ); ?>';
+                } else if (start && end && start >= end) {
+                    message = '<?php echo esc_js( __( 'A hora de inicio debe ser anterior á de fin.', 'anpa-socios' ) ); ?>';
+                }
+                fields.start.setCustomValidity(message);
+                fields.end.setCustomValidity(message);
+                if (fields.status) {
+                    fields.status.textContent = message || (start && end ? '<?php echo esc_js( __( 'Horario listo para gardar.', 'anpa-socios' ) ); ?>' : '<?php echo esc_js( __( 'Horario sen configurar.', 'anpa-socios' ) ); ?>');
+                }
+                if (message && false !== focus) {
+                    if (!start && end && fields.start.reportValidity) {
+                        fields.start.reportValidity();
+                    } else if (fields.end.reportValidity) {
+                        fields.end.reportValidity();
+                    }
+                }
+                return '' === message;
+            }
+
+            function reportMealError(fields, message) {
+                if (!fields.status) { return; }
+                fields.status.setAttribute('role', 'alert');
+                fields.status.textContent = message;
+                fields.status.focus();
+            }
+
+            async function saveMealPair(row) {
+                if (!validateMealPair(row)) { return; }
+                const fields = mealFields(row);
+                try {
+                    const json = await postAccion({
+                        accion: 'gardar_comedor',
+                        nivel_id: row.dataset.id,
+                        comedor_inicio: fields.start.value.trim(),
+                        comedor_fin: fields.end.value.trim(),
+                    });
+                    if (json.success) {
+                        location.reload();
+                        return;
+                    }
+                    if (json.code) {
+                        const detailLines = Array.isArray(json?.data?.conflicts) ? json.data.conflicts.map(function(conflict) {
+                            return [conflict.actividad, conflict.grupo, conflict.nivel, Array.isArray(conflict.dias) ? conflict.dias.join(', ') : conflict.dias, conflict.franxa].filter(Boolean).join(' — ');
+                        }).filter(Boolean).join('\n') : '';
+                        reportMealError(fields, json.message + (detailLines ? '\n\n' + detailLines : ''));
+                        return;
+                    }
+                    reportMealError(fields, '<?php echo esc_js( __( 'Erro: ', 'anpa-socios' ) ); ?>' + (json.message || '<?php echo esc_js( __( 'descoñecido', 'anpa-socios' ) ); ?>'));
+                } catch(err) {
+                    reportMealError(fields, '<?php echo esc_js( __( 'Erro de rede: ', 'anpa-socios' ) ); ?>' + err.message);
+                }
+            }
+
+            document.querySelectorAll('[data-comedor-row]').forEach(function(row) {
+                const fields = mealFields(row);
+                if (!fields.start || !fields.end) { return; }
+                const syncValidity = function() { validateMealPair(row, false); };
+                fields.start.addEventListener('input', syncValidity);
+                fields.end.addEventListener('input', syncValidity);
+                fields.start.addEventListener('blur', syncValidity);
+                fields.end.addEventListener('blur', syncValidity);
+                row.querySelector('.est-gardar-comedor')?.addEventListener('click', function() {
+                    saveMealPair(row);
+                });
+                row.querySelector('.est-comedor-limpar')?.addEventListener('click', function() {
+                    clearMealPair(row);
+                    saveMealPair(row);
+                });
+                validateMealPair(row, false);
+            });
 
             document.getElementById('anpa-est-nivel-form')?.addEventListener('submit', async function(e) {
                 e.preventDefault();

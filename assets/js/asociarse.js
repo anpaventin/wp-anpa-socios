@@ -201,7 +201,7 @@
 	 * Get the field error key from an input element.
 	 */
 	function fieldErrorKey(input) {
-		return input.getAttribute('data-error') || input.getAttribute('data-validate') || input.id;
+		return input.getAttribute('data-error-key') || input.getAttribute('data-validate') || input.id;
 	}
 
 	/**
@@ -210,7 +210,7 @@
 	function showFieldError(input, message) {
 		if (!input) { return; }
 		var key = fieldErrorKey(input);
-		var errSpan = document.querySelector('[data-error="' + key + '"]');
+		var errSpan = document.querySelector('.anpa-field-error[data-error="' + key + '"]');
 		if (errSpan) {
 			errSpan.textContent = message;
 			errSpan.hidden = false;
@@ -225,7 +225,7 @@
 	function clearFieldError(input) {
 		if (!input) { return; }
 		var key = fieldErrorKey(input);
-		var errSpan = document.querySelector('[data-error="' + key + '"]');
+		var errSpan = document.querySelector('.anpa-field-error[data-error="' + key + '"]');
 		if (errSpan) {
 			errSpan.textContent = '';
 			errSpan.hidden = true;
@@ -267,6 +267,11 @@
 			input.classList.remove('anpa-invalid');
 			input.classList.remove('anpa-valid');
 			return true;
+		}
+
+		if (input.required && !value) {
+			showFieldError(input, __( 'Este campo é obrigatorio.', 'anpa-socios' ));
+			return false;
 		}
 
 		var message = '';
@@ -375,7 +380,7 @@
 	function applyFieldErrors(fields) {
 		if (!fields) { return; }
 		Object.keys(fields).forEach(function(key) {
-			var errSpan = document.querySelector('[data-error="' + key + '"]');
+			var errSpan = document.querySelector('.anpa-field-error[data-error="' + key + '"]');
 			if (errSpan) {
 				errSpan.textContent = fields[key];
 				errSpan.hidden = false;
@@ -396,10 +401,10 @@
 			el.textContent = '';
 			el.hidden = true;
 		});
-		form.querySelectorAll('[data-step="datos"] input.anpa-invalid').forEach(function(el) {
+		form.querySelectorAll('[data-step="datos"] .anpa-invalid').forEach(function(el) {
 			el.classList.remove('anpa-invalid');
 		});
-		form.querySelectorAll('[data-step="datos"] input.anpa-valid').forEach(function(el) {
+		form.querySelectorAll('[data-step="datos"] .anpa-valid').forEach(function(el) {
 			el.classList.remove('anpa-valid');
 		});
 	}
@@ -417,6 +422,38 @@
 			}
 		});
 		return allValid;
+	}
+
+	function renderPendingApprovalMessage(okCard) {
+		okCard.textContent = '';
+
+		var message = document.createElement('div');
+		message.className = 'anpa-alta-pending';
+
+		var heading = document.createElement('h2');
+		heading.textContent = __( 'Solicitude rexistrada', 'anpa-socios' );
+		message.appendChild(heading);
+
+		var approval = document.createElement('p');
+		approval.appendChild(document.createTextNode(__( 'A directiva da ANPA ten que ', 'anpa-socios' )));
+		var strong = document.createElement('strong');
+		strong.textContent = __( 'aprobala', 'anpa-socios' );
+		approval.appendChild(strong);
+		approval.appendChild(document.createTextNode(__( ' antes de que poidas acceder á área de socios.', 'anpa-socios' )));
+		message.appendChild(approval);
+
+		var notification = document.createElement('p');
+		var emailStrong = document.createElement('strong');
+		emailStrong.textContent = __( 'Recibirás un correo', 'anpa-socios' );
+		notification.appendChild(emailStrong);
+		notification.appendChild(document.createTextNode(__( ' cando estea ', 'anpa-socios' )));
+		var approvedStrong = document.createElement('strong');
+		approvedStrong.textContent = __( 'aprobada', 'anpa-socios' );
+		notification.appendChild(approvedStrong);
+		notification.appendChild(document.createTextNode('.'));
+		message.appendChild(notification);
+
+		okCard.appendChild(message);
 	}
 
 	// ── Public init function (T5: exportable for unified flow) ──
@@ -497,6 +534,13 @@
 			row.className = 'anpa-fillo-row';
 			row.dataset.filloRow = '';
 
+			// Number the row sequentially
+			const existing = fillosContainer.querySelectorAll('[data-fillo-row]');
+			const heading = document.createElement('div');
+			heading.className = 'anpa-fillo-row-heading';
+			heading.textContent = __( 'Fillo/a', 'anpa-socios' ) + ' ' + (existing.length + 1);
+			row.appendChild(heading);
+
 			const nome = document.createElement('input');
 			nome.type = 'text';
 			nome.dataset.f = 'nome';
@@ -559,45 +603,21 @@
 			}
 
 			const consentLabel = document.createElement('label');
-			consentLabel.className = 'anpa-check';
-			const consent = document.createElement('input');
-			consent.type = 'checkbox';
-			consent.dataset.f = 'image_consent';
-			consentLabel.appendChild(consent);
+			consentLabel.className = 'anpa-check anpa-fillo-consent';
+			const consentCheck = document.createElement('input');
+			consentCheck.type = 'checkbox';
+			consentCheck.dataset.f = 'image_consent';
+			consentLabel.appendChild(consentCheck);
 			consentLabel.appendChild(document.createTextNode(' Autorizo imaxes'));
-
-			const save = document.createElement('button');
-			save.type = 'button';
-			save.dataset.filloSave = '';
-			save.textContent = __( 'Gardar fillo/a', 'anpa-socios' );
-			save.addEventListener('click', () => {
-				if (!filloComplete(row)) {
-					errEl.textContent = 'Completa nome, apelidos, data, curso e grupo do fillo/a antes de gardar.';
-					errEl.parentElement.hidden = false;
-					return;
-				}
-				errEl.parentElement.hidden = true;
-				setFilloLocked(row, true);
-				ensureTrailingEmptyRow();
-			});
-
-			const edit = document.createElement('button');
-			edit.type = 'button';
-			edit.className = 'anpa-secondary';
-			edit.dataset.filloEdit = '';
-			edit.textContent = __( 'Modificar', 'anpa-socios' );
-			edit.hidden = true;
-			edit.addEventListener('click', () => {
-				setFilloLocked(row, false);
-			});
 
 			const remove = document.createElement('button');
 			remove.type = 'button';
-			remove.className = 'anpa-secondary';
+			remove.className = 'wp-element-button is-style-outline';
 			remove.textContent = __( 'Quitar', 'anpa-socios' );
 			remove.addEventListener('click', () => {
 				row.remove();
 				ensureTrailingEmptyRow();
+				renumberFillos();
 			});
 
 			// Each field gets a visible caption so the boxes are never unlabelled.
@@ -613,64 +633,59 @@
 				return wrap;
 			};
 
-			[
-				field(__( 'Nome', 'anpa-socios' ), nome),
-				field(__( 'Apelidos', 'anpa-socios' ), apelidos),
-				field(__( 'Data de nacemento', 'anpa-socios' ), data),
-				field(__( 'Curso', 'anpa-socios' ), curso),
-				field(__( 'Grupo', 'anpa-socios' ), aula),
-			].forEach((el) => row.appendChild(el));
+			// Group 1 (wide screens): Nome + Apelidos on one row.
+			const grupo1 = document.createElement('div');
+			grupo1.className = 'anpa-fillo-grupo anpa-fillo-grupo-1';
+			[ field(__( 'Nome', 'anpa-socios' ), nome),
+			  field(__( 'Apelidos', 'anpa-socios' ), apelidos) ].forEach((el) => grupo1.appendChild(el));
+			// Group 2 (wide screens): Data de nacemento alone.
+			const grupo2 = document.createElement('div');
+			grupo2.className = 'anpa-fillo-grupo anpa-fillo-grupo-2';
+			grupo2.appendChild(field(__( 'Data de nacemento', 'anpa-socios' ), data));
+			// Group 3 (wide screens): Curso + Grupo on the next row.
+			const grupo3 = document.createElement('div');
+			grupo3.className = 'anpa-fillo-grupo anpa-fillo-grupo-3';
+			[ field(__( 'Curso', 'anpa-socios' ), curso),
+			  field(__( 'Grupo', 'anpa-socios' ), aula) ].forEach((el) => grupo3.appendChild(el));
+
+			row.appendChild(grupo1);
+			row.appendChild(grupo2);
+			row.appendChild(grupo3);
 			row.appendChild(consentLabel);
-			// Buttons live in their own full-width row BELOW the fields.
+			// Actions row: only "Quitar" (unique "Novo fillo" is above the form).
 			const actions = document.createElement('div');
 			actions.className = 'anpa-fillo-actions';
-			[save, edit, remove].forEach((el) => actions.appendChild(el));
+			actions.appendChild(remove);
 			row.appendChild(actions);
 			return row;
 		}
 
-		function filloComplete(row) {
-			const get = (f) => {
-				const el = row.querySelector('[data-f="' + f + '"]');
-				return el ? el.value.trim() : '';
-			};
-			return !!( get('nome') && get('apelidos') && get('data_nacemento') && get('curso') && get('aula') );
-		}
-
-		function setFilloLocked(row, locked) {
-			row.dataset.filloSaved = locked ? '1' : '';
-			row.classList.toggle('anpa-fillo-saved', locked);
-			row.querySelectorAll('[data-f]').forEach((el) => { el.disabled = locked; });
-			const saveBtn = row.querySelector('[data-fillo-save]');
-			const editBtn = row.querySelector('[data-fillo-edit]');
-			if (saveBtn) { saveBtn.hidden = locked; }
-			if (editBtn) { editBtn.hidden = !locked; }
-		}
-
 		function ensureTrailingEmptyRow() {
 			const rows = Array.from(fillosContainer.querySelectorAll('[data-fillo-row]'));
-			const hasEditable = rows.some((r) => r.dataset.filloSaved !== '1');
-			if (!hasEditable) {
+			if (rows.length === 0) {
 				fillosContainer.appendChild(createFilloRow());
 			}
 		}
 
-		// Whether any editable (unsaved) fillo row has data typed in it. Used to
-		// block the alta submit so a half-filled fillo/a is never silently
-		// dropped — the user must press «Gardar fillo/a» first.
-		function hasUnsavedFilloData() {
-			const rows = Array.from(fillosContainer.querySelectorAll('[data-fillo-row]'));
-			return rows.some((row) => {
-				if (row.dataset.filloSaved === '1') { return false; }
-				const get = (f) => {
-					const el = row.querySelector('[data-f="' + f + '"]');
-					return el ? el.value.trim() : '';
-				};
-				return !!( get('nome') || get('apelidos') || get('data_nacemento') || get('curso') || get('aula') );
+		fillosContainer.appendChild(createFilloRow());
+
+		// ── Unique "Novo fillo" button ──
+		const novoBtn = form.querySelector('[data-fillo-novo-unico]');
+		if (novoBtn) {
+			novoBtn.addEventListener('click', function () {
+				fillosContainer.appendChild(createFilloRow());
+				renumberFillos();
 			});
 		}
 
-		fillosContainer.appendChild(createFilloRow());
+		// Renumber all fillo row headings (Fillo/a 1, Fillo/a 2, …)
+		function renumberFillos() {
+			const rows = Array.from(fillosContainer.querySelectorAll('[data-fillo-row]'));
+			rows.forEach(function (r, i) {
+				var h = r.querySelector('.anpa-fillo-row-heading');
+				if (h) { h.textContent = __( 'Fillo/a', 'anpa-socios' ) + ' ' + (i + 1); }
+			});
+		}
 
 		function readParent(prefix) {
 			const q = (sel) => (form.querySelector(sel) || {}).value || '';
@@ -700,8 +715,6 @@
 					return el ? el.value.trim() : '';
 				};
 				const consentEl = row.querySelector('[data-f="image_consent"]');
-				const empty = !get('nome') && !get('apelidos') && !get('data_nacemento') && !get('curso') && !get('aula');
-				if (empty) { return; }
 				out.push({
 					nome: get('nome'),
 					apelidos: get('apelidos'),
@@ -801,6 +814,8 @@
 		if (options && options.token && options.email) {
 			state.email = options.email;
 			state.token = options.token;
+			try { sessionStorage.setItem( 'anpa_alta_token', options.token ); } catch (_) {}
+			try { sessionStorage.setItem( 'anpa_alta_email', options.email ); } catch (_) {}
 			var em = form.querySelector('#anpa-email');
 			if (em) { em.value = options.email; }
 			showStep(form, 'datos');
@@ -816,6 +831,46 @@
 					if (emailInput) { emailInput.value = prefilled; }
 				}
 			} catch (_) {}
+		}
+
+		// ── Restore persisted alta session and bind logout once ──
+		var logoutBtn = form.querySelector('[data-alta-logout]');
+		if (!state.token) {
+			try {
+				var savedToken = sessionStorage.getItem('anpa_alta_token');
+				if (savedToken) {
+					state.token = savedToken;
+					state.email = sessionStorage.getItem('anpa_alta_email') || '';
+					var savedEmailInput = form.querySelector('#anpa-email');
+					if (savedEmailInput) { savedEmailInput.value = state.email; }
+					showStep(form, 'datos');
+					loadReferencias();
+					autoCopyTitular();
+					autoFillLugarData();
+				}
+			} catch (_) {}
+		}
+		if (logoutBtn) {
+			logoutBtn.hidden = !state.token;
+			logoutBtn.addEventListener('click', function () {
+				try { sessionStorage.removeItem('anpa_alta_token'); } catch (_) {}
+				try { sessionStorage.removeItem('anpa_alta_email'); } catch (_) {}
+				state.token = null;
+				state.email = null;
+				form.reset();
+				fillosContainer.textContent = '';
+				fillosContainer.appendChild(createFilloRow());
+				_lastAutoCopy = { nome: '', apelidos: '', nif: '' };
+				clearAllFieldErrors(form);
+				errEl.textContent = '';
+				errEl.parentElement.hidden = true;
+				if (bridgeEl) {
+					bridgeEl.textContent = '';
+					bridgeEl.hidden = true;
+				}
+				showStep(form, 'email');
+				logoutBtn.hidden = true;
+			});
 		}
 
 		// ── email step ──
@@ -865,6 +920,10 @@
 				);
 				if (result && result.success === true && result.token) {
 					state.token = result.token;
+					// Persist token across page refreshes (sessionStorage
+					// survives browser navigation but not tab close).
+					try { sessionStorage.setItem( 'anpa_alta_token', result.token ); } catch (_) {}
+					try { sessionStorage.setItem( 'anpa_alta_email', state.email ); } catch (_) {}
 					showStep(form, 'datos');
 					// Fase 8c: load province/municipality dropdowns + auto-copy parent1 data
 					loadReferencias();
@@ -906,14 +965,51 @@
 					return;
 				}
 
-				// Block if a fillo/a has data typed but was not saved with
-				// «Gardar fillo/a» — otherwise it would be silently dropped.
-				if (hasUnsavedFilloData()) {
-					errEl.textContent = __( 'Tes un fillo/a con datos sen gardar. Preme «Gardar fillo/a» ou baleira eses campos antes de continuar.', 'anpa-socios' );
+				const sepaAutorizo = !!(form.querySelector('#anpa-sepa-autorizo') || {}).checked;
+				if (!sepaAutorizo) {
+					errEl.textContent = __( 'Debes autorizar a domiciliación bancaria.', 'anpa-socios' );
 					errEl.parentElement.hidden = false;
 					return;
 				}
 
+				// ── Per-fillo validation ──
+				const filloRows = Array.from(fillosContainer.querySelectorAll('[data-fillo-row]'));
+				const filloFieldLabels = {
+					nome: __( 'Nome', 'anpa-socios' ),
+					apelidos: __( 'Apelidos', 'anpa-socios' ),
+					data_nacemento: __( 'Data de nacemento', 'anpa-socios' ),
+					curso: __( 'Curso', 'anpa-socios' ),
+					aula: __( 'Grupo', 'anpa-socios' ),
+				};
+				const filloErrors = [];
+				filloRows.forEach(function (fr, idx) {
+					const get = function (f) {
+						const el = fr.querySelector('[data-f="' + f + '"]');
+						return el ? el.value.trim() : '';
+					};
+					const missing = Object.keys(filloFieldLabels).filter(function (f) {
+						return !get(f);
+					});
+					if (missing.length > 0) {
+						missing.forEach(function (f) {
+							var el = fr.querySelector('[data-f="' + f + '"]');
+							if (el) { el.classList.add('anpa-invalid'); }
+						});
+						var h = fr.querySelector('.anpa-fillo-row-heading');
+						var label = h ? h.textContent : (__( 'Fillo/a', 'anpa-socios' ) + ' ' + (idx + 1));
+						var names = missing.map(function (f) { return filloFieldLabels[f]; });
+						filloErrors.push(label + ': ' + names.join(', '));
+					}
+				});
+				if (filloErrors.length > 0) {
+					errEl.textContent = __( 'Faltan datos obrigatorios nos fillos/as:', 'anpa-socios' ) + '\n' + filloErrors.join('\n');
+					errEl.parentElement.hidden = false;
+					return;
+				}
+
+				// All fillos are submitted together with «Completar alta»
+				// (like the parent fields), so no per-row "saved" gate is needed.
+				// Every rendered row is required and included in the payload.
 				const parent1 = readParent('p1');
 				const parent2raw = readParent('p2');
 				const parent2HasData = hasP2Data();
@@ -942,18 +1038,29 @@
 				const result = await callRest(altaUrl, payload, errEl);
 				if (result) {
 					showStep(form, 'ok');
+					// Alta completed — clear the persisted token so the form
+					// starts fresh on the next visit.
+					try { sessionStorage.removeItem( 'anpa_alta_token' ); } catch (_) {}
+					try { sessionStorage.removeItem( 'anpa_alta_email' ); } catch (_) {}
 					// Approval workflow: the alta is registered but pending the
 					// junta directiva's approval. Show the message and DON'T
 					// redirect, so the applicant reads that they must wait.
 					if (result.pending_approval) {
 						var okCard = form.querySelector('[data-step="ok"]');
-						if (okCard && result.message) {
-							var p = document.createElement('p');
-							p.className = 'anpa-alta-pending';
-							p.textContent = result.message;
-							okCard.appendChild(p);
+						if (okCard) {
+							renderPendingApprovalMessage(okCard);
 						}
 						return;
+					}
+					// Immediate approval: the backend returns a canonical area
+					// session so the dashboard can replace this form in place.
+					if (result.session_token && window.AnpaArea && window.AnpaUnified
+						&& typeof window.AnpaArea.saveSessionToken === 'function'
+						&& typeof window.AnpaUnified.openArea === 'function') {
+						window.AnpaArea.saveSessionToken(result.session_token, result.expires_in || 86400);
+						if (await window.AnpaUnified.openArea()) {
+							return;
+						}
 					}
 					// Redirect to unified page after successful alta
 					var unifiedUrl = form.dataset.anpasocioUnifiedUrl;

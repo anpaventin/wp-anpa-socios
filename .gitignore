@@ -11,6 +11,10 @@
 # Local test/scratch output
 out.txt
 *.log
+/nul
+
+# Local pre-deploy backups — preserve on disk, never publish
+/bak/
 
 # Local planning / agent artefacts (not shipped in the public plugin ZIP/repo)
 /IDEA.md

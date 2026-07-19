@@ -65,8 +65,8 @@ class ANPA_Socios_Unified_Page {
 		$preseason_curso = (string) $season['curso_escolar'];
 		$preseason_date  = ANPA_Socios_Preseason_Guard::format_date_gl( (string) $season['data_inicio'] );
 
-		// Prefer the new child area page under /socios/ so existing members
-		// land on a real area page after verification, not back on this entry.
+		// Keep the legacy personal-area URL only as a rollback fallback. The
+		// normal Fase 19 path renders the shared area inline on this page.
 		$area_page_url = ANPA_Socios_Hub_Page::find_page_url( 'anpa_socios_area_persoal' );
 		$new_area      = get_page_by_path( 'socios/area-persoal' );
 		if ( $new_area ) {
@@ -147,15 +147,6 @@ class ANPA_Socios_Unified_Page {
 				</div>
 			</div>
 
-			<!-- STEP: baixa_solicitada -- pending cancellation -->
-			<div data-step="baixa-solicitada" hidden>
-				<h2><?php esc_html_e( 'Solicitude de baixa pendente', 'anpa-socios' ); ?></h2>
-				<p><?php esc_html_e( 'Recibimos a túa solicitude de baixa. Se foi un erro, podes anulala e seguir sendo socio/a.', 'anpa-socios' ); ?></p>
-				<div class="anpa-unified-actions">
-					<button type="button" class="wp-element-button" data-action="cancel-baixa"><?php esc_html_e( 'Anular solicitude de baixa', 'anpa-socios' ); ?></button>
-					<button type="button" class="wp-element-button is-style-outline" data-action="area-confirm"><?php esc_html_e( 'Ir á miña área', 'anpa-socios' ); ?></button>
-				</div>
-			</div>
 
 			<!-- STEP: inactivo -- member has been deactivated -->
 			<div data-step="inactivo" hidden>
@@ -191,6 +182,14 @@ class ANPA_Socios_Unified_Page {
 			echo ANPA_Socios_Socios_Page::render_alta_form(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 			?>
 		</div>
+
+		<!-- Embedded personal area. area.js waits for AnpaArea.init() because
+		     this host must remain inert until unified.js validates a session. -->
+		<div id="anpa-area-host" hidden>
+			<?php
+			echo ANPA_Socios_Area_Page::render_embedded(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			?>
+		</div>
 		<?php
 		return (string) ob_get_clean();
 	}
@@ -211,15 +210,35 @@ class ANPA_Socios_Unified_Page {
 			return;
 		}
 
-		$js_path     = ANPA_SOCIOS_PLUGIN_DIR . 'assets/js/unified.js';
-		$css_path    = ANPA_SOCIOS_PLUGIN_DIR . 'assets/css/unified.css';
-		$js_version  = file_exists( $js_path ) ? (int) filemtime( $js_path ) : ANPA_SOCIOS_VERSION;
-		$css_version = file_exists( $css_path ) ? (int) filemtime( $css_path ) : ANPA_SOCIOS_VERSION;
+		$js_path          = ANPA_SOCIOS_PLUGIN_DIR . 'assets/js/unified.js';
+		$css_path         = ANPA_SOCIOS_PLUGIN_DIR . 'assets/css/unified.css';
+		$area_js_path     = ANPA_SOCIOS_PLUGIN_DIR . 'assets/js/area.js';
+		$area_css_path    = ANPA_SOCIOS_PLUGIN_DIR . 'assets/css/area.css';
+		$js_version       = file_exists( $js_path ) ? (int) filemtime( $js_path ) : ANPA_SOCIOS_VERSION;
+		$css_version      = file_exists( $css_path ) ? (int) filemtime( $css_path ) : ANPA_SOCIOS_VERSION;
+		$area_js_version  = file_exists( $area_js_path ) ? (int) filemtime( $area_js_path ) : ANPA_SOCIOS_VERSION;
+		$area_css_version = file_exists( $area_css_path ) ? (int) filemtime( $area_css_path ) : ANPA_SOCIOS_VERSION;
+
+		wp_enqueue_script(
+			'anpa-socios-area',
+			plugins_url( 'assets/js/area.js', ANPA_SOCIOS_PLUGIN_FILE ),
+			array( 'wp-i18n' ),
+			$area_js_version,
+			true
+		);
+		wp_set_script_translations( 'anpa-socios-area', 'anpa-socios', ANPA_SOCIOS_PLUGIN_DIR . 'languages' );
+
+		wp_enqueue_style(
+			'anpa-socios-area',
+			plugins_url( 'assets/css/area.css', ANPA_SOCIOS_PLUGIN_FILE ),
+			array(),
+			$area_css_version
+		);
 
 		wp_enqueue_script(
 			'anpa-socios-unified',
 			plugins_url( 'assets/js/unified.js', ANPA_SOCIOS_PLUGIN_FILE ),
-			array( 'wp-i18n' ),
+			array( 'wp-i18n', 'anpa-socios-area' ),
 			$js_version,
 			true
 		);

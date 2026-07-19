@@ -80,6 +80,7 @@ final class ANPA_Socios_Config {
 	const OPTION_CONTACT_EMAIL = 'anpa_socios_contact_email';
 	const OPTION_ADDRESS       = 'anpa_socios_association_address';
 	const OPTION_FEE           = 'anpa_socios_membership_fee';
+	const OPTION_MENU_NAME     = 'anpa_socios_menu_name';
 
 	// Localización (multi-tenant location defaults). Language is NOT a plugin
 	// setting: the plugin follows the WordPress site language (see i18n in the
@@ -124,6 +125,20 @@ final class ANPA_Socios_Config {
 	const DEFAULT_ASSOCIATION  = 'ANPA';
 
 	/**
+	 * Default sidebar menu label shown when no custom menu name is saved.
+	 *
+	 * @var string
+	 */
+	const DEFAULT_MENU_NAME = 'Xestión ANPA';
+
+	/**
+	 * Maximum length for the sidebar menu label.
+	 *
+	 * @var int
+	 */
+	const MENU_NAME_MAX_LENGTH = 30;
+
+	/**
 	 * Default membership fee shown in the alta copy (euros, per family/course).
 	 *
 	 * @var string
@@ -139,6 +154,34 @@ final class ANPA_Socios_Config {
 		$value = trim( (string) get_option( self::OPTION_ASSOCIATION, '' ) );
 
 		return '' !== $value ? $value : self::DEFAULT_ASSOCIATION;
+	}
+
+	/**
+	 * Configurable sidebar menu label for the admin top-level entry.
+	 *
+	 * The option is trimmed, stripped of tags and limited to a reasonable
+	 * length so the wp-admin sidebar stays usable even if an admin pastes a
+	 * long title by mistake.
+	 *
+	 * @return string
+	 */
+	public static function menu_name(): string {
+		$value = trim( (string) get_option( self::OPTION_MENU_NAME, '' ) );
+		$value = trim( wp_strip_all_tags( $value ) );
+
+		if ( '' === $value ) {
+			return self::DEFAULT_MENU_NAME;
+		}
+
+		if ( function_exists( 'mb_substr' ) ) {
+			$value = mb_substr( $value, 0, self::MENU_NAME_MAX_LENGTH );
+		} else {
+			$value = substr( $value, 0, self::MENU_NAME_MAX_LENGTH );
+		}
+
+		$value = trim( $value );
+
+		return '' !== $value ? $value : self::DEFAULT_MENU_NAME;
 	}
 
 	/**

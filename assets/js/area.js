@@ -1,8 +1,8 @@
 /**
  * Passwordless state machine for the ANPA Socios personal area.
  *
- * The area token is kept in closure memory only. It is never stored in
- * localStorage, sessionStorage, cookies, or the DOM.
+ * The area token is persisted in localStorage with a client-side expiry and
+ * validated server-side on every authenticated request.
  *
  * @since  1.1.0
  * @package ANPA_Socios
@@ -17,6 +17,40 @@
 	// data; warn 2 min before so the user can stay connected.
 	var IDLE_LIMIT_MS = 30 * 60 * 1000;
 	var IDLE_WARN_MS = 2 * 60 * 1000;
+	var AREA_TOKEN_KEY = 'anpa_area_token';
+	var AREA_TOKEN_EXPIRES_KEY = 'anpa_area_token_expires';
+	var initializedRoots = new WeakSet();
+	var activeUi = null;
+
+	function saveAreaToken(token, expiresInSeconds) {
+		try {
+			localStorage.setItem(AREA_TOKEN_KEY, token);
+			var expiresAt = expiresInSeconds ? Date.now() + expiresInSeconds * 1000 : 0;
+			localStorage.setItem(AREA_TOKEN_EXPIRES_KEY, String(expiresAt));
+		} catch (_) {}
+	}
+
+	function loadAreaToken() {
+		try {
+			var token = localStorage.getItem(AREA_TOKEN_KEY);
+			var expires = localStorage.getItem(AREA_TOKEN_EXPIRES_KEY);
+			if (!token) { return null; }
+			if (expires && Date.now() > parseInt(expires, 10)) {
+				clearAreaToken();
+				return null;
+			}
+			return token;
+		} catch (_) {
+			return null;
+		}
+	}
+
+	function clearAreaToken() {
+		try {
+			localStorage.removeItem(AREA_TOKEN_KEY);
+			localStorage.removeItem(AREA_TOKEN_EXPIRES_KEY);
+		} catch (_) {}
+	}
 
 	function showStep(root, step) {
 		root.querySelectorAll('[data-step]').forEach((el) => {
@@ -183,11 +217,16 @@
 		}
 	}
 
-	document.addEventListener('DOMContentLoaded', () => {
-		const root = document.getElementById('anpa-area');
+	function init(root) {
 		if (!root) {
-			return;
+			return Promise.resolve(false);
 		}
+		if (initializedRoots.has(root)) {
+			return typeof root.anpaRestoreSession === 'function'
+				? root.anpaRestoreSession()
+				: Promise.resolve(false);
+		}
+		initializedRoots.add(root);
 
 		// Safe single-element binding: a missing node (markup/JS drift) must
 		// never throw and break the wiring of every handler defined after it.
@@ -202,47 +241,6 @@
 		let fase1Token = '';
 		let areaToken = '';
 		let empresaToken = '';
-
-		// ── Persistent session helpers (localStorage) ───────────────────
-		// The token is stored client-side so the user can reload the page
-		// without re-entering a code. It is a high-entropy bearer token bound
-		// to User-Agent and TTL on the server. localStorage is acceptable
-		// because the token is already scoped to the device/browser.
-		const AREA_TOKEN_KEY = 'anpa_area_token';
-		const AREA_TOKEN_EXPIRES_KEY = 'anpa_area_token_expires';
-
-		function saveAreaToken(token, expiresInSeconds) {
-			try {
-				localStorage.setItem(AREA_TOKEN_KEY, token);
-				const expiresAt = expiresInSeconds ? Date.now() + expiresInSeconds * 1000 : 0;
-				localStorage.setItem(AREA_TOKEN_EXPIRES_KEY, String(expiresAt));
-			} catch (_) {
-				// localStorage can be unavailable in private mode; session
-				// will simply not persist across page loads.
-			}
-		}
-
-		function loadAreaToken() {
-			try {
-				const token = localStorage.getItem(AREA_TOKEN_KEY);
-				const expires = localStorage.getItem(AREA_TOKEN_EXPIRES_KEY);
-				if (!token) { return null; }
-				if (expires && Date.now() > parseInt(expires, 10)) {
-					clearAreaToken();
-					return null;
-				}
-				return token;
-			} catch (_) {
-				return null;
-			}
-		}
-
-		function clearAreaToken() {
-			try {
-				localStorage.removeItem(AREA_TOKEN_KEY);
-				localStorage.removeItem(AREA_TOKEN_EXPIRES_KEY);
-			} catch (_) {}
-		}
 
 		// ── Idle session timeout ────────────────────────────────────────
 		let idleWarnTimer = null;
@@ -306,8 +304,12 @@
 			clearAreaToken();
 			root.classList.remove('anpa-area-wide');
 			hideSessionHeader();
-			showStep(root, 'email');
-			showMessage(root, __( 'A túa sesión pechouse por inactividade.', 'anpa-socios' ), 'info');
+			if (wasArea) {
+				showSocioLoggedOut(__( 'A túa sesión pechouse por inactividade.', 'anpa-socios' ), 'info');
+			} else {
+				showStep(root, 'email');
+				showMessage(root, __( 'A túa sesión pechouse por inactividade.', 'anpa-socios' ), 'info');
+			}
 		}
 
 		// Reset the idle timer on genuine activity (throttled to once / 3s).
@@ -340,7 +342,23 @@
 			if (hdr) { hdr.hidden = true; }
 		}
 
+		function showSocioLoggedOut(message, type) {
+			root.anpaInitPromise = null;
+			root.classList.remove('anpa-area-wide');
+			if (
+				root.dataset.autoInit === '0'
+				&& window.AnpaUnified
+				&& typeof window.AnpaUnified.showEntry === 'function'
+			) {
+				window.AnpaUnified.showEntry(message, type === 'error');
+				return;
+			}
+			showStep(root, 'email');
+			showMessage(root, message, type);
+		}
+
 		bind('[data-action="header-logout"]', 'click', async () => {
+			const wasArea = !!areaToken;
 			if (areaToken) {
 				await tokenRequest('DELETE', root.dataset.logoutUrl, areaToken, null, root);
 				areaToken = '';
@@ -353,8 +371,12 @@
 			clearIdleTimers();
 			hideSessionHeader();
 			root.classList.remove('anpa-area-wide');
-			showStep(root, 'email');
-			showMessage(root, __( 'Sesión pechada.', 'anpa-socios' ), 'success');
+			if (wasArea) {
+				showSocioLoggedOut(__( 'Sesión pechada.', 'anpa-socios' ), 'success');
+			} else {
+				showStep(root, 'email');
+				showMessage(root, __( 'Sesión pechada.', 'anpa-socios' ), 'success');
+			}
 		});
 
 		// ── Session dropdown menu shortcuts (PR-12l part 2) ──────────────
@@ -568,8 +590,7 @@
 			clearIdleTimers();
 			hideSessionHeader();
 			root.classList.remove('anpa-area-wide');
-			showStep(root, 'email');
-			showMessage(root, __( 'Sesión pechada.', 'anpa-socios' ), 'success');
+			showSocioLoggedOut(__( 'Sesión pechada.', 'anpa-socios' ), 'success');
 		});
 
 		bind('[data-action="request-baixa"]', 'click', async () => {
@@ -1413,6 +1434,9 @@
 		// profile without asking for a new code. On failure, silently fall
 		// back to the email step.
 		function goToLogin() {
+			if (root.dataset.autoInit === '0') {
+				return;
+			}
 			// Centralised login lives on the unified /socios/ page. Sending the
 			// user there avoids showing the old area email form (and its flash).
 			var loginUrl = root.dataset.loginUrl || '';
@@ -1423,38 +1447,96 @@
 			}
 		}
 
-		(async function restoreSession() {
-			const stored = loadAreaToken();
-			if (!stored || !root.dataset.sessionStatusUrl) {
-				goToLogin();
-				return;
+		activeUi = {
+			showSessionHeader: showSessionHeader,
+			hideSessionHeader: hideSessionHeader,
+		};
+
+		function restoreSession() {
+			if (root.anpaInitPromise) {
+				return root.anpaInitPromise;
 			}
-			const status = await callJson(root.dataset.sessionStatusUrl, {
-				method: 'GET',
-				headers: { 'X-Anpa-Area-Token': stored },
-			}, root);
-			if (!status || !status.email) {
-				clearAreaToken();
-				goToLogin();
-				return;
-			}
-			areaToken = stored;
-			email = status.email;
-			fillProfile(root, status);
-			showSessionHeader(status.email);
-			startIdleTimers();
-			showStep(root, 'profile');
-		}());
-	});
+
+			const attempt = (async function restoreSessionAttempt() {
+				const stored = loadAreaToken();
+				if (!stored || !root.dataset.sessionStatusUrl) {
+					goToLogin();
+					return false;
+				}
+				const status = await callJson(root.dataset.sessionStatusUrl, {
+					method: 'GET',
+					headers: { 'X-Anpa-Area-Token': stored },
+				}, root);
+				if (!status || !status.email) {
+					clearAreaToken();
+					goToLogin();
+					return false;
+				}
+				areaToken = stored;
+				email = status.email;
+				// session-status only carries the slim identity (email, nome,
+				// apelidos). Fetch the FULL profile from /area/me or the first
+				// render shows empty teléfono/NIF/2º proxenitor/fillos.
+				const profile = await tokenRequest('GET', root.dataset.profileUrl, stored, null, root);
+				if (!profile) {
+					clearAreaToken();
+					goToLogin();
+					return false;
+				}
+				fillProfile(root, profile);
+				showSessionHeader(status.email);
+				startIdleTimers();
+				showStep(root, 'profile');
+				return true;
+			}());
+
+			root.anpaInitPromise = attempt;
+			attempt.then(
+				function (opened) {
+					if (!opened && root.anpaInitPromise === attempt) {
+						root.anpaInitPromise = null;
+					}
+				},
+				function () {
+					if (root.anpaInitPromise === attempt) {
+						root.anpaInitPromise = null;
+					}
+				}
+			);
+			return attempt;
+		}
+
+		root.anpaRestoreSession = restoreSession;
+		return root.anpaRestoreSession();
+	}
+
+	function autoInit() {
+		var root = document.getElementById('anpa-area');
+		if (!root || root.dataset.autoInit === '0') {
+			return;
+		}
+		init(root);
+	}
+
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', autoInit);
+	} else {
+		autoInit();
+	}
 
 	// ── Public API for unified flow (T5) ────────────────────────
 	window.AnpaArea = {
+		init: init,
 		showMessage: showMessage,
 		showStep: showStep,
 		getSessionToken: loadAreaToken,
 		saveSessionToken: saveAreaToken,
 		clearSessionToken: clearAreaToken,
-		showSessionHeader: showSessionHeader,
-		hideSessionHeader: hideSessionHeader,
+		showSessionHeader: function (email) {
+			if (activeUi) { activeUi.showSessionHeader(email); }
+		},
+		hideSessionHeader: function () {
+			if (activeUi) { activeUi.hideSessionHeader(); }
+		},
 	};
 })();

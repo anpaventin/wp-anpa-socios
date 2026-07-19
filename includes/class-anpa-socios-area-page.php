@@ -25,6 +25,27 @@ class ANPA_Socios_Area_Page {
 	 * @return string
 	 */
 	public static function render( $atts ): string {
+		return self::render_shell( false );
+	}
+
+	/**
+	 * Renders the area shell for manual initialisation inside the unified page.
+	 *
+	 * @since  1.43.0
+	 * @return string
+	 */
+	public static function render_embedded(): string {
+		return self::render_shell( true );
+	}
+
+	/**
+	 * Shared area markup used by both the legacy and unified shortcodes.
+	 *
+	 * @since  1.43.0
+	 * @param  bool $embedded Whether area.js must wait for manual init.
+	 * @return string
+	 */
+	private static function render_shell( bool $embedded ): string {
 		$solicitar_codigo_url = rest_url( 'anpa/v1/solicitar-codigo' );
 		$verificar_codigo_url  = rest_url( 'anpa/v1/verificar-codigo' );
 		$preflight_url         = rest_url( 'anpa-socios/v1/area/preflight' );
@@ -56,7 +77,7 @@ class ANPA_Socios_Area_Page {
 
 		ob_start();
 		?>
-		<section id="anpa-area"
+		<section id="anpa-area" data-auto-init="<?php echo $embedded ? '0' : '1'; ?>"
 			data-preflight-url="<?php echo esc_attr( $preflight_url ); ?>"
 			data-request-code-url="<?php echo esc_attr( $solicitar_codigo_url ); ?>"
 			data-verify-code-url="<?php echo esc_attr( $verificar_codigo_url ); ?>"

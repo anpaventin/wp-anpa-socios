@@ -113,18 +113,24 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 			return new WP_Error( 'anpa_admin_curso_estado_invalid', __( 'Estado do curso inválido', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
-		$wpdb->query( 'START TRANSACTION' );
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
 		// Serialize lifecycle writes and inspect every active row under lock.
 		$locked_rows = $wpdb->get_results( "SELECT curso_escolar, estado FROM {$table} FOR UPDATE", ARRAY_A );
+		if ( ! is_array( $locked_rows ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
 		$other_active = null;
-		foreach ( is_array( $locked_rows ) ? $locked_rows : array() as $locked_row ) {
+		foreach ( $locked_rows as $locked_row ) {
 			if ( 'activo' === (string) $locked_row['estado'] && $curso !== (string) $locked_row['curso_escolar'] ) {
 				$other_active = (string) $locked_row['curso_escolar'];
 				break;
 			}
 		}
 		$current_target_active = false;
-		foreach ( is_array( $locked_rows ) ? $locked_rows : array() as $locked_row ) {
+		foreach ( $locked_rows as $locked_row ) {
 			if ( $curso === (string) $locked_row['curso_escolar'] && 'activo' === (string) $locked_row['estado'] ) {
 				$current_target_active = true;
 				break;
@@ -176,12 +182,18 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
-		$wpdb->query( 'COMMIT' );
-
 		// Optional: copy school structure from a previous course on activation.
-		$copiar_de = isset( $body['copiar_estrutura_de'] ) ? (string) $body['copiar_estrutura_de'] : '';
-		if ( '' !== $copiar_de && ANPA_Socios_Curso_Escolar::is_valid( $copiar_de ) && $copiar_de !== $curso ) {
-			self::copiar_estrutura_interna( $curso, $copiar_de );
+		$copiar_de      = isset( $body['copiar_estrutura_de'] ) ? (string) $body['copiar_estrutura_de'] : '';
+		$copiar_comedor = ! empty( $body['copiar_comedor'] );
+		if ( '' !== $copiar_de && ANPA_Socios_Curso_Escolar::is_valid( $copiar_de ) && $copiar_de !== $curso
+			&& ! self::copiar_estrutura_interna( $curso, $copiar_de, $copiar_comedor ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_structure_copy_failed', __( 'Non se puido copiar a estrutura escolar.', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		$action = 'activo' === $plan['target_estado'] ? ( $plan['target_open'] ? 'activar_abrir' : 'activar_pechado' ) : 'desactivar_pechar';
@@ -202,19 +214,19 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 	 * Reuses the same INSERT IGNORE logic as ANPA_Socios_Admin_Estrutura_Handler::copiar_estrutura
 	 * but without requiring a WP_REST_Request. Only copies structural data (niveis/aulas),
 	 * never operational data (fillos, matriculas).
+	 * The caller owns the transaction so course state and structure copy remain atomic.
 	 *
 	 * @since  1.27.0
 	 * @param  string $destino Course to copy structure INTO.
-	 * @param  string $orixe   Course to copy structure FROM.
+	 * @param  string $orixe          Course to copy structure FROM.
+	 * @param  bool   $copiar_comedor Whether to fill empty destination meal windows.
 	 * @return bool True on success, false on DB error.
 	 */
-	private static function copiar_estrutura_interna( string $destino, string $orixe ): bool {
+	private static function copiar_estrutura_interna( string $destino, string $orixe, bool $copiar_comedor = false ): bool {
 		global $wpdb;
 
 		$niveis_t = ANPA_Socios_DB::tabela_niveis();
 		$aulas_t  = ANPA_Socios_DB::tabela_aulas();
-
-		$wpdb->query( 'START TRANSACTION' );
 
 		// Copy niveis: INSERT IGNORE preserves existing ones.
 		$ok = $wpdb->query( $wpdb->prepare(
@@ -225,7 +237,22 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 			$orixe
 		) );
 		if ( false === $ok ) {
-			$wpdb->query( 'ROLLBACK' );
+			return false;
+		}
+
+		$ok = $wpdb->query( $wpdb->prepare(
+			"UPDATE {$niveis_t} nd
+			 INNER JOIN {$niveis_t} no ON no.curso_escolar = %s AND no.codigo = nd.codigo
+			 SET nd.comedor_inicio = no.comedor_inicio,
+			     nd.comedor_fin = no.comedor_fin,
+			     nd.actualizado_en = NOW()
+			 WHERE nd.curso_escolar = %s
+			   AND %d = 1 AND nd.comedor_inicio IS NULL AND nd.comedor_fin IS NULL",
+			$orixe,
+			$destino,
+			$copiar_comedor ? 1 : 0
+		) );
+		if ( false === $ok ) {
 			return false;
 		}
 
@@ -240,11 +267,9 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 			$destino
 		) );
 		if ( false === $ok ) {
-			$wpdb->query( 'ROLLBACK' );
 			return false;
 		}
 
-		$wpdb->query( 'COMMIT' );
 		return true;
 	}
 }

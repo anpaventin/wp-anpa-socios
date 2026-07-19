@@ -29,6 +29,7 @@ final class ANPA_Socios_Admin_Nav {
 		'xeral'        => 'Xeral',
 		'cursos'       => 'Cursos',
 		'localizacion' => 'Localización e idioma',
+		'actualizacions' => 'Actualizacións',
 	);
 
 	/**
@@ -45,27 +46,58 @@ final class ANPA_Socios_Admin_Nav {
 			'paxinas'       => 'Páxinas e shortcodes',
 		),
 		'cursos'       => array(
-			'estrutura' => 'Estrutura escolar',
+			'curso-escolar' => 'Curso escolar',
+			'crear-novo'    => 'Crear novo curso',
+			'estrutura'     => 'Estrutura escolar e comedor',
 		),
 		'localizacion' => array(),
+		'actualizacions' => array(),
 	);
 
 	/**
-	 * Native management sections. No standalone "listados" section by design.
+	 * Native management sections grouped by domain.
 	 *
-	 * @since 1.32.0
-	 * @var array<string,string>
+	 * Visible slugs are grouped in the same order they should appear in wp-admin:
+	 * Socios, Extraescolares and Operacións.
+	 *
+	 * @since 1.35.0
+	 * @var array<string,array{label:string,sections:array<string,string>}>
 	 */
 	private const MANAGEMENT_SECTIONS = array(
-		'inicio'             => 'Inicio',
-		'socios'             => 'Socios/as',
-		'aprobacions'        => 'Aprobacións',
-		'fillos'             => 'Fillos/as',
-		'empresas'           => 'Empresas',
-		'actividades'        => 'Actividades',
-		'cursos-matriculas'  => 'Cursos e matrículas',
-		'importar-listados'  => 'Importar listados',
-		'auditoria'          => 'Auditoría',
+		'socios'           => array(
+			'label'    => 'Socios',
+			'sections' => array(
+				'socios'      => 'Socios/as',
+				'aprobacions' => 'Aprobacións',
+				'fillos'      => 'Fillos/as',
+				'empresas'    => 'Empresas',
+			),
+		),
+		'extraescolares'   => array(
+			'label'    => 'Extraescolares',
+			'sections' => array(
+				'actividades'    => 'Actividades',
+				'grupos-horarios' => 'Grupos e horarios',
+				'matriculas'     => 'Matrículas',
+			),
+		),
+		'operacions'       => array(
+			'label'    => 'Operacións',
+			'sections' => array(
+				'importar-listados' => 'Importar listados',
+				'auditoria'         => 'Auditoría',
+			),
+		),
+	);
+
+	/**
+	 * Legacy section aliases kept for deep links / persisted state.
+	 *
+	 * @since 1.35.0
+	 * @var array<string,string>
+	 */
+	private const MANAGEMENT_SECTION_ALIASES = array(
+		'cursos-matriculas' => 'matriculas',
 	);
 
 	/**
@@ -87,16 +119,16 @@ final class ANPA_Socios_Admin_Nav {
 	 * @var array<string,array<string,string>>
 	 */
 	private const PLUGIN_SUBMENUS = array(
+		'management'    => self::NATIVE_MANAGEMENT_PAGE,
 		'settings'      => array(
 			'slug'       => 'anpa-socios-settings',
 			'menu_label' => 'Axustes',
-			'page_title' => 'Axustes ANPA Socios',
+			'page_title' => 'Axustes Xestión ANPA',
 		),
-		'management'    => self::NATIVE_MANAGEMENT_PAGE,
 		'documentation' => array(
 			'slug'       => 'anpa-socios-docs',
 			'menu_label' => 'Documentación',
-			'page_title' => 'Documentación ANPA Socios',
+			'page_title' => 'Documentación Xestión ANPA',
 		),
 	);
 
@@ -121,8 +153,8 @@ final class ANPA_Socios_Admin_Nav {
 	 * @var array<string,array<string,array<string,mixed>>>
 	 */
 	private const MANAGEMENT_EXPORT_ACTIONS = array(
-		'socios'             => array(
-			'csv'            => array(
+		'socios'           => array(
+			'csv' => array(
 				'label' => 'Socios/as CSV',
 			),
 			'sensitive_full' => array(
@@ -130,27 +162,27 @@ final class ANPA_Socios_Admin_Nav {
 				'requires_passphrase' => true,
 			),
 		),
-		'fillos'             => array(
+		'fillos'           => array(
 			'csv' => array(
 				'label' => 'Fillos/as CSV',
 			),
 		),
-		'empresas'           => array(
+		'empresas'         => array(
 			'csv' => array(
 				'label' => 'Empresas CSV',
 			),
 		),
-		'actividades'        => array(
+		'actividades'      => array(
 			'csv' => array(
 				'label' => 'Actividades CSV',
 			),
 		),
-		'cursos-matriculas'  => array(
+		'matriculas'       => array(
 			'csv' => array(
 				'label' => 'Matrículas CSV',
 			),
 		),
-		'importar-listados'  => array(
+		'importar-listados' => array(
 			'csv_preview_only' => array(
 				'label'      => 'Validación e vista previa',
 				'write_safe' => false,
@@ -275,13 +307,33 @@ final class ANPA_Socios_Admin_Nav {
 	}
 
 	/**
-	 * Returns native management sections.
+	 * Returns native management sections grouped by domain.
 	 *
-	 * @since  1.32.0
-	 * @return array<string,string>
+	 * @since  1.35.0
+	 * @return array<string,array{label:string,sections:array<string,string>}>
 	 */
 	public static function management_sections(): array {
 		return self::MANAGEMENT_SECTIONS;
+	}
+
+	/**
+	 * Returns the flattened visible management sections in display order.
+	 *
+	 * @since  1.35.0
+	 * @return array<string,string>
+	 */
+	public static function management_visible_sections(): array {
+		return self::flatten_grouped_sections( self::MANAGEMENT_SECTIONS );
+	}
+
+	/**
+	 * Legacy internal aliases used for deep links / saved state.
+	 *
+	 * @since  1.35.0
+	 * @return array<string,string>
+	 */
+	public static function management_section_aliases(): array {
+		return self::MANAGEMENT_SECTION_ALIASES;
 	}
 
 	public static function native_management_page(): array {
@@ -316,6 +368,27 @@ final class ANPA_Socios_Admin_Nav {
 	 */
 	public static function docs_sections(): array {
 		return self::DOCS_SECTIONS;
+	}
+
+	/**
+	 * Flattens grouped navigation sections into a visible slug map.
+	 *
+	 * @since  1.35.0
+	 * @param  array<string,array{label:string,sections:array<string,string>}> $groups Grouped section metadata.
+	 * @return array<string,string>
+	 */
+	private static function flatten_grouped_sections( array $groups ): array {
+		$flattened = array();
+		foreach ( $groups as $group ) {
+			if ( ! isset( $group['sections'] ) || ! is_array( $group['sections'] ) ) {
+				continue;
+			}
+			foreach ( $group['sections'] as $slug => $label ) {
+				$flattened[ (string) $slug ] = (string) $label;
+			}
+		}
+
+		return $flattened;
 	}
 
 	/**

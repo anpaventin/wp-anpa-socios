@@ -230,7 +230,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		if ( null === $payload ) {
 			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
-		$cursos = self::validated_cursos( $body );
+		$cursos = self::validated_cursos_for_activity( $body, $id );
 		if ( is_wp_error( $cursos ) ) {
 			return $cursos;
 		}
@@ -368,20 +368,13 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 
 	/** @param array<string,mixed> $payload */
 	private static function base_payload( array $payload ): array {
+		// PR-GA5: the base actividades row keeps only descriptive fields.
+		// Schedule, capacity and range live in annual offers and groups.
 		return array(
 			'empresa_id'    => (int) $payload['empresa_id'],
 			'nome'          => (string) $payload['nome'],
 			'icono'         => (string) $payload['icono'],
 			'descripcion'   => (string) $payload['descripcion'],
-			'curso_escolar' => (string) $payload['curso_escolar'],
-			'franxa'        => (string) $payload['franxa'],
-			'horarios'      => (string) $payload['horarios'],
-			'grupos'        => (string) $payload['grupos'],
-			'dias'          => (string) $payload['dias'],
-			'curso_min'     => $payload['curso_min'],
-			'curso_max'     => $payload['curso_max'],
-			'min_pupilos'   => (int) $payload['min_pupilos'],
-			'max_pupilos'   => (int) $payload['max_pupilos'],
 			'custo'         => (float) $payload['custo'],
 			'estado'        => (string) $payload['estado'],
 		);
@@ -465,8 +458,8 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 				        COALESCE(ac.horarios, a.horarios) AS horarios,
 				        COALESCE(ac.grupos, a.grupos) AS grupos,
 				        COALESCE(ac.dias, a.dias) AS dias,
-				        COALESCE(ac.min_pupilos, a.min_pupilos) AS min_pupilos,
-				        COALESCE(ac.max_pupilos, a.max_pupilos) AS max_pupilos,
+				        COALESCE(ac.min_pupilos, 10) AS min_pupilos,
+				        COALESCE(ac.max_pupilos, 15) AS max_pupilos,
 				        COALESCE(ac.custo, a.custo) AS custo,
 				        COALESCE(ac.estado, a.estado) AS estado,
 				        ac.nivel_min_id AS nivel_min_id,
@@ -505,6 +498,19 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 	 * @return string[]|WP_Error
 	 */
 	private static function validated_cursos( array $body ) {
+		return self::validated_cursos_for_activity( $body, 0 );
+	}
+
+	/**
+	 * Validates active-course edits while preserving existing historical years.
+	 *
+	 * @param array<string,mixed> $body          Raw request body.
+	 * @param int                 $actividad_id  Existing activity id, or zero on create.
+	 * @return string[]|WP_Error
+	 */
+	private static function validated_cursos_for_activity( array $body, int $actividad_id ) {
+		global $wpdb;
+
 		if ( isset( $body['cursos'] ) && ! is_array( $body['cursos'] ) ) {
 			return new WP_Error( 'anpa_admin_invalid_cursos', __( 'Revisa os cursos nos que se oferta a actividade.', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
@@ -513,9 +519,28 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		if ( null === $cursos ) {
 			return new WP_Error( 'anpa_admin_invalid_cursos', __( 'Revisa os cursos nos que se oferta a actividade.', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
+		$curso_activo = ANPA_Socios_Curso_Activo::get();
+		if ( null === $curso_activo ) {
+			return new WP_Error( 'anpa_admin_no_active_course', __( 'Non hai un curso activo.', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+
+		$historicos = array();
+		if ( $actividad_id > 0 ) {
+			$historicos = $wpdb->get_col(
+				$wpdb->prepare(
+					'SELECT curso_escolar FROM ' . ANPA_Socios_DB::tabela_actividades_cursos() . ' WHERE actividad_id = %d',
+					$actividad_id
+				)
+			);
+			$historicos = is_array( $historicos ) ? array_map( 'strval', $historicos ) : array();
+		}
+
 		foreach ( $cursos as $curso ) {
-			if ( ! self::curso_exists( $curso ) ) {
-				return new WP_Error( 'anpa_admin_curso_not_found', __( 'Curso escolar non creado', 'anpa-socios' ), array( 'status' => 400 ) );
+			if ( $curso_activo === $curso ) {
+				continue;
+			}
+			if ( $actividad_id <= 0 || ! in_array( $curso, $historicos, true ) ) {
+				return new WP_Error( 'anpa_admin_curso_not_active', __( 'Só se pode engadir o curso activo á oferta.', 'anpa-socios' ), array( 'status' => 400 ) );
 			}
 		}
 
@@ -638,21 +663,14 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			return new WP_Error( 'anpa_admin_not_found', 'Actividade non atopada.', array( 'status' => 404 ) );
 		}
 
-		// Copy descriptive fields; curso_escolar set to target.
+		// Copy descriptive fields only (PR-GA5): the annual offer row below
+		// carries schedule/capacity, and groups are recreated per year.
 		$copy = array(
 			'empresa_id'    => isset( $src['empresa_id'] ) ? (int) $src['empresa_id'] : 0,
 			'nome'          => (string) ( $src['nome'] ?? '' ),
 			'icono'         => (string) ( $src['icono'] ?? '' ),
 			'descripcion'   => (string) ( $src['descripcion'] ?? '' ),
 			'curso_escolar' => $target,
-			'franxa'        => (string) ( $src['franxa'] ?? '' ),
-			'horarios'      => (string) ( $src['horarios'] ?? '' ),
-			'grupos'        => (string) ( $src['grupos'] ?? '' ),
-			'dias'          => (string) ( $src['dias'] ?? '' ),
-			'curso_min'     => isset( $src['curso_min'] ) && '' !== (string) $src['curso_min'] ? (int) $src['curso_min'] : null,
-			'curso_max'     => isset( $src['curso_max'] ) && '' !== (string) $src['curso_max'] ? (int) $src['curso_max'] : null,
-			'min_pupilos'   => isset( $src['min_pupilos'] ) ? (int) $src['min_pupilos'] : 10,
-			'max_pupilos'   => isset( $src['max_pupilos'] ) ? (int) $src['max_pupilos'] : 15,
 			'custo'         => isset( $src['custo'] ) ? (float) $src['custo'] : 0.0,
 			'estado'        => 'activo',
 		);
@@ -679,12 +697,12 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		$acy_copy = array(
 			'actividad_id'   => $new_id,
 			'curso_escolar'  => $target,
-			'franxa'         => is_array( $src_acy ) ? (string) ( $src_acy['franxa'] ?? $copy['franxa'] ) : $copy['franxa'],
-			'horarios'       => is_array( $src_acy ) ? (string) ( $src_acy['horarios'] ?? $copy['horarios'] ) : $copy['horarios'],
-			'grupos'         => is_array( $src_acy ) ? (string) ( $src_acy['grupos'] ?? $copy['grupos'] ) : $copy['grupos'],
-			'dias'           => is_array( $src_acy ) ? (string) ( $src_acy['dias'] ?? $copy['dias'] ) : $copy['dias'],
-			'min_pupilos'    => is_array( $src_acy ) && isset( $src_acy['min_pupilos'] ) ? (int) $src_acy['min_pupilos'] : $copy['min_pupilos'],
-			'max_pupilos'    => is_array( $src_acy ) && isset( $src_acy['max_pupilos'] ) ? (int) $src_acy['max_pupilos'] : $copy['max_pupilos'],
+			'franxa'         => is_array( $src_acy ) ? (string) ( $src_acy['franxa'] ?? '' ) : '',
+			'horarios'       => is_array( $src_acy ) ? (string) ( $src_acy['horarios'] ?? '' ) : '',
+			'grupos'         => is_array( $src_acy ) ? (string) ( $src_acy['grupos'] ?? '' ) : '',
+			'dias'           => is_array( $src_acy ) ? (string) ( $src_acy['dias'] ?? '' ) : '',
+			'min_pupilos'    => is_array( $src_acy ) && isset( $src_acy['min_pupilos'] ) ? (int) $src_acy['min_pupilos'] : 0,
+			'max_pupilos'    => is_array( $src_acy ) && isset( $src_acy['max_pupilos'] ) ? (int) $src_acy['max_pupilos'] : 0,
 			'custo'          => is_array( $src_acy ) && isset( $src_acy['custo'] ) ? (float) $src_acy['custo'] : $copy['custo'],
 			'estado'         => 'activo',
 			'actualizado_en' => current_time( 'mysql' ),

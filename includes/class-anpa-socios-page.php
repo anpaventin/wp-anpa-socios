@@ -91,6 +91,7 @@ class ANPA_Socios_Socios_Page {
 		      data-anpasocio-area-url="<?php echo esc_attr( $area_page_url ); ?>"
 		      data-anpasocio-unified-url="<?php echo esc_attr( $unified_page_url ); ?>"
 		      data-anpasocio-referencias-url="<?php echo esc_attr( rest_url( 'anpa-socios/v1/area/referencias' ) ); ?>">
+			<button type="button" class="wp-element-button anpa-action-danger anpa-alta-logout has-vivid-red-background-color has-background has-white-color has-text-color" data-alta-logout hidden><?php esc_html_e( 'Pechar sesión', 'anpa-socios' ); ?></button>
 			<div data-step="email">
 				<div class="anpa-alta-emailbox">
 					<h2><?php esc_html_e( 'Facerme socio/a', 'anpa-socios' ); ?></h2>
@@ -101,57 +102,86 @@ class ANPA_Socios_Socios_Page {
 						<input type="text" name="website" tabindex="-1" autocomplete="off" value="">
 					</div>
 					<input type="hidden" name="_ts" value="<?php echo (int) time(); ?>">
-					<button type="submit"><?php esc_html_e( 'Enviar código', 'anpa-socios' ); ?></button>
+					<button type="submit" class="wp-element-button"><?php esc_html_e( 'Enviar código', 'anpa-socios' ); ?></button>
 					<p class="anpa-bridge" data-anpasocio-bridge hidden></p>
 				</div>
 			</div>
 			<div data-step="codigo" hidden>
 				<label for="anpa-codigo"><?php esc_html_e( 'Código de 6 díxitos', 'anpa-socios' ); ?></label>
 				<input id="anpa-codigo" type="text" name="codigo" maxlength="6" required>
-				<button type="submit"><?php esc_html_e( 'Verificar', 'anpa-socios' ); ?></button>
+				<button type="submit" class="wp-element-button"><?php esc_html_e( 'Verificar', 'anpa-socios' ); ?></button>
 			</div>
 			<div data-step="datos" hidden>
 				<fieldset class="anpa-fieldset">
 					<legend><?php esc_html_e( 'Os teus datos', 'anpa-socios' ); ?></legend>
-					<label for="anpa-nome"><?php esc_html_e( 'Nome *', 'anpa-socios' ); ?></label>
-					<input id="anpa-nome" type="text" name="nome" autocomplete="given-name" required data-validate="nome">
-					<span class="anpa-field-error" data-error="p1_nome" hidden></span>
-					<label for="anpa-apelidos"><?php esc_html_e( 'Apelidos *', 'anpa-socios' ); ?></label>
-					<input id="anpa-apelidos" type="text" name="apelidos" autocomplete="family-name" required data-validate="apelidos">
-					<span class="anpa-field-error" data-error="p1_apelidos" hidden></span>
-					<label for="anpa-telefono"><?php esc_html_e( 'Teléfono de contacto *', 'anpa-socios' ); ?></label>
-					<input id="anpa-telefono" type="tel" name="telefono" autocomplete="tel" required data-validate="telefono">
-					<span class="anpa-field-error" data-error="p1_telefono" hidden></span>
-					<label for="anpa-nif"><?php esc_html_e( 'NIF / NIE *', 'anpa-socios' ); ?></label>
-					<input id="anpa-nif" type="text" name="nif" autocomplete="off" required data-validate="nif">
-					<span class="anpa-field-error" data-error="p1_nif" hidden></span>
+					<div class="anpa-parent-grupo">
+						<div class="anpa-parent-field">
+							<label for="anpa-nome"><?php esc_html_e( 'Nome', 'anpa-socios' ); ?> <span class="anpa-required has-vivid-red-color">*</span></label>
+							<input id="anpa-nome" type="text" name="nome" autocomplete="given-name" required data-validate="nome" data-error-key="p1_nome">
+							<span class="anpa-field-error" data-error="p1_nome" hidden></span>
+						</div>
+						<div class="anpa-parent-field">
+							<label for="anpa-apelidos"><?php esc_html_e( 'Apelidos', 'anpa-socios' ); ?> <span class="anpa-required has-vivid-red-color">*</span></label>
+							<input id="anpa-apelidos" type="text" name="apelidos" autocomplete="family-name" required data-validate="apelidos" data-error-key="p1_apelidos">
+							<span class="anpa-field-error" data-error="p1_apelidos" hidden></span>
+						</div>
+					</div>
+					<div class="anpa-parent-grupo">
+						<div class="anpa-parent-field">
+							<label for="anpa-telefono"><?php esc_html_e( 'Teléfono de contacto', 'anpa-socios' ); ?> <span class="anpa-required has-vivid-red-color">*</span></label>
+							<input id="anpa-telefono" type="tel" name="telefono" autocomplete="tel" required data-validate="telefono" data-error-key="p1_telefono">
+							<span class="anpa-field-error" data-error="p1_telefono" hidden></span>
+						</div>
+						<div class="anpa-parent-field">
+							<label for="anpa-nif"><?php esc_html_e( 'NIF / NIE', 'anpa-socios' ); ?> <span class="anpa-required has-vivid-red-color">*</span></label>
+							<input id="anpa-nif" type="text" name="nif" autocomplete="off" required data-validate="nif" data-error-key="p1_nif">
+							<span class="anpa-field-error" data-error="p1_nif" hidden></span>
+						</div>
+					</div>
 				</fieldset>
 
 				<fieldset class="anpa-fieldset">
 					<legend><?php esc_html_e( 'Outro/a proxenitor/a (opcional)', 'anpa-socios' ); ?></legend>
 					<p class="anpa-muted"><?php esc_html_e( 'Se a outra persoa proxenitora tamén quere ser socia, completa os seus datos. Deixa baleiro se non aplica.', 'anpa-socios' ); ?></p>
-					<label for="anpa-p2-nome"><?php esc_html_e( 'Nome', 'anpa-socios' ); ?></label>
-					<input id="anpa-p2-nome" type="text" autocomplete="off" data-validate="p2_nome">
-					<span class="anpa-field-error" data-error="p2_nome" hidden></span>
-					<label for="anpa-p2-apelidos"><?php esc_html_e( 'Apelidos', 'anpa-socios' ); ?></label>
-					<input id="anpa-p2-apelidos" type="text" autocomplete="off" data-validate="p2_apelidos">
-					<span class="anpa-field-error" data-error="p2_apelidos" hidden></span>
-					<label for="anpa-p2-nif"><?php esc_html_e( 'NIF / NIE', 'anpa-socios' ); ?></label>
-					<input id="anpa-p2-nif" type="text" autocomplete="off" data-validate="p2_nif">
-					<span class="anpa-field-error" data-error="p2_nif" hidden></span>
-					<label for="anpa-p2-email"><?php esc_html_e( 'Email', 'anpa-socios' ); ?></label>
-					<input id="anpa-p2-email" type="email" autocomplete="off" data-validate="p2_email">
-					<span class="anpa-field-error" data-error="p2_email" hidden></span>
-					<label for="anpa-p2-telefono"><?php esc_html_e( 'Teléfono', 'anpa-socios' ); ?></label>
-					<input id="anpa-p2-telefono" type="tel" autocomplete="off" data-validate="p2_telefono">
-					<span class="anpa-field-error" data-error="p2_telefono" hidden></span>
+					<div class="anpa-parent-grupo">
+						<div class="anpa-parent-field">
+							<label for="anpa-p2-nome"><?php esc_html_e( 'Nome', 'anpa-socios' ); ?></label>
+							<input id="anpa-p2-nome" type="text" autocomplete="off" data-validate="p2_nome">
+							<span class="anpa-field-error" data-error="p2_nome" hidden></span>
+						</div>
+						<div class="anpa-parent-field">
+							<label for="anpa-p2-apelidos"><?php esc_html_e( 'Apelidos', 'anpa-socios' ); ?></label>
+							<input id="anpa-p2-apelidos" type="text" autocomplete="off" data-validate="p2_apelidos">
+							<span class="anpa-field-error" data-error="p2_apelidos" hidden></span>
+						</div>
+					</div>
+					<div class="anpa-parent-grupo">
+						<div class="anpa-parent-field">
+							<label for="anpa-p2-telefono"><?php esc_html_e( 'Teléfono', 'anpa-socios' ); ?></label>
+							<input id="anpa-p2-telefono" type="tel" autocomplete="off" data-validate="p2_telefono">
+							<span class="anpa-field-error" data-error="p2_telefono" hidden></span>
+						</div>
+						<div class="anpa-parent-field">
+							<label for="anpa-p2-nif"><?php esc_html_e( 'NIF / NIE', 'anpa-socios' ); ?></label>
+							<input id="anpa-p2-nif" type="text" autocomplete="off" data-validate="p2_nif">
+							<span class="anpa-field-error" data-error="p2_nif" hidden></span>
+						</div>
+					</div>
+					<div class="anpa-parent-field anpa-parent-field-wide">
+						<label for="anpa-p2-email"><?php esc_html_e( 'Email', 'anpa-socios' ); ?></label>
+						<input id="anpa-p2-email" type="email" autocomplete="off" data-validate="p2_email">
+						<span class="anpa-field-error" data-error="p2_email" hidden></span>
+					</div>
 				</fieldset>
 
 				<fieldset class="anpa-fieldset">
 					<legend><?php esc_html_e( 'Fillos/as', 'anpa-socios' ); ?></legend>
-					<p class="anpa-muted"><?php esc_html_e( 'Engade os teus fillos/as. Completa os datos e preme «Gardar fillo/a»; despois poderás engadir outro ou modificar/quitar os xa gardados. O curso e o grupo escóllense das listas.', 'anpa-socios' ); ?></p>
-					<p class="anpa-consent-text"><?php echo sprintf( __( 'AUTORIZO á %s á toma de imaxes (fotos ou vídeos) nas que apareza o meu fillo/a. En ningún caso a asociación divulgará as imaxes e vídeos de forma pública. Marca a casa de cada fillo/a para autorizalo.', 'anpa-socios' ), $assoc ); ?></p>
+					<p class="anpa-muted"><?php esc_html_e( 'Engade os teus fillos/as. Completa os datos de cada un e preme «Novo fillo» para engadir outro, ou «Quitar» para eliminar un. O curso e o grupo escóllense das listas. Cando remates, preme «Completar alta».', 'anpa-socios' ); ?></p>
+					<p class="anpa-consent-text"><?php echo sprintf( __( '<strong>AUTORIZO á %s á toma de imaxes</strong> (fotos ou vídeos) nas que apareza o meu fillo/a. En ningún caso a asociación divulgará as imaxes e vídeos de forma pública. Marca a casa de cada fillo/a para autorizalo.', 'anpa-socios' ), $assoc ); ?></p>
 					<div data-fillos-container></div>
+					<div class="anpa-fillo-toolbar">
+						<button type="button" class="wp-element-button anpa-fillo-novo-unico" data-fillo-novo-unico><?php esc_html_e( 'Novo fillo', 'anpa-socios' ); ?></button>
+					</div>
 				</fieldset>
 
 				<fieldset class="anpa-fieldset">
@@ -159,45 +189,47 @@ class ANPA_Socios_Socios_Page {
 					<p class="anpa-muted"><?php echo sprintf( esc_html__( 'A alta como socio/a implica domiciliación bancaria. A cota é de %s € por familia e curso. Os datos bancarios gárdanse cifrados e só os ve a directiva.', 'anpa-socios' ), $fee ); ?></p>
 					<p class="anpa-muted"><?php esc_html_e( 'A baixa como socio/a debe solicitarse desde a área persoal e será efectiva a fin de curso, tras a confirmación da directiva. A cota anual do curso xa xerada non se devolve, aínda que se solicite a baixa durante o ano.', 'anpa-socios' ); ?></p>
 					<div class="anpa-rgpd-text"><?php esc_html_e( 'Mediante a presente orde de domiciliación o debedor autoriza (A) ao acredor a enviar instrucións á entidade do debedor para cargar na súa conta e (B) á entidade para efectuar os cargos na súa conta seguindo as instrucións do acredor. Como parte dos seus dereitos, o debedor está lexitimado ao reembolso pola súa entidade nos termos e condicións do contrato subscrito con ela. A solicitude de reembolso deberá efectuarse dentro das oito semanas seguintes á data de cargo en conta. Pode obter información adicional sobre os seus dereitos na súa entidade bancaria.', 'anpa-socios' ); ?></div>
-					<label for="anpa-sepa-titular-nome"><?php esc_html_e( 'Nome do titular da conta', 'anpa-socios' ); ?></label>
-					<input id="anpa-sepa-titular-nome" type="text" autocomplete="off" data-validate="sepa_titular_nome" placeholder="<?php esc_attr_e( 'Copiarase do proxenitor 1', 'anpa-socios' ); ?>">
+					<label for="anpa-sepa-titular-nome"><?php esc_html_e( 'Nome do titular da conta', 'anpa-socios' ); ?> <span class="anpa-required has-vivid-red-color">*</span></label>
+					<input id="anpa-sepa-titular-nome" type="text" autocomplete="off" required data-validate="sepa_titular_nome" placeholder="<?php esc_attr_e( 'Copiarase do proxenitor/a 1', 'anpa-socios' ); ?>">
 					<span class="anpa-field-error" data-error="sepa_titular_nome" hidden></span>
-					<label for="anpa-sepa-titular-apelidos"><?php esc_html_e( 'Apelidos do titular', 'anpa-socios' ); ?></label>
-					<input id="anpa-sepa-titular-apelidos" type="text" autocomplete="off" data-validate="sepa_titular_apelidos" placeholder="<?php esc_attr_e( 'Copiarase do proxenitor 1', 'anpa-socios' ); ?>">
+					<label for="anpa-sepa-titular-apelidos"><?php esc_html_e( 'Apelidos do titular', 'anpa-socios' ); ?> <span class="anpa-required has-vivid-red-color">*</span></label>
+					<input id="anpa-sepa-titular-apelidos" type="text" autocomplete="off" required data-validate="sepa_titular_apelidos" placeholder="<?php esc_attr_e( 'Copiarase do proxenitor/a 1', 'anpa-socios' ); ?>">
 					<span class="anpa-field-error" data-error="sepa_titular_apelidos" hidden></span>
-					<label for="anpa-sepa-nif"><?php esc_html_e( 'NIF/NIE do titular', 'anpa-socios' ); ?></label>
-					<input id="anpa-sepa-nif" type="text" autocomplete="off" data-validate="sepa_titular_nif" placeholder="<?php esc_attr_e( 'Copiarase do proxenitor 1', 'anpa-socios' ); ?>">
+					<label for="anpa-sepa-nif"><?php esc_html_e( 'NIF/NIE do titular', 'anpa-socios' ); ?> <span class="anpa-required has-vivid-red-color">*</span></label>
+					<input id="anpa-sepa-nif" type="text" autocomplete="off" required data-validate="sepa_titular_nif" placeholder="<?php esc_attr_e( 'Copiarase do proxenitor/a 1', 'anpa-socios' ); ?>">
 					<span class="anpa-field-error" data-error="sepa_titular_nif" hidden></span>
-					<label for="anpa-sepa-enderezo"><?php esc_html_e( 'Enderezo', 'anpa-socios' ); ?></label>
-					<input id="anpa-sepa-enderezo" type="text" autocomplete="off" data-validate="sepa_enderezo">
+					<label for="anpa-sepa-enderezo"><?php esc_html_e( 'Enderezo', 'anpa-socios' ); ?> <span class="anpa-required has-vivid-red-color">*</span></label>
+					<input id="anpa-sepa-enderezo" type="text" autocomplete="off" required data-validate="sepa_enderezo">
 					<span class="anpa-field-error" data-error="sepa_enderezo" hidden></span>
 					<label for="anpa-sepa-provincia"><?php esc_html_e( 'Provincia', 'anpa-socios' ); ?></label>
 					<input id="anpa-sepa-provincia" type="text" autocomplete="address-level1" data-validate="sepa_provincia" value="<?php echo esc_attr( ANPA_Socios_Config::default_province() ); ?>">
 					<span class="anpa-field-error" data-error="sepa_provincia" hidden></span>
-					<label for="anpa-sepa-poboacion"><?php esc_html_e( 'Poboación', 'anpa-socios' ); ?></label>
-					<input id="anpa-sepa-poboacion" type="text" autocomplete="address-level2" data-validate="sepa_poboacion" value="<?php echo esc_attr( ANPA_Socios_Config::default_town() ); ?>">
+					<label for="anpa-sepa-poboacion"><?php esc_html_e( 'Poboación', 'anpa-socios' ); ?> <span class="anpa-required has-vivid-red-color">*</span></label>
+					<input id="anpa-sepa-poboacion" type="text" autocomplete="address-level2" required data-validate="sepa_poboacion" value="<?php echo esc_attr( ANPA_Socios_Config::default_town() ); ?>">
 					<span class="anpa-field-error" data-error="sepa_poboacion" hidden></span>
-					<label for="anpa-sepa-cp"><?php esc_html_e( 'Código postal', 'anpa-socios' ); ?></label>
-					<input id="anpa-sepa-cp" type="text" inputmode="numeric" maxlength="5" autocomplete="off" data-validate="sepa_cp">
+					<label for="anpa-sepa-cp"><?php esc_html_e( 'Código postal', 'anpa-socios' ); ?> <span class="anpa-required has-vivid-red-color">*</span></label>
+					<input id="anpa-sepa-cp" type="text" inputmode="numeric" maxlength="5" autocomplete="off" required data-validate="sepa_cp">
 					<span class="anpa-field-error" data-error="sepa_cp" hidden></span>
-					<label for="anpa-sepa-entidade"><?php esc_html_e( 'Nome da entidade bancaria', 'anpa-socios' ); ?></label>
-					<input id="anpa-sepa-entidade" type="text" autocomplete="off" data-validate="sepa_entidade">
+					<label for="anpa-sepa-entidade"><?php esc_html_e( 'Nome da entidade bancaria', 'anpa-socios' ); ?> <span class="anpa-required has-vivid-red-color">*</span></label>
+					<input id="anpa-sepa-entidade" type="text" autocomplete="off" required data-validate="sepa_entidade">
 					<span class="anpa-field-error" data-error="sepa_entidade" hidden></span>
-					<label for="anpa-sepa-iban"><?php esc_html_e( 'IBAN', 'anpa-socios' ); ?></label>
-					<input id="anpa-sepa-iban" type="text" autocomplete="off" data-validate="sepa_iban">
+					<label for="anpa-sepa-iban"><?php esc_html_e( 'IBAN', 'anpa-socios' ); ?> <span class="anpa-required has-vivid-red-color">*</span></label>
+					<input id="anpa-sepa-iban" type="text" autocomplete="off" required data-validate="sepa_iban">
 					<span class="anpa-field-error" data-error="sepa_iban" hidden></span>
 					<label for="anpa-sepa-lugar"><?php esc_html_e( 'Lugar e data', 'anpa-socios' ); ?></label>
 					<input id="anpa-sepa-lugar" type="text" autocomplete="off" readonly>
-					<label class="anpa-check"><input type="checkbox" id="anpa-sepa-autorizo"> <?php esc_html_e( 'Autorizo a domiciliación bancaria', 'anpa-socios' ); ?></label>
+					<label class="anpa-check"><input type="checkbox" id="anpa-sepa-autorizo" required> <?php esc_html_e( 'Autorizo a domiciliación bancaria', 'anpa-socios' ); ?> <span class="anpa-required has-vivid-red-color">*</span></label>
 				</fieldset>
 
 				<fieldset class="anpa-fieldset">
 					<legend><?php esc_html_e( 'Protección de datos de carácter persoal', 'anpa-socios' ); ?></legend>
 					<div class="anpa-rgpd-text"><?php echo sprintf( __( 'De conformidade co Reglamento (UE) 2016/679 de 27 de Abril (RGPD), os datos suministrados para a solicitude de alta quedarán incorporados nun ficheiro con titularidade da %1$s, sendo utilizados exclusivamente por esta asociación para a prestación dos seus servizos. Estes datos recolleranse a través dos correspondentes formularios, os cales só conterán os campos imprescindibles para poder prestar o servizo solicitado. Os datos de carácter persoal serán tratados co grao de protección adecuado para evitar a súa alteración, perda, tratamento ou acceso non autorizado por parte de terceiros que os poidan utilizar para finalidades distintas daquelas para as que foron recabados. Pode exercer os seus dereitos de acceso, rectificación, cancelación e oposición, en cumprimento co establecido na RGPD, ante a %1$s%2$s.', 'anpa-socios' ), $assoc, '' !== $assoc_addr ? ' na seguinte dirección: ' . esc_html( $assoc_addr ) : '' ); ?></div>
-					<label class="anpa-check"><input type="checkbox" id="anpa-rgpd" required> <?php esc_html_e( 'Acepto a política de protección de datos *', 'anpa-socios' ); ?></label>
+					<label class="anpa-check"><input type="checkbox" id="anpa-rgpd" required> <?php esc_html_e( 'Acepto a política de protección de datos', 'anpa-socios' ); ?> <span class="anpa-required has-vivid-red-color">*</span></label>
 				</fieldset>
 
-				<button type="submit"><?php esc_html_e( 'Completar alta', 'anpa-socios' ); ?></button>
+				<div class="anpa-alta-submit-actions">
+					<button type="submit" class="wp-element-button"><?php esc_html_e( 'Completar alta', 'anpa-socios' ); ?></button>
+				</div>
 			</div>
 			<div data-step="ok" hidden>
 				<p><?php esc_html_e( 'Alta completada. Grazas.', 'anpa-socios' ); ?></p>

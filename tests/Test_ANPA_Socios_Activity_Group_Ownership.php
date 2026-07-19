@@ -30,8 +30,9 @@ final class Test_ANPA_Socios_Activity_Group_Ownership extends TestCase {
 		$this->assertSame( '', $result['horarios'] );
 		$this->assertSame( '', $result['grupos'] );
 		$this->assertSame( '', $result['dias'] );
-		$this->assertNull( $result['curso_min'] );
-		$this->assertNull( $result['curso_max'] );
+		// PR-GA5: the range keys left the payload shape entirely.
+		$this->assertArrayNotHasKey( 'curso_min', $result );
+		$this->assertArrayNotHasKey( 'curso_max', $result );
 		$this->assertSame( 0, $result['min_pupilos'] );
 		$this->assertSame( 0, $result['max_pupilos'] );
 	}
@@ -61,8 +62,9 @@ final class Test_ANPA_Socios_Activity_Group_Ownership extends TestCase {
 		$this->assertSame( '', $result['horarios'] );
 		$this->assertSame( '', $result['grupos'] );
 		$this->assertSame( '', $result['dias'] );
-		$this->assertNull( $result['curso_min'] );
-		$this->assertNull( $result['curso_max'] );
+		// PR-GA5: the range keys left the payload shape entirely.
+		$this->assertArrayNotHasKey( 'curso_min', $result );
+		$this->assertArrayNotHasKey( 'curso_max', $result );
 		$this->assertSame( 0, $result['min_pupilos'] );
 		$this->assertSame( 0, $result['max_pupilos'] );
 	}
@@ -71,7 +73,7 @@ final class Test_ANPA_Socios_Activity_Group_Ownership extends TestCase {
 		$js = (string) file_get_contents( dirname( __DIR__ ) . '/assets/js/admin-management.js' );
 
 		$this->assertStringContainsString(
-			"var ACTIV_COLS = ['nome', '_empresa_nome', 'cursos_ofertados', 'estado'];",
+			"var ACTIV_COLS = ['_empresa_nome', 'nome', 'custo', 'estado'];",
 			$js
 		);
 		foreach ( array(

@@ -208,6 +208,81 @@
 	}
 
 	/**
+	 * Falls back to the legacy personal-area page when inline initialisation is
+	 * unavailable. Kept during Fase 19 as a rollback path.
+	 *
+	 * @param {object} cfg
+	 */
+	function redirectToLegacyArea(cfg) {
+		// Legacy area unavailable: fail closed on the canonical page instead
+		// of reloading it forever on clean installations.
+		if (!cfg.areaPageUrl) {
+			cfg.root.hidden = false;
+			showNotice(cfg, __( 'Non foi posible abrir a área persoal. Recarga a páxina e téntao de novo.', 'anpa-socios' ), true);
+			return false;
+		}
+
+		var destination = cfg.areaPageUrl;
+		var currentBase = String(window.location.href).split('#')[0].split('?')[0].replace(/\/+$/, '');
+		var destinationBase = String(destination).split('#')[0].split('?')[0].replace(/\/+$/, '');
+		if (destinationBase === currentBase) {
+			cfg.root.hidden = false;
+			showNotice(cfg, __( 'Non foi posible abrir a área persoal. Recarga a páxina e téntao de novo.', 'anpa-socios' ), true);
+			return false;
+		}
+
+		window.location.href = destination
+			+ (destination.indexOf('?') > -1 ? '&' : '?')
+			+ 'anpa_r=' + Date.now();
+		return true;
+	}
+
+	/**
+	 * Reveals and initialises the shared area shell on this page.
+	 *
+	 * @param {object} cfg
+	 * @returns {Promise<boolean>}
+	 */
+	async function openAreaInline(cfg) {
+		var host = document.getElementById('anpa-area-host');
+		var areaRoot = host ? host.querySelector('#anpa-area') : null;
+		if (!host || !areaRoot || !window.AnpaArea || typeof window.AnpaArea.init !== 'function') {
+			return false;
+		}
+
+		var altaHost = document.getElementById('anpa-alta-form-host');
+		if (altaHost) { altaHost.hidden = true; }
+		cfg.root.hidden = true;
+		host.hidden = false;
+
+		var opened = await window.AnpaArea.init(areaRoot);
+		if (!opened) {
+			host.hidden = true;
+			cfg.root.hidden = false;
+			return false;
+		}
+
+		try { areaRoot.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {}
+		return true;
+	}
+
+	async function exchangeVerifiedAreaSession(cfg, verificationToken) {
+		if (!verificationToken) { return false; }
+
+		var session = await apiPost(cfg.sessionUrl, { token: verificationToken });
+		if (!session || !session.session_token) { return false; }
+
+		saveToken(session.session_token, session.expires_in || 86400);
+		try { localStorage.removeItem('anpa_unified_flow'); } catch (_) {}
+		showNotice(cfg, __( 'Código verificado. Abrindo a túa área persoal...', 'anpa-socios' ));
+
+		if (!await openAreaInline(cfg)) {
+			redirectToLegacyArea(cfg);
+		}
+		return true;
+	}
+
+	/**
 	 * Call preflight to determine status for a given email.
 	 * @param {object} cfg
 	 * @param {string} email
@@ -237,8 +312,10 @@
 	async function handlePreflightResult(cfg, pf, email, ts, requestBtn) {
 		var next = pf && pf.next ? pf.next : 'alta';
 
-		if (next === 'area') {
-			// Existing active socio (primary or proxenitor2).
+		if (next === 'area' || next === 'baixa_pendente') {
+			// Existing active socio (primary or secondary parent). A pending
+			// cancellation still requires the normal verified login; once inside,
+			// the authenticated area exposes the cancellation controls.
 			try { localStorage.setItem('anpa_unified_flow', 'login'); } catch (_) {}
 			// Send a verification code for login.
 			var loginResult = await apiPost(cfg.requestCodeUrl, {
@@ -264,7 +341,10 @@
 				codeInput.value = '';
 				codeInput.focus();
 			}
-			showNotice(cfg, __( 'Enviouse un código de acceso a ', 'anpa-socios' ) + email);
+			var loginMessage = next === 'baixa_pendente'
+				? __( 'Enviouse un código para acceder e xestionar a túa solicitude de baixa.', 'anpa-socios' )
+				: __( 'Enviouse un código de acceso a ', 'anpa-socios' ) + email;
+			showNotice(cfg, loginMessage);
 			return;
 		}
 
@@ -275,12 +355,6 @@
 			return;
 		}
 
-		if (next === 'baixa_pendente') {
-			// Active but with pending baixa request.
-			savePendingEmail(email);
-			showStep(cfg, 'baixa-solicitada');
-			return;
-		}
 
 		if (next === 'pendente_aprobacion') {
 			// Alta done but waiting for the junta directiva's approval. Do not
@@ -390,9 +464,9 @@
 					codigo: code,
 				});
 
-				if (!result) {
+				if (!result || result.error || !result.token) {
 					verifyBtn.disabled = false;
-					showNotice(cfg, __( 'Código incorrecto ou caducado.', 'anpa-socios' ), true);
+					showNotice(cfg, (result && result.error) || __( 'Código incorrecto ou caducado.', 'anpa-socios' ), true);
 					return;
 				}
 
@@ -400,28 +474,14 @@
 
 				var flow;
 				try { flow = localStorage.getItem('anpa_unified_flow'); } catch (_) {}
-				if (flow === 'login') {
-					// Exchange the short-lived verification token for a persistent
-					// area session (stored HMAC session). Storing the raw
-					// verification token would NOT be accepted by session-status,
-					// so the session would never persist across navigation.
-					var sess = null;
-					if (result && result.token) {
-						sess = await apiPost(cfg.sessionUrl, { token: result.token });
-					}
-					if (!sess || !sess.session_token) {
-						verifyBtn.disabled = false;
-						showNotice(cfg, 'Non se puido iniciar a sesión. Téntao de novo.', true);
-						return;
-					}
-					saveToken(sess.session_token, sess.expires_in || 86400);
-					try { localStorage.removeItem('anpa_unified_flow'); } catch (_) {}
-					showNotice(cfg, 'Código verificado. Abrindo a túa área persoal...');
-					var areaDest = (cfg.areaPageUrl && cfg.areaPageUrl.length) ? cfg.areaPageUrl : (cfg.landingUrl || window.location.href.split('?')[0]);
-					setTimeout(function () {
-						window.location.href = areaDest + (areaDest.indexOf('?') > -1 ? '&' : '?') + 'anpa_r=' + Date.now();
-					}, 1000);
+				if (await exchangeVerifiedAreaSession(cfg, result.token)) {
 					verifyBtn.disabled = false;
+					return;
+				}
+
+				if (flow === 'login') {
+					verifyBtn.disabled = false;
+					showNotice(cfg, __( 'Non se puido iniciar a sesión. Téntao de novo.', 'anpa-socios' ), true);
 					return;
 				}
 
@@ -471,49 +531,6 @@
 		}
 	}
 
-	/**
-	 * Handle baixa-solicitada actions.
-	 * @param {object} cfg
-	 */
-	function initBaixaSolicitada(cfg) {
-		var cancelBtn = cfg.root.querySelector('[data-action="cancel-baixa"]');
-		var areaBtn = cfg.root.querySelector('[data-action="area-confirm"]');
-
-		if (cancelBtn) {
-			cancelBtn.addEventListener('click', async function () {
-				cancelBtn.disabled = true;
-				var email = getPendingEmail();
-				// Get a short-lived token for this specific action.
-				var tempAuth = await apiPost(cfg.sessionUrl, { email: email, skip_code: true });
-				if (!tempAuth || !tempAuth.token) {
-					cancelBtn.disabled = false;
-					showNotice(cfg, 'Non se puido autenticar. Volve comezar.', true);
-					showStep(cfg, 'alta');
-					return;
-				}
-				var result = await apiPost(cfg.baixaCancelUrl, {}, tempAuth.token);
-				if (!result) {
-					cancelBtn.disabled = false;
-					showNotice(cfg, 'Non se puido anular a solicitude. Téntao de novo.', true);
-					return;
-				}
-				showNotice(cfg, 'Solicitude de baixa anulada. Xa podes seguir usando a túa área.');
-				if (result && result.token) {
-					saveToken(result.token, 86400);
-				}
-				setTimeout(function () {
-					window.location.href = cfg.areaPageUrl + '?anpa_r=' + Date.now();
-				}, 2000);
-			});
-		}
-
-		if (areaBtn) {
-			areaBtn.addEventListener('click', function () {
-				var email = getPendingEmail();
-				window.location.href = cfg.areaPageUrl + '?email=' + encodeURIComponent(email || '');
-			});
-		}
-	}
 
 	/**
 	 * Handle inactivo (reactivation) actions.
@@ -547,56 +564,23 @@
 	}
 
 	/**
-	 * Attempt to restore a session via the area.js API.
-	 * @param {object} cfg
-	 * @returns {Promise<object|null>}
-	 */
-	async function tryRestoreSession(cfg) {
-		if (typeof AnpaArea !== 'undefined' && AnpaArea.getSessionToken) {
-			var stored = AnpaArea.getSessionToken();
-			if (stored) {
-				try {
-					var res = await fetch(cfg.sessionStatusUrl, {
-						method: 'GET',
-						headers: {
-							'Content-Type': 'application/json',
-							'X-Anpa-Area-Token': stored,
-						},
-					});
-					if (res.ok) {
-						var status = await res.json();
-						if (status && status.email) {
-							saveToken(stored, 86400);
-							return { email: status.email };
-						}
-					}
-				} catch (_) {}
-				if (AnpaArea.clearSessionToken) {
-					AnpaArea.clearSessionToken();
-				}
-			}
-		}
-		return null;
-	}
-
-	/**
 	 * Main init — check session and route.
 	 */
 	async function init() {
 		var cfg = parseConfig();
 		if (!cfg) { return; }
 
-		// Check for an existing session first.
-		var restored = await tryRestoreSession(cfg);
-		if (restored) {
-			window.location.href = cfg.areaPageUrl + '?anpa_r=' + Date.now();
-			return;
-		}
-
-		var session = await checkSession(cfg);
-		if (session) {
-			window.location.href = cfg.areaPageUrl + '?anpa_r=' + Date.now();
-			return;
+		// area.js owns canonical session restoration. The legacy status check
+		// remains only as a fallback when the inline API cannot initialise.
+		if (getToken()) {
+			if (await openAreaInline(cfg)) {
+				return;
+			}
+			var session = await checkSession(cfg);
+			if (session) {
+				redirectToLegacyArea(cfg);
+				return;
+			}
 		}
 
 		// Prefill email from URL parameter if present.
@@ -613,9 +597,31 @@
 		showStep(cfg, 'alta');
 		initAltaStep(cfg);
 		initCodeStep(cfg);
-		initBaixaSolicitada(cfg);
 		initInactivo(cfg);
 	}
+
+	window.AnpaUnified = {
+		openArea: function () {
+			var cfg = parseConfig();
+			return cfg ? openAreaInline(cfg) : Promise.resolve(false);
+		},
+		showEntry: function (message, isError) {
+			var cfg = parseConfig();
+			if (!cfg) { return false; }
+			var host = document.getElementById('anpa-area-host');
+			var altaHost = document.getElementById('anpa-alta-form-host');
+			if (host) { host.hidden = true; }
+			if (altaHost) { altaHost.hidden = true; }
+			cfg.root.hidden = false;
+			showStep(cfg, 'alta');
+			if (message) {
+				showNotice(cfg, message, !!isError);
+			} else {
+				hideNotice(cfg);
+			}
+			return true;
+		},
+	};
 
 	if (document.readyState === 'loading') {
 		document.addEventListener('DOMContentLoaded', init);

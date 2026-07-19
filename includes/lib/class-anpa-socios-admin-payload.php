@@ -491,8 +491,6 @@ final class ANPA_Socios_Admin_Payload {
 			'horarios'      => '',
 			'grupos'        => '',
 			'dias'          => '',
-			'curso_min'     => null,
-			'curso_max'     => null,
 			'min_pupilos'   => 0,
 			'max_pupilos'   => 0,
 			'custo'         => $custo,

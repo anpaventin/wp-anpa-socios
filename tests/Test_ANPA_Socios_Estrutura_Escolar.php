@@ -99,4 +99,31 @@ final class Test_ANPA_Socios_Estrutura_Escolar extends TestCase {
 		$this->assertFalse( ANPA_Socios_Estrutura_Escolar::is_valid_assignment( $snapshot, '2026/2027', '5', 'E' ) );
 		$this->assertFalse( ANPA_Socios_Estrutura_Escolar::is_valid_assignment( $snapshot, '2026/2027', '4', '1-2-3' ) );
 	}
+
+	public function test_normalize_snapshot_preserves_valid_meal_window_and_clears_empty_pair(): void {
+		$normalized = ANPA_Socios_Estrutura_Escolar::normalize_snapshot( array(
+			'curso_escolar' => '2026/2027',
+			'niveis' => array(
+				array( 'codigo' => '1', 'etiqueta' => '1º', 'orde' => 10, 'comedor_inicio' => '13:00', 'comedor_fin' => '14:00' ),
+				array( 'codigo' => '2', 'etiqueta' => '2º', 'orde' => 20, 'comedor_inicio' => null, 'comedor_fin' => null ),
+			),
+		) );
+
+		$this->assertSame( '13:00', $normalized['niveis'][0]['comedor_inicio'] );
+		$this->assertSame( '14:00', $normalized['niveis'][0]['comedor_fin'] );
+		$this->assertNull( $normalized['niveis'][1]['comedor_inicio'] );
+		$this->assertNull( $normalized['niveis'][1]['comedor_fin'] );
+	}
+
+	public function test_normalize_snapshot_rejects_partial_or_reversed_meal_window(): void {
+		$snapshot = array(
+			'curso_escolar' => '2026/2027',
+			'niveis' => array(
+				array( 'codigo' => '1', 'etiqueta' => '1º', 'orde' => 10, 'comedor_inicio' => '13:00', 'comedor_fin' => '' ),
+				array( 'codigo' => '2', 'etiqueta' => '2º', 'orde' => 20, 'comedor_inicio' => '15:00', 'comedor_fin' => '14:00' ),
+			),
+		);
+
+		$this->assertSame( array(), ANPA_Socios_Estrutura_Escolar::normalize_snapshot( $snapshot ) );
+	}
 }

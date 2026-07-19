@@ -56,12 +56,12 @@ final class Test_ANPA_Socios_List_Actividades_Contract extends TestCase {
 	}
 
 	/**
-	 * @testdox ACTIV_COLS includes cursos_ofertados
+	 * @testdox ACTIV_COLS exposes Empresa, Nome, Custo and Estado only
 	 */
-	public function test_activ_cols_includes_cursos_ofertados(): void {
+	public function test_activ_cols_matches_the_active_course_listing_contract(): void {
 		$source = file_get_contents( $this->js_file );
-		$this->assertMatchesRegularExpression(
-			"/var ACTIV_COLS = \\[[^\\]]*'cursos_ofertados'[^\\]]*\\];/",
+		$this->assertStringContainsString(
+			"var ACTIV_COLS = ['_empresa_nome', 'nome', 'custo', 'estado'];",
 			$source
 		);
 	}

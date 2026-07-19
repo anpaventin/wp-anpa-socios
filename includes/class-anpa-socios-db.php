@@ -72,14 +72,17 @@ class ANPA_Socios_DB {
 	 * 1.29.0 (fase24 revised) adds activity-owned group series: `serie_uid`,
 	 *        `nome` and exclusive `horario` on annual groups. It backfills one
 	 *        independent series per legacy annual group. Destructive removal of
-	 *        duplicated fields remains rollout-gated.
+	 *        duplicated fields remains rollout-gated until 1.31.0.
 	 * 1.30.0 widens grupos.horario to accept the three UI periods:
 	 *        `maña` (Mañá), `manha` (Comedor) and `tarde` (Tarde).
+	 * 1.31.0 retires the temporary curricular tables plus legacy activity
+	 *        columns once their data has been promoted into the yearly tables.
+	 * 1.32.0 adds nullable annual meal-window fields to each school level.
 	 *
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.30.0';
+	const DB_VERSION = '1.32.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -231,6 +234,22 @@ class ANPA_Socios_DB {
 		if ( ! self::migrate_to_1_30_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.30.0 (migrate_to_1_30_0): ' . $wpdb->last_error );
+			return;
+		}
+
+		// 1.31.0: retire the temporary curricular tables and legacy fields.
+		$wpdb->last_error = '';
+		if ( ! self::migrate_to_1_31_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.31.0 (migrate_to_1_31_0): ' . $wpdb->last_error );
+			return;
+		}
+
+		// 1.32.0: annual meal availability per school level.
+		$wpdb->last_error = '';
+		if ( ! self::migrate_to_1_32_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.32.0 (migrate_to_1_32_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -1181,6 +1200,29 @@ class ANPA_Socios_DB {
 	}
 
 	/**
+	 * Returns whether the given index exists on the given (full) table name.
+	 *
+	 * @since  1.31.0
+	 * @param  string $table Full table name.
+	 * @param  string $index Index name.
+	 * @return bool
+	 */
+	private static function tem_indice( string $table, string $index ): bool {
+		global $wpdb;
+
+		$found = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(1) FROM information_schema.statistics WHERE table_schema = %s AND table_name = %s AND index_name = %s",
+				$wpdb->dbname,
+				$table,
+				$index
+			)
+		);
+
+		return (int) $found > 0;
+	}
+
+	/**
 	 * Migration to 1.9.0: extraescolares management schema.
 	 *
 	 * Idempotent and guarded. Adds activity option-set columns, creates the
@@ -1982,6 +2024,8 @@ class ANPA_Socios_DB {
 			codigo varchar(30) NOT NULL,
 			etiqueta varchar(60) NOT NULL,
 			orde smallint(5) unsigned NOT NULL,
+			comedor_inicio char(5) NULL DEFAULT NULL,
+			comedor_fin char(5) NULL DEFAULT NULL,
 			estado enum('activo','inactivo') NOT NULL DEFAULT 'activo',
 			creado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			actualizado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -2396,7 +2440,7 @@ class ANPA_Socios_DB {
 	 * Migration 1.29.0: activity-owned multi-year group series.
 	 *
 	 * Additive by design. Destructive removal of fase24-global and duplicated
-	 * activity columns is deferred to the migration rollout gate.
+	 * activity columns is deferred to the migration rollout gate (1.31.0).
 	 *
 	 * @since  1.42.0
 	 * @return bool
@@ -2487,6 +2531,121 @@ class ANPA_Socios_DB {
 	}
 
 	/**
+	 * Migration 1.31.0: retire phase24 curricular globals and legacy activity
+	 * columns once their data has been promoted to the yearly tables.
+	 *
+	 * Idempotent: each destructive step is guarded before it runs, and the
+	 * method only returns true after the postconditions confirm the tables and
+	 * columns are actually gone.
+	 *
+	 * @since  1.31.0
+	 * @return bool Whether the retirement completed cleanly.
+	 */
+	private static function migrate_to_1_31_0(): bool {
+		global $wpdb;
+
+		$gc         = self::tabela_grupos_curriculares();
+		$gc_niv     = self::tabela_grupos_curriculares_niveis();
+		$acy_gc     = self::tabela_actividades_cursos_grupos_curriculares();
+		$grupos     = self::tabela_grupos();
+		$act_cursos = self::tabela_actividades_cursos();
+		$actividades = self::tabela_actividades();
+
+		foreach ( array( $acy_gc, $gc_niv, $gc ) as $table ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded retirement DDL.
+			$wpdb->query( "DROP TABLE IF EXISTS {$table}" );
+			if ( '' !== (string) $wpdb->last_error ) {
+				return false;
+			}
+		}
+
+		if ( self::tem_indice( $grupos, 'grupo_curricular_id' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded retirement DDL.
+			if ( false === $wpdb->query( "ALTER TABLE {$grupos} DROP INDEX grupo_curricular_id" ) ) {
+				return false;
+			}
+		}
+		if ( self::tem_columna( $grupos, 'grupo_curricular_id' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded retirement DDL.
+			if ( false === $wpdb->query( "ALTER TABLE {$grupos} DROP COLUMN grupo_curricular_id" ) ) {
+				return false;
+			}
+		}
+
+		if ( self::tem_columna( $act_cursos, 'horario' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded retirement DDL.
+			if ( false === $wpdb->query( "ALTER TABLE {$act_cursos} DROP COLUMN horario" ) ) {
+				return false;
+			}
+		}
+
+		foreach ( array( 'min_pupilos', 'max_pupilos', 'curso_min', 'curso_max' ) as $column ) {
+			if ( ! self::tem_columna( $actividades, $column ) ) {
+				continue;
+			}
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded retirement DDL.
+			if ( false === $wpdb->query( "ALTER TABLE {$actividades} DROP COLUMN {$column}" ) ) {
+				return false;
+			}
+		}
+
+		$postconditions = array(
+			self::table_missing( $gc ),
+			self::table_missing( $gc_niv ),
+			self::table_missing( $acy_gc ),
+			! self::tem_columna( $grupos, 'grupo_curricular_id' ),
+			! self::tem_columna( $act_cursos, 'horario' ),
+			! self::tem_columna( $actividades, 'min_pupilos' ),
+			! self::tem_columna( $actividades, 'max_pupilos' ),
+			! self::tem_columna( $actividades, 'curso_min' ),
+			! self::tem_columna( $actividades, 'curso_max' ),
+			self::tem_columna( $actividades, 'curso_escolar' ),
+		);
+		foreach ( $postconditions as $ok ) {
+			if ( ! $ok ) {
+				$wpdb->last_error = '1.31.0 retirement postcondition failed';
+				return false;
+			}
+		}
+
+		return '' === (string) $wpdb->last_error;
+	}
+
+	/**
+	 * Migration 1.32.0: annual meal window per school level.
+	 *
+	 * Additive and retry-safe. Both fields remain NULL when no meal block is
+	 * configured; validation of complete ordered pairs lives in the write path.
+	 *
+	 * @since  1.32.0
+	 * @return bool Whether both columns exist after the migration.
+	 */
+	private static function migrate_to_1_32_0(): bool {
+		global $wpdb;
+
+		$niveis = self::tabela_niveis();
+		if ( ! self::tem_columna( $niveis, 'comedor_inicio' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded additive migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$niveis} ADD COLUMN comedor_inicio char(5) NULL DEFAULT NULL AFTER orde" ) ) {
+				return false;
+			}
+		}
+		if ( ! self::tem_columna( $niveis, 'comedor_fin' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded additive migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$niveis} ADD COLUMN comedor_fin char(5) NULL DEFAULT NULL AFTER comedor_inicio" ) ) {
+				return false;
+			}
+		}
+
+		if ( ! self::tem_columna( $niveis, 'comedor_inicio' ) || ! self::tem_columna( $niveis, 'comedor_fin' ) ) {
+			$wpdb->last_error = '1.32.0 comedor postcondition failed';
+			return false;
+		}
+
+		return '' === (string) $wpdb->last_error;
+	}
+
+	/**
 	 * Returns the full anpa_audit_log table name.
 	 *
 	 * @since  1.3.0
@@ -2555,10 +2714,6 @@ class ANPA_Socios_DB {
 			nome varchar(120) not null,
 			descripcion varchar(500) not null default '',
 			curso_escolar varchar(20) not null default '',
-			min_pupilos smallint(5) unsigned not null default 10,
-			max_pupilos smallint(5) unsigned not null default 15,
-			curso_min tinyint(3) unsigned null,
-			curso_max tinyint(3) unsigned null,
 			custo decimal(8,2) not null default 0.00,
 			estado enum('activo','inactivo') not null default 'activo',
 			creado_en datetime not null default CURRENT_TIMESTAMP,

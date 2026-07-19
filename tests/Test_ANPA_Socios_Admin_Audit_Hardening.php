@@ -54,18 +54,19 @@ final class Test_ANPA_Socios_Admin_Audit_Hardening extends TestCase {
 		$this->assertStringContainsString( '$wpdb->delete( ANPA_Socios_DB::tabela_actividades()', $source );
 	}
 
-	public function test_management_ui_uses_only_registered_school_years(): void {
+	public function test_management_ui_uses_only_the_active_school_year_for_activity_offers(): void {
 		$source = file_get_contents( $this->root . '/assets/js/admin-management.js' );
 		$page   = file_get_contents( $this->root . '/includes/class-anpa-socios-admin-management-page.php' );
-		$this->assertStringContainsString( "'cursosescolares'", $page );
-		$this->assertStringContainsString( 'cfg.cursosescolares', $source );
+		$this->assertStringContainsString( "'cursoactivo'", $page );
+		$this->assertStringContainsString( 'cfg.cursoactivo', $source );
+		$this->assertStringContainsString( 'historicalCourses.concat(activeSelection)', $source );
 		$this->assertStringNotContainsString( 'generateCursoRange(selectedCursos', $source );
 	}
 
 	public function test_settings_initialises_master_and_redirects_updates_to_estado(): void {
 		$source = file_get_contents( $this->root . '/includes/class-anpa-socios-admin-settings.php' );
 		$this->assertStringContainsString( 'ANPA_Socios_Config::master_email()', $source );
-		$this->assertStringContainsString( "array( 'anpa_msg' => 'updates_checked', 'tab' => 'xeral', 'section' => 'actualizacions' ),", $source );
+		$this->assertStringContainsString( "array( 'anpa_msg' => 'updates_checked', 'tab' => 'actualizacions' ),", $source );
 	}
 
 	public function test_checkbox_style_explicitly_removes_rounding(): void {

@@ -180,8 +180,12 @@ final class ANPA_Socios_Admin_Import_Handler {
 				$act_t = ANPA_Socios_DB::tabela_actividades();
 				$emp_t = ANPA_Socios_DB::tabela_empresas();
 				$rows  = $wpdb->get_results(
-					"SELECT a.nome, e.email AS empresa_email, a.curso_escolar
+					// One key per offered year, mirroring the export JOIN on
+					// actividades_cursos; the activity-level curso_escolar is
+					// legacy and misses extra offered years (fase22 S8 E2E).
+					"SELECT a.nome, e.email AS empresa_email, ac.curso_escolar
 					 FROM {$act_t} a
+					 INNER JOIN {$wpdb->prefix}anpa_actividades_cursos ac ON ac.actividad_id = a.id
 					 LEFT JOIN {$emp_t} e ON e.id = a.empresa_id",
 					ARRAY_A
 				);
@@ -205,6 +209,9 @@ final class ANPA_Socios_Admin_Import_Handler {
 				$soc_t = ANPA_Socios_DB::tabela_socios();
 				$gru_t = ANPA_Socios_DB::tabela_grupos();
 				$rows  = $wpdb->get_results(
+					// Same group fallback as the export JOIN: modern rows have
+					// activitad_id = 0 and reference the annual group, so an
+					// INNER JOIN on the direct id would drop them from dedup.
 					"SELECT COALESCE(NULLIF(f.socio_email, ''), sp.email) AS proxenitor_email,
 					        f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
 					        e.email AS empresa_email, a.nome AS actividade_nome,
@@ -213,9 +220,9 @@ final class ANPA_Socios_Admin_Import_Handler {
 					        g.dias AS grupo_dias, m.trimestre
 					 FROM {$mat_t} m
 					 JOIN {$fil_t} f ON f.id = m.fillo_id
-					 JOIN {$act_t} a ON a.id = m.activitad_id
-					 LEFT JOIN {$emp_t} e ON e.id = a.empresa_id
 					 LEFT JOIN {$gru_t} g ON g.id = m.grupo_id
+					 JOIN {$act_t} a ON a.id = COALESCE(NULLIF(m.activitad_id, 0), g.actividad_id)
+					 LEFT JOIN {$emp_t} e ON e.id = a.empresa_id
 					 LEFT JOIN {$soc_t} sp ON sp.familia_id = f.familia_id AND sp.rol_familia = 'principal'",
 					ARRAY_A
 				);
@@ -776,13 +783,9 @@ final class ANPA_Socios_Admin_Import_Handler {
 					'icono'         => $icono,
 					'descripcion'   => $row['descripcion'] ?? '',
 					'curso_escolar' => $curso_escolar,
-					'min_pupilos'   => (int) ( $row['min_pupilos'] ?? 10 ),
-					'max_pupilos'   => (int) ( $row['max_pupilos'] ?? 15 ),
-					'curso_min'     => '' === (string) ( $row['curso_min'] ?? '' ) ? null : (int) $row['curso_min'],
-					'curso_max'     => '' === (string) ( $row['curso_max'] ?? '' ) ? null : (int) $row['curso_max'],
 					'custo'         => (float) ( $row['custo'] ?? 0 ),
 					'estado'        => in_array( $row['estado'] ?? '', array( 'activo', 'inactivo' ), true ) ? $row['estado'] : 'inactivo',
-				), array( '%d', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%f', '%s' ) );
+				), array( '%d', '%s', '%s', '%s', '%s', '%f', '%s' ) );
 				if ( false === $ok ) {
 					$errors[] = array( 'row' => $idx, 'msg' => 'Non se puido inserir a actividade.' );
 					continue;

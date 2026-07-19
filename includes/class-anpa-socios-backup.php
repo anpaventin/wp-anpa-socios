@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class ANPA_Socios_Backup {
 
 	const MAGIC   = 'ANPABAK1';
-	const VERSION = 2;
+	const VERSION = 3;
 
 	/**
 	 * Domain tables included in a backup, in FK-safe insert order.
@@ -49,6 +49,32 @@ final class ANPA_Socios_Backup {
 			'matriculas'         => ANPA_Socios_DB::tabela_matriculas(),
 			'domiciliacions'     => ANPA_Socios_DB::tabela_domiciliacions(),
 		);
+	}
+
+	/**
+	 * Removes columns that existed in backup v2 before schema 1.31.0 retired them.
+	 *
+	 * @param  string              $key            Backup table key.
+	 * @param  array<string,mixed> $row            Row from the decrypted backup.
+	 * @param  int                 $backup_version Backup payload version.
+	 * @return array<string,mixed>
+	 */
+	private static function normalize_restore_row( string $key, array $row, int $backup_version ): array {
+		if ( $backup_version > self::VERSION ) {
+			return $row;
+		}
+
+		$retired = array(
+			'actividades'        => array( 'min_pupilos', 'max_pupilos', 'curso_min', 'curso_max' ),
+			'actividades_cursos' => array( 'horario' ),
+			'grupos'             => array( 'grupo_curricular_id' ),
+		);
+
+		foreach ( $retired[ $key ] ?? array() as $column ) {
+			unset( $row[ $column ] );
+		}
+
+		return $row;
 	}
 
 	/**
@@ -172,14 +198,27 @@ final class ANPA_Socios_Backup {
 			return new WP_Error( 'anpa_bak_no_key', 'Inicializa o plugin (clave bancaria) antes de recuperar.', array( 'status' => 409 ) );
 		}
 
-		$tables = self::tables();
-		$dump   = $payload['tables'];
+		$tables         = self::tables();
+		$dump           = $payload['tables'];
+		$backup_version = (int) ( $payload['version'] ?? 1 );
+		$restore_failed = static function () use ( $wpdb ): WP_Error {
+			$wpdb->query( 'ROLLBACK' );
+			$wpdb->query( 'SET FOREIGN_KEY_CHECKS=1' );
+			return new WP_Error( 'anpa_bak_restore_failed', 'Non se puido completar a recuperación. Non se gardou ningún cambio.', array( 'status' => 500 ) );
+		};
 
 		// Clean slate on the domain tables (schema kept), then insert preserving ids.
-		$wpdb->query( 'SET FOREIGN_KEY_CHECKS=0' );
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return $restore_failed();
+		}
+		if ( false === $wpdb->query( 'SET FOREIGN_KEY_CHECKS=0' ) ) {
+			return $restore_failed();
+		}
 		foreach ( $tables as $table ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- admin-only restore.
-			$wpdb->query( "DELETE FROM {$table}" );
+			if ( false === $wpdb->query( "DELETE FROM {$table}" ) ) {
+				return $restore_failed();
+			}
 		}
 
 		foreach ( $tables as $key => $table ) {
@@ -188,6 +227,7 @@ final class ANPA_Socios_Backup {
 				if ( ! is_array( $row ) ) {
 					continue;
 				}
+				$row = self::normalize_restore_row( $key, $row, $backup_version );
 				if ( 'domiciliacions' === $key ) {
 					$iban = (string) ( $row['iban_plain'] ?? '' );
 					$nif  = (string) ( $row['nif_plain'] ?? '' );
@@ -199,14 +239,14 @@ final class ANPA_Socios_Backup {
 					$row['titular_nif_nonce']   = null;
 				}
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin-only restore insert.
-				$wpdb->insert( $table, $row );
+				if ( false === $wpdb->insert( $table, $row ) ) {
+					return $restore_failed();
+				}
 			}
 		}
-		$wpdb->query( 'SET FOREIGN_KEY_CHECKS=1' );
 
 		// ── v1 restore compatibility: backfill niveis/aulas for old backups ──
-		$backup_version = (int) ( $payload['version'] ?? 1 );
-		$ambiguous      = array();
+		$ambiguous = array();
 		if ( $backup_version < 2 ) {
 			// A v1 backup predates the parametrizable structure tables.
 			// Create default niveis 1..6 + aulas A..aula_max for each
@@ -219,13 +259,19 @@ final class ANPA_Socios_Backup {
 
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- backup restore backfill.
 			$restored_cursos = $wpdb->get_col( "SELECT DISTINCT curso_escolar FROM {$cursos_t} ORDER BY curso_escolar" );
-			if ( is_array( $restored_cursos ) ) {
-				foreach ( $restored_cursos as $curso_escolar ) {
+			if ( ! is_array( $restored_cursos ) ) {
+				return $restore_failed();
+			}
+			foreach ( $restored_cursos as $curso_escolar ) {
 					// Check if the curso already has niveis (e.g. from a partial v2 state).
-					$existing_count = (int) $wpdb->get_var( $wpdb->prepare(
+					$existing_result = $wpdb->get_var( $wpdb->prepare(
 						"SELECT COUNT(*) FROM {$niveis_t} WHERE curso_escolar = %s",
 						$curso_escolar
 					) );
+					if ( null === $existing_result ) {
+						return $restore_failed();
+					}
+					$existing_count = (int) $existing_result;
 					if ( $existing_count > 0 ) {
 						continue;
 					}
@@ -233,7 +279,7 @@ final class ANPA_Socios_Backup {
 					// Levels 1..6.
 					for ( $n = 1; $n <= 6; $n++ ) {
 						// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent restore backfill.
-						$wpdb->query( $wpdb->prepare(
+						$written = $wpdb->query( $wpdb->prepare(
 							"INSERT IGNORE INTO {$niveis_t} (curso_escolar, codigo, etiqueta, orde, estado, creado_en, actualizado_en)
 							 VALUES (%s, %s, %s, %d, 'activo', NOW(), NOW())",
 							$curso_escolar,
@@ -241,6 +287,9 @@ final class ANPA_Socios_Backup {
 							$n . 'º',
 							$n * 10
 						) );
+						if ( false === $written ) {
+							return $restore_failed();
+						}
 					}
 
 					// Classrooms A..aula_max for each level.
@@ -257,7 +306,7 @@ final class ANPA_Socios_Backup {
 						$letters = range( 'A', $aula_max );
 						foreach ( $letters as $letter ) {
 							// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent restore backfill.
-							$wpdb->query( $wpdb->prepare(
+							$written = $wpdb->query( $wpdb->prepare(
 								"INSERT IGNORE INTO {$aulas_t} (nivel_id, codigo, etiqueta, orde, estado, creado_en, actualizado_en)
 								 VALUES (%d, %s, %s, %d, 'activo', NOW(), NOW())",
 								(int) $nivel_id,
@@ -265,10 +314,19 @@ final class ANPA_Socios_Backup {
 								$letter,
 								( ord( $letter ) - 64 ) * 10
 							) );
+							if ( false === $written ) {
+								return $restore_failed();
+							}
 						}
 					}
 				}
-			}
+		}
+
+		if ( false === $wpdb->query( 'SET FOREIGN_KEY_CHECKS=1' ) ) {
+			return $restore_failed();
+		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			return $restore_failed();
 		}
 
 		if ( ! empty( $ambiguous ) ) {

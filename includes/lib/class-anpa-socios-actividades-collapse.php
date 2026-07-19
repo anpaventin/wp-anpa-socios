@@ -31,8 +31,9 @@ final class ANPA_Socios_Actividades_Collapse {
 	 *
 	 *   1. the row for `$curso_activo`, if the activity offers that year;
 	 *   2. otherwise the row for the most recent year in `cursos_ofertados`;
-	 *   3. otherwise (no annual rows at all — legacy activity) the base
-	 *      `actividades` row itself.
+	 *   3. otherwise (no annual rows at all — legacy activity) the schedule
+	 *      and capacity fields stay EMPTY: legacy `actividades` columns are
+	 *      no longer a functional source (fase24 PR-GA5).
 	 *
 	 * @since  23.0.0
 	 * @param  array<int,array<string,mixed>> $base_rows     Base `actividades` rows (one per activity id).
@@ -81,17 +82,15 @@ final class ANPA_Socios_Actividades_Collapse {
 				'nome'             => $base['nome'],
 				'icono'            => $base['icono'] ?? '',
 				'descripcion'      => $base['descripcion'],
-				'curso_escolar'    => null !== $source ? $source['curso_escolar'] : $base['curso_escolar'],
-				'franxa'           => null !== $source ? $source['franxa'] : $base['franxa'],
-				'horarios'         => null !== $source ? $source['horarios'] : $base['horarios'],
-				'grupos'           => null !== $source ? $source['grupos'] : $base['grupos'],
-				'dias'             => null !== $source ? $source['dias'] : $base['dias'],
-				'min_pupilos'      => (int) ( null !== $source ? $source['min_pupilos'] : $base['min_pupilos'] ),
-				'max_pupilos'      => (int) ( null !== $source ? $source['max_pupilos'] : $base['max_pupilos'] ),
+				'curso_escolar'    => null !== $source ? $source['curso_escolar'] : '',
+				'franxa'           => null !== $source ? $source['franxa'] : '',
+				'horarios'         => null !== $source ? $source['horarios'] : '',
+				'grupos'           => null !== $source ? $source['grupos'] : '',
+				'dias'             => null !== $source ? $source['dias'] : '',
+				'min_pupilos'      => null !== $source ? (int) $source['min_pupilos'] : 0,
+				'max_pupilos'      => null !== $source ? (int) $source['max_pupilos'] : 0,
 				'custo'            => (float) ( null !== $source ? $source['custo'] : $base['custo'] ),
 				'estado'           => null !== $source ? $source['estado'] : $base['estado'],
-				'curso_min'        => $base['curso_min'],
-				'curso_max'        => $base['curso_max'],
 				// nivel_min_id/nivel_max_id (PR-ES9 task 84) live ONLY on
 				// actividades_cursos — a legacy activity with no annual row
 				// has no per-year niveis configured, so this is null, never
