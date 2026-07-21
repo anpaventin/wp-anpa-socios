@@ -78,11 +78,13 @@ class ANPA_Socios_DB {
 	 * 1.31.0 retires the temporary curricular tables plus legacy activity
 	 *        columns once their data has been promoted into the yearly tables.
 	 * 1.32.0 adds nullable annual meal-window fields to each school level.
+	 * 1.33.0 normalizes reusable annual meal schedules, links levels to them,
+	 *        backfills 1.32.0 windows and retires the global aula_max option.
 	 *
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.32.0';
+	const DB_VERSION = '1.33.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -182,6 +184,9 @@ class ANPA_Socios_DB {
 		);
 
 		foreach ( $migration_steps as $step_version => $method ) {
+			if ( version_compare( $installed_version, $step_version, '>=' ) ) {
+				continue;
+			}
 			// Clear any stale error before the step so we only detect NEW failures.
 			$wpdb->last_error = '';
 			self::$method();
@@ -199,7 +204,7 @@ class ANPA_Socios_DB {
 
 		// 1.26.0: enforce one active course in restored/legacy data.
 		$wpdb->last_error = '';
-		if ( ! self::migrate_to_1_26_0() ) {
+		if ( version_compare( $installed_version, '1.26.0', '<' ) && ! self::migrate_to_1_26_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.26.0 (migrate_to_1_26_0): ' . $wpdb->last_error );
 			return;
@@ -207,7 +212,7 @@ class ANPA_Socios_DB {
 
 		// 1.27.0: parametrizable school structure (tables + backfill).
 		$wpdb->last_error = '';
-		if ( ! self::migrate_to_1_27_0() ) {
+		if ( version_compare( $installed_version, '1.27.0', '<' ) && ! self::migrate_to_1_27_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.27.0 (migrate_to_1_27_0): ' . $wpdb->last_error );
 			return;
@@ -215,7 +220,7 @@ class ANPA_Socios_DB {
 
 		// 1.28.0: curricular groups (tables + columns + best-effort backfill).
 		$wpdb->last_error = '';
-		if ( ! self::migrate_to_1_28_0() ) {
+		if ( version_compare( $installed_version, '1.28.0', '<' ) && ! self::migrate_to_1_28_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.28.0 (migrate_to_1_28_0): ' . $wpdb->last_error );
 			return;
@@ -223,7 +228,7 @@ class ANPA_Socios_DB {
 
 		// 1.29.0: activity-owned multi-year group series.
 		$wpdb->last_error = '';
-		if ( ! self::migrate_to_1_29_0() ) {
+		if ( version_compare( $installed_version, '1.29.0', '<' ) && ! self::migrate_to_1_29_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.29.0 (migrate_to_1_29_0): ' . $wpdb->last_error );
 			return;
@@ -231,7 +236,7 @@ class ANPA_Socios_DB {
 
 		// 1.30.0: align the group horario enum with the three UI values.
 		$wpdb->last_error = '';
-		if ( ! self::migrate_to_1_30_0() ) {
+		if ( version_compare( $installed_version, '1.30.0', '<' ) && ! self::migrate_to_1_30_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.30.0 (migrate_to_1_30_0): ' . $wpdb->last_error );
 			return;
@@ -239,7 +244,7 @@ class ANPA_Socios_DB {
 
 		// 1.31.0: retire the temporary curricular tables and legacy fields.
 		$wpdb->last_error = '';
-		if ( ! self::migrate_to_1_31_0() ) {
+		if ( version_compare( $installed_version, '1.31.0', '<' ) && ! self::migrate_to_1_31_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.31.0 (migrate_to_1_31_0): ' . $wpdb->last_error );
 			return;
@@ -247,9 +252,17 @@ class ANPA_Socios_DB {
 
 		// 1.32.0: annual meal availability per school level.
 		$wpdb->last_error = '';
-		if ( ! self::migrate_to_1_32_0() ) {
+		if ( version_compare( $installed_version, '1.32.0', '<' ) && ! self::migrate_to_1_32_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.32.0 (migrate_to_1_32_0): ' . $wpdb->last_error );
+			return;
+		}
+
+		// 1.33.0: reusable annual meal schedules + global aula option retirement.
+		$wpdb->last_error = '';
+		if ( version_compare( $installed_version, '1.33.0', '<' ) && ! self::migrate_to_1_33_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.33.0 (migrate_to_1_33_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -752,6 +765,18 @@ class ANPA_Socios_DB {
 		global $wpdb;
 
 		return $wpdb->prefix . 'anpa_aulas';
+	}
+
+	/**
+	 * Returns the full annual meal-schedules table name.
+	 *
+	 * @since  1.44.0
+	 * @return string
+	 */
+	public static function tabela_horarios_comedor(): string {
+		global $wpdb;
+
+		return $wpdb->prefix . 'anpa_horarios_comedor';
 	}
 
 	/**
@@ -2026,11 +2051,13 @@ class ANPA_Socios_DB {
 			orde smallint(5) unsigned NOT NULL,
 			comedor_inicio char(5) NULL DEFAULT NULL,
 			comedor_fin char(5) NULL DEFAULT NULL,
+			horario_comedor_id bigint(20) unsigned NULL DEFAULT NULL,
 			estado enum('activo','inactivo') NOT NULL DEFAULT 'activo',
 			creado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			actualizado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			UNIQUE KEY curso_nivel (curso_escolar, codigo),
 			INDEX curso_estado_orde (curso_escolar, estado, orde),
+			INDEX horario_comedor_id (horario_comedor_id),
 			PRIMARY KEY  (id)
 		) {$charset_collate};" );
 
@@ -2125,7 +2152,12 @@ class ANPA_Socios_DB {
 		$cursos_t = self::tabela_cursos();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent data backfill.
 		$existing = $wpdb->get_col( "SELECT DISTINCT curso_escolar FROM {$cursos_t} ORDER BY curso_escolar" );
-		$aula_max = ANPA_Socios_Config::aula_max();
+		// Historical direct-upgrade bridge only. Runtime configuration no longer
+		// exposes a global classroom limit once annual structure exists.
+		$aula_max = strtoupper( trim( (string) get_option( 'anpa_socios_aula_max', 'D' ) ) );
+		if ( 1 !== strlen( $aula_max ) || $aula_max < 'A' || $aula_max > 'H' ) {
+			$aula_max = 'D';
+		}
 
 		if ( is_array( $existing ) ) {
 			foreach ( $existing as $curso_escolar ) {
@@ -2643,6 +2675,110 @@ class ANPA_Socios_DB {
 		}
 
 		return '' === (string) $wpdb->last_error;
+	}
+
+	/**
+	 * Migration 1.33.0: reusable annual meal schedules.
+	 *
+	 * Creates the annual schedule catalogue, links each level to at most one
+	 * schedule and promotes complete 1.32.0 level windows without deleting the
+	 * rollback bridge columns. The obsolete global classroom option is removed
+	 * only after schema and backfill postconditions pass.
+	 *
+	 * @since  1.44.0
+	 * @return bool Whether the migration completed and passed postconditions.
+	 */
+	private static function migrate_to_1_33_0(): bool {
+		global $wpdb;
+
+		$charset_collate = $wpdb->get_charset_collate();
+		$niveis         = self::tabela_niveis();
+		$horarios       = self::tabela_horarios_comedor();
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		dbDelta( "CREATE TABLE {$horarios} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			curso_escolar varchar(9) NOT NULL,
+			nome varchar(80) NOT NULL,
+			inicio char(5) NOT NULL,
+			fin char(5) NOT NULL,
+			orde smallint(5) unsigned NOT NULL DEFAULT 10,
+			estado enum('activo','inactivo') NOT NULL DEFAULT 'activo',
+			creado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			actualizado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE KEY curso_franxa (curso_escolar, inicio, fin),
+			INDEX curso_estado_orde (curso_escolar, estado, orde),
+			PRIMARY KEY  (id)
+		) {$charset_collate};" );
+		if ( '' !== (string) $wpdb->last_error || self::table_missing( $horarios ) ) {
+			return false;
+		}
+
+		if ( ! self::tem_columna( $niveis, 'horario_comedor_id' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded additive migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$niveis} ADD COLUMN horario_comedor_id bigint(20) unsigned NULL DEFAULT NULL AFTER comedor_fin, ADD KEY horario_comedor_id (horario_comedor_id)" ) ) {
+				return false;
+			}
+		}
+
+		if ( ! self::backfill_legacy_horarios_comedor() ) {
+			return false;
+		}
+
+		if ( self::table_missing( $horarios ) || ! self::tem_columna( $niveis, 'horario_comedor_id' ) ) {
+			$wpdb->last_error = '1.33.0 comedor postcondition failed';
+			return false;
+		}
+
+		if ( false !== get_option( 'anpa_socios_aula_max', false ) && ! delete_option( 'anpa_socios_aula_max' ) ) {
+			$wpdb->last_error = '1.33.0 aula_max option retirement failed';
+			return false;
+		}
+
+		return '' === (string) $wpdb->last_error;
+	}
+
+	/**
+	 * Promotes complete legacy per-level meal windows into the shared catalogue.
+	 *
+	 * Public for backup v1-v3 restore compatibility; idempotent and intended
+	 * only after the 1.33.0 table and relation column exist.
+	 *
+	 * @since  1.44.0
+	 * @return bool
+	 */
+	public static function backfill_legacy_horarios_comedor(): bool {
+		global $wpdb;
+
+		$niveis   = self::tabela_niveis();
+		$horarios = self::tabela_horarios_comedor();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent data promotion.
+		if ( false === $wpdb->query(
+			"INSERT INTO {$horarios} (curso_escolar, nome, inicio, fin, orde, estado, creado_en, actualizado_en)
+			 SELECT curso_escolar,
+			        CONCAT('Horario comedor ', comedor_inicio, '-', comedor_fin),
+			        comedor_inicio, comedor_fin, MIN(orde), 'activo', NOW(), NOW()
+			 FROM {$niveis}
+			 WHERE comedor_inicio REGEXP '^[0-2][0-9]:[0-5][0-9]$'
+			   AND comedor_fin REGEXP '^[0-2][0-9]:[0-5][0-9]$'
+			   AND comedor_inicio < comedor_fin
+			 GROUP BY curso_escolar, comedor_inicio, comedor_fin
+			 ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)"
+		) ) {
+			return false;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent data promotion.
+		return false !== $wpdb->query(
+			"UPDATE {$niveis} n
+			 INNER JOIN {$horarios} h
+			   ON h.curso_escolar = n.curso_escolar
+			  AND h.inicio = n.comedor_inicio
+			  AND h.fin = n.comedor_fin
+			 SET n.horario_comedor_id = h.id
+			 WHERE n.horario_comedor_id IS NULL"
+		);
 	}
 
 	/**

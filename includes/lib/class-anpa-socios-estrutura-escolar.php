@@ -12,11 +12,23 @@
 declare(strict_types=1);
 
 final class ANPA_Socios_Estrutura_Escolar {
-	private const MAX_NIVEIS = 99;
-	private const MAX_AULAS = 99;
+	private const MAX_HORARIOS_COMEDOR = 30;
 	private const MAX_CODIGO_LEN = 30;
 	private const MAX_AULA_CODIGO_LEN = 20;
 	private const MAX_ETIQUETA_LEN = 60;
+	private const MAX_HORARIO_NOME_LEN = 80;
+
+	/**
+	 * Validates collection-level bulk limits without imposing a level cap.
+	 *
+	 * @param mixed $niveis   Level rows.
+	 * @param mixed $horarios Reusable meal schedules.
+	 */
+	public static function has_supported_collection_sizes( $niveis, $horarios ): bool {
+		return is_array( $niveis )
+			&& is_array( $horarios )
+			&& count( $horarios ) <= self::MAX_HORARIOS_COMEDOR;
+	}
 
 	public static function normalize_snapshot( array $snapshot ): array {
 		$curso_escolar = self::normalize_curso_escolar( $snapshot['curso_escolar'] ?? null );
@@ -24,13 +36,32 @@ final class ANPA_Socios_Estrutura_Escolar {
 			return array();
 		}
 
-		$raw_niveis = $snapshot['niveis'] ?? array();
+		$raw_niveis   = $snapshot['niveis'] ?? array();
+		$uses_catalog = array_key_exists( 'horarios_comedor', $snapshot );
+		$horarios     = array();
+		$horarios_by_key = array();
+		if ( $uses_catalog ) {
+			$normalized_horarios = self::normalize_horarios_comedor( $snapshot['horarios_comedor'] );
+			if ( null === $normalized_horarios ) {
+				return array();
+			}
+			$horarios = $normalized_horarios;
+			foreach ( $horarios as $horario ) {
+				$horarios_by_key[ $horario['key'] ] = $horario;
+			}
+		}
+
 		if ( is_array( $raw_niveis ) ) {
 			foreach ( $raw_niveis as $raw_nivel ) {
 				if ( ! is_array( $raw_nivel ) ) {
 					continue;
 				}
-				if ( null === ANPA_Socios_Disponibilidade_Horaria::normalize_interval(
+				if ( $uses_catalog ) {
+					$key = self::normalize_horario_key( $raw_nivel['horario_comedor_key'] ?? '' );
+					if ( null === $key || ( '' !== $key && ! isset( $horarios_by_key[ $key ] ) ) ) {
+						return array();
+					}
+				} elseif ( null === ANPA_Socios_Disponibilidade_Horaria::normalize_interval(
 					$raw_nivel['comedor_inicio'] ?? null,
 					$raw_nivel['comedor_fin'] ?? null
 				) ) {
@@ -39,12 +70,17 @@ final class ANPA_Socios_Estrutura_Escolar {
 			}
 		}
 
-		$niveis = self::normalize_niveis( $raw_niveis );
+		$niveis = self::normalize_niveis( $raw_niveis, $horarios_by_key, $uses_catalog );
 
-		return array(
+		$out = array(
 			'curso_escolar' => $curso_escolar,
 			'niveis'        => $niveis,
 		);
+		if ( $uses_catalog ) {
+			$out['horarios_comedor'] = $horarios;
+		}
+
+		return $out;
 	}
 
 	public static function niveis( array $snapshot ): array {
@@ -94,14 +130,68 @@ final class ANPA_Socios_Estrutura_Escolar {
 		return $curso;
 	}
 
-	private static function normalize_niveis( $value ): array {
+	private static function normalize_horarios_comedor( $value ): ?array {
+		if ( ! is_array( $value ) || count( $value ) > self::MAX_HORARIOS_COMEDOR ) {
+			return null;
+		}
+
+		$out = array();
+		$seen_keys = array();
+		$seen_windows = array();
+		foreach ( $value as $index => $row ) {
+			if ( ! is_array( $row ) ) {
+				return null;
+			}
+			$key = self::normalize_horario_key( $row['key'] ?? ( 'novo-' . $index ) );
+			$nome = self::normalize_label( $row['nome'] ?? null, self::MAX_HORARIO_NOME_LEN );
+			$orde = self::normalize_order( $row['orde'] ?? null );
+			$interval = ANPA_Socios_Disponibilidade_Horaria::normalize_interval( $row['inicio'] ?? null, $row['fin'] ?? null );
+			if ( null === $key || '' === $key || null === $nome || null === $orde || null === $interval || array() === $interval ) {
+				return null;
+			}
+			$window = $interval['inicio'] . '-' . $interval['fin'];
+			if ( isset( $seen_keys[ $key ] ) || isset( $seen_windows[ $window ] ) ) {
+				return null;
+			}
+			$seen_keys[ $key ] = true;
+			$seen_windows[ $window ] = true;
+			$out[] = array(
+				'key'    => $key,
+				'id'     => max( 0, (int) ( $row['id'] ?? 0 ) ),
+				'nome'   => $nome,
+				'inicio' => $interval['inicio'],
+				'fin'    => $interval['fin'],
+				'orde'   => $orde,
+			);
+		}
+
+		usort( $out, static function ( array $left, array $right ): int {
+			if ( $left['orde'] === $right['orde'] ) {
+				return strcmp( $left['key'], $right['key'] );
+			}
+			return $left['orde'] <=> $right['orde'];
+		} );
+
+		return $out;
+	}
+
+	private static function normalize_horario_key( $value ): ?string {
+		$key = trim( (string) $value );
+		if ( '' === $key ) {
+			return '';
+		}
+
+		return preg_match( '/^[A-Za-z0-9_-]{1,40}$/', $key ) ? strtolower( $key ) : null;
+	}
+
+	private static function normalize_niveis( $value, array $horarios_by_key = array(), bool $uses_catalog = false ): array {
 		if ( ! is_array( $value ) ) {
 			return array();
 		}
 
 		$rows = array();
 		foreach ( $value as $row ) {
-			$normalized = self::normalize_nivel_row( $row );
+			$normalized = self::normalize_nivel_row( $row, $horarios_by_key, $uses_catalog );
 			if ( null === $normalized ) {
 				continue;
 			}
@@ -127,15 +217,12 @@ final class ANPA_Socios_Estrutura_Escolar {
 			}
 			$seen[ $row['codigo'] ] = true;
 			$out[] = $row;
-			if ( self::MAX_NIVEIS <= count( $out ) ) {
-				break;
-			}
 		}
 
 		return $out;
 	}
 
-	private static function normalize_nivel_row( $row ): ?array {
+	private static function normalize_nivel_row( $row, array $horarios_by_key = array(), bool $uses_catalog = false ): ?array {
 		if ( ! is_array( $row ) ) {
 			return null;
 		}
@@ -147,12 +234,23 @@ final class ANPA_Socios_Estrutura_Escolar {
 			return null;
 		}
 
-		$comedor = ANPA_Socios_Disponibilidade_Horaria::normalize_interval(
-			$row['comedor_inicio'] ?? null,
-			$row['comedor_fin'] ?? null
-		);
-		if ( null === $comedor ) {
-			return null;
+		$horario_key = '';
+		if ( $uses_catalog ) {
+			$horario_key = self::normalize_horario_key( $row['horario_comedor_key'] ?? '' );
+			if ( null === $horario_key || ( '' !== $horario_key && ! isset( $horarios_by_key[ $horario_key ] ) ) ) {
+				return null;
+			}
+			$comedor = '' !== $horario_key
+				? array( 'inicio' => $horarios_by_key[ $horario_key ]['inicio'], 'fin' => $horarios_by_key[ $horario_key ]['fin'] )
+				: array();
+		} else {
+			$comedor = ANPA_Socios_Disponibilidade_Horaria::normalize_interval(
+				$row['comedor_inicio'] ?? null,
+				$row['comedor_fin'] ?? null
+			);
+			if ( null === $comedor ) {
+				return null;
+			}
 		}
 
 		return array(
@@ -161,6 +259,7 @@ final class ANPA_Socios_Estrutura_Escolar {
 			'orde'           => $orde,
 			'comedor_inicio' => $comedor['inicio'] ?? null,
 			'comedor_fin'    => $comedor['fin'] ?? null,
+			'horario_comedor_key' => $horario_key,
 			'aulas'          => self::normalize_aulas( $row['aulas'] ?? array() ),
 		);
 	}
@@ -198,9 +297,6 @@ final class ANPA_Socios_Estrutura_Escolar {
 			}
 			$seen[ $row['codigo'] ] = true;
 			$out[] = $row;
-			if ( self::MAX_AULAS <= count( $out ) ) {
-				break;
-			}
 		}
 
 		return $out;

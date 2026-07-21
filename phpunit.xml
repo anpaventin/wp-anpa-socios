@@ -22,10 +22,12 @@
       <file>tests/Test_ANPA_Socios_Grupo_Niveis.php</file>
       <file>tests/Test_ANPA_Socios_DB_Migration.php</file>
       <file>tests/Test_ANPA_Socios_Disponibilidade_Horaria.php</file>
+	  <file>tests/Test_ANPA_Socios_Grupos_Horarios.php</file>
       <file>tests/Test_ANPA_Socios_Admin_Estrutura_Handler.php</file>
       <file>tests/Test_ANPA_Socios_Fillos_Handlers_ES4.php</file>
       <file>tests/Test_ANPA_Socios_Fillos_Dinamicos.php</file>
       <file>tests/Test_ANPA_Socios_Grupos_Niveis_Dinamicos.php</file>
+      <file>tests/Test_ANPA_Socios_Grupo_Series_Handler.php</file>
       <file>tests/Test_ANPA_Socios_Empresa_View.php</file>
       <file>tests/Test_ANPA_Socios_Csv.php</file>
       <file>tests/Test_ANPA_Socios_Antibot.php</file>
@@ -43,6 +45,7 @@
       <file>tests/Test_ANPA_Socios_Course_Settings.php</file>
       <file>tests/Test_ANPA_Socios_Horario_Builder.php</file>
       <file>tests/Test_ANPA_Socios_Admin_Nav.php</file>
+      <file>tests/Test_ANPA_Socios_WpCli_Remote.php</file>
       <file>tests/Test_ANPA_Socios_Verificacion_Guard.php</file>
       <file>tests/Test_ANPA_Socios_Admin_Auth.php</file>
       <file>tests/Test_ANPA_Socios_Master_Auth_Removed.php</file>

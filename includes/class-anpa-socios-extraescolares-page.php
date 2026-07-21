@@ -179,11 +179,55 @@ final class ANPA_Socios_Extraescolares_Page {
 	}
 
 	/**
-	 * Returns active group slots for the current course.
+	 * Returns open group IDs that pass the canonical meal-availability gate.
 	 *
-	 * Also synthesizes provisional rows for activities that have valid annual
-	 * franxa + dias on actividades_cursos but ZERO groups for the current year
-	 * (design.md §8.6 provisional-slot fallback).
+	 * @since  1.44.0
+	 * @param  string $curso School year.
+	 * @return int[]
+	 */
+	private static function available_group_ids( string $curso ): array {
+		global $wpdb;
+
+		static $cache = array();
+		if ( isset( $cache[ $curso ] ) ) {
+			return $cache[ $curso ];
+		}
+
+		$gru_t = ANPA_Socios_DB::tabela_grupos();
+		$rows  = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, curso_escolar, franxa, dias FROM {$gru_t}
+				 WHERE curso_escolar = %s AND estado = 'aberto' ORDER BY id",
+				$curso
+			),
+			ARRAY_A
+		);
+		$available = array();
+		foreach ( is_array( $rows ) ? $rows : array() as $row ) {
+			$grupo_id = (int) $row['id'];
+			$niveis   = ANPA_Socios_DB::get_niveis_for_grupo( $grupo_id );
+			if ( array() === $niveis ) {
+				continue;
+			}
+			$payload = array(
+				'estado'          => 'aberto',
+				'cursos'          => array( (string) $row['curso_escolar'] ),
+				'niveis_por_ano' => array( (string) $row['curso_escolar'] => $niveis ),
+				'franxa'          => (string) $row['franxa'],
+				'dias'            => (string) $row['dias'],
+			);
+			$conflicts = ANPA_Socios_Grupo_Comedor_Gate::conflicts_for_series( $payload, false );
+			if ( ! is_wp_error( $conflicts ) && array() === $conflicts ) {
+				$available[] = $grupo_id;
+			}
+		}
+
+		$cache[ $curso ] = $available;
+		return $available;
+	}
+
+	/**
+	 * Returns valid active group slots for the current course.
 	 *
 	 * @since  1.12.0
 	 * @return array<int,array<string,mixed>>
@@ -199,6 +243,11 @@ final class ANPA_Socios_Extraescolares_Page {
 		if ( null === $curso ) {
 			return array();
 		}
+		$available_ids = self::available_group_ids( $curso );
+		if ( array() === $available_ids ) {
+			return array();
+		}
+		$available_placeholders = implode( ',', array_fill( 0, count( $available_ids ), '%d' ) );
 
 		// Only real annual groups are schedule sources. There is no activity-level
 		// provisional fallback in the revised fase24 model.
@@ -211,10 +260,11 @@ final class ANPA_Socios_Extraescolares_Page {
 				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = ac.curso_escolar
 				 LEFT JOIN {$mat_t} m ON m.grupo_id = g.id
 				 WHERE a.estado = 'activo' AND ac.estado = 'activo' AND g.estado = 'aberto'
+				   AND g.id IN ({$available_placeholders})
 				   AND g.horario IN ('maña','manha','tarde') AND g.franxa <> '' AND g.dias <> ''
 				 GROUP BY g.id, a.nome, g.nome, g.horario, g.franxa, g.dias, g.max_pupilos
 				 ORDER BY g.franxa ASC, a.nome ASC, g.nome ASC",
-				$curso
+				...array_merge( array( $curso ), $available_ids )
 			),
 			ARRAY_A
 		);
@@ -241,6 +291,11 @@ final class ANPA_Socios_Extraescolares_Page {
 		if ( null === $curso ) {
 			return array();
 		}
+		$available_ids = self::available_group_ids( $curso );
+		if ( array() === $available_ids ) {
+			return array();
+		}
+		$available_placeholders = implode( ',', array_fill( 0, count( $available_ids ), '%d' ) );
 
 		// Main activity + empresa query (without group_detail — added per activity).
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only public blocks from activity/group tables.
@@ -256,9 +311,10 @@ final class ANPA_Socios_Extraescolares_Page {
 				 LEFT JOIN {$empresas} e ON e.id = a.empresa_id
 				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = ac.curso_escolar AND g.estado = 'aberto'
 				 WHERE a.estado = 'activo' AND ac.estado = 'activo'
+				   AND g.id IN ({$available_placeholders})
 				 GROUP BY a.id, a.nome, a.icono, a.descripcion, ac.custo, e.nome, e.url_web
 				 ORDER BY sort_franxa ASC, a.nome ASC",
-				$curso
+				...array_merge( array( $curso ), $available_ids )
 			),
 			ARRAY_A
 		);
@@ -283,9 +339,10 @@ final class ANPA_Socios_Extraescolares_Page {
 				 FROM {$gru_t} g
 				 LEFT JOIN {$mat_t} m ON m.grupo_id = g.id
 				 WHERE g.actividad_id IN ({$placeholders}) AND g.curso_escolar = %s AND g.estado = 'aberto'
+				   AND g.id IN ({$available_placeholders})
 				 GROUP BY g.id, g.actividad_id, g.nome, g.min_pupilos, g.max_pupilos
 				 ORDER BY g.nome ASC",
-				...array_merge( $act_ids, array( $curso ) )
+				...array_merge( $act_ids, array( $curso ), $available_ids )
 			),
 			ARRAY_A
 		);

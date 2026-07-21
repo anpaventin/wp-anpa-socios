@@ -82,6 +82,14 @@ final class Test_ANPA_Socios_PR_ES9_Horario extends TestCase {
 		$this->assertStringContainsString( "g.horario IN ('maña','manha','tarde')", $src );
 	}
 
+	public function test_public_schedule_and_cards_filter_groups_through_the_shared_meal_gate(): void {
+		$src = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-extraescolares-page.php' );
+
+		$this->assertStringContainsString( 'private static function available_group_ids', $src );
+		$this->assertStringContainsString( 'ANPA_Socios_Grupo_Comedor_Gate::conflicts_for_series', $src );
+		$this->assertGreaterThanOrEqual( 2, substr_count( $src, 'self::available_group_ids( $curso )' ) );
+	}
+
 	public function test_horario_diagnostic_route_remains_registered(): void {
 		$src = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-actividades-handler.php' );
 		$this->assertStringContainsString( 'horario-diagnostic', $src );

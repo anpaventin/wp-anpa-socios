@@ -56,25 +56,90 @@ class Test_ANPA_Socios_Admin_Estrutura_Handler extends TestCase {
         $this->assertStringContainsString( 'public static function render(): void', $source );
     }
 
-    public function test_page_renders_accessible_meal_block_per_level(): void {
+    public function test_page_renders_reusable_meal_schedule_catalogue_and_bulk_editor(): void {
         $source = file_get_contents( $this->page_file );
 
-        $this->assertStringContainsString( 'Horario de comedor por nivel', $source );
-        $this->assertStringContainsString( '<fieldset', $source );
-        $this->assertStringContainsString( '<legend', $source );
+        $this->assertStringContainsString( 'Horarios de comedor', $source );
+        $this->assertStringContainsString( 'anpa-est-add-horario', $source );
+        $this->assertStringContainsString( 'est-horario-select', $source );
+        $this->assertStringContainsString( 'anpa-est-gardar-horarios', $source );
+        $this->assertStringContainsString( 'Gardar horarios de comedor', $source );
+        $this->assertStringContainsString( 'anpa-est-add-nivel', $source );
+        $this->assertStringContainsString( 'Novo nivel', $source );
+        $this->assertStringContainsString( 'anpa-est-gardar-niveis', $source );
+        $this->assertStringContainsString( 'Gardar cambios nos niveis', $source );
+        $this->assertStringContainsString( 'Os grupos de actividades gárdanse por separado no seu propio editor.', $source );
         $this->assertStringContainsString( 'type="time"', $source );
-        $this->assertStringContainsString( 'aria-describedby', $source );
-        $this->assertStringContainsString( 'est-comedor-limpar', $source );
-        $this->assertStringContainsString( 'data-comedor-row', $source );
+        $this->assertStringNotContainsString( 'Horario de comedor por nivel', $source );
+        $this->assertStringNotContainsString( 'est-gardar-nivel', $source );
+        $this->assertStringNotContainsString( 'anpa-est-nivel-form', $source );
+        $this->assertStringNotContainsString( 'Gardar todos os cambios', $source );
     }
 
-    public function test_page_inline_js_validates_meal_window_pair_as_a_helpful_client_hint(): void {
+    public function test_page_keeps_level_and_meal_drafts_explicitly_separate(): void {
         $source = file_get_contents( $this->page_file );
 
-        $this->assertStringContainsString( 'setCustomValidity', $source );
-        $this->assertStringContainsString( 'reportValidity', $source );
-        $this->assertStringContainsString( 'clearMealPair', $source );
-        $this->assertStringContainsString( 'document.querySelectorAll(\'[data-comedor-row]\')', $source );
+        $this->assertStringContainsString( 'var horariosDirty = false;', $source );
+        $this->assertStringContainsString( 'var niveisDirty = false;', $source );
+        $this->assertStringContainsString( "saveStructure( 'horarios' )", $source );
+        $this->assertStringContainsString( "saveStructure( 'niveis' )", $source );
+        $this->assertStringContainsString( 'messageSaveNiveisFirst', $source );
+        $this->assertStringContainsString( 'messageSaveHorariosFirst', $source );
+        $this->assertStringContainsString( 'horario.id > 0', $source );
+		$this->assertStringContainsString( 'scope: scope', $source );
+    }
+
+	public function test_batch_handler_persists_only_the_requested_editor_scope(): void {
+		$source = file_get_contents( $this->handler_file );
+		$start  = strpos( $source, 'private static function gardar_estrutura_lote' );
+		$end    = strpos( $source, 'private static function gardar_comedor', $start );
+		$method = substr( $source, $start, $end - $start );
+
+		$this->assertStringContainsString( "in_array( \$scope, array( 'todo', 'horarios', 'niveis' ), true )", $method );
+		$this->assertStringContainsString( "\$save_horarios = in_array( \$scope, array( 'todo', 'horarios' ), true );", $method );
+		$this->assertStringContainsString( "\$save_niveis   = in_array( \$scope, array( 'todo', 'niveis' ), true );", $method );
+		$this->assertStringContainsString( 'if ( $save_horarios ) {', $method );
+		$this->assertStringContainsString( 'if ( $save_niveis ) {', $method );
+		$this->assertStringContainsString( "'horarios' === \$scope", $method );
+		$this->assertStringContainsString( "'niveis' === \$scope", $method );
+	}
+
+	public function test_page_guards_unsaved_drafts_before_navigation_and_reload_flows(): void {
+		$source = file_get_contents( $this->page_file );
+
+		$this->assertStringNotContainsString( 'onchange="this.form.submit()"', $source );
+		$this->assertStringContainsString( "document.getElementById( 'est-curso' )", $source );
+		$this->assertStringContainsString( 'function hasUnsavedDrafts()', $source );
+		$this->assertStringContainsString( 'function confirmDiscardDrafts()', $source );
+		$this->assertStringContainsString( "window.addEventListener( 'beforeunload'", $source );
+		$this->assertStringContainsString( 'allowNavigation = true;', $source );
+		$this->assertGreaterThanOrEqual( 3, substr_count( $source, 'if ( ! confirmDiscardDrafts() )' ) );
+	}
+
+	public function test_page_guards_and_locks_every_in_flight_mutation(): void {
+		$source = file_get_contents( $this->page_file );
+
+		$this->assertStringContainsString( 'var pendingRequests = 0;', $source );
+		$this->assertStringContainsString( 'function beginRequest()', $source );
+		$this->assertStringContainsString( 'function endRequest()', $source );
+		$this->assertStringContainsString( 'function hasPendingRequests()', $source );
+		$this->assertStringContainsString( 'hasUnsavedDrafts() || hasPendingRequests()', $source );
+		$this->assertGreaterThanOrEqual( 4, substr_count( $source, 'beginRequest();' ) );
+		$this->assertGreaterThanOrEqual( 4, substr_count( $source, 'endRequest();' ) );
+	}
+
+    public function test_page_inline_js_posts_one_json_snapshot(): void {
+        $source = file_get_contents( $this->page_file );
+
+		$this->assertStringContainsString( 'setCustomValidity', $source );
+		$this->assertStringContainsString( "'Content-Type': 'application/json'", $source );
+		$this->assertStringContainsString( "accion: 'gardar_estrutura'", $source );
+		$this->assertStringContainsString( 'horarios_comedor:', $source );
+		$this->assertStringContainsString( 'niveis:', $source );
+		$this->assertStringContainsString( "accion: 'eliminar_horario'", $source );
+		$this->assertStringNotContainsString( 'row.innerHTML = buildHorarioRowHtml', $source );
+		$this->assertStringNotContainsString( 'row.innerHTML = buildNivelRowHtml', $source );
+		$this->assertStringNotContainsString( 'true === json.success ||', $source );
     }
 
     /**
@@ -167,6 +232,8 @@ class Test_ANPA_Socios_Admin_Estrutura_Handler extends TestCase {
     public function test_copy_uses_insert_ignore(): void {
         $source = file_get_contents( $this->handler_file );
         $this->assertStringContainsString( 'INSERT IGNORE', $source );
+		$this->assertStringContainsString( "WHERE nd.curso_escolar = %s AND nd.estado = 'inactivo'", $source );
+		$this->assertStringContainsString( "WHERE ad.estado = 'inactivo'", $source );
         $this->assertStringContainsString( 'START TRANSACTION', $source );
         $this->assertStringContainsString( 'COMMIT', $source );
         $this->assertStringContainsString( 'ROLLBACK', $source );
@@ -190,7 +257,9 @@ class Test_ANPA_Socios_Admin_Estrutura_Handler extends TestCase {
         $this->assertStringContainsString( "false === \$wpdb->query( 'COMMIT' )", $copy );
         $this->assertStringContainsString( "query( 'ROLLBACK' )", $copy );
 
-        $this->assertStringContainsString( 'null === $fc_refs_result || null === $gn_refs_result', $delete );
+        $this->assertStringContainsString( 'null === $fc_refs_result', $delete );
+        $this->assertStringContainsString( 'null === $gn_refs_result', $delete );
+        $this->assertStringContainsString( 'null === $refs', $delete );
         $this->assertStringContainsString( "false === \$wpdb->query( 'START TRANSACTION' )", $delete );
         $this->assertStringContainsString( 'false === $aulas_result || false === $nivel_result', $delete );
         $this->assertStringContainsString( "false === \$wpdb->query( 'COMMIT' )", $delete );
@@ -212,22 +281,164 @@ class Test_ANPA_Socios_Admin_Estrutura_Handler extends TestCase {
         $this->assertStringContainsString( 'Non se puideron actualizar as aulas.', $set );
     }
 
-    public function test_structure_contract_reads_and_writes_meal_window(): void {
+    public function test_structure_contract_reads_catalogue_and_writes_bulk_snapshot(): void {
         $source = file_get_contents( $this->handler_file );
 
-		$this->assertStringContainsString( 'comedor_inicio', $source );
-		$this->assertStringContainsString( 'comedor_fin', $source );
-		$this->assertStringContainsString( "case 'gardar_comedor':", $source );
+		$this->assertStringContainsString( 'tabela_horarios_comedor', $source );
+		$this->assertStringContainsString( 'horario_comedor_id', $source );
+		$this->assertStringContainsString( "case 'gardar_estrutura':", $source );
+		$this->assertStringContainsString( 'private static function gardar_estrutura_lote', $source );
 		$this->assertStringContainsString( 'ANPA_Socios_Disponibilidade_Horaria::normalize_interval', $source );
     }
 
-    public function test_copy_meal_window_is_explicit_and_does_not_overwrite_destination(): void {
-        $source = file_get_contents( $this->handler_file );
+	public function test_bulk_structure_save_is_atomic_and_reuses_classroom_sync(): void {
+		$source = file_get_contents( $this->handler_file );
+		$start  = strpos( $source, 'private static function gardar_estrutura_lote' );
+		$end    = strpos( $source, 'private static function gardar_comedor', $start );
+		$bulk   = substr( $source, $start, $end - $start );
 
-		$this->assertStringContainsString( "get_param( 'copiar_comedor' )", $source );
-		$this->assertStringContainsString( 'SET nd.comedor_inicio = no.comedor_inicio,', $source );
-		$this->assertStringContainsString( 'nd.comedor_fin = no.comedor_fin', $source );
-		$this->assertStringContainsString( 'AND %d = 1 AND nd.comedor_inicio IS NULL AND nd.comedor_fin IS NULL', $source );
+		$this->assertNotFalse( $start );
+		$this->assertStringContainsString( "query( 'START TRANSACTION' )", $bulk );
+		$this->assertStringContainsString( 'sync_aulas_nivel', $bulk );
+		$this->assertStringContainsString( 'horario_comedor_key', $bulk );
+		$this->assertStringContainsString( 'sort( $nivel_ids, SORT_NUMERIC )', $bulk );
+		$this->assertStringContainsString( 'sort( $horario_ids_to_lock, SORT_NUMERIC )', $bulk );
+		$this->assertStringContainsString( "query( 'ROLLBACK' )", $bulk );
+		$this->assertStringContainsString( "query( 'COMMIT' )", $bulk );
+		$this->assertStringContainsString( 'write_audit', $bulk );
+		$this->assertLessThan( strpos( $bulk, 'write_audit' ), strpos( $bulk, "query( 'COMMIT' )" ) );
+	}
+
+	public function test_structure_preflights_distinguish_database_errors_from_missing_rows(): void {
+		$source = file_get_contents( $this->handler_file );
+		$set_start  = strpos( $source, 'private static function set_aulas' );
+		$bulk_start = strpos( $source, 'private static function gardar_estrutura_lote', $set_start );
+		$meal_start = strpos( $source, 'private static function gardar_comedor', $bulk_start );
+		$set  = substr( $source, $set_start, $bulk_start - $set_start );
+		$bulk = substr( $source, $bulk_start, $meal_start - $bulk_start );
+
+		$this->assertStringContainsString( '$owned_result', $set );
+		$this->assertStringContainsString( "'' !== (string) \$wpdb->last_error", $set );
+		$this->assertGreaterThanOrEqual( 3, substr_count( $bulk, "\$wpdb->last_error = '';" ) );
+		$this->assertGreaterThanOrEqual( 3, substr_count( $bulk, "'' !== (string) \$wpdb->last_error" ) );
+	}
+
+	public function test_edit_nivel_locks_and_proves_course_ownership_before_duplicate_check(): void {
+		$source = file_get_contents( $this->handler_file );
+		$start  = strpos( $source, 'private static function editar_nivel' );
+		$end    = strpos( $source, 'private static function engadir_nivel', $start );
+		$method = substr( $source, $start, $end - $start );
+
+		$this->assertStringContainsString( "query( 'START TRANSACTION' )", $method );
+		$this->assertStringContainsString( 'WHERE id = %d AND curso_escolar = %s FOR UPDATE', $method );
+		$this->assertStringContainsString( 'Nivel non atopado.', $method );
+		$this->assertStringContainsString( 'codigo = %s AND id <> %d FOR UPDATE', $method );
+		$this->assertStringContainsString( "query( 'ROLLBACK' )", $method );
+		$this->assertStringContainsString( "query( 'COMMIT' )", $method );
+		$this->assertLessThan( strpos( $method, 'codigo = %s AND id <> %d FOR UPDATE' ), strpos( $method, 'WHERE id = %d AND curso_escolar = %s FOR UPDATE' ) );
+	}
+
+	public function test_structure_dispatcher_can_return_rest_errors_without_php_fatal(): void {
+		$source = file_get_contents( $this->handler_file );
+		$start  = strpos( $source, 'public static function post_estrutura' );
+		$end    = strpos( $source, 'private static function aula_letras', $start );
+		$method = substr( $source, $start, $end - $start );
+
+		$this->assertStringNotContainsString( '): WP_REST_Response', substr( $source, $start, 160 ) );
+		$this->assertStringContainsString( "case 'gardar_estrutura':", $method );
+		$this->assertStringContainsString( '@return WP_REST_Response|WP_Error', substr( $source, max( 0, $start - 500 ), 500 ) );
+	}
+
+	public function test_persisted_meal_schedule_delete_is_reference_guarded(): void {
+		$source = file_get_contents( $this->handler_file );
+		$start  = strpos( $source, 'private static function eliminar_horario_comedor' );
+		$end    = strpos( $source, 'private static function comedor_conflicts_for_nivel', $start );
+		$body   = substr( $source, $start, $end - $start );
+
+		$this->assertNotFalse( $start );
+		$this->assertStringContainsString( 'horario_comedor_id = %d', $body );
+		$this->assertStringContainsString( "query( 'START TRANSACTION' )", $body );
+		$this->assertGreaterThanOrEqual( 2, substr_count( $body, 'FOR UPDATE' ) );
+		$this->assertStringContainsString( "'anpa_admin_horario_in_use'", $body );
+		$this->assertStringContainsString( "array( 'status' => 409 )", $body );
+		$this->assertStringContainsString( '$wpdb->delete(', $body );
+		$this->assertStringContainsString( "query( 'ROLLBACK' )", $body );
+		$this->assertStringContainsString( "query( 'COMMIT' )", $body );
+		$this->assertStringContainsString( "'horario_comedor'", $body );
+		$this->assertLessThan( strpos( $body, 'write_audit' ), strpos( $body, "query( 'COMMIT' )" ) );
+	}
+
+	public function test_classroom_sync_locks_rows_and_child_reference_ranges_before_counting(): void {
+		$source = file_get_contents( $this->handler_file );
+		$start  = strpos( $source, 'private static function sync_aulas_nivel' );
+		$end    = strpos( $source, 'private static function set_aulas', $start );
+		$body   = substr( $source, $start, $end - $start );
+
+		$this->assertGreaterThanOrEqual( 2, substr_count( $body, 'FOR UPDATE' ) );
+		$this->assertStringContainsString( 'aula_id = %d', $body );
+		$this->assertLessThan( strpos( $body, 'SELECT COUNT(*)'), strpos( $body, 'FOR UPDATE' ) );
+	}
+
+	public function test_delete_nivel_locks_parent_classrooms_and_child_ranges_before_reference_counts(): void {
+		$source = file_get_contents( $this->handler_file );
+		$start  = strpos( $source, 'public static function delete_nivel' );
+		$body   = substr( $source, $start );
+
+		$this->assertGreaterThanOrEqual( 4, substr_count( $body, 'FOR UPDATE' ) );
+		$this->assertLessThan( strpos( $body, 'SELECT COUNT(*)'), strpos( $body, "query( 'START TRANSACTION' )" ) );
+		$this->assertStringContainsString( '$aula_refs_result', $body );
+		$this->assertStringContainsString( "query( 'ROLLBACK' )", $body );
+		$this->assertStringContainsString( "false === \$wpdb->query( 'COMMIT' )", $body );
+	}
+
+	public function test_delete_nivel_includes_activity_course_min_max_references(): void {
+		$source = file_get_contents( $this->handler_file );
+		$start  = strpos( $source, 'public static function delete_nivel' );
+		$body   = substr( $source, $start );
+
+		$this->assertStringContainsString( 'tabela_actividades_cursos', $body );
+		$this->assertStringContainsString( 'nivel_min_id = %d OR nivel_max_id = %d', $body );
+		$this->assertStringContainsString( '$ac_refs_result', $body );
+		$this->assertStringContainsString( 'null === $ac_refs_result', $body );
+		$this->assertStringContainsString( '(int) $ac_refs_result', $body );
+	}
+
+	public function test_meal_conflicts_are_checked_under_transaction_and_locked_group_ranges(): void {
+		$source = file_get_contents( $this->handler_file );
+		$bulk_start = strpos( $source, 'private static function gardar_estrutura_lote' );
+		$meal_start = strpos( $source, 'private static function gardar_comedor', $bulk_start );
+		$lock_start = strpos( $source, 'private static function lock_comedor_group_rows', $meal_start );
+		$bulk = substr( $source, $bulk_start, $meal_start - $bulk_start );
+		$meal = substr( $source, $meal_start, $lock_start - $meal_start );
+		$lock = substr( $source, $lock_start, strpos( $source, 'private static function comedor_conflicts_for_nivel', $lock_start ) - $lock_start );
+
+		$this->assertLessThan( strpos( $bulk, 'comedor_conflicts_for_nivel' ), strpos( $bulk, "query( 'START TRANSACTION' )" ) );
+		$this->assertLessThan( strpos( $meal, 'comedor_conflicts_for_nivel' ), strpos( $meal, "query( 'START TRANSACTION' )" ) );
+		$this->assertStringContainsString( 'lock_comedor_group_rows', $bulk );
+		$this->assertStringContainsString( 'lock_comedor_group_rows', $meal );
+		$this->assertGreaterThanOrEqual( 2, substr_count( $lock, 'FOR UPDATE' ) );
+		$this->assertStringContainsString( 'grupos_niveis', $lock );
+		$this->assertGreaterThanOrEqual( 2, substr_count( $source, 'null === $conflicts' ) );
+		$this->assertStringContainsString( '@return array<int,array<string,mixed>>|null', $source );
+	}
+
+    public function test_copy_meal_catalogue_is_explicit_and_repairs_only_empty_or_reactivated_levels(): void {
+        $source = file_get_contents( $this->handler_file );
+		$start  = strpos( $source, 'private static function copiar_estrutura' );
+		$end    = strpos( $source, 'public static function delete_nivel', $start );
+		$copy   = substr( $source, $start, $end - $start );
+
+		$this->assertStringContainsString( "get_param( 'copiar_comedor' )", $copy );
+		$this->assertStringContainsString( '$reactivated_level_ids', $copy );
+		$this->assertStringContainsString( "hd.estado = 'inactivo'", $copy );
+		$this->assertStringContainsString( "SET hd.nome = ho.nome, hd.orde = ho.orde, hd.estado = 'activo'", $copy );
+		$this->assertStringContainsString( 'INSERT IGNORE INTO {$horarios_t}', $copy );
+		$this->assertStringContainsString( 'SET nd.horario_comedor_id = hd.id,', $copy );
+		$this->assertStringContainsString( 'nd.horario_comedor_id IS NULL', $copy );
+		$this->assertStringContainsString( 'nd.id IN (', $copy );
+		$this->assertStringNotContainsString( 'ON DUPLICATE KEY UPDATE', $copy );
+		$this->assertStringContainsString( "'horarios_reactivados'", $copy );
+		$this->assertStringContainsString( 'sen cambios', $copy );
     }
 
     public function test_gardar_comedor_blocks_conflicting_open_groups_before_write(): void {
@@ -265,19 +476,15 @@ class Test_ANPA_Socios_Admin_Estrutura_Handler extends TestCase {
         $this->assertLessThan( $ok, $audit );
     }
 
-    public function test_meal_editor_is_accessible_and_reports_repairable_conflicts_inline(): void {
+    public function test_meal_editor_is_accessible_and_reports_bulk_status_inline(): void {
         $source = file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-estrutura-escolar-page.php' );
 
-        $this->assertStringContainsString( '<fieldset class="est-comedor-fieldset">', $source );
-        $this->assertStringContainsString( 'type="time"', $source );
-        $this->assertStringContainsString( 'aria-describedby="est-comedor-help-', $source );
-        $this->assertStringContainsString( 'aria-live="polite" tabindex="-1"', $source );
-        $this->assertStringContainsString( 'setCustomValidity', $source );
-        $this->assertStringContainsString( 'reportValidity', $source );
-        $this->assertStringContainsString( 'reportMealError(fields', $source );
-        $this->assertStringContainsString( "fields.status.setAttribute('role', 'alert')", $source );
-        $this->assertStringContainsString( 'fields.status.focus()', $source );
-        $this->assertStringContainsString( '@media (max-width: 782px)', $source );
+		$this->assertStringContainsString( 'type="time"', $source );
+		$this->assertStringContainsString( 'aria-live="polite"', $source );
+		$this->assertStringContainsString( 'setCustomValidity', $source );
+		$this->assertStringContainsString( 'anpa-est-horarios-status', $source );
+		$this->assertStringContainsString( 'anpa-est-niveis-status', $source );
+		$this->assertStringContainsString( '@media (max-width: 782px)', $source );
     }
 
     public function test_course_activation_copy_uses_the_same_explicit_meal_contract(): void {
@@ -289,7 +496,14 @@ class Test_ANPA_Socios_Admin_Estrutura_Handler extends TestCase {
 		$this->assertStringContainsString( "! empty( \$body['copiar_comedor'] )", $source );
 		$this->assertStringContainsString( '! self::copiar_estrutura_interna( $curso, $copiar_de, $copiar_comedor )', $update );
 		$this->assertStringContainsString( 'private static function copiar_estrutura_interna( string $destino, string $orixe, bool $copiar_comedor = false ): bool', $source );
-		$this->assertStringContainsString( 'AND %d = 1 AND nd.comedor_inicio IS NULL AND nd.comedor_fin IS NULL', $source );
+		$this->assertStringContainsString( 'ANPA_Socios_DB::tabela_horarios_comedor()', $copy );
+		$this->assertStringContainsString( '$reactivated_level_ids', $copy );
+		$this->assertStringContainsString( "SET hd.nome = ho.nome, hd.orde = ho.orde, hd.estado = 'activo'", $copy );
+		$this->assertStringContainsString( 'INSERT IGNORE INTO {$horarios_t}', $copy );
+		$this->assertStringContainsString( 'SET nd.horario_comedor_id = hd.id,', $copy );
+		$this->assertStringContainsString( 'nd.horario_comedor_id IS NULL', $copy );
+		$this->assertStringContainsString( 'nd.id IN (', $copy );
+		$this->assertStringNotContainsString( 'ON DUPLICATE KEY UPDATE', $copy );
 		$this->assertStringContainsString( "false === \$wpdb->query( 'START TRANSACTION' )", $update );
 		$this->assertStringContainsString( '! is_array( $locked_rows )', $update );
 		$this->assertStringContainsString( "query( 'ROLLBACK' )", $update );

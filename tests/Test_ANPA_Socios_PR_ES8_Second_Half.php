@@ -14,6 +14,38 @@ declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
 
+if ( ! class_exists( 'WP_Error' ) ) {
+	class WP_Error {
+		private string $code;
+		private string $message;
+		private $data;
+
+		public function __construct( string $code = '', string $message = '', $data = null ) {
+			$this->code    = $code;
+			$this->message = $message;
+			$this->data    = $data;
+		}
+
+		public function get_error_code(): string {
+			return $this->code;
+		}
+
+		public function get_error_message(): string {
+			return $this->message;
+		}
+
+		public function get_error_data() {
+			return $this->data;
+		}
+	}
+}
+
+if ( ! function_exists( 'is_wp_error' ) ) {
+	function is_wp_error( $thing ): bool {
+		return $thing instanceof WP_Error;
+	}
+}
+
 final class Test_ANPA_Socios_PR_ES8_Second_Half extends TestCase {
 
 	private string $grupos_handler;
@@ -74,6 +106,150 @@ final class Test_ANPA_Socios_PR_ES8_Second_Half extends TestCase {
 		$this->assertStringContainsString( "'' !== (string) \$wpdb->last_error", $body );
 		$this->assertStringContainsString( "false === \$wpdb->query( 'COMMIT' )", $body );
 		$this->assertStringContainsString( "query( 'ROLLBACK' )", $body );
+	}
+
+	public function test_enrol_rechecks_the_shared_meal_gate_under_lock(): void {
+		$body = $this->extract_method_body( file_get_contents( $this->extraescolares_rest ), 'enrol' );
+		$gate = strpos( $body, 'ANPA_Socios_Grupo_Comedor_Gate::conflicts_for_series' );
+
+		$this->assertIsInt( $gate );
+		$this->assertStringContainsString( "'anpa_extra_grupo_comedor_conflict'", $body );
+		$this->assertStringContainsString( 'tabela_grupos_niveis', $body );
+		$this->assertStringContainsString( 'WHERE grupo_id = %d ORDER BY nivel_id FOR UPDATE', $body );
+		$this->assertLessThan( $gate, strpos( $body, "query( 'START TRANSACTION' )" ) );
+		$this->assertLessThan( strpos( $body, '$wpdb->insert(' ), $gate );
+		$this->assertStringContainsString( "query( 'ROLLBACK' )", $body );
+	}
+
+	public function test_enrol_authorisations_prefer_the_canonical_group_period_over_the_legacy_cutoff(): void {
+		$source = file_get_contents( $this->extraescolares_rest );
+		$enrol  = $this->extract_method_body( $source, 'enrol' );
+		$auth   = $this->extract_method_body( $source, 'validate_authorisations' );
+		$slot   = $this->extract_method_body( $source, 'is_comedor_slot' );
+
+		$this->assertStringContainsString( "validate_authorisations( \$body, (string) \$locked['horario'], (string) \$locked['franxa'] )", $enrol );
+		$this->assertStringContainsString( "'manha' === \$horario", $slot );
+		$this->assertStringContainsString( "array( 'maña', 'tarde' )", $slot );
+		$this->assertStringContainsString( 'is_comedor_slot( $horario, $franxa )', $auth );
+		$this->assertStringNotContainsString( 'ANPA_Socios_Disponibilidade_Horaria', $slot );
+	}
+
+	public function test_area_js_uses_the_real_group_object_to_choose_canonical_authorisation_period(): void {
+		$source = file_get_contents( dirname( __DIR__ ) . '/assets/js/area.js' );
+
+		$this->assertStringContainsString( 'function selectedGroup()', $source );
+		$this->assertStringContainsString( "const act = oferta.find((a) => String(a.id) === actSel.value);", $source );
+		$this->assertStringContainsString( "return act ? (act.grupos || []).find((g) => String(g.id) === grupoSel.value) : null;", $source );
+		$this->assertStringContainsString( 'function selectedGroupHorario()', $source );
+		$this->assertStringContainsString( "return grupo ? String(grupo.horario || '') : '';", $source );
+		$this->assertStringContainsString( "if ('manha' === horario) { return true; }", $source );
+		$this->assertStringContainsString( "if ('maña' === horario || 'tarde' === horario) { return false; }", $source );
+		$this->assertStringContainsString( 'return isComedorFranja(selectedGroupFranja());', $source );
+	}
+
+	public function test_course_enrolment_gate_fails_closed_on_missing_row_or_db_error(): void {
+		$source = file_get_contents( $this->extraescolares_rest );
+		$body   = $this->extract_method_body( $source, 'course_is_open' );
+
+		$this->assertStringContainsString( "\$wpdb->last_error = '';", $body );
+		$this->assertStringContainsString( "'' !== (string) \$wpdb->last_error", $body );
+		$this->assertStringContainsString( '! is_array( $row )', $body );
+		$this->assertStringNotContainsString( 'default open', $body );
+		$this->assertStringNotContainsString( 'return true;', $body );
+	}
+
+	public function test_locked_course_gate_runtime_fails_closed_and_uses_for_update(): void {
+		if ( ! class_exists( 'ANPA_Socios_Extraescolares_REST' ) ) {
+			require_once $this->extraescolares_rest;
+		}
+		if ( ! defined( 'ARRAY_A' ) ) {
+			define( 'ARRAY_A', 'ARRAY_A' );
+		}
+		$original = $GLOBALS['wpdb'];
+		$fake = new class() {
+			public string $prefix = 'wp_';
+			public string $last_error = '';
+			public $row = null;
+			public string $last_query = '';
+			public bool $error_on_read = false;
+
+			public function prepare( string $query, ...$args ): string {
+				return $query;
+			}
+
+			public function get_row( string $query, $output ) {
+				$this->last_query = $query;
+				if ( $this->error_on_read ) {
+					$this->last_error = 'db failure';
+				}
+				return $this->row;
+			}
+		};
+
+		try {
+			$GLOBALS['wpdb'] = $fake;
+			$method = new ReflectionMethod( ANPA_Socios_Extraescolares_REST::class, 'lock_open_course' );
+			$method->setAccessible( true );
+
+			$missing = $method->invoke( null, '2026/2027' );
+			$this->assertTrue( is_wp_error( $missing ) );
+			$this->assertSame( 'anpa_extra_curso_pechado', $missing->get_error_code() );
+			$this->assertStringContainsString( 'FOR UPDATE', $fake->last_query );
+
+			$fake->row = array( 'estado' => 'activo', 'matriculas_abertas' => '1' );
+			$this->assertNull( $method->invoke( null, '2026/2027' ) );
+
+			$fake->error_on_read = true;
+			$db_error = $method->invoke( null, '2026/2027' );
+			$this->assertTrue( is_wp_error( $db_error ) );
+			$this->assertSame( 'anpa_extra_db', $db_error->get_error_code() );
+		} finally {
+			$GLOBALS['wpdb'] = $original;
+		}
+	}
+
+	public function test_all_family_course_mutations_revalidate_under_transaction_lock(): void {
+		$source = file_get_contents( $this->extraescolares_rest );
+		foreach ( array( 'enrol', 'request_baixa', 'cancel_baixa', 'accept_oferta' ) as $name ) {
+			$body = $this->extract_method_body( $source, $name );
+			$tx   = strpos( $body, "query( 'START TRANSACTION' )" );
+			$gate = strpos( $body, 'lock_open_course' );
+			$write = min( array_filter( array(
+				strpos( $body, '$wpdb->insert(' ),
+				strpos( $body, '$wpdb->update(' ),
+				strpos( $body, 'UPDATE {$mat_t} SET' ),
+			), static fn( $position ): bool => false !== $position ) );
+
+			$this->assertIsInt( $tx, $name . ' must start a transaction' );
+			$this->assertIsInt( $gate, $name . ' must lock the course' );
+			$this->assertLessThan( $gate, $tx, $name . ' must start the transaction before course lock' );
+			$this->assertLessThan( $write, $gate, $name . ' must lock the course before mutation' );
+			$this->assertStringContainsString( "query( 'ROLLBACK' )", $body );
+			$this->assertStringContainsString( "query( 'COMMIT' )", $body );
+
+			if ( 'enrol' === $name ) {
+				$group_lock = strpos( $body, 'WHERE id = %d FOR UPDATE' );
+				$this->assertLessThan( $group_lock, $gate, 'enrol must lock course before group' );
+			} else {
+				$group_lock = strpos( $body, 'lock_group_course' );
+				$mat_lock   = strpos( $body, 'fetch_owned_matricula( ', $group_lock );
+				$this->assertIsInt( $group_lock );
+				$this->assertIsInt( $mat_lock );
+				$this->assertLessThan( $group_lock, $gate, $name . ' must lock course before group' );
+				$this->assertLessThan( $mat_lock, $group_lock, $name . ' must lock group before matricula' );
+			}
+		}
+	}
+
+	public function test_locked_owned_matricula_query_does_not_join_or_lock_groups(): void {
+		$source = file_get_contents( $this->extraescolares_rest );
+		$body   = $this->extract_method_body( $source, 'fetch_owned_matricula' );
+
+		$this->assertStringContainsString( 'if ( $for_update )', $body );
+		$this->assertStringContainsString( 'FROM {$mat_t} m INNER JOIN {$fil_t} f', $body );
+		$this->assertStringContainsString( 'LIMIT 1 FOR UPDATE', $body );
+		$this->assertStringContainsString( 'LEFT JOIN', $body );
+		$this->assertStringContainsString( 'if ( $for_update )', $body );
 	}
 
 	// ────────────────────────────────────────────────────────────────────
@@ -141,9 +317,9 @@ final class Test_ANPA_Socios_PR_ES8_Second_Half extends TestCase {
 	// Task 70: Backup version bump and v1 restore compatibility
 	// ────────────────────────────────────────────────────────────────────
 
-	public function test_backup_version_is_3_after_phase24_redefinition(): void {
+	public function test_backup_version_is_5_after_menu_name_roundtrip(): void {
 		require_once $this->backup_file;
-		$this->assertSame( 3, ANPA_Socios_Backup::VERSION );
+		$this->assertSame( 5, ANPA_Socios_Backup::VERSION );
 	}
 
 	public function test_restore_reads_payload_version(): void {

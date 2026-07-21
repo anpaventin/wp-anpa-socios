@@ -21,6 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class ANPA_Socios_Admin_Settings {
 
 	const CAP            = 'manage_options';
+	public const OVERVIEW_SLUG = 'anpa-socios';
 	const SETTINGS_SLUG  = 'anpa-socios-settings';
 	const DOCS_SLUG      = 'anpa-socios-docs';
 	const MIN_PASSPHRASE = 12;
@@ -60,8 +61,8 @@ final class ANPA_Socios_Admin_Settings {
 	}
 
 	/**
-	 * Registers the configurable top-level "Xestión ANPA" menu and its three
-	 * submenu pages in the agreed order: Xestión ANPA, Axustes, Documentación.
+	 * Registers the configurable top-level overview and its three stable
+	 * submenu pages: Xestión, Axustes, Documentación.
 	 *
 	 * The visible top-level label comes from ANPA_Socios_Config::menu_name()
 	 * so admins can rebrand the sidebar without touching slugs or deep links.
@@ -70,31 +71,63 @@ final class ANPA_Socios_Admin_Settings {
 	 */
 	public static function register_menu(): void {
 		add_menu_page(
-			ANPA_Socios_Config::menu_name(),
+			esc_html__( 'ANPA Socios', 'anpa-socios' ),
 			ANPA_Socios_Config::menu_name(),
 			self::CAP,
-			ANPA_Socios_Admin_Management_Page::MANAGEMENT_SLUG,
-			array( ANPA_Socios_Admin_Management_Page::class, 'render_page' ),
+			self::OVERVIEW_SLUG,
+			array( __CLASS__, 'render_overview_page' ),
 			'dashicons-groups',
 			58
 		);
-		ANPA_Socios_Admin_Management_Page::register_menu( ANPA_Socios_Admin_Management_Page::MANAGEMENT_SLUG, self::CAP );
+		ANPA_Socios_Admin_Management_Page::register_menu( self::OVERVIEW_SLUG, self::CAP );
 		add_submenu_page(
-			ANPA_Socios_Admin_Management_Page::MANAGEMENT_SLUG,
-			sprintf( esc_html__( 'Axustes — %s', 'anpa-socios' ), ANPA_Socios_Config::menu_name() ),
+			self::OVERVIEW_SLUG,
+			esc_html__( 'Axustes', 'anpa-socios' ),
 			esc_html__( 'Axustes', 'anpa-socios' ),
 			self::CAP,
 			self::SETTINGS_SLUG,
 			array( __CLASS__, 'render_settings_page' )
 		);
 		add_submenu_page(
-			ANPA_Socios_Admin_Management_Page::MANAGEMENT_SLUG,
-			sprintf( esc_html__( 'Documentación — %s', 'anpa-socios' ), ANPA_Socios_Config::menu_name() ),
+			self::OVERVIEW_SLUG,
+			esc_html__( 'Documentación', 'anpa-socios' ),
 			esc_html__( 'Documentación', 'anpa-socios' ),
 			self::CAP,
 			self::DOCS_SLUG,
 			array( __CLASS__, 'render_docs_page' )
 		);
+		remove_submenu_page( self::OVERVIEW_SLUG, self::OVERVIEW_SLUG );
+	}
+
+	/**
+	 * Renders a short overview instead of duplicating the operational screen.
+	 *
+	 * @return void
+	 */
+	public static function render_overview_page(): void {
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_die( esc_html__( 'Acceso non permitido.', 'anpa-socios' ) );
+		}
+
+		$destinations = array(
+			array( 'Xestión', 'Xestiona socios/as, fillos/as, empresas, actividades, grupos e matrículas.', ANPA_Socios_Admin_Management_Page::MANAGEMENT_SLUG ),
+			array( 'Axustes', 'Configura o curso escolar, a estrutura do centro, o comedor e as opcións xerais.', self::SETTINGS_SLUG ),
+			array( 'Documentación', 'Consulta as guías de uso, seguridade, copias e operación diaria.', self::DOCS_SLUG ),
+		);
+
+		echo '<div class="wrap anpa-overview">';
+		echo '<h1>' . esc_html( ANPA_Socios_Config::menu_name() ) . '</h1>';
+		echo '<p class="description">' . esc_html__( 'Este plugin centraliza a xestión de socios/as e actividades extraescolares da asociación.', 'anpa-socios' ) . '</p>';
+		echo '<p>' . esc_html__( 'Escolle unha das seguintes áreas para continuar:', 'anpa-socios' ) . '</p>';
+		echo '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;max-width:1100px">';
+		foreach ( $destinations as $destination ) {
+			echo '<section class="card" style="margin:0;max-width:none">';
+			echo '<h2>' . esc_html__( $destination[0], 'anpa-socios' ) . '</h2>';
+			echo '<p>' . esc_html__( $destination[1], 'anpa-socios' ) . '</p>';
+			echo '<p><a class="button button-primary" href="' . esc_url( admin_url( 'admin.php?page=' . $destination[2] ) ) . '">' . sprintf( esc_html__( 'Ir a %s', 'anpa-socios' ), esc_html( $destination[0] ) ) . '</a></p>';
+			echo '</section>';
+		}
+		echo '</div></div>';
 	}
 
 	/**
@@ -119,7 +152,7 @@ final class ANPA_Socios_Admin_Settings {
 
 		echo '<div class="wrap anpa-cfg">';
 		echo self::admin_styles();
-		echo '<h1>' . sprintf( esc_html__( 'Axustes — %s', 'anpa-socios' ), esc_html( ANPA_Socios_Config::menu_name() ) ) . '</h1>';
+		echo '<h1>' . esc_html__( 'Axustes', 'anpa-socios' ) . '</h1>';
 
 		$is_setup_post = ( isset( $_SERVER['REQUEST_METHOD'] ) && 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['anpa_action'] ) && 'setup' === $_POST['anpa_action'] );
 		if ( $is_setup_post ) {
@@ -525,17 +558,15 @@ final class ANPA_Socios_Admin_Settings {
 	}
 
 	/**
-	 * Tab "Cursos": course-season lifecycle (curso escolar, estado, season
-	 * dates) plus the max classroom letter offered when assigning fillos.
+	 * Tab "Cursos": course-season lifecycle plus integrated course creation.
 	 * Saved via an isolated admin-post handler so a partial form never clears
 	 * other options.
 	 *
 	 * @return void
 	 */
 	private static function render_tab_cursos( string $section = 'curso-escolar' ): void {
-		// Estrutura escolar (PR-ES3, fase23) has its own dedicated renderer —
-		// it must never fall through to the legacy curso-escolar/aula_max
-		// editor below. This dispatch was missing since PR-ES3 shipped, so
+		// Estrutura escolar (PR-ES3, fase23) has its own dedicated renderer.
+		// It must never fall through to the course lifecycle editor below.
 		// the section was unreachable from the settings UI despite its route
 		// and handler existing.
 		if ( 'estrutura' === $section ) {
@@ -550,7 +581,6 @@ final class ANPA_Socios_Admin_Settings {
 		global $wpdb;
 		$post_url = esc_url( admin_url( 'admin-post.php' ) );
 		$self_url = esc_url( admin_url( 'admin.php' ) );
-		$aula_max = ANPA_Socios_Config::aula_max();
 		$cursos_t = ANPA_Socios_DB::tabela_cursos();
 
 		// All stored courses (current + past + any future already created).
@@ -590,7 +620,6 @@ final class ANPA_Socios_Admin_Settings {
 			ANPA_Socios_Season::ESTADO_PECHADO  => __( 'Pechado', 'anpa-socios' ),
 		);
 
-		if ( 'crear-novo' !== $section ) {
 			echo '<h2>' . esc_html__( 'Curso escolar', 'anpa-socios' ) . '</h2>';
 
 		// --- Course selector (GET, auto-submits so the editor reloads) ---
@@ -635,24 +664,11 @@ final class ANPA_Socios_Admin_Settings {
 		printf( '<tr><th scope="row"><label for="cfg-inicio">%s</label></th><td><input name="data_inicio" id="cfg-inicio" type="date" value="%s"></td></tr>', esc_html__( 'Comeza (data_inicio)', 'anpa-socios' ), esc_attr( (string) $srow['data_inicio'] ) );
 		printf( '<tr><th scope="row"><label for="cfg-peche">%s</label></th><td><input name="data_peche" id="cfg-peche" type="date" value="%s"></td></tr>', esc_html__( 'Pecha (data_peche)', 'anpa-socios' ), esc_attr( (string) $srow['data_peche'] ) );
 
-		// Máximo de liñas por curso (aula máxima). Global option; storage accepts A-H.
-		echo '<tr><th scope="row"><label for="cfg-aula-max">';
-		esc_html_e( 'Liñas por curso (aula máxima)', 'anpa-socios' );
-		echo '</label></th><td><select name="aula_max" id="cfg-aula-max">';
-		foreach ( range( 'A', 'H' ) as $letter ) {
-			printf( '<option value="%1$s"%2$s>%1$s</option>', esc_attr( $letter ), selected( $letter, $aula_max, false ) );
-		}
-		echo '</select><p class="description">';
-		esc_html_e( 'Letra máxima de aula ofrecida ao asignar un fillo/a a un curso (por exemplo A–D ou A–E).', 'anpa-socios' );
-		echo '</p></td></tr>';
-
 		echo '</tbody></table>';
 		submit_button( __( 'Gardar curso', 'anpa-socios' ) );
 		echo '</form>';
-			return;
-		}
 
-		// --- Create a brand-new course (any future year, no code changes) ---
+		// --- Integrated course creation (same canonical section and writer). ---
 		echo '<h2>' . esc_html__( 'Crear novo curso', 'anpa-socios' ) . '</h2>';
 		echo '<form method="post" action="' . $post_url . '">';
 		echo '<input type="hidden" name="action" value="anpa_socios_save_cursos">';
@@ -974,7 +990,8 @@ final class ANPA_Socios_Admin_Settings {
 			.anpa-cfg .anpa-section-link:focus-visible { outline: 2px solid #2271b1; outline-offset: 2px; }
 			/* Cards and form tables */
 			.anpa-cfg .form-table, .anpa-cfg .widefat { background: #fff; border: 1px solid #e2e4e7;
-				border-radius: 6px; padding: .6em 1.4em; margin: .4em 0 1.2em; max-width: 820px; }
+				border-radius: 6px; padding: .6em 1.4em; margin: .4em 0 1.2em; max-width: none;
+				width: 100%; box-sizing: border-box; }
 			.anpa-cfg .form-table th { width: 260px; padding: 1em 1.2em 1em .4em; vertical-align: top; }
 			.anpa-cfg .form-table td { padding: .9em 1em; }
 			.anpa-cfg .widefat td, .anpa-cfg .widefat th { padding: .7em 1em; }
@@ -1073,9 +1090,9 @@ final class ANPA_Socios_Admin_Settings {
 		if ( array_key_exists( 'menu_name', $_POST ) ) {
 			$menu_name = trim( wp_strip_all_tags( (string) wp_unslash( $_POST['menu_name'] ) ) );
 			if ( function_exists( 'mb_substr' ) ) {
-				$menu_name = mb_substr( $menu_name, 0, 30 );
+				$menu_name = mb_substr( $menu_name, 0, ANPA_Socios_Config::MENU_NAME_MAX_LENGTH );
 			} else {
-				$menu_name = substr( $menu_name, 0, 30 );
+				$menu_name = substr( $menu_name, 0, ANPA_Socios_Config::MENU_NAME_MAX_LENGTH );
 			}
 			update_option( ANPA_Socios_Config::OPTION_MENU_NAME, trim( $menu_name ) );
 		}
@@ -1091,7 +1108,7 @@ final class ANPA_Socios_Admin_Settings {
 
 	/**
 	 * admin-post: save the "Cursos" tab — course season (curso escolar, estado,
-	 * data_inicio, data_peche) and the max classroom letter. Isolated so a
+	 * data_inicio, data_peche). Isolated so a
 	 * partial form never clears other options.
 	 *
 	 * @return void
@@ -1145,14 +1162,6 @@ final class ANPA_Socios_Admin_Settings {
 			// Lifecycle preserves existing dates on update; save the edited dates
 			// only after the canonical state transition succeeds.
 			self::upsert_course( $curso, $inicio, $peche, $estado );
-		}
-
-		// Maximum classroom letter ("aula"): only persist a single letter A..H;
-		// anything else leaves the option unchanged so the getter falls back to
-		// the neutral default.
-		$aula_max = strtoupper( substr( sanitize_text_field( (string) wp_unslash( $_POST['aula_max'] ?? '' ) ), 0, 1 ) );
-		if ( 1 === strlen( $aula_max ) && $aula_max >= 'A' && $aula_max <= 'H' ) {
-			update_option( ANPA_Socios_Config::OPTION_AULA_MAX, $aula_max );
 		}
 
 		self::redirect_cursos( $curso );
@@ -1263,7 +1272,10 @@ final class ANPA_Socios_Admin_Settings {
 		if ( empty( $_POST['confirm_wipe'] ) ) {
 			self::redirect_msg( 'wipe_noconfirm' );
 		}
-		ANPA_Socios_Backup::wipe();
+		$res = ANPA_Socios_Backup::wipe();
+		if ( is_wp_error( $res ) ) {
+			self::redirect_msg( 'wipe_err' );
+		}
 		self::redirect_msg( 'wiped' );
 	}
 
@@ -1465,6 +1477,7 @@ final class ANPA_Socios_Admin_Settings {
 			'restore_err'    => array( 'error', __( 'Non se puido recuperar a copia (ficheiro ou contrasinal incorrectos).', 'anpa-socios' ) ),
 			'wiped'          => array( 'success', __( 'Base de datos borrada. Configura de novo o plugin.', 'anpa-socios' ) ),
 			'wipe_noconfirm' => array( 'error', __( 'Debes confirmar a casa de verificación para borrar a base de datos.', 'anpa-socios' ) ),
+			'wipe_err'       => array( 'error', __( 'Non se puido completar o borrado. Revisa a base de datos antes de continuar.', 'anpa-socios' ) ),
 		);
 		if ( ! isset( $map[ $key ] ) ) {
 			return;
@@ -1486,7 +1499,7 @@ final class ANPA_Socios_Admin_Settings {
 
 		echo '<div class="wrap anpa-docs">';
 		echo self::docs_styles();
-		echo '<h1>' . sprintf( esc_html__( 'Documentación — %s', 'anpa-socios' ), esc_html( ANPA_Socios_Config::menu_name() ) ) . '</h1>';
+		echo '<h1>' . esc_html__( 'Documentación', 'anpa-socios' ) . '</h1>';
 		echo '<p>' . esc_html__( 'Guía rápida para a xunta: configuración, operación diaria, páxinas públicas, exportacións e seguridade.', 'anpa-socios' ) . '</p>';
 
 		// Section index navigation.
@@ -1538,6 +1551,7 @@ final class ANPA_Socios_Admin_Settings {
 		echo '<li>' . esc_html__( 'Cada táboa de Xestión ANPA ten a súa propia exportación CSV filtrada pola busca visible.', 'anpa-socios' ) . '</li>';
 		echo '<li>' . esc_html__( 'A exportación sensible “Descargar Socios IBAN” vive en Socios/as e require o contrasinal de descifrado.', 'anpa-socios' ) . '</li>';
 		echo '<li>' . esc_html__( 'As copias de seguridade deben facerse con UpdraftPlus antes de cambios importantes, importacións ou actualizacións.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . wp_kses_post( __( 'O ficheiro cifrado <code>.anpabak</code> é o único transporte completo da estrutura escolar e dos horarios de comedor; tamén conserva o nome configurado do menú. Os CSV operativos non transportan a configuración de comedor.', 'anpa-socios' ) ) . '</li>';
 		echo '<li>' . esc_html__( 'A sección Importar listados é só unha guía nesta fase: non escribe CSV nin modifica a base de datos.', 'anpa-socios' ) . '</li>';
 		echo '</ul></section>';
 
