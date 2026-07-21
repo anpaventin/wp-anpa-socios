@@ -10,7 +10,9 @@
 
 /* ── Page layout ───────────────────────────────────────────────── */
 .anpa-mgmt-wrap {
-	max-width: 1200px;
+	max-width: none;
+	width: 100%;
+	box-sizing: border-box;
 }
 
 .anpa-mgmt-wrap h1 {
@@ -80,6 +82,39 @@
 	outline-offset: 2px;
 	position: relative;
 	z-index: 1;
+}
+
+@media (min-width: 783px) {
+	.anpa-mgmt-nav {
+		align-items: stretch;
+		gap: 1rem;
+		border-bottom: 0;
+	}
+
+	.anpa-mgmt-nav-group {
+		border: 1px solid #c3c4c7;
+		background: #fff;
+		padding: 0.75rem;
+		border-radius: 4px;
+		box-sizing: border-box;
+		flex: 1 1 18rem;
+	}
+
+	.anpa-mgmt-nav-buttons {
+		gap: 0.35rem;
+	}
+
+	.anpa-mgmt-nav button {
+		background: #f6f7f7;
+		border: 1px solid #dcdcde;
+		border-radius: 3px;
+		margin: 0;
+	}
+
+	.anpa-mgmt-nav button[aria-selected="true"] {
+		border-color: #2271b1;
+		box-shadow: inset 0 -3px #2271b1;
+	}
 }
 
 /* ── Content root ──────────────────────────────────────────────── */
@@ -523,20 +558,56 @@
 }
 
 /* ── Responsive ────────────────────────────────────────────────── */
+@media (max-width: 960px) {
+	.anpa-grupos-horarios-selector {
+		align-items: stretch;
+	}
+
+	.anpa-grupos-horarios-selector label {
+		width: 100%;
+	}
+
+	.anpa-grupos-horarios-selector select {
+		width: 100%;
+		max-width: none;
+	}
+
+	.anpa-grupos-horarios-grid-wrap {
+		overflow-x: auto;
+	}
+
+	.anpa-grupos-horarios-grid {
+		min-width: 760px;
+	}
+
+	.anpa-grupos-horarios-cell,
+	.anpa-grupos-horarios-rowhead {
+		min-width: 9rem;
+	}
+}
+
 @media (max-width: 782px) {
+	#anpa-management-root {
+		max-width: 100%;
+		overflow-x: auto;
+	}
+
 	.anpa-mgmt-nav {
 		align-items: stretch;
 		gap: 0.75rem;
 	}
+
 	.anpa-mgmt-nav-group {
 		flex: 1 1 100%;
 		min-width: 0;
 	}
+
 	.anpa-mgmt-nav-buttons {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 0.25rem;
 	}
+
 	.anpa-mgmt-nav button {
 		width: 100%;
 		margin: 0;
@@ -545,11 +616,264 @@
 		font-size: 12px;
 		padding: 0.4rem 0.6rem;
 	}
+
 	.anpa-mgmt-table {
 		font-size: 12px;
 	}
+
 	.anpa-mgmt-table th,
 	.anpa-mgmt-table td {
 		padding: 0.35rem 0.5rem;
+	}
+
+	.anpa-grupos-horarios-grid {
+		font-size: 12px;
+	}
+
+	.anpa-grupos-horarios-cell,
+	.anpa-grupos-horarios-rowhead {
+		min-width: 8rem;
+	}
+
+	.anpa-grupos-horarios-slot,
+	.anpa-grupos-horarios-level,
+	.anpa-grupos-horarios-list-item {
+		padding: 0.45rem;
+	}
+
+	.anpa-grupos-horarios-slot-meta {
+		gap: 0.2rem 0.5rem;
+	}
+
+	.anpa-grupos-horarios-slot-actions {
+		width: 100%;
+	}
+}
+
+.anpa-grupos-horarios-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	max-width: none;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.anpa-grupos-horarios-intro,
+.anpa-grupos-horarios-status {
+	margin: 0;
+}
+
+.anpa-grupos-horarios-status {
+	font-size: 13px;
+	color: #646970;
+}
+
+.anpa-grupos-horarios-selector {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: end;
+	gap: 0.75rem;
+}
+
+.anpa-grupos-horarios-selector label {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+	font-size: 13px;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.anpa-grupos-horarios-selector select {
+	min-width: 14rem;
+	padding: 0.35rem 0.5rem;
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+	font-size: 13px;
+}
+
+.anpa-grupos-horarios-content {
+	display: grid;
+	gap: 1rem;
+}
+
+.anpa-grupos-horarios-grid-wrap {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.anpa-grupos-horarios-grid {
+	width: 100%;
+	border-collapse: collapse;
+	background: #fff;
+	font-size: 13px;
+}
+
+.anpa-grupos-horarios-grid caption {
+	padding: 0.2rem 0 0.5rem;
+	font-weight: 600;
+	text-align: left;
+}
+
+.anpa-grupos-horarios-grid th,
+.anpa-grupos-horarios-grid td {
+	border: 1px solid #dcdcde;
+	vertical-align: top;
+	padding: 0.6rem;
+}
+
+.anpa-grupos-horarios-grid thead th {
+	background: #f6f7f7;
+	font-weight: 600;
+	text-align: center;
+}
+
+.anpa-grupos-horarios-rowhead {
+	background: #f6f7f7;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.anpa-grupos-horarios-cell {
+	min-width: 10rem;
+}
+
+.anpa-grupos-horarios-cell-stack {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.anpa-grupos-horarios-level,
+.anpa-grupos-horarios-list-item {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+	padding: 0.55rem 0.6rem;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	background: #fbfbfb;
+}
+
+.anpa-grupos-horarios-level-header {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 0.5rem;
+}
+
+.anpa-grupos-horarios-level-name {
+	font-weight: 600;
+}
+
+.anpa-grupos-horarios-level-body {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+}
+
+.anpa-grupos-horarios-slot {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	padding: 0.5rem;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	background: #fff;
+}
+
+.anpa-grupos-horarios-slot-title {
+	font-weight: 600;
+}
+
+.anpa-grupos-horarios-slot-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem 0.75rem;
+	font-size: 12px;
+	color: #50575e;
+}
+
+.anpa-grupos-horarios-slot-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+}
+
+.anpa-grupos-horarios-free {
+	background: #f8f9fa;
+	border-style: dashed;
+}
+
+.anpa-grupos-horarios-comedor {
+	background: #fef3f3;
+	border-color: #d63638;
+	color: #8a1f2b;
+}
+
+.anpa-grupos-horarios-comedor .anpa-grupos-horarios-slot-title {
+	font-weight: 700;
+}
+
+.anpa-grupos-horarios-list {
+	display: none;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.anpa-grupos-horarios-list-franxa {
+	padding: 0.9rem;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	background: #fff;
+}
+
+.anpa-grupos-horarios-list-franxa > h4,
+.anpa-grupos-horarios-list-day > h5 {
+	margin: 0;
+}
+
+.anpa-grupos-horarios-list-franxa > h4 {
+	margin-bottom: 0.75rem;
+	font-size: 14px;
+}
+
+.anpa-grupos-horarios-list-day {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	margin-top: 0.75rem;
+}
+
+.anpa-grupos-horarios-list-day:first-of-type {
+	margin-top: 0;
+}
+
+.anpa-grupos-horarios-list-day > h5 {
+	font-size: 13px;
+}
+
+.anpa-grupos-horarios-list-item {
+	background: #fdfdfd;
+}
+
+.anpa-grupos-horarios-list-item-free {
+	background: #f8f9fa;
+}
+
+.anpa-grupos-horarios-list-item-comedor {
+	background: #fef3f3;
+	border-color: #d63638;
+}
+
+@media (max-width: 782px) {
+	.anpa-grupos-horarios-grid-wrap {
+		display: none;
+	}
+
+	.anpa-grupos-horarios-list {
+		display: flex;
 	}
 }

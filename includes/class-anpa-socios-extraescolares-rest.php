@@ -151,7 +151,23 @@ final class ANPA_Socios_Extraescolares_REST {
 
 			$grupo_out = array();
 			foreach ( $grupos as $g ) {
-				if ( null !== $curso_fillo && ( $nivel_fillo_id <= 0 || ! in_array( $nivel_fillo_id, ANPA_Socios_DB::get_niveis_for_grupo( (int) $g['id'] ), true ) ) ) {
+				$grupo_niveis = ANPA_Socios_DB::get_niveis_for_grupo( (int) $g['id'] );
+				if ( array() === $grupo_niveis ) {
+					continue;
+				}
+				if ( null !== $curso_fillo && ( $nivel_fillo_id <= 0 || ! in_array( $nivel_fillo_id, $grupo_niveis, true ) ) ) {
+					continue;
+				}
+
+				$gate_payload = array(
+					'estado'          => 'aberto',
+					'cursos'          => array( (string) $g['curso_escolar'] ),
+					'niveis_por_ano' => array( (string) $g['curso_escolar'] => $grupo_niveis ),
+					'franxa'          => (string) $g['franxa'],
+					'dias'            => (string) $g['dias'],
+				);
+				$meal_conflicts = ANPA_Socios_Grupo_Comedor_Gate::conflicts_for_series( $gate_payload, false );
+				if ( is_wp_error( $meal_conflicts ) || array() !== $meal_conflicts ) {
 					continue;
 				}
 
@@ -238,7 +254,7 @@ final class ANPA_Socios_Extraescolares_REST {
 		$gru_t = ANPA_Socios_DB::tabela_grupos();
 		$grupo = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT g.id, g.actividad_id, g.curso_escolar, g.nome, g.horario, g.franxa, g.max_pupilos, g.estado
+				"SELECT g.id, g.actividad_id, g.curso_escolar, g.nome, g.horario, g.franxa, g.dias, g.max_pupilos, g.estado
 				 FROM {$gru_t} g
 				 WHERE g.id = %d",
 				$grupo_id
@@ -280,13 +296,9 @@ final class ANPA_Socios_Extraescolares_REST {
 			);
 		}
 
-		$autorizacions = self::validate_authorisations( $body, (string) $grupo['franxa'] );
-		if ( is_wp_error( $autorizacions ) ) {
-			return $autorizacions;
-		}
-
 		$trimestre = ANPA_Socios_Trimestre::actual( (int) current_time( 'n' ) );
 		$mat_t     = ANPA_Socios_DB::tabela_matriculas();
+		$gn_t      = ANPA_Socios_DB::tabela_grupos_niveis();
 
 		// Serialize concurrent enrolments for this group so the capacity check is
 		// atomic (prevents two requests both taking the last seat). The group row
@@ -294,19 +306,62 @@ final class ANPA_Socios_Extraescolares_REST {
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 			return self::err( 'anpa_extra_db', 'Erro interno ao matricular', 500 );
 		}
+		$course_error = self::lock_open_course( $curso_act );
+		if ( is_wp_error( $course_error ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return $course_error;
+		}
 
 		$wpdb->last_error = '';
 		$locked = $wpdb->get_row(
-			$wpdb->prepare( "SELECT id, max_pupilos, estado FROM {$gru_t} WHERE id = %d FOR UPDATE", $grupo_id ),
+			$wpdb->prepare( "SELECT id, curso_escolar, horario, franxa, dias, max_pupilos, estado FROM {$gru_t} WHERE id = %d FOR UPDATE", $grupo_id ),
 			ARRAY_A
 		);
 		if ( '' !== (string) $wpdb->last_error ) {
 			$wpdb->query( 'ROLLBACK' );
 			return self::err( 'anpa_extra_db', 'Erro interno ao matricular', 500 );
 		}
-		if ( ! is_array( $locked ) ) {
+		if ( ! is_array( $locked ) || $curso_act !== (string) $locked['curso_escolar'] ) {
 			$wpdb->query( 'ROLLBACK' );
 			return self::err( 'anpa_extra_grupo', 'Grupo non válido', 400 );
+		}
+
+		$wpdb->last_error = '';
+		$locked_niveis = $wpdb->get_col( $wpdb->prepare(
+			"SELECT nivel_id FROM {$gn_t} WHERE grupo_id = %d ORDER BY nivel_id FOR UPDATE",
+			$grupo_id
+		) );
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $locked_niveis ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_db', 'Non se puideron comprobar os niveis do grupo', 500 );
+		}
+		$locked_niveis = array_map( 'intval', $locked_niveis );
+		if ( ! in_array( $nivel_id, $locked_niveis, true ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_curso', 'O curso do alumno/a non encaixa neste grupo', 409 );
+		}
+
+		$autorizacions = self::validate_authorisations( $body, (string) $locked['horario'], (string) $locked['franxa'] );
+		if ( is_wp_error( $autorizacions ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return $autorizacions;
+		}
+
+		$gate_payload = array(
+			'estado'          => 'aberto',
+			'cursos'          => array( (string) $locked['curso_escolar'] ),
+			'niveis_por_ano' => array( (string) $locked['curso_escolar'] => array( $nivel_id ) ),
+			'franxa'          => (string) $locked['franxa'],
+			'dias'            => (string) $locked['dias'],
+		);
+		$meal_conflicts = ANPA_Socios_Grupo_Comedor_Gate::conflicts_for_series( $gate_payload );
+		if ( is_wp_error( $meal_conflicts ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_db', 'Non se puido comprobar a dispoñibilidade horaria', 500 );
+		}
+		if ( array() !== $meal_conflicts ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_grupo_comedor_conflict', 'Este grupo coincide co horario de comedor do nivel seleccionado.', 409 );
 		}
 
 		// One non-baixa matrícula per fillo + activity + trimester (under lock).
@@ -535,6 +590,32 @@ final class ANPA_Socios_Extraescolares_REST {
 
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
 		$id    = (int) $mat['id'];
+		$curso = (string) ( $mat['curso_escolar'] ?? '' );
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
+		}
+		$course_error = self::lock_open_course( $curso );
+		if ( is_wp_error( $course_error ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return $course_error;
+		}
+		$grupo_id    = (int) $mat['grupo_id'];
+		$group_error = self::lock_group_course( $grupo_id, $curso );
+		if ( is_wp_error( $group_error ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return $group_error;
+		}
+		$wpdb->last_error = '';
+		$locked_mat = self::fetch_owned_matricula( $id, $familia_id, true );
+		if ( '' !== (string) $wpdb->last_error ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
+		}
+		if ( ! is_array( $locked_mat ) || $grupo_id !== (int) $locked_mat['grupo_id'] ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_curso_pechado', 'Este curso está pechado para novas matrículas ou baixas.', 409 );
+		}
+		$mat = $locked_mat;
 
 		if ( 'activo' === $mat['estado'] ) {
 			$updated = $wpdb->update(
@@ -545,6 +626,11 @@ final class ANPA_Socios_Extraescolares_REST {
 				array( '%d' )
 			);
 			if ( false === $updated ) {
+				$wpdb->query( 'ROLLBACK' );
+				return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
+			}
+			if ( false === $wpdb->query( 'COMMIT' ) ) {
+				$wpdb->query( 'ROLLBACK' );
 				return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
 			}
 			ANPA_Socios_Email::enviar_aviso_baixa_extraescolar( $email, self::pupil_name( (int) $mat['fillo_id'] ), self::activity_name( (int) $mat['activitad_id'] ) );
@@ -552,6 +638,7 @@ final class ANPA_Socios_Extraescolares_REST {
 		}
 
 		if ( in_array( $mat['estado'], array( 'lista_espera', 'oferta' ), true ) ) {
+			$wpdb->last_error = '';
 			$affected = $wpdb->query(
 				$wpdb->prepare(
 					"UPDATE {$mat_t} SET estado = 'baixa', baixa_en = %s, oferta_token = NULL, oferta_expira = NULL, actualizado_en = %s WHERE id = %d AND estado IN ('lista_espera','oferta')",
@@ -560,15 +647,26 @@ final class ANPA_Socios_Extraescolares_REST {
 					$id
 				)
 			);
-			if ( (int) $affected > 0 ) {
-				// posición is the immutable registration order in the activity.
-				if ( 'oferta' === $mat['estado'] ) {
-					ANPA_Socios_Extraescolar_Offers::offer_next( (int) $mat['grupo_id'], (int) $mat['trimestre'] );
-				}
+			if ( false === $affected || '' !== (string) $wpdb->last_error ) {
+				$wpdb->query( 'ROLLBACK' );
+				return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
+			}
+			if ( 1 !== (int) $affected ) {
+				$wpdb->query( 'ROLLBACK' );
+				return self::err( 'anpa_extra_estado', 'Esta matrícula xa non admite baixa neste estado', 409 );
+			}
+			if ( false === $wpdb->query( 'COMMIT' ) ) {
+				$wpdb->query( 'ROLLBACK' );
+				return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
+			}
+			// posición is the immutable registration order in the activity.
+			if ( 'oferta' === $mat['estado'] ) {
+				ANPA_Socios_Extraescolar_Offers::offer_next( (int) $mat['grupo_id'], (int) $mat['trimestre'] );
 			}
 			return new WP_REST_Response( array( 'id' => $id, 'estado' => 'baixa' ), 200 );
 		}
 
+		$wpdb->query( 'ROLLBACK' );
 		return self::err( 'anpa_extra_estado', 'Esta matrícula non admite baixa neste estado', 409 );
 	}
 
@@ -594,6 +692,34 @@ final class ANPA_Socios_Extraescolares_REST {
 		if ( ! self::course_is_open( (string) ( $mat['curso_escolar'] ?? '' ) ) ) {
 			return self::err( 'anpa_extra_curso_pechado', 'Este curso está pechado para novas matrículas ou baixas.', 409 );
 		}
+		$curso = (string) ( $mat['curso_escolar'] ?? '' );
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
+		}
+		$course_error = self::lock_open_course( $curso );
+		if ( is_wp_error( $course_error ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return $course_error;
+		}
+		$grupo_id    = (int) $mat['grupo_id'];
+		$group_error = self::lock_group_course( $grupo_id, $curso );
+		if ( is_wp_error( $group_error ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return $group_error;
+		}
+		$wpdb->last_error = '';
+		$locked_mat = self::fetch_owned_matricula( (int) $mat['id'], $familia_id, true );
+		if ( '' !== (string) $wpdb->last_error ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
+		}
+		if ( ! is_array( $locked_mat )
+			|| $grupo_id !== (int) $locked_mat['grupo_id']
+			|| 'baixa_solicitada' !== (string) $locked_mat['estado'] ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_not_found', 'Non atopado', 404 );
+		}
+		$mat = $locked_mat;
 
 		$updated = $wpdb->update(
 			ANPA_Socios_DB::tabela_matriculas(),
@@ -603,6 +729,11 @@ final class ANPA_Socios_Extraescolares_REST {
 			array( '%d' )
 		);
 		if ( false === $updated ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
+		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
 			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
 		}
 
@@ -635,13 +766,44 @@ final class ANPA_Socios_Extraescolares_REST {
 			return self::err( 'anpa_extra_curso_pechado', 'Este curso está pechado para novas matrículas ou baixas.', 409 );
 		}
 
+		$curso = (string) ( $mat['curso_escolar'] ?? '' );
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
+		}
+		$course_error = self::lock_open_course( $curso );
+		if ( is_wp_error( $course_error ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return $course_error;
+		}
+		$grupo_id    = (int) $mat['grupo_id'];
+		$group_error = self::lock_group_course( $grupo_id, $curso );
+		if ( is_wp_error( $group_error ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return $group_error;
+		}
+		$wpdb->last_error = '';
+		$locked_mat = self::fetch_owned_matricula( (int) $mat['id'], $familia_id, true );
+		if ( '' !== (string) $wpdb->last_error ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
+		}
+		if ( ! is_array( $locked_mat )
+			|| $grupo_id !== (int) $locked_mat['grupo_id']
+			|| 'oferta' !== (string) $locked_mat['estado'] ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_not_found', 'Non atopado', 404 );
+		}
+		$mat = $locked_mat;
+
 		// Expiry check (server-authoritative).
 		$expira = isset( $mat['oferta_expira'] ) ? strtotime( (string) $mat['oferta_expira'] . ' UTC' ) : 0;
 		if ( ! $expira || $expira < time() ) {
+			$wpdb->query( 'ROLLBACK' );
 			return self::err( 'anpa_extra_oferta_expirada', 'A oferta caducou', 409 );
 		}
 
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		$wpdb->last_error = '';
 		$updated = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$mat_t} SET estado = 'activo', oferta_token = NULL, oferta_expira = NULL, actualizado_en = %s WHERE id = %d AND estado = 'oferta'",
@@ -649,9 +811,18 @@ final class ANPA_Socios_Extraescolares_REST {
 				(int) $mat['id']
 			)
 		);
+		if ( false === $updated || '' !== (string) $wpdb->last_error ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
+		}
 		if ( 1 !== (int) $updated ) {
 			// Lost the race (e.g. cron expired it concurrently).
+			$wpdb->query( 'ROLLBACK' );
 			return self::err( 'anpa_extra_oferta_estado', 'A oferta xa non está dispoñible', 409 );
+		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
 		}
 		// posición is the immutable registration order in the activity.
 
@@ -662,11 +833,12 @@ final class ANPA_Socios_Extraescolares_REST {
 	 * Fetches a matrícula only if it belongs to the authenticated socio's family.
 	 *
 	 * @since  1.9.0
-	 * @param  int $id         Matrícula id.
-	 * @param  int $familia_id Owning family id.
+	 * @param  int  $id         Matrícula id.
+	 * @param  int  $familia_id Owning family id.
+	 * @param  bool $for_update Lock the row in the caller-owned transaction.
 	 * @return array<string,mixed>|null
 	 */
-	private static function fetch_owned_matricula( int $id, int $familia_id ): ?array {
+	private static function fetch_owned_matricula( int $id, int $familia_id, bool $for_update = false ): ?array {
 		if ( $id <= 0 || $familia_id <= 0 ) {
 			return null;
 		}
@@ -674,15 +846,18 @@ final class ANPA_Socios_Extraescolares_REST {
 		global $wpdb;
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
 		$fil_t = ANPA_Socios_DB::tabela_fillos();
-		$row   = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT m.id, m.fillo_id, m.activitad_id, m.grupo_id, m.trimestre, m.estado, m.oferta_expira, g.curso_escolar
+		if ( $for_update ) {
+			$sql = "SELECT m.id, m.fillo_id, m.activitad_id, m.grupo_id, m.trimestre, m.estado, m.oferta_expira
+				 FROM {$mat_t} m INNER JOIN {$fil_t} f ON f.id = m.fillo_id
+				 WHERE m.id = %d AND f.familia_id = %d LIMIT 1 FOR UPDATE";
+		} else {
+			$sql = "SELECT m.id, m.fillo_id, m.activitad_id, m.grupo_id, m.trimestre, m.estado, m.oferta_expira, g.curso_escolar
 				 FROM {$mat_t} m INNER JOIN {$fil_t} f ON f.id = m.fillo_id
 				 LEFT JOIN " . ANPA_Socios_DB::tabela_grupos() . " g ON g.id = m.grupo_id
-				 WHERE m.id = %d AND f.familia_id = %d LIMIT 1",
-				$id,
-				$familia_id
-			),
+				 WHERE m.id = %d AND f.familia_id = %d LIMIT 1";
+		}
+		$row   = $wpdb->get_row(
+			$wpdb->prepare( $sql, $id, $familia_id ),
 			ARRAY_A
 		);
 
@@ -732,22 +907,23 @@ final class ANPA_Socios_Extraescolares_REST {
 	 *
 	 * Payload contract:
 	 * - Always required: cesion_datos_empresa=true.
-	 * - Comedor slot (franxa before 16:10): autorizacion_comedor='si'|'non'.
+	 * - Comedor period: autorizacion_comedor='si'|'non'.
 	 * - Tarde slot: tarde_transicion='comedor'|'familia'. Optional booleans:
 	 *   tardes_divertidas_continua, recollida_autorizada.
 	 *
 	 * @since  1.15.0
-	 * @param  array<string,mixed> $body   Request body.
-	 * @param  string              $franxa Group time slot.
+	 * @param  array<string,mixed> $body    Request body.
+	 * @param  string              $horario Canonical group period.
+	 * @param  string              $franxa  Legacy group time slot fallback.
 	 * @return array<string,int|string>|WP_Error
 	 */
-	private static function validate_authorisations( array $body, string $franxa ) {
+	private static function validate_authorisations( array $body, string $horario, string $franxa ) {
 		$cesion = ! empty( $body['cesion_datos_empresa'] );
 		if ( ! $cesion ) {
 			return self::err( 'anpa_extra_cesion_datos', 'É obrigatorio autorizar a cesión dos datos necesarios á empresa da actividade.', 400 );
 		}
 
-		$is_comedor = self::is_comedor_slot( $franxa );
+		$is_comedor = self::is_comedor_slot( $horario, $franxa );
 		$out        = array(
 			'autorizacion_comedor'       => 'na',
 			'tarde_transicion'           => 'na',
@@ -781,10 +957,21 @@ final class ANPA_Socios_Extraescolares_REST {
 	 * Returns whether a group slot belongs to the comedor period.
 	 *
 	 * @since  1.15.0
-	 * @param  string $franxa Slot like 14:20-15:10 or 16:45-17:45.
+	 * The canonical period is authoritative. The old time cutoff is retained
+	 * only for legacy rows that have no recognized period; it never feeds the
+	 * meal-availability conflict gate.
+	 *
+	 * @param  string $horario Canonical period (`maña`, `manha`, `tarde`).
+	 * @param  string $franxa  Legacy slot like 14:20-15:10.
 	 * @return bool
 	 */
-	private static function is_comedor_slot( string $franxa ): bool {
+	private static function is_comedor_slot( string $horario, string $franxa ): bool {
+		if ( 'manha' === $horario ) {
+			return true;
+		}
+		if ( in_array( $horario, array( 'maña', 'tarde' ), true ) ) {
+			return false;
+		}
 		if ( ! preg_match( '/^(\d{2}):(\d{2})-/', $franxa, $m ) ) {
 			return false;
 		}
@@ -866,10 +1053,10 @@ final class ANPA_Socios_Extraescolares_REST {
 		global $wpdb;
 		$table = ANPA_Socios_DB::tabela_cursos();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only course gate lookup.
+		$wpdb->last_error = '';
 		$row = $wpdb->get_row( $wpdb->prepare( "SELECT matriculas_abertas, estado FROM {$table} WHERE curso_escolar = %s", $curso ), ARRAY_A );
-		if ( null === $row ) {
-			// New/unconfigured courses default open to avoid breaking existing staging data.
-			return true;
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $row ) ) {
+			return false;
 		}
 
 		// A course only accepts enrolment changes while its season is active.
@@ -882,6 +1069,61 @@ final class ANPA_Socios_Extraescolares_REST {
 		}
 
 		return 1 === (int) $row['matriculas_abertas'];
+	}
+
+	/**
+	 * Locks and revalidates the authoritative course row inside a transaction.
+	 *
+	 * @param  string $curso Course being mutated.
+	 * @return WP_Error|null Null when the course is active and enrolments are open.
+	 */
+	private static function lock_open_course( string $curso ) {
+		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
+			return self::err( 'anpa_extra_curso_pechado', 'Este curso está pechado para novas matrículas ou baixas.', 409 );
+		}
+
+		global $wpdb;
+		$table = ANPA_Socios_DB::tabela_cursos();
+		$wpdb->last_error = '';
+		$row = $wpdb->get_row(
+			$wpdb->prepare( "SELECT matriculas_abertas, estado FROM {$table} WHERE curso_escolar = %s FOR UPDATE", $curso ),
+			ARRAY_A
+		);
+		if ( '' !== (string) $wpdb->last_error ) {
+			return self::err( 'anpa_extra_db', 'Non se puido comprobar o estado do curso', 500 );
+		}
+		if ( ! is_array( $row )
+			|| ANPA_Socios_Season::ESTADO_ACTIVO !== (string) ( $row['estado'] ?? '' )
+			|| 1 !== (int) ( $row['matriculas_abertas'] ?? 0 ) ) {
+			return self::err( 'anpa_extra_curso_pechado', 'Este curso está pechado para novas matrículas ou baixas.', 409 );
+		}
+
+		return null;
+	}
+
+	/**
+	 * Locks a group and verifies that it still belongs to the expected course.
+	 *
+	 * @param  int    $grupo_id Group id from the preflight matrícula.
+	 * @param  string $curso    Expected annual course.
+	 * @return WP_Error|null
+	 */
+	private static function lock_group_course( int $grupo_id, string $curso ) {
+		global $wpdb;
+		$table = ANPA_Socios_DB::tabela_grupos();
+		$wpdb->last_error = '';
+		$row = $wpdb->get_row(
+			$wpdb->prepare( "SELECT curso_escolar FROM {$table} WHERE id = %d FOR UPDATE", $grupo_id ),
+			ARRAY_A
+		);
+		if ( '' !== (string) $wpdb->last_error ) {
+			return self::err( 'anpa_extra_db', 'Non se puido comprobar o grupo', 500 );
+		}
+		if ( ! is_array( $row ) || $curso !== (string) ( $row['curso_escolar'] ?? '' ) ) {
+			return self::err( 'anpa_extra_curso_pechado', 'Este curso está pechado para novas matrículas ou baixas.', 409 );
+		}
+
+		return null;
 	}
 
 	/**

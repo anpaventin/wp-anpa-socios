@@ -47,7 +47,6 @@ final class ANPA_Socios_Admin_Nav {
 		),
 		'cursos'       => array(
 			'curso-escolar' => 'Curso escolar',
-			'crear-novo'    => 'Crear novo curso',
 			'estrutura'     => 'Estrutura escolar e comedor',
 		),
 		'localizacion' => array(),
@@ -100,6 +99,12 @@ final class ANPA_Socios_Admin_Nav {
 		'cursos-matriculas' => 'matriculas',
 	);
 
+	private const SETTINGS_SECTION_ALIASES = array(
+		'cursos' => array(
+			'crear-novo' => 'curso-escolar',
+		),
+	);
+
 	/**
 	 * Native wp-admin management page metadata.
 	 *
@@ -108,8 +113,8 @@ final class ANPA_Socios_Admin_Nav {
 	 */
 	private const NATIVE_MANAGEMENT_PAGE = array(
 		'slug'       => 'anpa-socios-management',
-		'menu_label' => 'Xestión ANPA',
-		'page_title' => 'Xestión ANPA',
+		'menu_label' => 'Xestión',
+		'page_title' => 'Xestión',
 	);
 
 	/**
@@ -299,6 +304,10 @@ final class ANPA_Socios_Admin_Nav {
 			return '';
 		}
 
+		if ( is_string( $requested ) && isset( self::SETTINGS_SECTION_ALIASES[ $tab ][ $requested ] ) ) {
+			$requested = self::SETTINGS_SECTION_ALIASES[ $tab ][ $requested ];
+		}
+
 		if ( self::is_settings_section( $tab, $requested ) ) {
 			return (string) $requested;
 		}
@@ -334,6 +343,24 @@ final class ANPA_Socios_Admin_Nav {
 	 */
 	public static function management_section_aliases(): array {
 		return self::MANAGEMENT_SECTION_ALIASES;
+	}
+
+	/**
+	 * Resolves a visible management section or an internal legacy alias.
+	 *
+	 * @param  mixed $requested Raw requested section slug.
+	 * @return string
+	 */
+	public static function active_management_section( $requested ): string {
+		$sections = self::management_visible_sections();
+		if ( is_string( $requested ) && isset( self::MANAGEMENT_SECTION_ALIASES[ $requested ] ) ) {
+			$requested = self::MANAGEMENT_SECTION_ALIASES[ $requested ];
+		}
+		if ( is_string( $requested ) && isset( $sections[ $requested ] ) ) {
+			return $requested;
+		}
+
+		return self::first_key( $sections );
 	}
 
 	public static function native_management_page(): array {

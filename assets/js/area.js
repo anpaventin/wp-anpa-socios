@@ -643,16 +643,34 @@
 		const cancelEditBtn = root.querySelector('[data-action="cancel-fillo-edit"]');
 
 		// ── Dynamic nivel→aula selectors (ES4) ──
+		let populateFilloAulas = function () {};
 		(function buildDynamicFilloSelectors() {
 			const cursoSel = root.querySelector('#anpa-fillo-curso');
 			const aulaSel  = root.querySelector('#anpa-fillo-aula');
 			if (!cursoSel || !aulaSel) { return; }
 
 			let estrutura = null;
-			try { estrutura = JSON.parse(root.getAttribute('data-estrutura') || ''); } catch (e) { /* fallback */ }
+			try { estrutura = JSON.parse(root.getAttribute('data-estrutura') || ''); } catch (e) { /* fail closed */ }
 
 			const niveis = (estrutura && Array.isArray(estrutura.niveis)) ? estrutura.niveis : [];
 			const aulas  = (estrutura && Array.isArray(estrutura.aulas)) ? estrutura.aulas : [];
+
+			populateFilloAulas = function (nivelCod) {
+				aulaSel.textContent = '';
+				const placeholder = document.createElement('option');
+				placeholder.value = '';
+				placeholder.textContent = '-- Selecciona --';
+				aulaSel.appendChild(placeholder);
+				const nivel = niveis.find(function (item) { return item.codigo === nivelCod; });
+				if (!nivel) { return; }
+				aulas.forEach(function (aula) {
+					if (parseInt(aula.nivel_id, 10) !== parseInt(nivel.id, 10)) { return; }
+					const option = document.createElement('option');
+					option.value = aula.codigo;
+					option.textContent = aula.etiqueta;
+					aulaSel.appendChild(option);
+				});
+			};
 
 			if (niveis.length > 0) {
 				// Populate curso select from niveis
@@ -664,36 +682,15 @@
 					cursoSel.appendChild(o);
 				});
 
-				// Aula dependent on curso
-				function populateAulas(nivelCod) {
-					aulaSel.textContent = '';
-					const ph2 = document.createElement('option'); ph2.value = ''; ph2.textContent = '-- Selecciona --';
-					aulaSel.appendChild(ph2);
-					let nid = null;
-					niveis.forEach(function (n) { if (n.codigo === nivelCod) { nid = n.id; } });
-					aulas.forEach(function (a) {
-						if (parseInt(a.nivel_id, 10) === parseInt(nid, 10)) {
-							const o = document.createElement('option'); o.value = a.codigo; o.textContent = a.etiqueta;
-							aulaSel.appendChild(o);
-						}
-					});
-				}
-				cursoSel.addEventListener('change', function () { populateAulas(cursoSel.value); });
+				cursoSel.addEventListener('change', function () { populateFilloAulas(cursoSel.value); });
 			} else {
-				// Legacy fallback: populate aula from data-aulas
-				let aulasLegacy = ['A', 'B', 'C', 'D'];
-				try {
-					const parsed = JSON.parse(root.getAttribute('data-aulas') || '');
-					if (Array.isArray(parsed) && parsed.length) { aulasLegacy = parsed; }
-				} catch (e) { /* keep fallback */ }
-				aulaSel.textContent = '';
-				const ph2 = document.createElement('option'); ph2.value = ''; ph2.textContent = '-- Selecciona --';
-				aulaSel.appendChild(ph2);
-				aulasLegacy.forEach(function (v) {
-					const o = document.createElement('option'); o.value = v; o.textContent = v;
-					aulaSel.appendChild(o);
-				});
+				cursoSel.textContent = '';
+				const placeholder = document.createElement('option');
+				placeholder.value = '';
+				placeholder.textContent = '-- Sen estrutura activa --';
+				cursoSel.appendChild(placeholder);
 			}
+			populateFilloAulas('');
 		})();
 
 		function readFilloForm() {
@@ -723,6 +720,7 @@
 			root.querySelector('#anpa-fillo-apelidos').value = fillo.apelidos || '';
 			root.querySelector('#anpa-fillo-data').value = fillo.data_nacemento || '';
 			root.querySelector('#anpa-fillo-curso').value = fillo.curso || '';
+			populateFilloAulas(fillo.curso || '');
 			root.querySelector('#anpa-fillo-aula').value = fillo.aula || '';
 			filloFormTitleEl.textContent = 'Editar fillo/a';
 			cancelEditBtn.hidden = false;
@@ -997,9 +995,23 @@
 				refreshAutorizacions();
 			}
 
+			function selectedGroup() {
+				const act = oferta.find((a) => String(a.id) === actSel.value);
+				return act ? (act.grupos || []).find((g) => String(g.id) === grupoSel.value) : null;
+			}
 			function selectedGroupFranja() {
-				const opt = grupoSel.options[grupoSel.selectedIndex];
-				return opt ? String(opt.dataset.franxa || '') : '';
+				const grupo = selectedGroup();
+				return grupo ? String(grupo.franxa || '') : '';
+			}
+			function selectedGroupHorario() {
+				const grupo = selectedGroup();
+				return grupo ? String(grupo.horario || '') : '';
+			}
+			function selectedGroupRequiresComedorAuth() {
+				const horario = selectedGroupHorario();
+				if ('manha' === horario) { return true; }
+				if ('maña' === horario || 'tarde' === horario) { return false; }
+				return isComedorFranja(selectedGroupFranja());
 			}
 			function isComedorFranja(franxa) {
 				const m = String(franxa || '').match(/^(\d{2}):(\d{2})-/);
@@ -1036,7 +1048,7 @@
 				const title = document.createElement('h4');
 				title.textContent = 'Autorizacións';
 				authHost.appendChild(title);
-				if (isComedorFranja(selectedGroupFranja())) {
+				if (selectedGroupRequiresComedorAuth()) {
 					const p = document.createElement('p');
 					p.textContent = 'No caso de actividades realizadas durante o período de comedor:';
 					authHost.appendChild(p);
@@ -1085,7 +1097,7 @@
 					grupo_id: parseInt(grupoSel.value, 10) || 0,
 					cesion_datos_empresa: true,
 				};
-				if (isComedorFranja(selectedGroupFranja())) {
+				if (selectedGroupRequiresComedorAuth()) {
 					const autComedor = authHost.querySelector('input[name="autorizacion_comedor"]:checked');
 					if (!autComedor) {
 						showMessage(root, __( 'Indica se autorizas ao persoal de comedor a facilitar a participación.', 'anpa-socios' ), 'error');

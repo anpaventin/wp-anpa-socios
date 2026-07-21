@@ -89,21 +89,6 @@ final class ANPA_Socios_Config {
 	const OPTION_PROVINCE      = 'anpa_socios_default_province';
 	const OPTION_TOWN          = 'anpa_socios_default_town';
 
-	/**
-	 * Option key for the maximum classroom letter ("aula") per course.
-	 *
-	 * @var string
-	 */
-	const OPTION_AULA_MAX = 'anpa_socios_aula_max';
-
-	/**
-	 * Neutral default maximum classroom letter. Schools with more lines per
-	 * course raise it from Axustes; the plugin ships no association-specific
-	 * value.
-	 *
-	 * @var string
-	 */
-	const DEFAULT_AULA_MAX = 'D';
 
 	/**
 	 * Neutral location default. Empty province/town means the socio form ships
@@ -258,36 +243,6 @@ final class ANPA_Socios_Config {
 	 */
 	public static function default_town(): string {
 		return trim( (string) get_option( self::OPTION_TOWN, '' ) );
-	}
-
-
-
-	/**
-	 * Maximum classroom letter ("aula") offered per course.
-	 *
-	 * Reads OPTION_AULA_MAX, uppercased and trimmed. Only accepted when it is a
-	 * single letter in A..H; otherwise falls back to DEFAULT_AULA_MAX. The DB
-	 * enum accepts A..H, so this bound only affects what the UI offers.
-	 *
-	 * @return string
-	 */
-	public static function aula_max(): string {
-		$value = strtoupper( trim( (string) get_option( self::OPTION_AULA_MAX, '' ) ) );
-
-		if ( 1 === strlen( $value ) && $value >= 'A' && $value <= 'H' ) {
-			return $value;
-		}
-
-		return self::DEFAULT_AULA_MAX;
-	}
-
-	/**
-	 * Returns the list of classroom letters from 'A' up to aula_max() inclusive.
-	 *
-	 * @return string[] e.g. ['A','B','C','D','E'].
-	 */
-	public static function aulas(): array {
-		return range( 'A', self::aula_max() );
 	}
 
 	/**

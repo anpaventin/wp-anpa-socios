@@ -66,8 +66,9 @@ content and secrets strictly separated.
 - **Season lifecycle** — automatic course open/close with configurable dates.
 - **Admin dashboard** — members, activities, courses, enrolments, exports (CSV),
   approvals and audit log.
-- **Backup / restore / wipe** — encrypted `.anpabak` export protected by the admin
-  password; full reinstall path.
+- **Backup / restore / wipe** — encrypted `.anpabak` export protected by the banking
+  passphrase; full reinstall path. It is the only complete transport for school structure
+  and meal schedules, and also preserves the configurable admin menu name.
 - **Self-hosted updates** — one-click updates from this repo's GitHub Releases.
 - **Fully translatable** — Galician source with Spanish included; add any language via `.po/.mo`.
 

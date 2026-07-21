@@ -158,6 +158,9 @@ final class ANPA_Socios_Admin_Shared {
 	 */
 	public static function json_body( WP_REST_Request $request ): array {
 		$body = $request->get_json_params();
+		if ( ! is_array( $body ) ) {
+			$body = $request->get_body_params();
+		}
 
 		return is_array( $body ) ? $body : array();
 	}

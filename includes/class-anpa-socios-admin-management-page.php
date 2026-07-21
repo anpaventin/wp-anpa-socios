@@ -45,11 +45,10 @@ final class ANPA_Socios_Admin_Management_Page {
 	 * @return void
 	 */
 	public static function register_menu( string $parent_slug, string $capability ): void {
-		$menu_name = ANPA_Socios_Config::menu_name();
 		$hook = add_submenu_page(
 			$parent_slug,
-			$menu_name,
-			$menu_name,
+			esc_html__( 'Xestión', 'anpa-socios' ),
+			esc_html__( 'Xestión', 'anpa-socios' ),
 			$capability,
 			self::MANAGEMENT_SLUG,
 			array( __CLASS__, 'render_page' )
@@ -87,15 +86,15 @@ final class ANPA_Socios_Admin_Management_Page {
 			wp_die( esc_html__( 'Acceso non permitido.', 'anpa-socios' ) );
 		}
 
-		$groups = ANPA_Socios_Admin_Nav::management_sections();
+		$groups         = ANPA_Socios_Admin_Nav::management_sections();
+		$active_section = self::active_section_from_request();
 
 		echo '<div class="wrap anpa-mgmt-wrap">';
-		echo '<h1>' . esc_html( ANPA_Socios_Config::menu_name() ) . '</h1>';
+		echo '<h1>' . esc_html__( 'Xestión', 'anpa-socios' ) . '</h1>';
 		echo '<div id="anpa-mgmt-message" class="anpa-mgmt-message"></div>';
 
 		// Section navigation grouped by domain.
 		echo '<nav class="anpa-mgmt-nav" aria-label="' . esc_attr__( 'Seccións de xestión', 'anpa-socios' ) . '">';
-		$first = true;
 		foreach ( $groups as $group_slug => $group ) {
 			$group_id    = 'anpa-mgmt-nav-group-' . $group_slug;
 			$group_label = isset( $group['label'] ) ? (string) $group['label'] : ucfirst( (string) $group_slug );
@@ -108,10 +107,9 @@ final class ANPA_Socios_Admin_Management_Page {
 				printf(
 					'<button type="button" role="tab" data-section="%s" aria-controls="anpa-management-root" aria-selected="%s">%s</button>',
 					esc_attr( $slug ),
-					$first ? 'true' : 'false',
+					$active_section === $slug ? 'true' : 'false',
 					esc_html( (string) $label )
 				);
-				$first = false;
 			}
 			echo '</div>';
 			echo '</section>';
@@ -191,6 +189,7 @@ final class ANPA_Socios_Admin_Management_Page {
 			'filloaulas'  => $aulas,
 			'cursosescolares' => $cursos_escolares,
 			'cursoactivo' => null === $curso_activo ? '' : $curso_activo,
+			'section'     => self::active_section_from_request(),
 		) );
 
 		// admin-management.css.
@@ -201,5 +200,16 @@ final class ANPA_Socios_Admin_Management_Page {
 			array(),
 			file_exists( $css_path ) ? (string) filemtime( $css_path ) : ANPA_SOCIOS_VERSION
 		);
+	}
+
+	/**
+	 * Resolves the current management deep-link without exposing aliases to UI.
+	 *
+	 * @return string
+	 */
+	private static function active_section_from_request(): string {
+		$requested = isset( $_GET['section'] ) ? sanitize_key( wp_unslash( $_GET['section'] ) ) : null; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		return ANPA_Socios_Admin_Nav::active_management_section( $requested );
 	}
 }

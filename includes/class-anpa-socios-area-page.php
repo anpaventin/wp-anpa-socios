@@ -101,7 +101,6 @@ class ANPA_Socios_Area_Page {
 			data-empresa-me-url="<?php echo esc_attr( $empresa_me_url ); ?>"
 			data-empresa-logout-url="<?php echo esc_attr( $empresa_logout_url ); ?>"
 			data-empresa-export-url="<?php echo esc_attr( $empresa_export_url ); ?>"
-			data-aulas="<?php echo esc_attr( (string) wp_json_encode( ANPA_Socios_Config::aulas() ) ); ?>"
 			data-estrutura="<?php echo esc_attr( (string) wp_json_encode( self::get_estrutura_data() ) ); ?>"
 			data-login-url="<?php echo esc_attr( class_exists( 'ANPA_Socios_Admin_Settings' ) ? ANPA_Socios_Admin_Settings::landing_page_url() : '' ); ?>">
 			<div class="anpa-area-notice" data-area-message hidden></div>
@@ -272,19 +271,10 @@ class ANPA_Socios_Area_Page {
 				<label for="anpa-fillo-curso"><?php esc_html_e( 'Curso', 'anpa-socios' ); ?></label>
 				<select id="anpa-fillo-curso" required>
 					<option value=""><?php esc_html_e( '-- Selecciona --', 'anpa-socios' ); ?></option>
-					<option value="1">1º</option>
-					<option value="2">2º</option>
-					<option value="3">3º</option>
-					<option value="4">4º</option>
-					<option value="5">5º</option>
-					<option value="6">6º</option>
 				</select>
 				<label for="anpa-fillo-aula"><?php esc_html_e( 'Grupo', 'anpa-socios' ); ?></label>
 				<select id="anpa-fillo-aula" required>
 					<option value=""><?php esc_html_e( '-- Selecciona --', 'anpa-socios' ); ?></option>
-					<?php foreach ( ANPA_Socios_Config::aulas() as $aula_option ) : ?>
-						<option value="<?php echo esc_attr( $aula_option ); ?>"><?php echo esc_html( $aula_option ); ?></option>
-					<?php endforeach; ?>
 				</select>
 				<div class="anpa-area-actions">
 					<button type="button" data-action="save-fillo"><?php esc_html_e( 'Gardar fillo/a', 'anpa-socios' ); ?></button>
@@ -363,7 +353,10 @@ class ANPA_Socios_Area_Page {
 	 * @return array{niveis:array,aulas:array}
 	 */
 	private static function get_estrutura_data(): array {
-		$curso_escolar = ANPA_Socios_Curso_Escolar::current();
+		$curso_escolar = ANPA_Socios_Curso_Activo::get();
+		if ( null === $curso_escolar ) {
+			return array( 'niveis' => array(), 'aulas' => array() );
+		}
 		$niveis = ANPA_Socios_DB::get_niveis_for_curso( $curso_escolar );
 		$nivel_ids = array();
 		foreach ( $niveis as $n ) {

@@ -68,6 +68,12 @@ if ( ! function_exists( 'add_submenu_page' ) ) {
 	}
 }
 
+if ( ! function_exists( 'remove_submenu_page' ) ) {
+	function remove_submenu_page( ...$args ) {
+		$GLOBALS['anpa_socios_admin_nav_removed_submenus'][] = $args;
+	}
+}
+
 require_once dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-management-page.php';
 require_once dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-settings.php';
 
@@ -102,7 +108,7 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 			array_keys( ANPA_Socios_Admin_Nav::settings_sections( 'xeral' ) )
 		);
 		$this->assertSame(
-			array( 'curso-escolar', 'crear-novo', 'estrutura' ),
+			array( 'curso-escolar', 'estrutura' ),
 			array_keys( ANPA_Socios_Admin_Nav::settings_sections( 'cursos' ) )
 		);
 		$this->assertSame(
@@ -121,8 +127,25 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 		$this->assertSame( 'estado', ANPA_Socios_Admin_Nav::active_settings_section( 'xeral', null ) );
 		$this->assertSame( 'estado', ANPA_Socios_Admin_Nav::active_settings_section( 'xeral', 'verificacion' ) );
 		$this->assertSame( 'curso-escolar', ANPA_Socios_Admin_Nav::active_settings_section( 'cursos', 'curso-escolar' ) );
+		$this->assertSame( 'curso-escolar', ANPA_Socios_Admin_Nav::active_settings_section( 'cursos', 'crear-novo' ) );
 		$this->assertSame( '', ANPA_Socios_Admin_Nav::active_settings_section( 'mantemento', 'verificacion' ) );
 		$this->assertSame( '', ANPA_Socios_Admin_Nav::active_settings_section( 'mantemento', 'unknown' ) );
+	}
+
+	public function test_active_management_section_supports_deep_links_and_legacy_aliases(): void {
+		$this->assertSame( 'grupos-horarios', ANPA_Socios_Admin_Nav::active_management_section( 'grupos-horarios' ) );
+		$this->assertSame( 'matriculas', ANPA_Socios_Admin_Nav::active_management_section( 'cursos-matriculas' ) );
+		$this->assertSame( 'socios', ANPA_Socios_Admin_Nav::active_management_section( 'descoñecida' ) );
+		$this->assertSame( 'socios', ANPA_Socios_Admin_Nav::active_management_section( null ) );
+	}
+
+	public function test_management_page_localizes_the_resolved_initial_section(): void {
+		$page = file_get_contents( __DIR__ . '/../includes/class-anpa-socios-admin-management-page.php' );
+		$js   = file_get_contents( __DIR__ . '/../assets/js/admin-management.js' );
+
+		$this->assertStringContainsString( 'active_management_section', $page );
+		$this->assertStringContainsString( "'section'", $page );
+		$this->assertStringContainsString( "navigateTo(cfg.section || 'socios')", $js );
 	}
 
 	public function test_management_sections_are_grouped_by_domain_and_hide_removed_visible_slugs(): void {
@@ -187,6 +210,29 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 		$this->assertStringNotContainsString( '!important', $css );
 	}
 
+	public function test_management_desktop_visually_separates_groups_and_subtabs(): void {
+		$css = (string) file_get_contents( dirname( __DIR__ ) . '/assets/css/admin-management.css' );
+
+		$this->assertMatchesRegularExpression(
+			'/\.anpa-mgmt-nav-group\s*\{[^}]*border:\s*1px solid #c3c4c7;[^}]*background:\s*#fff;[^}]*padding:\s*0\.75rem;/s',
+			$css
+		);
+		$this->assertMatchesRegularExpression(
+			'/\.anpa-mgmt-nav button\s*\{[^}]*background:\s*#f6f7f7;[^}]*border:\s*1px solid #dcdcde;/s',
+			$css
+		);
+		$this->assertMatchesRegularExpression( '/\.anpa-mgmt-nav-buttons\s*\{[^}]*gap:\s*0\.35rem;/s', $css );
+	}
+
+	public function test_management_mobile_contains_wide_tables_inside_the_content_root(): void {
+		$css = (string) file_get_contents( dirname( __DIR__ ) . '/assets/css/admin-management.css' );
+
+		$this->assertMatchesRegularExpression(
+			'/@media \(max-width: 782px\).*?#anpa-management-root\s*\{[^}]*max-width:\s*100%;[^}]*overflow-x:\s*auto;/s',
+			$css
+		);
+	}
+
 	public function test_admin_management_js_uses_visible_matriculas_and_grupos_horarios_slugs(): void {
 		$js = (string) file_get_contents( dirname( __DIR__ ) . '/assets/js/admin-management.js' );
 
@@ -227,12 +273,45 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 		$this->assertStringNotContainsString( 'Xestión ANPA → Cursos e matrículas', $settings );
 	}
 
+	public function test_course_settings_body_params_reach_the_canonical_lifecycle_writer(): void {
+		$settings = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-settings.php' );
+		$shared   = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-shared.php' );
+
+		$this->assertStringContainsString( '$request->set_body_params(', $settings );
+		$this->assertStringContainsString( '$request->get_body_params()', $shared );
+		$this->assertStringContainsString( 'ANPA_Socios_Admin_Cursos_Handler::update_curso( $request )', $settings );
+	}
+
+	public function test_course_settings_integrates_creation_and_removes_global_classroom_limit(): void {
+		$settings = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-settings.php' );
+		$config   = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-config.php' );
+
+		$this->assertStringContainsString( 'Crear novo curso', $settings );
+		$this->assertStringNotContainsString( "'crear-novo' !== \$section", $settings );
+		$this->assertStringNotContainsString( 'Liñas por curso (aula máxima)', $settings );
+		$this->assertStringNotContainsString( "\$_POST['aula_max']", $settings );
+		$this->assertStringNotContainsString( 'OPTION_AULA_MAX', $config );
+		$this->assertStringNotContainsString( 'function aula_max', $config );
+		$this->assertStringNotContainsString( 'function aulas', $config );
+	}
+
+	public function test_family_area_uses_active_course_structure_without_global_fallback(): void {
+		$page = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-area-page.php' );
+		$js   = (string) file_get_contents( dirname( __DIR__ ) . '/assets/js/area.js' );
+
+		$this->assertStringContainsString( 'ANPA_Socios_Curso_Activo::get()', $page );
+		$this->assertStringNotContainsString( 'ANPA_Socios_Config::aulas()', $page );
+		$this->assertStringNotContainsString( 'data-aulas=', $page );
+		$this->assertStringNotContainsString( "root.getAttribute('data-aulas')", $js );
+		$this->assertStringNotContainsString( "['A', 'B', 'C', 'D']", $js );
+	}
+
 	public function test_native_management_page_metadata_is_available(): void {
 		$this->assertSame(
 			array(
 				'slug'       => 'anpa-socios-management',
-				'menu_label' => 'Xestión ANPA',
-				'page_title' => 'Xestión ANPA',
+				'menu_label' => 'Xestión',
+				'page_title' => 'Xestión',
 			),
 			ANPA_Socios_Admin_Nav::native_management_page()
 		);
@@ -243,8 +322,8 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 			array(
 				'management' => array(
 					'slug'       => 'anpa-socios-management',
-					'menu_label' => 'Xestión ANPA',
-					'page_title' => 'Xestión ANPA',
+					'menu_label' => 'Xestión',
+					'page_title' => 'Xestión',
 				),
 				'settings' => array(
 					'slug'       => 'anpa-socios-settings',
@@ -262,61 +341,45 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 	}
 
 	/**
-	 * The top-level admin menu now uses the configurable sidebar label and
-	 * renders the operational management page directly. The management, Axustes
-	 * and Documentación submenu entries stay in that order under the new top
-	 * level.
+	 * The configurable top-level opens a distinct plugin overview. Management,
+	 * Axustes and Documentación stay stable below it.
 	 */
 	public function test_register_menu_uses_configurable_sidebar_label_and_management_callback(): void {
 		$settings   = file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-settings.php' );
 		$management = file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-management-page.php' );
 
-		$this->assertMatchesRegularExpression(
-			"/add_menu_page\\(\\s*ANPA_Socios_Config::menu_name\\(\\),\\s*ANPA_Socios_Config::menu_name\\(\\),\\s*self::CAP,\\s*ANPA_Socios_Admin_Management_Page::MANAGEMENT_SLUG,\\s*array\\( ANPA_Socios_Admin_Management_Page::class, 'render_page' \\)/s",
-			$settings
-		);
+		$this->assertStringContainsString( 'public const OVERVIEW_SLUG', $settings );
+		$this->assertStringContainsString( "array( __CLASS__, 'render_overview_page' )", $settings );
 		$this->assertStringContainsString(
-			"ANPA_Socios_Admin_Management_Page::register_menu( ANPA_Socios_Admin_Management_Page::MANAGEMENT_SLUG, self::CAP );",
+			"ANPA_Socios_Admin_Management_Page::register_menu( self::OVERVIEW_SLUG, self::CAP );",
 			$settings
 		);
-		$this->assertStringContainsString(
-			"sprintf( esc_html__( 'Axustes — %s', 'anpa-socios' ), ANPA_Socios_Config::menu_name() )",
-			$settings
-		);
-		$this->assertStringContainsString(
-			"sprintf( esc_html__( 'Documentación — %s', 'anpa-socios' ), ANPA_Socios_Config::menu_name() )",
-			$settings
-		);
-		$this->assertStringContainsString( "ANPA_Socios_Config::menu_name()", $management );
+		$this->assertStringContainsString( 'remove_submenu_page( self::OVERVIEW_SLUG, self::OVERVIEW_SLUG )', $settings );
+		$this->assertStringNotContainsString( 'Axustes — %s', $settings );
+		$this->assertStringNotContainsString( 'Documentación — %s', $settings );
+		$this->assertGreaterThanOrEqual( 3, substr_count( $settings, 'ANPA_Socios_Config::MENU_NAME_MAX_LENGTH' ) );
+		$this->assertStringContainsString( "esc_html__( 'Xestión', 'anpa-socios' )", $management );
 		$this->assertStringContainsString( "array( __CLASS__, 'render_page' )", $management );
 		$this->assertStringContainsString( "self::MANAGEMENT_SLUG", $management );
 
-		$management_pos = strpos( $settings, "ANPA_Socios_Admin_Management_Page::register_menu( ANPA_Socios_Admin_Management_Page::MANAGEMENT_SLUG, self::CAP );" );
-		$settings_pos   = strpos( $settings, "sprintf( esc_html__( 'Axustes — %s', 'anpa-socios' ), ANPA_Socios_Config::menu_name() )" );
-		$docs_pos       = strpos( $settings, "sprintf( esc_html__( 'Documentación — %s', 'anpa-socios' ), ANPA_Socios_Config::menu_name() )" );
-
-		$this->assertNotFalse( $management_pos );
-		$this->assertNotFalse( $settings_pos );
-		$this->assertNotFalse( $docs_pos );
-		$this->assertLessThan( $settings_pos, $management_pos );
-		$this->assertLessThan( $docs_pos, $settings_pos );
 	}
 
 	public function test_register_menu_emits_the_final_wordpress_menu_contract(): void {
 		$GLOBALS['anpa_socios_admin_nav_options']       = array();
 		$GLOBALS['anpa_socios_admin_nav_menu_calls']    = array();
 		$GLOBALS['anpa_socios_admin_nav_submenu_calls'] = array();
+		$GLOBALS['anpa_socios_admin_nav_removed_submenus'] = array();
 
 		ANPA_Socios_Admin_Settings::register_menu();
 
 		$this->assertCount( 1, $GLOBALS['anpa_socios_admin_nav_menu_calls'] );
 		$this->assertSame(
 			array(
-				'Xestión ANPA',
+				'ANPA Socios',
 				'Xestión ANPA',
 				'manage_options',
-				'anpa-socios-management',
-				array( ANPA_Socios_Admin_Management_Page::class, 'render_page' ),
+				'anpa-socios',
+				array( ANPA_Socios_Admin_Settings::class, 'render_overview_page' ),
 				'dashicons-groups',
 				58,
 			),
@@ -328,10 +391,21 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 			array_column( $GLOBALS['anpa_socios_admin_nav_submenu_calls'], 4 )
 		);
 		$this->assertSame(
-			array( 'Xestión ANPA', 'Axustes', 'Documentación' ),
+			array( 'Xestión', 'Axustes', 'Documentación' ),
 			array_column( $GLOBALS['anpa_socios_admin_nav_submenu_calls'], 2 )
 		);
 		$this->assertNotContains( 'ANPA Socios', array_column( $GLOBALS['anpa_socios_admin_nav_submenu_calls'], 2 ) );
+		$this->assertSame( array( array( 'anpa-socios', 'anpa-socios' ) ), $GLOBALS['anpa_socios_admin_nav_removed_submenus'] );
+	}
+
+	public function test_overview_is_explanatory_and_links_the_three_destinations(): void {
+		$settings = file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-settings.php' );
+
+		$this->assertStringContainsString( 'function render_overview_page', $settings );
+		$this->assertStringContainsString( 'Este plugin centraliza', $settings );
+		$this->assertStringContainsString( "'Xestión'", $settings );
+		$this->assertStringContainsString( "'Axustes'", $settings );
+		$this->assertStringContainsString( "'Documentación'", $settings );
 	}
 
 	public function test_management_requires_completed_setup(): void {

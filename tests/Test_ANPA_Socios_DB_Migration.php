@@ -24,14 +24,61 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		$this->plugin_file = dirname( __DIR__ ) . '/anpa-socios.php';
 	}
 
-	public function test_db_version_constant_is_1_32_0(): void {
-		$this->assertSame( '1.32.0', ANPA_Socios_DB::DB_VERSION );
+	public function test_db_version_constant_is_1_33_0(): void {
+		$this->assertSame( '1.33.0', ANPA_Socios_DB::DB_VERSION );
 	}
 
-	public function test_anpa_socios_db_version_is_1_32_0(): void {
+	public function test_anpa_socios_db_version_is_1_33_0(): void {
 		$source = file_get_contents( $this->plugin_file );
 		$this->assertIsString( $source );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.32.0' )", $source );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.33.0' )", $source );
+	}
+
+	// ── fase26 correction: reusable meal schedules (1.33.0) ──────────
+
+	public function test_migrate_to_1_33_0_normalizes_meal_schedules_and_removes_global_option(): void {
+		$source = (string) file_get_contents( $this->db_file );
+
+		$this->assertStringContainsString( 'tabela_horarios_comedor', $source );
+		$this->assertStringContainsString( 'anpa_horarios_comedor', $source );
+		$this->assertStringContainsString( 'horario_comedor_id bigint(20) unsigned NULL DEFAULT NULL', $source );
+		$this->assertStringContainsString( 'UNIQUE KEY curso_franxa (curso_escolar, inicio, fin)', $source );
+		$this->assertStringContainsString( 'private static function migrate_to_1_33_0(): bool', $source );
+		$this->assertStringContainsString( "version_compare( \$installed_version, '1.33.0', '<' ) && ! self::migrate_to_1_33_0()", $source );
+		$this->assertStringContainsString( 'Migration halted at step 1.33.0', $source );
+		$this->assertStringContainsString( 'comedor_inicio', $source );
+		$this->assertStringContainsString( 'comedor_fin', $source );
+		$this->assertStringContainsString( 'SET n.horario_comedor_id = h.id', $source );
+		$this->assertStringContainsString( "delete_option( 'anpa_socios_aula_max' )", $source );
+		$this->assertStringContainsString( '1.33.0 comedor postcondition failed', $source );
+	}
+
+	public function test_migrate_to_1_33_0_preserves_an_existing_schedule_state_on_retry(): void {
+		$source = (string) file_get_contents( $this->db_file );
+		$start  = strpos( $source, 'function backfill_legacy_horarios_comedor' );
+		$end    = strpos( $source, "\n	/**", $start );
+
+		$this->assertNotFalse( $start );
+		$this->assertNotFalse( $end );
+		$method = substr( $source, $start, $end - $start );
+		$this->assertStringContainsString( 'ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)', $method );
+		$this->assertStringNotContainsString( 'estado = VALUES(estado)', $method );
+	}
+
+	public function test_migration_runner_skips_every_schema_step_already_applied(): void {
+		$source = (string) file_get_contents( $this->db_file );
+
+		$this->assertStringContainsString(
+			"if ( version_compare( \$installed_version, \$step_version, '>=' ) )",
+			$source
+		);
+		foreach ( array( '1.26.0', '1.27.0', '1.28.0', '1.29.0', '1.30.0', '1.31.0', '1.32.0', '1.33.0' ) as $version ) {
+			$this->assertStringContainsString(
+				"version_compare( \$installed_version, '{$version}', '<' )",
+				$source,
+				"O paso {$version} debe saltarse cando xa foi aplicado."
+			);
+		}
 	}
 
 	// ── fase26 PR-26s4: annual meal availability (1.32.0) ────────────
@@ -51,7 +98,7 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 	public function test_migrate_to_1_32_0_is_gated_and_retry_safe(): void {
 		$source = file_get_contents( $this->db_file );
 
-		$this->assertStringContainsString( 'if ( ! self::migrate_to_1_32_0() )', $source );
+		$this->assertStringContainsString( "version_compare( \$installed_version, '1.32.0', '<' ) && ! self::migrate_to_1_32_0()", $source );
 		$this->assertStringContainsString( 'Migration halted at step 1.32.0', $source );
 		$this->assertStringContainsString( 'private static function migrate_to_1_32_0(): bool', $source );
 		$this->assertStringContainsString( "tem_columna( \$niveis, 'comedor_inicio' )", $source );
@@ -74,7 +121,7 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 	public function test_migrate_to_1_28_0_exists_and_is_gated(): void {
 		$source = file_get_contents( $this->db_file );
 		$this->assertStringContainsString( 'migrate_to_1_28_0', $source );
-		$this->assertStringContainsString( 'if ( ! self::migrate_to_1_28_0() )', $source );
+		$this->assertStringContainsString( "version_compare( \$installed_version, '1.28.0', '<' ) && ! self::migrate_to_1_28_0()", $source );
 	}
 
 	public function test_migrate_to_1_28_0_adds_exclusive_horario_enum(): void {
@@ -109,7 +156,7 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 	public function test_migrate_to_1_31_0_exists_and_is_gated(): void {
 		$source = file_get_contents( $this->db_file );
 		$this->assertStringContainsString( 'migrate_to_1_31_0', $source );
-		$this->assertStringContainsString( 'if ( ! self::migrate_to_1_31_0() )', $source );
+		$this->assertStringContainsString( "version_compare( \$installed_version, '1.31.0', '<' ) && ! self::migrate_to_1_31_0()", $source );
 	}
 
 	public function test_migrate_to_1_31_0_drops_curricular_tables_with_if_exists(): void {
@@ -278,7 +325,7 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 			}
 		}
 		$this->assertTrue( $found_gate, 'migrate_to_1_27_0 call must exist in crear_tabelas' );
-		$this->assertStringContainsString( 'if ( ! self::migrate_to_1_27_0() )', $source );
+		$this->assertStringContainsString( "version_compare( \$installed_version, '1.27.0', '<' ) && ! self::migrate_to_1_27_0()", $source );
 	}
 
 	public function test_migrate_to_1_27_0_has_backfill_niveis(): void {

@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class ANPA_Socios_Backup {
 
 	const MAGIC   = 'ANPABAK1';
-	const VERSION = 3;
+	const VERSION = 5;
 
 	/**
 	 * Domain tables included in a backup, in FK-safe insert order.
@@ -42,6 +42,7 @@ final class ANPA_Socios_Backup {
 			'actividades'        => ANPA_Socios_DB::tabela_actividades(),
 			'actividades_cursos' => ANPA_Socios_DB::tabela_actividades_cursos(),
 			'cursos'             => ANPA_Socios_DB::tabela_cursos(),
+			'horarios_comedor'   => ANPA_Socios_DB::tabela_horarios_comedor(),
 			'niveis'             => ANPA_Socios_DB::tabela_niveis(),
 			'aulas'              => ANPA_Socios_DB::tabela_aulas(),
 			'grupos'             => ANPA_Socios_DB::tabela_grupos(),
@@ -49,6 +50,74 @@ final class ANPA_Socios_Backup {
 			'matriculas'         => ANPA_Socios_DB::tabela_matriculas(),
 			'domiciliacions'     => ANPA_Socios_DB::tabela_domiciliacions(),
 		);
+	}
+
+	/**
+	 * Non-secret settings transported with the domain backup.
+	 *
+	 * @return array<string,string>
+	 */
+	private static function backup_options(): array {
+		return array(
+			'menu_name' => (string) get_option( ANPA_Socios_Config::OPTION_MENU_NAME, '' ),
+		);
+	}
+
+	/**
+	 * Normalizes optional settings across backup versions.
+	 *
+	 * Backups before v5 did not carry the menu label, so restore the neutral
+	 * default by deleting the override instead of inventing a custom value.
+	 *
+	 * @param  array<string,mixed> $options        Options from the payload.
+	 * @param  int                 $backup_version Backup payload version.
+	 * @return array{menu_name:string}
+	 */
+	private static function normalize_restore_options( array $options, int $backup_version ): array {
+		if ( $backup_version < 5 ) {
+			return array( 'menu_name' => '' );
+		}
+
+		$value = $options['menu_name'] ?? '';
+		$value = is_scalar( $value ) ? trim( strip_tags( (string) $value ) ) : '';
+		if ( function_exists( 'mb_substr' ) ) {
+			$value = mb_substr( $value, 0, ANPA_Socios_Config::MENU_NAME_MAX_LENGTH );
+		} else {
+			$value = substr( $value, 0, ANPA_Socios_Config::MENU_NAME_MAX_LENGTH );
+		}
+
+		return array( 'menu_name' => trim( $value ) );
+	}
+
+	/**
+	 * Writes restored settings in the caller-owned transaction.
+	 *
+	 * @param  array{menu_name:string} $options Normalized options.
+	 * @return bool
+	 */
+	private static function restore_options( array $options ): bool {
+		global $wpdb;
+
+		$key   = ANPA_Socios_Config::OPTION_MENU_NAME;
+		$value = (string) ( $options['menu_name'] ?? '' );
+		if ( '' === $value ) {
+			$written = $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name = %s", $key ) );
+		} else {
+			$written = $wpdb->query( $wpdb->prepare(
+				"INSERT INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'yes')
+				 ON DUPLICATE KEY UPDATE option_value = VALUES(option_value)",
+				$key,
+				maybe_serialize( $value )
+			) );
+		}
+		if ( false === $written ) {
+			return false;
+		}
+		wp_cache_delete( $key, 'options' );
+		wp_cache_delete( 'alloptions', 'options' );
+		wp_cache_delete( 'notoptions', 'options' );
+
+		return true;
 	}
 
 	/**
@@ -109,7 +178,12 @@ final class ANPA_Socios_Backup {
 		foreach ( self::tables() as $key => $table ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- admin-only backup; table from DB helper.
 			$rows = $wpdb->get_results( "SELECT * FROM {$table}", ARRAY_A );
-			$rows = is_array( $rows ) ? $rows : array();
+			if ( ! is_array( $rows ) ) {
+				if ( null !== $secret ) {
+					sodium_memzero( $secret );
+				}
+				return new WP_Error( 'anpa_bak_read_failed', 'Non se puido ler toda a información da copia.', array( 'status' => 500 ) );
+			}
 
 			if ( 'socios' === $key ) {
 				// Exclude the master account.
@@ -120,12 +194,30 @@ final class ANPA_Socios_Backup {
 
 			if ( 'domiciliacions' === $key ) {
 				foreach ( $rows as &$r ) {
-					$iban = ( null !== $secret && ! empty( $r['iban_cifrado'] ) )
-						? (string) ANPA_Socios_Crypto::unseal( (string) $r['iban_cifrado'], (string) $public, $secret )
-						: '';
-					$nif  = ( null !== $secret && ! empty( $r['titular_nif_cifrado'] ) )
-						? (string) ANPA_Socios_Crypto::unseal( (string) $r['titular_nif_cifrado'], (string) $public, $secret )
-						: '';
+					$iban = '';
+					if ( ! empty( $r['iban_cifrado'] ) ) {
+						$iban = null !== $secret
+							? ANPA_Socios_Crypto::unseal( (string) $r['iban_cifrado'], (string) $public, $secret )
+							: null;
+						if ( null === $iban ) {
+							if ( null !== $secret ) {
+								sodium_memzero( $secret );
+							}
+							return new WP_Error( 'anpa_bak_decrypt_failed', 'Non se puideron descifrar todos os datos bancarios.', array( 'status' => 500 ) );
+						}
+					}
+					$nif = '';
+					if ( ! empty( $r['titular_nif_cifrado'] ) ) {
+						$nif = null !== $secret
+							? ANPA_Socios_Crypto::unseal( (string) $r['titular_nif_cifrado'], (string) $public, $secret )
+							: null;
+						if ( null === $nif ) {
+							if ( null !== $secret ) {
+								sodium_memzero( $secret );
+							}
+							return new WP_Error( 'anpa_bak_decrypt_failed', 'Non se puideron descifrar todos os datos bancarios.', array( 'status' => 500 ) );
+						}
+					}
 					$r['iban_plain'] = $iban;
 					$r['nif_plain']  = $nif;
 					// Drop the old-key ciphertext; it will be re-sealed on restore.
@@ -146,6 +238,7 @@ final class ANPA_Socios_Backup {
 			'version' => self::VERSION,
 			'created' => gmdate( 'c' ),
 			'tables'  => $dump,
+			'options' => self::backup_options(),
 		) );
 		if ( false === $payload ) {
 			return new WP_Error( 'anpa_bak_encode', 'Non se puido serializar a copia.', array( 'status' => 500 ) );
@@ -161,8 +254,11 @@ final class ANPA_Socios_Backup {
 			'kdf'       => 'argon2id',
 			'container' => $container,
 		) );
+		if ( false === $out ) {
+			return new WP_Error( 'anpa_bak_container_encode', 'Non se puido serializar o contedor cifrado.', array( 'status' => 500 ) );
+		}
 
-		return (string) $out;
+		return $out;
 	}
 
 	/**
@@ -192,6 +288,10 @@ final class ANPA_Socios_Backup {
 		if ( ! is_array( $payload ) || ( $payload['magic'] ?? '' ) !== self::MAGIC || empty( $payload['tables'] ) ) {
 			return new WP_Error( 'anpa_bak_payload', 'Contido da copia non válido.', array( 'status' => 400 ) );
 		}
+		$backup_version = (int) ( $payload['version'] ?? 1 );
+		if ( $backup_version < 1 || $backup_version > self::VERSION ) {
+			return new WP_Error( 'anpa_bak_version', 'A versión desta copia non é compatible.', array( 'status' => 400 ) );
+		}
 
 		$public = ANPA_Socios_Banking_Key::public_key();
 		if ( null === $public ) {
@@ -200,7 +300,10 @@ final class ANPA_Socios_Backup {
 
 		$tables         = self::tables();
 		$dump           = $payload['tables'];
-		$backup_version = (int) ( $payload['version'] ?? 1 );
+		$restore_options = self::normalize_restore_options(
+			isset( $payload['options'] ) && is_array( $payload['options'] ) ? $payload['options'] : array(),
+			$backup_version
+		);
 		$restore_failed = static function () use ( $wpdb ): WP_Error {
 			$wpdb->query( 'ROLLBACK' );
 			$wpdb->query( 'SET FOREIGN_KEY_CHECKS=1' );
@@ -232,10 +335,15 @@ final class ANPA_Socios_Backup {
 					$iban = (string) ( $row['iban_plain'] ?? '' );
 					$nif  = (string) ( $row['nif_plain'] ?? '' );
 					unset( $row['iban_plain'], $row['nif_plain'] );
-					$row['iban_cifrado']        = '' !== $iban ? (string) ANPA_Socios_Crypto::seal( $iban, (string) $public ) : null;
+					$iban_sealed = '' !== $iban ? ANPA_Socios_Crypto::seal( $iban, (string) $public ) : null;
+					$nif_sealed  = '' !== $nif ? ANPA_Socios_Crypto::seal( $nif, (string) $public ) : null;
+					if ( ( '' !== $iban && null === $iban_sealed ) || ( '' !== $nif && null === $nif_sealed ) ) {
+						return $restore_failed();
+					}
+					$row['iban_cifrado']        = $iban_sealed;
 					$row['iban_nonce']          = null;
 					$row['iban_last4']          = '' !== $iban ? ANPA_Socios_Crypto::iban_last4( $iban ) : '';
-					$row['titular_nif_cifrado'] = '' !== $nif ? (string) ANPA_Socios_Crypto::seal( $nif, (string) $public ) : null;
+					$row['titular_nif_cifrado'] = $nif_sealed;
 					$row['titular_nif_nonce']   = null;
 				}
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin-only restore insert.
@@ -255,7 +363,7 @@ final class ANPA_Socios_Backup {
 			$niveis_t  = ANPA_Socios_DB::tabela_niveis();
 			$aulas_t   = ANPA_Socios_DB::tabela_aulas();
 			$cursos_t  = ANPA_Socios_DB::tabela_cursos();
-			$aula_max  = ANPA_Socios_Config::aula_max();
+			$fillos_cursos_t = ANPA_Socios_DB::tabela_fillos_cursos();
 
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- backup restore backfill.
 			$restored_cursos = $wpdb->get_col( "SELECT DISTINCT curso_escolar FROM {$cursos_t} ORDER BY curso_escolar" );
@@ -263,6 +371,22 @@ final class ANPA_Socios_Backup {
 				return $restore_failed();
 			}
 			foreach ( $restored_cursos as $curso_escolar ) {
+					// v1 did not include options. Derive the observed classroom range
+					// from its own restored assignments; use the historical neutral D
+					// only when the backup contains no valid evidence.
+					$aula_max = 'D';
+					$observed = $wpdb->get_col( $wpdb->prepare(
+						"SELECT DISTINCT UPPER(aula) FROM {$fillos_cursos_t} WHERE curso_escolar = %s AND UPPER(aula) REGEXP '^[A-H]$'",
+						$curso_escolar
+					) );
+					if ( ! is_array( $observed ) ) {
+						return $restore_failed();
+					}
+					foreach ( $observed as $observed_aula ) {
+						if ( is_string( $observed_aula ) && $observed_aula > $aula_max ) {
+							$aula_max = $observed_aula;
+						}
+					}
 					// Check if the curso already has niveis (e.g. from a partial v2 state).
 					$existing_result = $wpdb->get_var( $wpdb->prepare(
 						"SELECT COUNT(*) FROM {$niveis_t} WHERE curso_escolar = %s",
@@ -322,6 +446,13 @@ final class ANPA_Socios_Backup {
 				}
 		}
 
+		if ( $backup_version < 4 && ! ANPA_Socios_DB::backfill_legacy_horarios_comedor() ) {
+			return $restore_failed();
+		}
+		if ( ! self::restore_options( $restore_options ) ) {
+			return $restore_failed();
+		}
+
 		if ( false === $wpdb->query( 'SET FOREIGN_KEY_CHECKS=1' ) ) {
 			return $restore_failed();
 		}
@@ -340,23 +471,35 @@ final class ANPA_Socios_Backup {
 	 * Wipes all plugin data + init options so the setup wizard reappears.
 	 * IRREVERSIBLE.
 	 *
-	 * @return void
+	 * @return true|WP_Error
 	 */
-	public static function wipe(): void {
+	public static function wipe() {
 		global $wpdb;
 
 		$suffixes = array(
-			'actividades', 'actividades_cursos', 'area_sessions', 'area_sessions_empresas',
-			'audit_log', 'aulas', 'codigos_verificacion', 'cursos', 'domiciliacions', 'empresas',
-			'fillos', 'fillos_cursos', 'grupos', 'grupos_niveis', 'matriculas', 'niveis', 'socios',
+			'actividades', 'actividades_cursos', 'actividades_cursos_grupos_curriculares', 'area_sessions', 'area_sessions_empresas',
+			'audit_log', 'aulas', 'codigos_verificacion', 'cursos', 'domiciliacions', 'empresas', 'horarios_comedor',
+			'fillos', 'fillos_cursos', 'grupos', 'grupos_curriculares', 'grupos_curriculares_niveis',
+			'grupos_niveis', 'matriculas', 'niveis', 'socios',
 		);
-		$wpdb->query( 'SET FOREIGN_KEY_CHECKS=0' );
+		$wipe_failed = static function () use ( $wpdb ): WP_Error {
+			$wpdb->query( 'SET FOREIGN_KEY_CHECKS=1' );
+			return new WP_Error( 'anpa_bak_wipe_failed', 'Non se puido completar o borrado. Revisa a base de datos antes de continuar.', array( 'status' => 500 ) );
+		};
+
+		if ( false === $wpdb->query( 'SET FOREIGN_KEY_CHECKS=0' ) ) {
+			return $wipe_failed();
+		}
 		foreach ( $suffixes as $s ) {
 			$t = $wpdb->prefix . 'anpa_' . $s;
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- irreversible admin wipe.
-			$wpdb->query( "DROP TABLE IF EXISTS `{$t}`" );
+			if ( false === $wpdb->query( "DROP TABLE IF EXISTS `{$t}`" ) ) {
+				return $wipe_failed();
+			}
 		}
-		$wpdb->query( 'SET FOREIGN_KEY_CHECKS=1' );
+		if ( false === $wpdb->query( 'SET FOREIGN_KEY_CHECKS=1' ) ) {
+			return $wipe_failed();
+		}
 
 		foreach ( array(
 			'anpa_socios_db_version',
@@ -365,12 +508,25 @@ final class ANPA_Socios_Backup {
 			'anpa_socios_admin_password_hash',
 			'anpa_socios_master_initialized',
 			'anpa_socios_master_email',
+			'anpa_socios_aula_max',
 			ANPA_Socios_Config::OPTION_ASSOCIATION,
 			ANPA_Socios_Config::OPTION_SIGNATURE,
 			ANPA_Socios_Config::OPTION_APPROVAL,
+			ANPA_Socios_Config::OPTION_CONTACT_EMAIL,
+			ANPA_Socios_Config::OPTION_ADDRESS,
+			ANPA_Socios_Config::OPTION_FEE,
+			ANPA_Socios_Config::OPTION_COUNTRY,
+			ANPA_Socios_Config::OPTION_PROVINCE,
+			ANPA_Socios_Config::OPTION_TOWN,
+			ANPA_Socios_Config::OPTION_MENU_NAME,
 			ANPA_Socios_Admin_Settings::LANDING_OPTION,
 		) as $opt ) {
 			delete_option( $opt );
+			if ( false !== get_option( $opt, false ) ) {
+				return $wipe_failed();
+			}
 		}
+
+		return true;
 	}
 }
