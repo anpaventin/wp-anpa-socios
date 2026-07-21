@@ -30,6 +30,7 @@
 		resolto_en: 'Data da resolución',
 		resolto_por: 'Resolto por',
 		cursos_ofertados: 'Cursos nos que se oferta',
+		trimestres: 'Trimestre inscripción',
 	};
 	function colLabel(key) { return adminColLabels[key] || baseColLabel(key); }
 	function formatAdminDate(value) {
@@ -1990,6 +1991,25 @@
 		}).catch(function (e) { listContainer.appendChild(emptyEl('Erro ao cargar grupos: ' + e.message)); });
 	}
 
+	function validateGrupoFormPayload(payload, levelControls) {
+		if (!payload.nome) { return 'Escribe o nome do grupo.'; }
+		if (!Array.isArray(payload.cursos) || !payload.cursos.length) { return 'Selecciona polo menos un curso escolar.'; }
+		for (var i = 0; i < payload.cursos.length; i += 1) {
+			var year = payload.cursos[i];
+			if (!levelControls[year] || levelControls[year].loading) { return 'Agarda a que remate a carga dos niveis de ' + year + '.'; }
+			if (levelControls[year].failed) { return 'Non foi posible cargar os niveis de ' + year + '. Téntao de novo.'; }
+			if (!payload.niveis_por_ano[year] || !payload.niveis_por_ano[year].length) { return 'Selecciona polo menos un nivel para ' + year + '.'; }
+		}
+		if (['maña', 'manha', 'tarde'].indexOf(payload.horario) === -1) { return 'Selecciona Mañá, Comedor ou Tarde.'; }
+		if (!/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(payload.franxa)) { return 'Completa a hora de inicio e fin.'; }
+		var times = payload.franxa.split('-');
+		if (times[0] >= times[1]) { return 'A hora de fin debe ser posterior á de inicio.'; }
+		if (!Array.isArray(payload.dias) || !payload.dias.length) { return 'Selecciona polo menos un día.'; }
+		if (!Number.isInteger(payload.min_pupilos) || payload.min_pupilos < 1) { return 'Indica un mínimo válido de alumnos/as.'; }
+		if (!Number.isInteger(payload.max_pupilos) || payload.max_pupilos < payload.min_pupilos) { return 'O máximo debe ser igual ou superior ao mínimo.'; }
+		return '';
+	}
+
 	function renderGrupoForm(grupo, actividad, preferredCourse, returnToGrid) {
 		root.textContent = '';
 		var isEdit = grupo !== null; var form = document.createElement('div'); form.className = 'anpa-mgmt-form';
@@ -2000,15 +2020,21 @@
 		var yearsLabel = document.createElement('label'); yearsLabel.textContent = 'Cursos escolares'; form.appendChild(yearsLabel);
 		var yearsWrap = document.createElement('div'); yearsWrap.className = 'anpa-mgmt-multicurso'; form.appendChild(yearsWrap);
 		var offered = Array.isArray(actividad.cursos_ofertados) ? actividad.cursos_ofertados : [];
-		var preferred = String(preferredCourse || '');
+		var defaultOffered = offered.indexOf(activeCourse) !== -1 ? activeCourse : (offered.length === 1 ? offered[0] : '');
+		var preferred = String(preferredCourse || defaultOffered || '');
 		var selected = isEdit && Array.isArray(grupo.cursos) ? grupo.cursos : (preferred && offered.indexOf(preferred) !== -1 ? [preferred] : []);
 		var levelControls = {};
+		var pendingLevelLoads = 0;
+		var save = null;
+		function updateSaveState() { if (save) { save.disabled = pendingLevelLoads > 0; } }
 		function addLevelYear(year) {
 			if (levelControls[year]) { return; }
 			var body = document.createElement('div'); body.className = 'anpa-mgmt-niveis-row'; body.textContent = 'Cargando…';
 			var block = yearsWrap.querySelector('[data-ano="' + year + '"]');
 			if (block) { block.appendChild(body); }
-			levelControls[year] = { body: body, block: block };
+			var control = { body: body, block: block, loading: true, failed: false };
+			levelControls[year] = control;
+			pendingLevelLoads += 1; updateSaveState();
 			anpaAdminFetch('estrutura?curso_escolar=' + encodeURIComponent(year)).then(function (resp) {
 				body.textContent = ''; var levels = resp && Array.isArray(resp.niveis) ? resp.niveis : [];
 				var pre = isEdit && grupo.niveis_por_ano && Array.isArray(grupo.niveis_por_ano[year]) ? grupo.niveis_por_ano[year].map(String) : [];
@@ -2017,7 +2043,8 @@
 					label.appendChild(chk); label.appendChild(document.createTextNode(' ' + (n.etiqueta || n.codigo))); body.appendChild(label);
 				});
 				if (!levels.length) { body.appendChild(emptyEl('Este curso non ten niveis dados de alta.')); }
-			}).catch(function () { body.textContent = 'Non foi posible cargar os niveis.'; });
+				control.loading = false; pendingLevelLoads -= 1; updateSaveState();
+			}).catch(function () { body.textContent = 'Non foi posible cargar os niveis.'; control.loading = false; control.failed = true; pendingLevelLoads -= 1; updateSaveState(); });
 		}
 		function removeLevelYear(year) { if (levelControls[year]) { levelControls[year].body.remove(); delete levelControls[year]; } }
 		offered.forEach(function (year) {
@@ -2047,13 +2074,17 @@
 		var max = document.createElement('input'); max.type = 'number'; max.min = '1'; max.value = isEdit ? grupo.max_pupilos : '15'; addField('anpa-grupo-max', 'Máximo de alumnos/as', max);
 		var state = document.createElement('select'); ['aberto','pechado'].forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v; o.selected = isEdit && grupo.estado === v; state.appendChild(o); }); addField('anpa-grupo-estado', 'Estado', state);
 
-		var actions = document.createElement('div'); actions.className = 'anpa-mgmt-form-actions'; var save = document.createElement('button'); save.type = 'button'; save.className = 'anpa-mgmt-btn'; save.textContent = isEdit ? 'Gardar cambios' : 'Crear grupo';
+		var actions = document.createElement('div'); actions.className = 'anpa-mgmt-form-actions'; save = document.createElement('button'); save.type = 'button'; save.className = 'anpa-mgmt-btn'; save.textContent = isEdit ? 'Gardar cambios' : 'Crear grupo'; save.disabled = pendingLevelLoads > 0;
 		save.addEventListener('click', function () {
+			if (save.disabled) { return; }
 			var cursos = []; yearsWrap.querySelectorAll('.anpa-mgmt-ano-check:checked').forEach(function (c) { cursos.push(c.value); }); var levels = {};
 			cursos.forEach(function (year) { levels[year] = []; if (levelControls[year]) { levelControls[year].body.querySelectorAll('input:checked').forEach(function (c) { levels[year].push(parseInt(c.value,10)); }); } });
 			var checkedHorario = horario.querySelector('input:checked'); var selectedDays = []; days.querySelectorAll('input:checked').forEach(function (c) { selectedDays.push(c.value); });
 			var payload = { nome: nome.value.trim(), cursos: cursos, niveis_por_ano: levels, horario: checkedHorario ? checkedHorario.value : '', franxa: start.value && end.value ? start.value + '-' + end.value : '', dias: selectedDays, min_pupilos: parseInt(min.value,10), max_pupilos: parseInt(max.value,10), estado: state.value };
-			anpaAdminFetch(isEdit ? 'grupo/' + grupo.id : 'actividad/' + actividad.id + '/grupos', { method: isEdit ? 'PATCH' : 'POST', body: payload }).then(function () { returnToGrid ? loadGruposHorarios() : renderGruposPanel(actividad); }).catch(function (e) { showMessage(e.message, 'error'); });
+			var validationError = validateGrupoFormPayload(payload, levelControls);
+			if (validationError) { showMessage(validationError, 'error'); return; }
+			save.disabled = true; save.textContent = 'Gardando…';
+			anpaAdminFetch(isEdit ? 'grupo/' + grupo.id : 'actividad/' + actividad.id + '/grupos', { method: isEdit ? 'PATCH' : 'POST', body: payload }).then(function () { returnToGrid ? loadGruposHorarios() : renderGruposPanel(actividad); }).catch(function (e) { save.disabled = false; save.textContent = isEdit ? 'Gardar cambios' : 'Crear grupo'; showMessage(e.message, 'error'); });
 		}); actions.appendChild(save);
 		var cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary'; cancel.textContent = 'Volver'; cancel.addEventListener('click', function () { returnToGrid ? loadGruposHorarios() : renderGruposPanel(actividad); }); actions.appendChild(cancel); form.appendChild(actions); root.appendChild(form);
 	}
