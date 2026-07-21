@@ -45,4 +45,16 @@ final class Test_ANPA_Socios_WpCli_Remote extends TestCase {
 		$this->assertStringContainsString( 'exit $exitCode', $source );
 		$this->assertStringNotContainsString( 'throw "wp-cli devolveu exit code $exitCode', $source );
 	}
+
+	public function test_remote_command_and_password_are_not_exposed_to_shell_or_process_list(): void {
+		$source = (string) file_get_contents( $this->script );
+
+		$this->assertStringContainsString( 'function ConvertTo-ANPAWpCliArguments', $source );
+		$this->assertStringContainsString( 'function ConvertTo-ANPAPosixLiteral', $source );
+		$this->assertStringContainsString( '$passwordFile', $source );
+		$this->assertStringContainsString( "'-pwfile', \$passwordFile", $source );
+		$this->assertStringContainsString( 'Remove-Item -LiteralPath $passwordFile', $source );
+		$this->assertStringNotContainsString( "'-pw', \$password", $source );
+		$this->assertStringNotContainsString( '/migrationwp', $source );
+	}
 }
