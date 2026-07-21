@@ -64,9 +64,9 @@ final class Test_ANPA_Socios_Csv_Roundtrip_Contracts extends TestCase {
 			'socios' => array( 'socios', array( 'id_familia' => 'F001', 'rol_familia' => 'principal', 'email' => 'familia@example.com', 'nome' => 'Noa', 'apelidos' => 'Exemplo', 'nif' => '00000000T', 'telefono' => '600000000', 'estado' => 'activo' ) ),
 			'fillos' => array( 'fillos', array( 'proxenitor_email' => 'familia@example.com', 'nome' => 'Lúa', 'apelidos' => 'Exemplo', 'data_nacemento' => '2018-03-15', 'curso' => '1', 'aula' => 'A', 'curso_escolar' => '2026/2027', 'image_consent' => '1', 'estado' => 'activo' ) ),
 			'empresas' => array( 'empresas', array( 'nome' => 'Empresa Exemplo', 'email' => 'empresa@example.com', 'responsable' => 'Persoa Exemplo', 'telefono' => '600000001', 'url_web' => 'https://example.com', 'estado' => 'activo' ) ),
-			'actividades' => array( 'actividades', array( 'empresa_email' => 'empresa@example.com', 'nome' => 'Actividade Exemplo', 'icono' => '🎒', 'descripcion' => 'Descrición', 'curso_escolar' => '2026/2027', 'nivel_min_codigo' => '1', 'nivel_max_codigo' => '3', 'custo' => '20', 'estado' => 'activo' ) ),
+			'actividades' => array( 'actividades', array( 'empresa_email' => 'empresa@example.com', 'nome' => 'Actividade Exemplo', 'icono' => '🎒', 'descripcion' => 'Descrición', 'custo' => '20', 'estado' => 'activo' ) ),
 			'matriculas' => array( 'matriculas', array( 'proxenitor_email' => 'familia@example.com', 'fillo_nome' => 'Lúa', 'fillo_apelidos' => 'Exemplo', 'empresa_email' => 'empresa@example.com', 'actividade_nome' => 'Actividade Exemplo', 'curso_escolar' => '2026/2027', 'grupo_curso_range' => '1-2-3', 'grupo_franxa' => '16:00-17:00', 'grupo_dias' => 'luns', 'trimestre' => '1', 'posicion' => '', 'comedor' => '1', 'tarde' => '0', 'observaciones' => '', 'estado' => 'activo' ) ),
-			'grupos' => array( 'grupos', array( 'actividade_nome' => 'Actividade Exemplo', 'empresa_email' => 'empresa@example.com', 'curso_escolar' => '2026/2027', 'niveis_codigos' => '1,2,3', 'franxa' => '16:00-17:00', 'dias' => 'luns', 'min_pupilos' => '8', 'max_pupilos' => '15', 'estado' => 'activo', 'grupo_curso_range' => '1-2-3' ) ),
+			'grupos' => array( 'grupos', array( 'actividade_nome' => 'Actividade Exemplo', 'empresa_email' => 'empresa@example.com', 'curso_escolar' => '2026/2027', 'grupo_nome' => 'Grupo A', 'serie_uid' => '11111111-1111-4111-8111-111111111111', 'niveis_codigos' => '1,2,3', 'horario' => 'tarde', 'franxa' => '16:00-17:00', 'dias' => 'luns', 'min_pupilos' => '8', 'max_pupilos' => '15', 'estado' => 'aberto' ) ),
 		);
 	}
 
@@ -77,20 +77,18 @@ final class Test_ANPA_Socios_Csv_Roundtrip_Contracts extends TestCase {
 	}
 
 	/**
-	 * The import dedup keys for actividades MUST read per-year rows from
-	 * actividades_cursos, exactly like the export JOIN. Reading the legacy
-	 * actividades.curso_escolar column makes every extra offered year of an
-	 * exported activity look new, so a round-trip reimport would duplicate it.
+	 * Activities are reusable entities: their natural key never contains a
+	 * school year and must not read the retired annual-offer table.
 	 */
-	public function test_actividades_existing_keys_use_per_year_offer_rows(): void {
+	public function test_actividades_existing_keys_use_only_the_base_entity(): void {
 		require_once __DIR__ . '/../includes/class-anpa-socios-admin-import-handler.php';
 		$source = file_get_contents( __DIR__ . '/../includes/class-anpa-socios-admin-import-handler.php' );
 		$method = self::method_source( $source, 'build_existing_keys' );
 		$case   = self::case_block( $method, 'actividades' );
 
-		$this->assertStringContainsString( 'anpa_actividades_cursos', $case, 'actividades dedup keys must JOIN actividades_cursos' );
-		$this->assertStringContainsString( 'ac.curso_escolar', $case, 'actividades dedup keys must read the per-year curso_escolar' );
-		$this->assertStringNotContainsString( 'a.curso_escolar', $case, 'actividades dedup keys must not read the legacy activity-level curso_escolar' );
+		$this->assertStringNotContainsString( 'actividades_cursos', $case );
+		$this->assertStringNotContainsString( 'curso_escolar', $case );
+		$this->assertStringContainsString( 'SELECT a.nome, e.email AS empresa_email', $case );
 	}
 
 	/**
@@ -145,6 +143,7 @@ final class Test_ANPA_Socios_Csv_Roundtrip_Contracts extends TestCase {
 			'empresas'    => array( 'empresas' ),
 			'actividades' => array( 'actividades' ),
 			'matriculas'  => array( 'matriculas' ),
+			'grupos'      => array( 'grupos' ),
 		);
 	}
 }

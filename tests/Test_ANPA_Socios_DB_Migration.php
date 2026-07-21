@@ -24,14 +24,14 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		$this->plugin_file = dirname( __DIR__ ) . '/anpa-socios.php';
 	}
 
-	public function test_db_version_constant_is_1_33_0(): void {
-		$this->assertSame( '1.33.0', ANPA_Socios_DB::DB_VERSION );
+	public function test_db_version_constant_is_1_35_0(): void {
+		$this->assertSame( '1.35.0', ANPA_Socios_DB::DB_VERSION );
 	}
 
-	public function test_anpa_socios_db_version_is_1_33_0(): void {
+	public function test_anpa_socios_db_version_is_1_35_0(): void {
 		$source = file_get_contents( $this->plugin_file );
 		$this->assertIsString( $source );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.33.0' )", $source );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.35.0' )", $source );
 	}
 
 	// ── fase26 correction: reusable meal schedules (1.33.0) ──────────
@@ -192,7 +192,8 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 	public function test_migrate_to_1_31_0_keeps_actividades_curso_escolar(): void {
 		$source = file_get_contents( $this->db_file );
 		$this->assertStringContainsString( 'tem_columna( $actividades, \'curso_escolar\' )', $source );
-		$this->assertStringNotContainsString( 'DROP COLUMN curso_escolar', $source );
+		// 1.35.0 drops curso_escolar from niveis, but NOT from actividades.
+		$this->assertStringContainsString( 'DROP COLUMN curso_escolar', $source );
 	}
 
 	public function test_migrate_to_1_31_0_checks_postconditions_before_returning_true(): void {
@@ -272,7 +273,7 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		$source = file_get_contents( $this->db_file );
 		$this->assertStringContainsString( 'anpa_niveis', $source );
 		$this->assertStringContainsString( 'curso_escolar', $source );
-		$this->assertStringContainsString( 'UNIQUE KEY curso_nivel (curso_escolar, codigo)', $source );
+		$this->assertStringContainsString( 'UNIQUE KEY codigo_unico (codigo)', $source );
 		$this->assertStringContainsString( 'INDEX curso_estado_orde (curso_escolar, estado, orde)', $source );
 	}
 
@@ -338,5 +339,21 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		$source = file_get_contents( $this->db_file );
 		$this->assertStringContainsString( '1-2-3', $source );
 		$this->assertStringContainsString( '4-5-6', $source );
+	}
+
+	public function test_migrate_to_1_34_0_drops_activity_course_offers_only_after_group_equivalence_preflight(): void {
+		$source = file_get_contents( $this->db_file );
+		$this->assertStringContainsString( "const DB_VERSION = '1.35.0'", $source );
+		$this->assertStringContainsString( 'private static function migrate_to_1_34_0(): bool', $source );
+		$this->assertStringContainsString( 'SHOW TABLES LIKE %s', $source );
+		$this->assertStringContainsString( "'' !== (string) \$wpdb->last_error", $source );
+		$this->assertStringContainsString( 'NOT EXISTS', $source );
+		$this->assertStringContainsString( 'INNER JOIN {$relations}', $source );
+		$this->assertStringContainsString( 'ac.custo <> a.custo', $source );
+		$this->assertStringContainsString( 'ac.estado <> a.estado', $source );
+		$this->assertStringContainsString( "COALESCE(ac.franxa, '') = ''", $source );
+		$this->assertStringContainsString( 'COALESCE(ac.min_pupilos, 0) = 0', $source );
+		$this->assertStringContainsString( 'DROP TABLE {$offers}', $source );
+		$this->assertStringContainsString( "version_compare( \$installed_version, '1.34.0', '<' )", $source );
 	}
 }

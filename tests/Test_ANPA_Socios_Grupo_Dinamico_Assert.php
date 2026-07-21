@@ -11,11 +11,12 @@ use PHPUnit\Framework\TestCase;
 
 final class Test_ANPA_Socios_Grupo_Dinamico_Assert extends TestCase {
 
-	public function test_series_validation_checks_levels_for_each_school_year(): void {
+	public function test_series_validation_checks_levels_for_the_active_school_year(): void {
 		$src = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-grupos-handler.php' );
 
 		$this->assertStringContainsString( 'private static function validate_series_payload', $src );
-		$this->assertStringContainsString( "\$payload['niveis_por_ano'][ \$curso ]", $src );
+		$this->assertStringContainsString( "\$body['nivel_ids']", $src );
+		$this->assertStringContainsString( "\$body['niveis_por_ano'][ \$curso_activo ]", $src );
 		$this->assertStringContainsString( 'ANPA_Socios_DB::niveis_belong_to_curso', $src );
 		$this->assertStringNotContainsString( 'assert_within_activity', $src );
 		$this->assertStringNotContainsString( 'anpa_admin_grupo_curso_range', $src );

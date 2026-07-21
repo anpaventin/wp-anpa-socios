@@ -15,11 +15,10 @@ final class Test_ANPA_Socios_Actividades_Retired_Horario extends TestCase {
 		$this->handler_file = dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-actividades-handler.php';
 	}
 
-	public function test_yearly_activity_payload_does_not_write_retired_horario_column(): void {
+	public function test_yearly_activity_payload_is_fully_retired(): void {
 		$source = file_get_contents( $this->handler_file );
-		$body   = $this->method_body( $source, 'year_payload' );
-
-		$this->assertStringNotContainsString( "'horario'", $body );
+		$this->assertStringNotContainsString( 'function year_payload(', $source );
+		$this->assertStringNotContainsString( 'tabela_actividades_cursos', $source );
 	}
 
 	public function test_activity_response_does_not_read_retired_horario_column(): void {

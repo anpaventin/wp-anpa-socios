@@ -24,7 +24,7 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 	}
 
 	public function test_schema_adds_group_series_fields_and_backfill(): void {
-		$this->assertStringContainsString( "const DB_VERSION = '1.33.0'", $this->db );
+		$this->assertStringContainsString( "const DB_VERSION = '1.35.0'", $this->db );
 		$this->assertStringContainsString( 'function migrate_to_1_29_0', $this->db );
 		$this->assertStringContainsString( 'ADD COLUMN serie_uid', $this->db );
 		$this->assertStringContainsString( 'ADD COLUMN nome', $this->db );
@@ -40,24 +40,25 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 		);
 	}
 
-	public function test_handler_persists_series_transactionally_and_blocks_history_loss(): void {
+	public function test_handler_persists_only_the_active_row_and_preserves_history(): void {
 		$this->assertStringContainsString( 'ANPA_Socios_Grupo_Serie::normalize', $this->handler );
 		$this->assertStringContainsString( 'private static function persist_series', $this->handler );
 		$this->assertStringContainsString( "START TRANSACTION", $this->handler );
-		$this->assertStringContainsString( "'anpa_admin_grupo_year_in_use'", $this->handler );
+		$this->assertStringContainsString( "'anpa_admin_active_course_changed'", $this->handler );
 		$this->assertStringContainsString( "'anpa_admin_grupo_legacy'", $this->handler );
-		$this->assertStringContainsString( 'WHERE grupo_id IN', $this->handler );
 		$this->assertStringContainsString( 'niveis_por_ano', $this->handler );
 	}
 
-	public function test_series_removal_locks_current_years_and_enrolment_references_before_deciding(): void {
+	public function test_active_year_writer_locks_the_series_before_deciding(): void {
 		$start   = strpos( $this->handler, 'private static function persist_series' );
 		$end     = strpos( $this->handler, 'public static function confirm_baixa', $start );
 		$persist = substr( $this->handler, $start, $end - $start );
 
 		$this->assertStringContainsString( 'SELECT id, curso_escolar FROM {$table}', $persist );
 		$this->assertStringContainsString( 'serie_uid = %s ORDER BY id FOR UPDATE', $persist );
-		$this->assertStringContainsString( 'SELECT id FROM {$mat} WHERE grupo_id = %d ORDER BY id FOR UPDATE', $persist );
+		$this->assertStringContainsString( 'ANPA_Socios_Curso_Activo::get()', $persist );
+		$this->assertStringNotContainsString( '$removed', $persist );
+		$this->assertStringNotContainsString( 'array_diff(', $persist );
 		$this->assertStringContainsString( "'' !== (string) \$wpdb->last_error", $persist );
 		$this->assertLessThan( strpos( $persist, 'SELECT id, curso_escolar FROM {$table}' ), strpos( $persist, "query( 'START TRANSACTION' )" ) );
 	}
@@ -94,27 +95,28 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 		$this->assertStringContainsString( "query( 'COMMIT' )", $method );
 	}
 
-	public function test_series_delete_rolls_back_when_level_relations_cannot_be_deleted(): void {
-		$this->assertStringContainsString( '! ANPA_Socios_DB::delete_grupo_niveis( $row_id )', $this->handler );
+	public function test_current_group_delete_rolls_back_when_level_relations_cannot_be_deleted(): void {
+		$this->assertStringContainsString( '! ANPA_Socios_DB::delete_grupo_niveis( $id )', $this->handler );
 		$this->assertStringContainsString( '$wpdb->query( \'ROLLBACK\' )', $this->handler );
 	}
 
-	public function test_series_delete_locks_rows_and_history_before_deciding(): void {
+	public function test_current_group_delete_locks_the_row_and_its_history_before_deciding(): void {
 		$start  = strpos( $this->handler, 'public static function delete_grupo' );
 		$end    = strpos( $this->handler, 'public static function set_estado', $start );
 		$method = substr( $this->handler, $start, $end - $start );
 		$tx     = strpos( $method, "query( 'START TRANSACTION' )" );
-		$series = strpos( $method, 'serie_uid = %s ORDER BY id FOR UPDATE' );
-		$refs   = strpos( $method, 'WHERE grupo_id IN ({$in}) ORDER BY id FOR UPDATE' );
+		$row    = strpos( $method, 'WHERE id = %d FOR UPDATE' );
+		$refs   = strpos( $method, 'WHERE grupo_id = %d ORDER BY id FOR UPDATE' );
 		$delete = strpos( $method, '$wpdb->delete(' );
 
 		$this->assertIsInt( $tx );
-		$this->assertIsInt( $series );
+		$this->assertIsInt( $row );
 		$this->assertIsInt( $refs );
 		$this->assertIsInt( $delete );
-		$this->assertLessThan( $series, $tx );
-		$this->assertLessThan( $refs, $series );
+		$this->assertLessThan( $row, $tx );
+		$this->assertLessThan( $refs, $row );
 		$this->assertLessThan( $delete, $refs );
+		$this->assertStringContainsString( "'anpa_admin_grupo_historico_readonly'", $method );
 		$this->assertStringContainsString( "'' !== (string) \$wpdb->last_error", $method );
 	}
 
@@ -154,10 +156,11 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 
 	public function test_activity_form_only_keeps_general_fields_and_group_access(): void {
 		$start = strpos( $this->js, 'function renderActividadForm' );
-		$end   = strpos( $this->js, '// ── Grupos sub-panel', $start );
+		$end   = strpos( $this->js, 'function renderGruposPanel', $start );
 		$form  = substr( $this->js, $start, $end - $start );
 		$this->assertStringContainsString( "activeCourse", $form );
-		$this->assertStringContainsString( "Cursos nos que se ofertou", $form );
+		$this->assertStringContainsString( "Curso activo no que se oferta", $form );
+		$this->assertStringContainsString( "ten_grupo_curso_activo", $form );
 		$this->assertStringContainsString( "Grupos da actividade", $form );
 		$this->assertStringNotContainsString( "Niveis mínimo/máximo", $form );
 		$this->assertStringNotContainsString( "Límites antigos", $form );
@@ -169,19 +172,19 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 		$start = strpos( $this->js, 'function renderGrupoForm' );
 		$end   = strpos( $this->js, 'function renderGrupoMatriculas', $start );
 		$form  = substr( $this->js, $start, $end - $start );
-		foreach ( array( 'Nome do grupo', 'Cursos escolares', 'niveis_por_ano', 'Comedor', 'Franxa horaria', 'Días', 'Mínimo de alumnos/as', 'Máximo de alumnos/as' ) as $label ) {
+		foreach ( array( 'Nome do grupo', 'Curso escolar actual', 'nivel_ids', 'Cursos escolares anteriores e inactivos', 'Comedor', 'Franxa horaria', 'Días', 'Mínimo de alumnos/as', 'Máximo de alumnos/as' ) as $label ) {
 			$this->assertStringContainsString( $label, $form );
 		}
 	}
 
-	public function test_group_payload_collects_only_school_year_checkboxes(): void {
+	public function test_group_payload_collects_only_active_year_level_checkboxes(): void {
 		$start = strpos( $this->js, 'function renderGrupoForm' );
 		$end   = strpos( $this->js, 'function renderGrupoMatriculas', $start );
 		$form  = substr( $this->js, $start, $end - $start );
 
-		$this->assertStringContainsString( "chk.className = 'anpa-mgmt-ano-check'", $form );
-		$this->assertStringContainsString( "yearsWrap.querySelectorAll('.anpa-mgmt-ano-check:checked')", $form );
-		$this->assertStringNotContainsString( "yearsWrap.querySelectorAll('input:checked')", $form );
+		$this->assertStringContainsString( "activeLevelsWrap.querySelectorAll('input:checked')", $form );
+		$this->assertStringNotContainsString( 'anpa-mgmt-ano-check', $form );
+		$this->assertStringNotContainsString( 'niveis_por_ano', $form );
 	}
 
 	public function test_group_form_prevalidates_payload_before_rest_write(): void {
@@ -190,21 +193,22 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 		$form  = substr( $this->js, $start, $end - $start );
 
 		$this->assertStringContainsString( 'function validateGrupoFormPayload', $this->js );
-		$this->assertStringContainsString( 'var validationError = validateGrupoFormPayload(payload, levelControls);', $form );
+		$this->assertStringContainsString( 'var validationError = validateGrupoFormPayload(payload, levelControl);', $form );
 		$this->assertStringContainsString( "showMessage(validationError, 'error')", $form );
 		$this->assertLessThan(
 			strpos( $form, "anpaAdminFetch(isEdit ? 'grupo/'" ),
-			strpos( $form, 'validateGrupoFormPayload(payload, levelControls)')
+			strpos( $form, 'validateGrupoFormPayload(payload, levelControl)')
 		);
 	}
 
-	public function test_group_form_defaults_active_or_single_offered_course(): void {
+	public function test_group_form_uses_only_the_configured_active_course(): void {
 		$start = strpos( $this->js, 'function renderGrupoForm' );
 		$end   = strpos( $this->js, 'function renderGrupoMatriculas', $start );
 		$form  = substr( $this->js, $start, $end - $start );
 
-		$this->assertStringContainsString( 'offered.indexOf(activeCourse) !== -1', $form );
-		$this->assertStringContainsString( 'offered.length === 1', $form );
+		$this->assertStringContainsString( "courseValue.textContent = activeCourse", $form );
+		$this->assertStringContainsString( "estrutura?curso_escolar=' + encodeURIComponent(activeCourse)", $form );
+		$this->assertStringNotContainsString( 'offered.indexOf(', $form );
 	}
 
 	public function test_group_form_disables_submit_while_request_is_pending(): void {

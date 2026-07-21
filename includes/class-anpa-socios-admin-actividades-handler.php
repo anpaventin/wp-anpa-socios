@@ -75,37 +75,23 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 	}
 
 	/**
-	 * GET /admin/actividades
+	 * GET /admin/actividades.
 	 *
-	 * Returns ONE row per base activity (design §8.7), not one row per
-	 * (activity, school year) pair. Each row carries `cursos_ofertados`
-	 * (chronologically sorted, deduplicated list of every school year the
-	 * activity has a row for in `actividades_cursos`) so the admin listing
-	 * can show every offered year without duplicating the activity itself.
+	 * Returns one row per descriptive activity. Annual presence, current-course
+	 * status and offered years are derived exclusively from annual groups.
+	 * Activities without groups remain visible so their first group can be made.
 	 *
-	 * The displayed franxa/horarios/grupos/dias/min_pupilos/max_pupilos/
-	 * custo/estado/prazas_* come from a single "source" annual row, chosen
-	 * with this precedence:
-	 *   1. the row for the currently active school year
-	 *      (ANPA_Socios_Curso_Activo::get()), if the activity offers it;
-	 *   2. otherwise the row for the most recent year present in
-	 *      `cursos_ofertados`;
-	 *   3. otherwise (legacy activity with no `actividades_cursos` rows
-	 *      at all) the base `actividades` columns, same as the previous
-	 *      COALESCE-based fallback.
-	 *
-	 * @since 23.0.0
+	 * @since 30.0.0
 	 * @return WP_REST_Response
 	 */
 	public static function list_actividades(): WP_REST_Response {
 		global $wpdb;
 
 		$act_t = ANPA_Socios_DB::tabela_actividades();
-		$acy_t = ANPA_Socios_DB::tabela_actividades_cursos();
-		$mat_t = ANPA_Socios_DB::tabela_matriculas();
 		$gru_t = ANPA_Socios_DB::tabela_grupos();
 
-		// Base activity rows — one per activity id, no join fan-out.
+		// One row per base activity. Activities without current groups must remain
+		// administrable so the board can create their first annual group.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$base_rows = $wpdb->get_results( "SELECT * FROM {$act_t} ORDER BY nome ASC", ARRAY_A );
 		$base_rows = is_array( $base_rows ) ? $base_rows : array();
@@ -113,52 +99,22 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			return new WP_REST_Response( array(), 200 );
 		}
 
-		$ids     = array_map( static function ( $r ) { return (int) $r['id']; }, $base_rows );
+		$ids     = array_map( static function ( $row ) { return (int) $row['id']; }, $base_rows );
 		$id_list = implode( ',', $ids );
-
-		// Every annual row for these activities, chronologically ordered so
-		// "most recent" is simply the last element per activity.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
-		$acy_rows = $wpdb->get_results(
-			"SELECT * FROM {$acy_t} WHERE actividad_id IN ({$id_list}) ORDER BY curso_escolar ASC",
+		$wpdb->last_error = '';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared -- integer ids from DB.
+		$group_rows = $wpdb->get_results(
+			"SELECT actividad_id, curso_escolar, estado FROM {$gru_t} WHERE actividad_id IN ({$id_list}) ORDER BY curso_escolar ASC, id ASC",
 			ARRAY_A
 		);
-		$acy_rows = is_array( $acy_rows ) ? $acy_rows : array();
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $group_rows ) ) {
+			$group_rows = array();
+		}
 
-		// Enrolment counts scoped to a specific (actividad_id, curso_escolar)
-		// pair — same scoping rule as the previous query: a matricula only
-		// counts when its grupo's curso_escolar matches the annual row.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
-		$scoped_counts = $wpdb->get_results(
-			"SELECT m.activitad_id AS actividad_id, g.curso_escolar AS curso_escolar, m.estado AS estado, COUNT(*) AS total
-			 FROM {$mat_t} m
-			 LEFT JOIN {$gru_t} g ON g.id = m.grupo_id
-			 WHERE m.activitad_id IN ({$id_list}) AND m.estado IN ('activo','lista_espera')
-			 GROUP BY m.activitad_id, g.curso_escolar, m.estado",
-			ARRAY_A
-		);
-		$scoped_counts = is_array( $scoped_counts ) ? $scoped_counts : array();
-
-		// Unscoped totals (any curso, any/no grupo) — used only for legacy
-		// activities that have no `actividades_cursos` row at all, mirroring
-		// the previous behaviour where `ac.curso_escolar IS NULL` counted
-		// every matricula regardless of the enrolled group's school year.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
-		$legacy_totals = $wpdb->get_results(
-			"SELECT m.activitad_id AS actividad_id, m.estado AS estado, COUNT(*) AS total
-			 FROM {$mat_t} m
-			 WHERE m.activitad_id IN ({$id_list}) AND m.estado IN ('activo','lista_espera')
-			 GROUP BY m.activitad_id, m.estado",
-			ARRAY_A
-		);
-		$legacy_totals = is_array( $legacy_totals ) ? $legacy_totals : array();
-
-		$rows = ANPA_Socios_Actividades_Collapse::collapse(
+		$rows = ANPA_Socios_Activity_Group_Projection::build(
 			$base_rows,
-			$acy_rows,
-			ANPA_Socios_Curso_Activo::get(),
-			$scoped_counts,
-			$legacy_totals
+			$group_rows,
+			(string) ANPA_Socios_Curso_Activo::get()
 		);
 
 		return new WP_REST_Response( $rows, 200 );
@@ -168,76 +124,53 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		global $wpdb;
 
 		$body = ANPA_Socios_Admin_Shared::json_body( $request );
-
-		// Field-level validation for specific error messages.
-		$err = self::validar_campos_actividad( $body );
+		$err  = self::validar_campos_actividad( $body );
 		if ( null !== $err ) {
 			return $err;
 		}
-
 		$payload = ANPA_Socios_Admin_Payload::validar_actividad( $body );
 		if ( null === $payload ) {
 			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
-		$cursos = self::validated_cursos( $body );
-		if ( is_wp_error( $cursos ) ) {
-			return $cursos;
-		}
 
-		$base = self::base_payload( $payload );
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 		$inserted = $wpdb->insert(
 			ANPA_Socios_DB::tabela_actividades(),
-			$base,
-			array( '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%f', '%s' )
+			self::base_payload( $payload ),
+			array( '%d', '%s', '%s', '%s', '%f', '%s' )
 		);
 		if ( false === $inserted ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
-
 		$actividad_id = (int) $wpdb->insert_id;
-		$sync_result  = self::sync_actividad_cursos( $actividad_id, $cursos, $payload );
-		if ( is_wp_error( $sync_result ) ) {
-			$wpdb->query( 'ROLLBACK' );
-			return $sync_result;
-		}
 		if ( false === $wpdb->query( 'COMMIT' ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'actividad', (string) $actividad_id, 'create' );
-
-		return new WP_REST_Response( self::get_row( $actividad_id, (string) $cursos[0] ), 201 );
+		return new WP_REST_Response( self::get_row( $actividad_id ), 201 );
 	}
 
 	public static function update_actividad( WP_REST_Request $request ) {
 		global $wpdb;
 
-		$id      = (int) $request->get_param( 'id' );
+		$id   = (int) $request->get_param( 'id' );
 		$body = ANPA_Socios_Admin_Shared::json_body( $request );
-
-		// Field-level validation for specific error messages.
-		$err = self::validar_campos_actividad( $body );
+		$err  = self::validar_campos_actividad( $body );
 		if ( null !== $err ) {
 			return $err;
 		}
-
 		$payload = ANPA_Socios_Admin_Payload::validar_actividad( $body );
 		if ( null === $payload ) {
 			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
-		$cursos = self::validated_cursos_for_activity( $body, $id );
-		if ( is_wp_error( $cursos ) ) {
-			return $cursos;
-		}
-		$table = ANPA_Socios_DB::tabela_actividades();
-		$exists = (int) $wpdb->get_var(
-			$wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE id = %d", $id )
-		);
+
+		$table  = ANPA_Socios_DB::tabela_actividades();
+		$exists = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE id = %d", $id ) );
 		if ( 0 === $exists ) {
 			return new WP_Error( 'anpa_admin_not_found', __( 'Actividade non atopada.', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
@@ -251,118 +184,63 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			$table,
 			$base,
 			array( 'id' => $id ),
-			array( '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%f', '%s', '%s' ),
+			array( '%d', '%s', '%s', '%s', '%f', '%s', '%s' ),
 			array( '%d' )
 		);
 		if ( false === $updated ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
-
-		$sync_result = self::sync_actividad_cursos( $id, $cursos, $payload );
-		if ( is_wp_error( $sync_result ) ) {
-			$wpdb->query( 'ROLLBACK' );
-			return $sync_result;
-		}
 		if ( false === $wpdb->query( 'COMMIT' ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
-
-		if ( $updated > 0 || $sync_result > 0 ) {
+		if ( $updated > 0 ) {
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'actividad', (string) $id, 'update' );
 		}
 
-		return new WP_REST_Response( self::get_row( $id, (string) $cursos[0] ), 200 );
+		return new WP_REST_Response( self::get_row( $id ), 200 );
 	}
 
 	public static function delete_actividad( WP_REST_Request $request ) {
 		global $wpdb;
-
-		$id    = (int) $request->get_param( 'id' );
+		$id = (int) $request->get_param( 'id' );
 		$table = ANPA_Socios_DB::tabela_actividades();
-		$estado = $wpdb->get_var(
-			$wpdb->prepare( "SELECT estado FROM {$table} WHERE id = %d", $id )
-		);
-		if ( null === $estado ) {
-			return new WP_Error( 'anpa_admin_not_found', __( 'Actividade non atopada.', 'anpa-socios' ), array( 'status' => 404 ) );
-		}
-		if ( 'inactivo' !== $estado ) {
-			return new WP_Error( 'anpa_admin_must_deactivate', __( 'Desactiva a actividade antes de eliminala.', 'anpa-socios' ), array( 'status' => 409 ) );
-		}
-
-		// Gate: block if ANY matricula exists (any estado, any year) — per design §8.5.
-		$mat_table = ANPA_Socios_DB::tabela_matriculas();
-		$has_matriculas = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$mat_table} WHERE activitad_id = %d",
-				$id
-			)
-		);
-		if ( $has_matriculas > 0 ) {
-			return new WP_Error( 'anpa_admin_actividad_has_data', __( 'Non se pode eliminar a actividade porque ten matrículas asociadas.', 'anpa-socios' ), array( 'status' => 409 ) );
-		}
-
-		// No matriculas exist — safe to cascade-delete empty groups and the activity.
+		$groups = ANPA_Socios_DB::tabela_grupos();
+		$relations = ANPA_Socios_DB::tabela_grupos_niveis();
+		$matriculas = ANPA_Socios_DB::tabela_matriculas();
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
-
-		$groups_table       = ANPA_Socios_DB::tabela_grupos();
-		$grupos_niveis_table = ANPA_Socios_DB::tabela_grupos_niveis();
-
-		// Step 1: Delete grupos_niveis for this activity's groups.
-		$group_ids = $wpdb->get_col(
-			$wpdb->prepare( "SELECT id FROM {$groups_table} WHERE actividad_id = %d", $id )
-		);
-		if ( ! empty( $group_ids ) ) {
-			$placeholders = implode( ',', array_fill( 0, count( $group_ids ), '%d' ) );
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- cascade delete within transaction.
-			$deleted_gn = $wpdb->query(
-				$wpdb->prepare(
-					"DELETE FROM {$grupos_niveis_table} WHERE grupo_id IN ({$placeholders})",
-					...$group_ids
-				)
-			);
-			if ( false === $deleted_gn ) {
-				$wpdb->query( 'ROLLBACK' );
-				return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-			}
+		$wpdb->last_error = '';
+		$estado = $wpdb->get_var( $wpdb->prepare( "SELECT estado FROM {$table} WHERE id = %d FOR UPDATE", $id ) );
+		if ( '' !== (string) $wpdb->last_error ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) ); }
+		if ( null === $estado ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_not_found', __( 'Actividade non atopada.', 'anpa-socios' ), array( 'status' => 404 ) ); }
+		if ( 'inactivo' !== $estado ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_must_deactivate', __( 'Desactiva a actividade antes de eliminala.', 'anpa-socios' ), array( 'status' => 409 ) ); }
+		$wpdb->last_error = '';
+		$group_ids = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$groups} WHERE actividad_id = %d ORDER BY id FOR UPDATE", $id ) );
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $group_ids ) ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_db_error', __( 'Non se puideron comprobar os grupos.', 'anpa-socios' ), array( 'status' => 500 ) ); }
+		$ref_sql = "SELECT id FROM {$matriculas} WHERE activitad_id = %d";
+		$ref_args = array( $id );
+		if ( $group_ids ) {
+			$in = implode( ',', array_fill( 0, count( $group_ids ), '%d' ) );
+			$ref_sql .= " OR grupo_id IN ({$in})";
+			$ref_args = array_merge( $ref_args, array_map( 'intval', $group_ids ) );
 		}
-
-		// Step 2: Delete the groups themselves.
-		$deleted_groups = $wpdb->query(
-			$wpdb->prepare( "DELETE FROM {$groups_table} WHERE actividad_id = %d", $id )
-		);
-		if ( false === $deleted_groups ) {
+		$wpdb->last_error = '';
+		$refs = $wpdb->get_col( $wpdb->prepare( $ref_sql . ' ORDER BY id FOR UPDATE', ...$ref_args ) );
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $refs ) ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido comprobar o histórico da actividade.', 'anpa-socios' ), array( 'status' => 500 ) ); }
+		if ( $refs ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_actividad_has_data', __( 'Non se pode eliminar a actividade porque ten matrículas asociadas.', 'anpa-socios' ), array( 'status' => 409 ) ); }
+		if ( $group_ids ) {
+			$in = implode( ',', array_fill( 0, count( $group_ids ), '%d' ) );
+			if ( false === $wpdb->query( $wpdb->prepare( "DELETE FROM {$relations} WHERE grupo_id IN ({$in})", ...array_map( 'intval', $group_ids ) ) ) ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) ); }
+		}
+		if ( false === $wpdb->query( $wpdb->prepare( "DELETE FROM {$groups} WHERE actividad_id = %d", $id ) ) || 1 !== (int) $wpdb->delete( $table, array( 'id' => $id ), array( '%d' ) ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
-
-		// Step 3: Delete actividades_cursos rows.
-		$deleted_courses = $wpdb->delete( ANPA_Socios_DB::tabela_actividades_cursos(), array( 'actividad_id' => $id ), array( '%d' ) );
-		if ( false === $deleted_courses ) {
-			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-		}
-
-		// Step 4: Delete the actividade itself.
-		$deleted = $wpdb->delete( ANPA_Socios_DB::tabela_actividades(), array( 'id' => $id ), array( '%d' ) );
-		if ( false === $deleted ) {
-			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-		}
-		if ( 0 === $deleted ) {
-			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_admin_not_found', __( 'Actividade non atopada.', 'anpa-socios' ), array( 'status' => 404 ) );
-		}
-		if ( false === $wpdb->query( 'COMMIT' ) ) {
-			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-		}
-
+		if ( false === $wpdb->query( 'COMMIT' ) ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) ); }
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'actividad', (string) $id, 'delete' );
-
 		return new WP_REST_Response( null, 204 );
 	}
 
@@ -380,280 +258,50 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		);
 	}
 
-	/** @param array<string,mixed> $payload */
-	private static function year_payload( int $actividad_id, array $payload ): array {
-		return array(
-			'actividad_id'   => $actividad_id,
-			'curso_escolar'  => (string) $payload['curso_escolar'],
-			'franxa'         => (string) $payload['franxa'],
-			'horarios'       => (string) $payload['horarios'],
-			'grupos'         => (string) $payload['grupos'],
-			'nivel_min_id'   => isset( $payload['nivel_min_id'] ) ? $payload['nivel_min_id'] : null,
-			'nivel_max_id'   => isset( $payload['nivel_max_id'] ) ? $payload['nivel_max_id'] : null,
-			'dias'           => (string) $payload['dias'],
-			'min_pupilos'    => (int) $payload['min_pupilos'],
-			'max_pupilos'    => (int) $payload['max_pupilos'],
-			'custo'          => (float) $payload['custo'],
-			'estado'         => (string) $payload['estado'],
-			'actualizado_en' => current_time( 'mysql' ),
-		);
-	}
-
-	/** @param array<string,mixed> $payload */
-	private static function upsert_year_payload( int $actividad_id, array $payload ) {
-		global $wpdb;
-
-		$table = ANPA_Socios_DB::tabela_actividades_cursos();
-		$row   = self::year_payload( $actividad_id, $payload );
-		$exists = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT id FROM {$table} WHERE actividad_id = %d AND curso_escolar = %s",
-				$actividad_id,
-				(string) $payload['curso_escolar']
-			)
-		);
-
-		// Format array matches year_payload() key order:
-		// actividad_id, curso_escolar, franxa, horarios, grupos,
-		// nivel_min_id, nivel_max_id, dias, min_pupilos, max_pupilos, custo,
-		// estado, actualizado_en.
-		$formats = array( '%d', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%d', '%d', '%f', '%s', '%s' );
-
-		if ( $exists > 0 ) {
-			$updated = $wpdb->update(
-				$table,
-				$row,
-				array( 'id' => $exists ),
-				$formats,
-				array( '%d' )
-			);
-			if ( false === $updated ) {
-				return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-			}
-			return (int) $updated;
-		}
-
-		$inserted = $wpdb->insert(
-			$table,
-			$row,
-			$formats
-		);
-		if ( false === $inserted ) {
-			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-		}
-		return 1;
-	}
-
-	private static function get_row( int $id, string $curso_escolar ): array {
+	private static function get_row( int $id ): array {
 		global $wpdb;
 
 		$act_t = ANPA_Socios_DB::tabela_actividades();
-		$acy_t = ANPA_Socios_DB::tabela_actividades_cursos();
-		$row   = $wpdb->get_row(
+		$gru_t = ANPA_Socios_DB::tabela_grupos();
+		$base  = $wpdb->get_row(
+			$wpdb->prepare( "SELECT * FROM {$act_t} WHERE id = %d", $id ),
+			ARRAY_A
+		);
+		if ( ! is_array( $base ) ) {
+			return array();
+		}
+		$groups = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT a.id, a.empresa_id, a.nome, a.icono, a.descripcion,
-				        COALESCE(ac.curso_escolar, a.curso_escolar) AS curso_escolar,
-				        COALESCE(ac.franxa, a.franxa) AS franxa,
-				        COALESCE(ac.horarios, a.horarios) AS horarios,
-				        COALESCE(ac.grupos, a.grupos) AS grupos,
-				        COALESCE(ac.dias, a.dias) AS dias,
-				        COALESCE(ac.min_pupilos, 10) AS min_pupilos,
-				        COALESCE(ac.max_pupilos, 15) AS max_pupilos,
-				        COALESCE(ac.custo, a.custo) AS custo,
-				        COALESCE(ac.estado, a.estado) AS estado,
-				        ac.nivel_min_id AS nivel_min_id,
-				        ac.nivel_max_id AS nivel_max_id,
-				        0 AS prazas_ocupadas,
-				        0 AS prazas_espera
-				 FROM {$act_t} a
-				 LEFT JOIN {$acy_t} ac ON ac.actividad_id = a.id AND ac.curso_escolar = %s
-				 WHERE a.id = %d",
-				$curso_escolar,
+				"SELECT actividad_id, curso_escolar, estado FROM {$gru_t} WHERE actividad_id = %d ORDER BY curso_escolar ASC, id ASC",
 				$id
 			),
 			ARRAY_A
 		);
-
-		return is_array( $row ) ? $row : array();
-	}
-
-	private static function curso_exists( string $curso_escolar ): bool {
-		global $wpdb;
-
-		$table = ANPA_Socios_DB::tabela_cursos();
-		return (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(1) FROM {$table} WHERE curso_escolar = %s",
-				$curso_escolar
-			)
-		) > 0;
-	}
-
-	/**
-	 * Validates and normalizes the selected school years.
-	 *
-	 * @param array<string,mixed> $body         Raw request body.
-	 * @return string[]|WP_Error
-	 */
-	private static function validated_cursos( array $body ) {
-		return self::validated_cursos_for_activity( $body, 0 );
-	}
-
-	/**
-	 * Validates active-course edits while preserving existing historical years.
-	 *
-	 * @param array<string,mixed> $body          Raw request body.
-	 * @param int                 $actividad_id  Existing activity id, or zero on create.
-	 * @return string[]|WP_Error
-	 */
-	private static function validated_cursos_for_activity( array $body, int $actividad_id ) {
-		global $wpdb;
-
-		if ( isset( $body['cursos'] ) && ! is_array( $body['cursos'] ) ) {
-			return new WP_Error( 'anpa_admin_invalid_cursos', __( 'Revisa os cursos nos que se oferta a actividade.', 'anpa-socios' ), array( 'status' => 400 ) );
-		}
-		$input = isset( $body['cursos'] ) ? $body['cursos'] : array();
-		$cursos = ANPA_Socios_Admin_Payload::normalizar_cursos_actividad( $input );
-		if ( null === $cursos ) {
-			return new WP_Error( 'anpa_admin_invalid_cursos', __( 'Revisa os cursos nos que se oferta a actividade.', 'anpa-socios' ), array( 'status' => 400 ) );
-		}
-		$curso_activo = ANPA_Socios_Curso_Activo::get();
-		if ( null === $curso_activo ) {
-			return new WP_Error( 'anpa_admin_no_active_course', __( 'Non hai un curso activo.', 'anpa-socios' ), array( 'status' => 409 ) );
-		}
-
-		$historicos = array();
-		if ( $actividad_id > 0 ) {
-			$historicos = $wpdb->get_col(
-				$wpdb->prepare(
-					'SELECT curso_escolar FROM ' . ANPA_Socios_DB::tabela_actividades_cursos() . ' WHERE actividad_id = %d',
-					$actividad_id
-				)
-			);
-			$historicos = is_array( $historicos ) ? array_map( 'strval', $historicos ) : array();
-		}
-
-		foreach ( $cursos as $curso ) {
-			if ( $curso_activo === $curso ) {
-				continue;
-			}
-			if ( $actividad_id <= 0 || ! in_array( $curso, $historicos, true ) ) {
-				return new WP_Error( 'anpa_admin_curso_not_active', __( 'Só se pode engadir o curso activo á oferta.', 'anpa-socios' ), array( 'status' => 400 ) );
-			}
-		}
-
-		return $cursos;
-	}
-
-	/**
-	 * Syncs the actividades_cursos rows for a given activity with the set
-	 * of selected school years. Inserts missing, removes unchecked.
-	 *
-	 * @since 1.24.0
-	 * @param int                       $actividad_id  Activity id.
-	 * @param string[]                  $cursos        Validated school years.
-	 * @param array<string,mixed>       $payload       Validated payload for year data.
-	 * @return int|WP_Error Number of changed rows, or an error.
-	 */
-	private static function sync_actividad_cursos( int $actividad_id, array $cursos, array $payload ) {
-		global $wpdb;
-
-		$table   = ANPA_Socios_DB::tabela_actividades_cursos();
-		$changed = 0;
-		$existing = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT curso_escolar FROM {$table} WHERE actividad_id = %d",
-				$actividad_id
-			)
+		$rows = ANPA_Socios_Activity_Group_Projection::build(
+			array( $base ),
+			is_array( $groups ) ? $groups : array(),
+			(string) ANPA_Socios_Curso_Activo::get()
 		);
-		$existing = is_array( $existing ) ? $existing : array();
 
-		$to_remove = array_diff( $existing, $cursos );
-		foreach ( $to_remove as $curso ) {
-			$group_count = (int) $wpdb->get_var(
-				$wpdb->prepare(
-					'SELECT COUNT(*) FROM ' . ANPA_Socios_DB::tabela_grupos() . ' WHERE actividad_id = %d AND curso_escolar = %s',
-					$actividad_id,
-					$curso
-				)
-			);
-			if ( $group_count > 0 ) {
-				return new WP_Error(
-					'anpa_admin_actividad_year_has_groups',
-					sprintf( __( 'Non se pode retirar o curso %s: elimina primeiro os seus grupos sen matrículas nin histórico.', 'anpa-socios' ), $curso ),
-					array( 'status' => 409 )
-				);
-			}
-			$deleted = $wpdb->delete( $table, array( 'actividad_id' => $actividad_id, 'curso_escolar' => $curso ) );
-			if ( false === $deleted ) {
-				return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-			}
-			$changed += (int) $deleted;
-		}
-
-		foreach ( $cursos as $curso ) {
-			$row_payload = $payload;
-			$row_payload['curso_escolar'] = $curso;
-			$row_payload['nivel_min_id'] = null;
-			$row_payload['nivel_max_id'] = null;
-			$upserted = self::upsert_year_payload( $actividad_id, $row_payload );
-			if ( is_wp_error( $upserted ) ) {
-				return $upserted;
-			}
-			$changed += (int) $upserted;
-		}
-
-		return $changed;
+		return $rows[0] ?? array();
 	}
 
-
 	/**
-	 * POST /admin/actividad/{id}/copy-to-current (legacy — delegates to duplicate).
-	 *
-	 * @since 1.20.0
-	 * @param WP_REST_Request $request Incoming request.
-	 * @return WP_REST_Response|WP_Error
+	 * Legacy alias. Fase30 duplicates only the descriptive activity identity.
 	 */
 	public static function copy_actividad_to_current( WP_REST_Request $request ) {
-		$active = ANPA_Socios_Curso_Activo::get();
-		if ( null === $active ) {
-			return new WP_Error( 'anpa_admin_no_active_course', 'Non hai un curso activo.', array( 'status' => 409 ) );
-		}
-		$request->set_body_params( array( 'target_curso' => $active ) );
 		return self::duplicate_actividad( $request );
 	}
 
 	/**
-	 * POST /admin/actividad/{id}/duplicate
-	 *
-	 * Duplicates an existing actividad into a chosen school year.
-	 *
-	 * Body: { target_curso: "2025/2026" }. If omitted, defaults to current.
-	 *
-	 * Creates a NEW actividad row copying descriptive data, associated with
-	 * the chosen target school year (its own actividades_cursos row).
-	 *
-	 * @since 1.24.0
-	 * @param WP_REST_Request $request Incoming request.
-	 * @return WP_REST_Response|WP_Error
+	 * Duplicates only the descriptive identity. Annual groups are never copied.
 	 */
 	public static function duplicate_actividad( WP_REST_Request $request ) {
 		global $wpdb;
 
 		$src_id = (int) $request->get_param( 'id' );
-		$body   = is_array( $request->get_json_params() ) ? $request->get_json_params() : array();
-		$target = isset( $body['target_curso'] ) && ANPA_Socios_Curso_Escolar::is_valid( (string) $body['target_curso'] )
-			? (string) $body['target_curso']
-			: ANPA_Socios_Curso_Activo::get();
-		if ( null === $target ) {
-			return new WP_Error( 'anpa_admin_no_active_course', 'Non hai un curso activo.', array( 'status' => 409 ) );
-		}
-
-		$act_t = ANPA_Socios_DB::tabela_actividades();
-		$acy_t = ANPA_Socios_DB::tabela_actividades_cursos();
-
-		// Read the source row.
-		$src = $wpdb->get_row(
+		$act_t  = ANPA_Socios_DB::tabela_actividades();
+		$src    = $wpdb->get_row(
 			$wpdb->prepare( "SELECT * FROM {$act_t} WHERE id = %d", $src_id ),
 			ARRAY_A
 		);
@@ -661,62 +309,30 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			return new WP_Error( 'anpa_admin_not_found', 'Actividade non atopada.', array( 'status' => 404 ) );
 		}
 
-		// Copy descriptive fields only (PR-GA5): the annual offer row below
-		// carries schedule/capacity, and groups are recreated per year.
 		$copy = array(
-			'empresa_id'    => isset( $src['empresa_id'] ) ? (int) $src['empresa_id'] : 0,
-			'nome'          => (string) ( $src['nome'] ?? '' ),
-			'icono'         => (string) ( $src['icono'] ?? '' ),
-			'descripcion'   => (string) ( $src['descripcion'] ?? '' ),
-			'curso_escolar' => $target,
-			'custo'         => isset( $src['custo'] ) ? (float) $src['custo'] : 0.0,
-			'estado'        => 'activo',
+			'empresa_id'  => (int) ( $src['empresa_id'] ?? 0 ),
+			'nome'        => (string) ( $src['nome'] ?? '' ) . ' (copia)',
+			'icono'       => (string) ( $src['icono'] ?? '' ),
+			'descripcion' => (string) ( $src['descripcion'] ?? '' ),
+			'custo'       => (float) ( $src['custo'] ?? 0 ),
+			'estado'      => 'activo',
 		);
-
-		$wpdb->last_error = '';
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
-		$ok = $wpdb->insert( $act_t, $copy );
+		$ok = $wpdb->insert( $act_t, $copy, array( '%d', '%s', '%s', '%s', '%f', '%s' ) );
 		if ( false === $ok ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_socios_db_error', 'Erro ao crear a actividade duplicada.', array( 'status' => 500 ) );
 		}
 		$new_id = (int) $wpdb->insert_id;
-
-		// Duplicate the per-course-year entry (if any) for the target year.
-		$src_acy = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT * FROM {$acy_t} WHERE actividad_id = %d ORDER BY id ASC LIMIT 1",
-				$src_id
-			),
-			ARRAY_A
-		);
-		$acy_copy = array(
-			'actividad_id'   => $new_id,
-			'curso_escolar'  => $target,
-			'franxa'         => is_array( $src_acy ) ? (string) ( $src_acy['franxa'] ?? '' ) : '',
-			'horarios'       => is_array( $src_acy ) ? (string) ( $src_acy['horarios'] ?? '' ) : '',
-			'grupos'         => is_array( $src_acy ) ? (string) ( $src_acy['grupos'] ?? '' ) : '',
-			'dias'           => is_array( $src_acy ) ? (string) ( $src_acy['dias'] ?? '' ) : '',
-			'min_pupilos'    => is_array( $src_acy ) && isset( $src_acy['min_pupilos'] ) ? (int) $src_acy['min_pupilos'] : 0,
-			'max_pupilos'    => is_array( $src_acy ) && isset( $src_acy['max_pupilos'] ) ? (int) $src_acy['max_pupilos'] : 0,
-			'custo'          => is_array( $src_acy ) && isset( $src_acy['custo'] ) ? (float) $src_acy['custo'] : $copy['custo'],
-			'estado'         => 'activo',
-			'actualizado_en' => current_time( 'mysql' ),
-		);
-		if ( false === $wpdb->insert( $acy_t, $acy_copy ) ) {
-			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_socios_db_error', 'Erro ao crear o curso duplicado.', array( 'status' => 500 ) );
-		}
 		if ( false === $wpdb->query( 'COMMIT' ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
-		ANPA_Socios_Admin_Shared::write_audit( $request, 'actividad', (string) $new_id, 'duplicate_from_' . $src_id . '_to_' . $target );
-
-		return new WP_REST_Response( self::get_row( $new_id, $target ), 201 );
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'actividad', (string) $new_id, 'duplicate_from_' . $src_id );
+		return new WP_REST_Response( self::get_row( $new_id ), 201 );
 	}
 
 	/**
@@ -738,7 +354,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			'empresa_required'       => __( 'Selecciona unha empresa válida.', 'anpa-socios' ),
 			'nome_required'          => __( 'O nome da actividade é obrigatorio.', 'anpa-socios' ),
 			'descripcion_required'   => __( 'A descrición é obrigatoria.', 'anpa-socios' ),
-			'cursos_required'        => __( 'Selecciona polo menos un curso escolar dado de alta.', 'anpa-socios' ),
+
 			'custo_invalid'          => __( 'O custo debe ser un número válido.', 'anpa-socios' ),
 			'estado_invalid'         => __( 'O estado da actividade non é válido.', 'anpa-socios' ),
 		);
@@ -750,7 +366,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 	 * Admin-only diagnostic: why an activity IS or IS NOT in the public horario.
 	 *
 	 * GET /admin/actividad/{id}/horario-diagnostic?curso_escolar=YYYY/YYYY
-	 * Returns one of: incluida_por_grupo, incluida_por_horario_anual_provisional,
+	 * Returns one of: incluida_por_grupo,
 	 * sen_franxa, sen_dias, sen_grupo_aberto, estado_inactivo, curso_non_activo.
 	 *
 	 * @since  1.27.0
@@ -772,18 +388,13 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		}
 
 		$act_t = ANPA_Socios_DB::tabela_actividades();
-		$acy_t = ANPA_Socios_DB::tabela_actividades_cursos();
 		$gru_t = ANPA_Socios_DB::tabela_grupos();
 
-		// Fetch activity + actividades_cursos row.
+		// Fetch the descriptive activity. Annual presence comes only from groups.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$activity = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT a.nome, a.estado, ac.franxa, ac.dias, ac.estado AS curso_estado
-				 FROM {$act_t} a
-				 LEFT JOIN {$acy_t} ac ON ac.actividad_id = a.id AND ac.curso_escolar = %s
-				 WHERE a.id = %d",
-				$curso_escolar,
+				"SELECT nome, estado FROM {$act_t} WHERE id = %d",
 				$id
 			),
 			ARRAY_A
@@ -793,16 +404,6 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			return new WP_Error( 'anpa_admin_not_found', 'Actividade non atopada.', array( 'status' => 404 ) );
 		}
 
-		// If no actividades_cursos row exists, it means the activity is not
-		// configured for this curso at all.
-		if ( null === $activity['curso_estado'] ) {
-			return new WP_REST_Response( array(
-				'actividad_id'  => $id,
-				'curso_escolar' => $curso_escolar,
-				'reason'        => 'curso_non_activo',
-			) );
-		}
-
 		// Determine whether the curso_escolar is the currently active one.
 		$curso_is_active = ( $curso_escolar === ANPA_Socios_Curso_Activo::get() );
 
@@ -810,7 +411,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$grupos = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT g.estado FROM {$gru_t} g WHERE g.actividad_id = %d AND g.curso_escolar = %s",
+				"SELECT g.estado, g.franxa, g.dias FROM {$gru_t} g WHERE g.actividad_id = %d AND g.curso_escolar = %s",
 				$id,
 				$curso_escolar
 			),

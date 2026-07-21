@@ -39,27 +39,26 @@ final class Test_ANPA_Socios_Admin_Audit_Hardening extends TestCase {
 		$this->assertStringContainsString( 'ANPA_Socios_DB::tabela_empresas()', $source );
 	}
 
-	public function test_activity_sync_propagates_database_errors_and_is_transactional(): void {
+	public function test_activity_writer_has_no_annual_offer_sync(): void {
 		$source = file_get_contents( $this->root . '/includes/class-anpa-socios-admin-actividades-handler.php' );
-		$this->assertStringContainsString( 'START TRANSACTION', $source );
-		$this->assertStringContainsString( 'ROLLBACK', $source );
-		$this->assertStringContainsString( 'COMMIT', $source );
-		$this->assertStringContainsString( 'is_wp_error( $sync_result )', $source );
-		$this->assertStringContainsString( '@return int|WP_Error', $source );
+		$this->assertStringNotContainsString( 'tabela_actividades_cursos', $source );
+		$this->assertStringNotContainsString( 'sync_actividad_cursos', $source );
 	}
 
-	public function test_activity_delete_is_real_and_cleans_course_rows(): void {
+	public function test_activity_delete_checks_direct_and_group_based_enrolments_before_cascade(): void {
 		$source = file_get_contents( $this->root . '/includes/class-anpa-socios-admin-actividades-handler.php' );
-		$this->assertStringContainsString( '$wpdb->delete( ANPA_Socios_DB::tabela_actividades_cursos()', $source );
-		$this->assertStringContainsString( '$wpdb->delete( ANPA_Socios_DB::tabela_actividades()', $source );
+		$this->assertStringContainsString( 'SELECT id FROM {$groups} WHERE actividad_id = %d ORDER BY id FOR UPDATE', $source );
+		$this->assertStringContainsString( '$ref_sql .= " OR grupo_id IN ({$in})"', $source );
+		$this->assertStringContainsString( '$wpdb->delete( $table, array( \'id\' => $id )', $source );
 	}
 
-	public function test_management_ui_uses_only_the_active_school_year_for_activity_offers(): void {
+	public function test_management_ui_derives_activity_offer_from_current_groups(): void {
 		$source = file_get_contents( $this->root . '/assets/js/admin-management.js' );
 		$page   = file_get_contents( $this->root . '/includes/class-anpa-socios-admin-management-page.php' );
 		$this->assertStringContainsString( "'cursoactivo'", $page );
 		$this->assertStringContainsString( 'cfg.cursoactivo', $source );
-		$this->assertStringContainsString( 'historicalCourses.concat(activeSelection)', $source );
+		$this->assertStringContainsString( 'ten_grupo_curso_activo', $source );
+		$this->assertStringNotContainsString( 'historicalCourses.concat(activeSelection)', $source );
 		$this->assertStringNotContainsString( 'generateCursoRange(selectedCursos', $source );
 	}
 

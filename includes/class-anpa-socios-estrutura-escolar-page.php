@@ -175,7 +175,7 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
         echo '<p class="description">' . esc_html__( 'Modifica os niveis, as aulas e as asignacións de comedor. A última aula crea ou reactiva as aulas desde A ata esa letra.', 'anpa-socios' ) . '</p>';
         echo '<div class="est-table-wrap"><table class="widefat striped"><thead><tr>';
         echo '<th>' . esc_html__( 'Nivel', 'anpa-socios' ) . ' <span class="anpa-required" aria-hidden="true">*</span></th>';
-        echo '<th>' . esc_html__( 'Orde', 'anpa-socios' ) . '</th><th>' . esc_html__( 'Última aula', 'anpa-socios' ) . '</th>';
+        echo '<th>' . esc_html__( 'Idade alumnado', 'anpa-socios' ) . '</th><th>' . esc_html__( 'Última aula', 'anpa-socios' ) . '</th>';
         echo '<th>' . esc_html__( 'Horario de comedor', 'anpa-socios' ) . '</th><th>' . esc_html__( 'Acción', 'anpa-socios' ) . '</th>';
         echo '</tr></thead><tbody id="est-niveis-body">';
         foreach ( $niveis as $n ) {
@@ -266,6 +266,8 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
             var messageNeedNivelName = '<?php echo esc_js( __( 'Indica o nome do nivel.', 'anpa-socios' ) ); ?>';
             var messageValidHorario = '<?php echo esc_js( __( 'Escolle un horario de comedor válido.', 'anpa-socios' ) ); ?>';
             var messageDuplicateNivel = '<?php echo esc_js( __( 'Non pode haber dous niveis co mesmo nome.', 'anpa-socios' ) ); ?>';
+            var messageDuplicateNivelAge = '<?php echo esc_js( __( 'Non pode haber dous niveis coa mesma idade do alumnado.', 'anpa-socios' ) ); ?>';
+            var messageNeedNivelAge = '<?php echo esc_js( __( 'Indica unha idade válida para cada nivel.', 'anpa-socios' ) ); ?>';
             var messageStructureInvalid = '<?php echo esc_js( __( 'Revisa os campos marcados antes de gardar.', 'anpa-socios' ) ); ?>';
             var messageSavingHorarios = '<?php echo esc_js( __( 'Gardando os horarios de comedor…', 'anpa-socios' ) ); ?>';
             var messageSavingNiveis = '<?php echo esc_js( __( 'Gardando os cambios nos niveis…', 'anpa-socios' ) ); ?>';
@@ -635,20 +637,35 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
                 var valid = true;
                 var rows = getNivelRows();
                 var names = {};
+                var ages = {};
                 var catalog = buildHorarioCatalog();
 
                 Array.prototype.forEach.call( rows, function( row ) {
                     var nameInput = row.querySelector( '.est-nivel-nome' );
+                    var ageInput = row.querySelector( '.est-nivel-orde' );
                     var select = row.querySelector( '.est-horario-select' );
                     var name = trimValue( nameInput );
+                    var age = parseIntOrZero( ageInput ? ageInput.value : 0 );
                     var horarioKey = select ? select.value : '';
 
                     setValidity( nameInput, '' );
+                    setValidity( ageInput, '' );
                     setValidity( select, '' );
 
                     if ( ! name ) {
                         setValidity( nameInput, messageNeedNivelName );
                         valid = false;
+                    }
+
+                    if ( age < 1 ) {
+                        setValidity( ageInput, messageNeedNivelAge );
+                        valid = false;
+                    } else if ( ages[ age ] ) {
+                        setValidity( ageInput, messageDuplicateNivelAge );
+                        setValidity( ages[ age ], messageDuplicateNivelAge );
+                        valid = false;
+                    } else {
+                        ages[ age ] = ageInput;
                     }
 
                     if ( horarioKey && ! catalog.map[ horarioKey ] ) {

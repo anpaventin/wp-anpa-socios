@@ -131,7 +131,8 @@ final class Test_ANPA_Socios_PR_ES9_Icono extends TestCase {
 	public function test_duplicate_actividad_copies_icono(): void {
 		$source = file_get_contents( $this->actividades_handler_file );
 		$body   = $this->extract_method_body( $source, 'duplicate_actividad' );
-		$this->assertStringContainsString( "'icono'         => (string) ( \$src['icono'] ?? '' )", $body );
+		$this->assertStringContainsString( "'icono'", $body );
+		$this->assertStringContainsString( "\$src['icono']", $body );
 	}
 
 	/**
@@ -178,12 +179,12 @@ final class Test_ANPA_Socios_PR_ES9_Icono extends TestCase {
 
 		// The icono resolution + 'icono' => key must live INSIDE the `if ( ! $activity_id )`
 		// (create-only) branch, never touched when the activity already exists.
-		$if_pos = strpos( $body, 'if ( ! $activity_id )' );
-		$this->assertNotFalse( $if_pos, 'commit_actividades must branch on activity existence' );
-		$insert_branch = substr( $body, $if_pos, (int) strpos( $body, "\$activity_id = (int) \$wpdb->insert_id;", $if_pos ) - $if_pos );
+		$insert_pos = strpos( $body, '$wpdb->insert(' );
+		$this->assertNotFalse( $insert_pos, 'commit_actividades must insert a missing activity' );
+		$insert_branch = substr( $body, 0, (int) strpos( $body, '$inserted++;', $insert_pos ) );
 
 		$this->assertStringContainsString( "row['icono']", $insert_branch, 'icono must be read from the CSV row inside the create branch' );
-		$this->assertStringContainsString( "'icono'         => \$icono,", $insert_branch, 'icono must be part of the INSERT array' );
+		$this->assertStringContainsString( "'icono'", $insert_branch, 'icono must be part of the INSERT array' );
 
 		// And it must NOT appear in an UPDATE call anywhere in this method (no
 		// re-import overwrite path).

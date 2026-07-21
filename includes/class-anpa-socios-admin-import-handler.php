@@ -26,7 +26,7 @@ final class ANPA_Socios_Admin_Import_Handler {
 	 * @since 1.34.0
 	 * @var string[]
 	 */
-	const VALID_ENTITIES = array( 'socios', 'fillos', 'empresas', 'actividades', 'matriculas' );
+	const VALID_ENTITIES = array( 'socios', 'fillos', 'empresas', 'actividades', 'grupos', 'matriculas' );
 
 	/**
 	 * Maximum preview rows returned in dry-run.
@@ -45,7 +45,7 @@ final class ANPA_Socios_Admin_Import_Handler {
 	public static function register_routes(): void {
 		register_rest_route(
 			ANPA_Socios_Admin_REST::REST_NAMESPACE,
-			'/import/(?P<entity>socios|fillos|empresas|actividades|matriculas)',
+			'/import/(?P<entity>socios|fillos|empresas|actividades|grupos|matriculas)',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
 				'callback'            => array( __CLASS__, 'handle_import' ),
@@ -180,12 +180,8 @@ final class ANPA_Socios_Admin_Import_Handler {
 				$act_t = ANPA_Socios_DB::tabela_actividades();
 				$emp_t = ANPA_Socios_DB::tabela_empresas();
 				$rows  = $wpdb->get_results(
-					// One key per offered year, mirroring the export JOIN on
-					// actividades_cursos; the activity-level curso_escolar is
-					// legacy and misses extra offered years (fase22 S8 E2E).
-					"SELECT a.nome, e.email AS empresa_email, ac.curso_escolar
+					"SELECT a.nome, e.email AS empresa_email
 					 FROM {$act_t} a
-					 INNER JOIN {$wpdb->prefix}anpa_actividades_cursos ac ON ac.actividad_id = a.id
 					 LEFT JOIN {$emp_t} e ON e.id = a.empresa_id",
 					ARRAY_A
 				);
@@ -193,9 +189,28 @@ final class ANPA_Socios_Admin_Import_Handler {
 					foreach ( $rows as $r ) {
 						$ee = $r['empresa_email'] ?? '';
 						$n  = mb_strtolower( $r['nome'] ?? '', 'UTF-8' );
-						$c  = $r['curso_escolar'] ?? '';
-						if ( '' !== $ee && '' !== $n && '' !== $c ) {
-							$keys[] = "actividades:{$ee}|{$n}|{$c}";
+						if ( '' !== $ee && '' !== $n ) {
+							$keys[] = "actividades:{$ee}|{$n}";
+						}
+					}
+				}
+				break;
+
+			case 'grupos':
+				$gru_t = ANPA_Socios_DB::tabela_grupos();
+				$act_t = ANPA_Socios_DB::tabela_actividades();
+				$emp_t = ANPA_Socios_DB::tabela_empresas();
+				$rows = $wpdb->get_results(
+					"SELECT g.curso_escolar, g.nome AS grupo_nome, a.nome AS actividade_nome, e.email AS empresa_email
+					 FROM {$gru_t} g INNER JOIN {$act_t} a ON a.id = g.actividad_id
+					 LEFT JOIN {$emp_t} e ON e.id = a.empresa_id",
+					ARRAY_A
+				);
+				if ( is_array( $rows ) ) {
+					foreach ( $rows as $r ) {
+						$key = ANPA_Socios_Csv_Import::compute_natural_key( 'grupos', $r );
+						if ( null !== $key ) {
+							$keys[] = $key;
 						}
 					}
 				}
@@ -294,6 +309,8 @@ final class ANPA_Socios_Admin_Import_Handler {
 				return self::commit_empresas( $rows, $request );
 			case 'actividades':
 				return self::commit_actividades( $rows, $request );
+			case 'grupos':
+				return self::commit_grupos( $rows, $request );
 			case 'matriculas':
 				return self::commit_matriculas( $rows, $request );
 			default:
@@ -676,155 +693,81 @@ final class ANPA_Socios_Admin_Import_Handler {
 		return array( 'inserted' => $inserted, 'skipped' => $skipped, 'errors' => $errors );
 	}
 
-	/**
-	 * Commits actividades rows. Resolves empresa_id from empresa_email.
-	 *
-	 * @since  1.34.0
-	 * @param  array           $rows    Rows.
-	 * @param  WP_REST_Request $request For audit.
-	 * @return array{inserted:int,skipped:int,errors:array}
-	 */
+	/** Commits reusable activity rows, without annual offer data. */
 	private static function commit_actividades( array $rows, WP_REST_Request $request ): array {
 		global $wpdb;
-		$table    = ANPA_Socios_DB::tabela_actividades();
-		$course_t = ANPA_Socios_DB::tabela_actividades_cursos();
-		$emp_t    = ANPA_Socios_DB::tabela_empresas();
-		$inserted = 0;
-		$skipped  = 0;
-		$errors   = array();
-
-		// Cache empresa email→id.
-		$empresa_cache = array();
-		$emp_rows = $wpdb->get_results( "SELECT id, email FROM {$emp_t}", ARRAY_A );
-		if ( is_array( $emp_rows ) ) {
-			foreach ( $emp_rows as $e ) {
-				$empresa_cache[ $e['email'] ] = (int) $e['id'];
-			}
-		}
-
-		// Cache curso_escolar → { codigo (lowercase) => nivel_id } for
-		// nivel_min_codigo/nivel_max_codigo resolution (mirrors the `grupos`
-		// entity's niveis_codigos pattern). Lazily populated per curso_escolar.
-		$niveis_cache = array();
-
+		$table = ANPA_Socios_DB::tabela_actividades();
+		$emp_t = ANPA_Socios_DB::tabela_empresas();
+		$inserted = 0; $skipped = 0; $errors = array();
 		foreach ( $rows as $idx => $row ) {
-			$empresa_email = $row['empresa_email'] ?? '';
-			$nome          = $row['nome'] ?? '';
-			$curso_escolar = $row['curso_escolar'] ?? '';
+			$empresa_id = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$emp_t} WHERE email = %s LIMIT 1", (string) ( $row['empresa_email'] ?? '' ) ) );
+			$nome = (string) ( $row['nome'] ?? '' );
+			if ( ! $empresa_id ) { $errors[] = array( 'row' => $idx, 'msg' => 'Empresa non atopada.' ); continue; }
+			$exists = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE empresa_id = %d AND LOWER(nome) = %s LIMIT 1", (int) $empresa_id, mb_strtolower( $nome, 'UTF-8' ) ) );
+			if ( $exists ) { $skipped++; continue; }
+			$icono_raw = trim( (string) ( $row['icono'] ?? '' ) );
+			$ok = $wpdb->insert( $table, array(
+				'empresa_id' => (int) $empresa_id, 'nome' => $nome,
+				'icono' => '' === $icono_raw ? '🎒' : mb_substr( $icono_raw, 0, 20, 'UTF-8' ),
+				'descripcion' => (string) ( $row['descripcion'] ?? '' ),
+				'custo' => (float) ( $row['custo'] ?? 0 ),
+				'estado' => in_array( $row['estado'] ?? '', array( 'activo', 'inactivo' ), true ) ? $row['estado'] : 'inactivo',
+			), array( '%d', '%s', '%s', '%s', '%f', '%s' ) );
+			if ( false === $ok ) { $errors[] = array( 'row' => $idx, 'msg' => 'Non se puido inserir a actividade.' ); continue; }
+			$inserted++;
+		}
+		if ( $inserted > 0 ) { ANPA_Socios_Admin_Shared::write_audit( $request, 'import', 'actividades', 'import_commit' ); }
+		return array( 'inserted' => $inserted, 'skipped' => $skipped, 'errors' => $errors );
+	}
 
-			if ( ! isset( $empresa_cache[ $empresa_email ] ) ) {
-				$errors[] = array( 'row' => $idx, 'msg' => "Empresa non atopada: {$empresa_email}" );
-				continue;
-			}
-			$empresa_id = $empresa_cache[ $empresa_email ];
-
-			// Resolve nivel_min_codigo/nivel_max_codigo → nivel_min_id/nivel_max_id
-			// for THIS row's curso_escolar. A code that does not exist in that
-			// year is reported as a row error but does NOT abort the import
-			// (same policy as the rest of this file — see commit_fillos for the
-			// curso/aula validation precedent).
-			if ( ! isset( $niveis_cache[ $curso_escolar ] ) ) {
-				$map = array();
-				foreach ( ANPA_Socios_DB::get_niveis_for_curso( $curso_escolar ) as $n ) {
-					$map[ mb_strtolower( (string) $n['codigo'], 'UTF-8' ) ] = (int) $n['id'];
-				}
-				$niveis_cache[ $curso_escolar ] = $map;
-			}
-			$niveis_map = $niveis_cache[ $curso_escolar ];
-
-			$nivel_min_codigo = trim( (string) ( $row['nivel_min_codigo'] ?? '' ) );
-			$nivel_max_codigo = trim( (string) ( $row['nivel_max_codigo'] ?? '' ) );
-			$nivel_min_id     = null;
-			$nivel_max_id     = null;
-			$nivel_error      = false;
-			if ( '' !== $nivel_min_codigo ) {
-				$key = mb_strtolower( $nivel_min_codigo, 'UTF-8' );
-				if ( ! isset( $niveis_map[ $key ] ) ) {
-					$errors[]     = array( 'row' => $idx, 'field' => 'nivel_min_codigo', 'msg' => "Nivel mínimo '{$nivel_min_codigo}' non atopado para {$curso_escolar}" );
-					$nivel_error  = true;
-				} else {
-					$nivel_min_id = $niveis_map[ $key ];
-				}
-			}
-			if ( '' !== $nivel_max_codigo ) {
-				$key = mb_strtolower( $nivel_max_codigo, 'UTF-8' );
-				if ( ! isset( $niveis_map[ $key ] ) ) {
-					$errors[]     = array( 'row' => $idx, 'field' => 'nivel_max_codigo', 'msg' => "Nivel máximo '{$nivel_max_codigo}' non atopado para {$curso_escolar}" );
-					$nivel_error  = true;
-				} else {
-					$nivel_max_id = $niveis_map[ $key ];
-				}
-			}
-			if ( $nivel_error ) {
-				continue;
-			}
-
-			// Resolve the base activity by natural key (empresa + nome). Course
-			// assignment lives in actividades_cursos and is imported separately.
+	/** Commits annual groups and their level relations. */
+	private static function commit_grupos( array $rows, WP_REST_Request $request ): array {
+		global $wpdb;
+		$groups = ANPA_Socios_DB::tabela_grupos();
+		$acts = ANPA_Socios_DB::tabela_actividades();
+		$emps = ANPA_Socios_DB::tabela_empresas();
+		$inserted = 0; $skipped = 0; $errors = array();
+		foreach ( $rows as $idx => $row ) {
+			$course = (string) ( $row['curso_escolar'] ?? '' );
 			$activity_id = $wpdb->get_var( $wpdb->prepare(
-				"SELECT id FROM {$table} WHERE empresa_id = %d AND LOWER(nome) = %s LIMIT 1",
-				$empresa_id,
-				mb_strtolower( $nome, 'UTF-8' )
+				"SELECT a.id FROM {$acts} a INNER JOIN {$emps} e ON e.id = a.empresa_id WHERE e.email = %s AND LOWER(a.nome) = %s LIMIT 1",
+				(string) ( $row['empresa_email'] ?? '' ), mb_strtolower( (string) ( $row['actividade_nome'] ?? '' ), 'UTF-8' )
 			) );
-
-			if ( ! $activity_id ) {
-				// icono is only ever set from CSV when the activity is created for
-				// the FIRST time. Re-importing an existing activity (matched by
-				// empresa+nome natural key, above) never touches its icono — the
-				// round-trip must not erase/replace an icon set/changed from the
-				// admin UI. Falls back to the same default as the admin payload
-				// validator when the CSV cell is blank.
-				$icono_raw = trim( (string) ( $row['icono'] ?? '' ) );
-				$icono     = '' === $icono_raw ? '🎒' : mb_substr( $icono_raw, 0, 20, 'UTF-8' );
-
-				$ok = $wpdb->insert( $table, array(
-					'empresa_id'    => $empresa_id,
-					'nome'          => $nome,
-					'icono'         => $icono,
-					'descripcion'   => $row['descripcion'] ?? '',
-					'curso_escolar' => $curso_escolar,
-					'custo'         => (float) ( $row['custo'] ?? 0 ),
-					'estado'        => in_array( $row['estado'] ?? '', array( 'activo', 'inactivo' ), true ) ? $row['estado'] : 'inactivo',
-				), array( '%d', '%s', '%s', '%s', '%s', '%f', '%s' ) );
-				if ( false === $ok ) {
-					$errors[] = array( 'row' => $idx, 'msg' => 'Non se puido inserir a actividade.' );
-					continue;
-				}
-				$activity_id = (int) $wpdb->insert_id;
+			if ( ! $activity_id ) { $errors[] = array( 'row' => $idx, 'msg' => 'Actividade non atopada.' ); continue; }
+			$by_code = array();
+			foreach ( ANPA_Socios_DB::get_niveis_for_curso( $course ) as $level ) { $by_code[ mb_strtolower( (string) $level['codigo'], 'UTF-8' ) ] = (int) $level['id']; }
+			$level_ids = array(); $missing = array();
+			foreach ( preg_split( '/\s*,\s*/', (string) ( $row['niveis_codigos'] ?? '' ), -1, PREG_SPLIT_NO_EMPTY ) ?: array() as $code ) {
+				$key = mb_strtolower( $code, 'UTF-8' );
+				if ( isset( $by_code[ $key ] ) ) { $level_ids[] = $by_code[ $key ]; } else { $missing[] = $code; }
 			}
-
-			$course_exists = $wpdb->get_var( $wpdb->prepare(
-				"SELECT id FROM {$course_t} WHERE actividad_id = %d AND curso_escolar = %s LIMIT 1",
-				(int) $activity_id,
-				$curso_escolar
+			if ( $missing || ! $level_ids ) { $errors[] = array( 'row' => $idx, 'msg' => 'Niveis non atopados no curso: ' . implode( ', ', $missing ) ); continue; }
+			$payload = ANPA_Socios_Grupo_Serie::normalize( array(
+				'nome' => $row['grupo_nome'] ?? '', 'horario' => $row['horario'] ?? '', 'franxa' => $row['franxa'] ?? '', 'dias' => $row['dias'] ?? '',
+				'min_pupilos' => $row['min_pupilos'] ?? 1, 'max_pupilos' => $row['max_pupilos'] ?? 1,
+				'estado' => $row['estado'] ?? 'pechado', 'cursos' => array( $course ), 'niveis_por_ano' => array( $course => $level_ids ),
 			) );
-			if ( $course_exists ) {
-				$skipped++;
-				continue;
-			}
-
-			$ok = $wpdb->insert( $course_t, array(
-				'actividad_id'  => (int) $activity_id,
-				'curso_escolar' => $curso_escolar,
-				'min_pupilos'   => (int) ( $row['min_pupilos'] ?? 10 ),
-				'max_pupilos'   => (int) ( $row['max_pupilos'] ?? 15 ),
-				'nivel_min_id'  => $nivel_min_id,
-				'nivel_max_id'  => $nivel_max_id,
-				'custo'         => (float) ( $row['custo'] ?? 0 ),
-				'estado'        => in_array( $row['estado'] ?? '', array( 'activo', 'inactivo' ), true ) ? $row['estado'] : 'inactivo',
-			), array( '%d', '%s', '%d', '%d', '%d', '%d', '%f', '%s' ) );
-
-			if ( false === $ok ) {
-				$errors[] = array( 'row' => $idx, 'msg' => 'Non se puido asignar a actividade ao curso.' );
-				continue;
+			if ( array() === $payload ) { $errors[] = array( 'row' => $idx, 'msg' => 'Datos de grupo inválidos.' ); continue; }
+			$conflicts = ANPA_Socios_Grupo_Comedor_Gate::conflicts_for_series( $payload );
+			if ( is_wp_error( $conflicts ) || array() !== $conflicts ) { $errors[] = array( 'row' => $idx, 'msg' => 'O grupo solapa co comedor.' ); continue; }
+			if ( false === $wpdb->query( 'START TRANSACTION' ) ) { $errors[] = array( 'row' => $idx, 'msg' => 'Non se puido iniciar a transacción.' ); continue; }
+			$exists = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$groups} WHERE actividad_id = %d AND curso_escolar = %s AND LOWER(nome) = %s FOR UPDATE", (int) $activity_id, $course, mb_strtolower( $payload['nome'], 'UTF-8' ) ) );
+			if ( $exists ) { $wpdb->query( 'ROLLBACK' ); $skipped++; continue; }
+			$uid = (string) ( $row['serie_uid'] ?? '' );
+			if ( 1 !== preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $uid ) ) { $uid = wp_generate_uuid4(); }
+			$ok = $wpdb->insert( $groups, array(
+				'actividad_id' => (int) $activity_id, 'curso_escolar' => $course, 'serie_uid' => $uid, 'nome' => $payload['nome'],
+				'horario' => $payload['horario'], 'curso_range' => '', 'franxa' => $payload['franxa'], 'dias' => $payload['dias'],
+				'min_pupilos' => $payload['min_pupilos'], 'max_pupilos' => $payload['max_pupilos'], 'estado' => $payload['estado'],
+				'creado_en' => current_time( 'mysql' ), 'actualizado_en' => current_time( 'mysql' ),
+			) );
+			$id = (int) $wpdb->insert_id;
+			if ( false === $ok || $id <= 0 || ! ANPA_Socios_DB::insert_grupo_niveis( $id, $level_ids ) || false === $wpdb->query( 'COMMIT' ) ) {
+				$wpdb->query( 'ROLLBACK' ); $errors[] = array( 'row' => $idx, 'msg' => 'Non se puido inserir o grupo.' ); continue;
 			}
 			$inserted++;
 		}
-
-		if ( $inserted > 0 ) {
-			ANPA_Socios_Admin_Shared::write_audit( $request, 'import', 'actividades', 'import_commit' );
-		}
-
+		if ( $inserted > 0 ) { ANPA_Socios_Admin_Shared::write_audit( $request, 'import', 'grupos', 'import_commit' ); }
 		return array( 'inserted' => $inserted, 'skipped' => $skipped, 'errors' => $errors );
 	}
 
@@ -845,7 +788,7 @@ final class ANPA_Socios_Admin_Import_Handler {
 		$table    = ANPA_Socios_DB::tabela_matriculas();
 		$fil_t    = ANPA_Socios_DB::tabela_fillos();
 		$act_t    = ANPA_Socios_DB::tabela_actividades();
-		$acy_t    = ANPA_Socios_DB::tabela_actividades_cursos();
+
 		$gru_t    = ANPA_Socios_DB::tabela_grupos();
 		$emp_t    = ANPA_Socios_DB::tabela_empresas();
 		$soc_t    = ANPA_Socios_DB::tabela_socios();
@@ -913,18 +856,17 @@ final class ANPA_Socios_Admin_Import_Handler {
 				continue;
 			}
 
-			// Resolve actividade_id by empresa_email + nome + curso_escolar (lookup only, never creates).
+			// Resolve the reusable activity; the annual course belongs to the group.
 			$empresa_id = $empresa_cache[ $empresa_email ] ?? null;
 			if ( ! $empresa_id ) {
 				$errors[] = array( 'row' => $idx, 'msg' => "Empresa non atopada: {$empresa_email}" );
 				continue;
 			}
 			$actividade_id = $wpdb->get_var( $wpdb->prepare(
-				"SELECT a.id FROM {$act_t} a INNER JOIN {$acy_t} ac ON ac.actividad_id = a.id
-				 WHERE a.empresa_id = %d AND LOWER(a.nome) = %s AND ac.curso_escolar = %s LIMIT 1",
+				"SELECT a.id FROM {$act_t} a
+				 WHERE a.empresa_id = %d AND LOWER(a.nome) = %s LIMIT 1",
 				$empresa_id,
-				mb_strtolower( $act_nome, 'UTF-8' ),
-				$curso_escolar
+				mb_strtolower( $act_nome, 'UTF-8' )
 			) );
 			if ( ! $actividade_id ) {
 				$errors[] = array( 'row' => $idx, 'msg' => "Actividade non atopada: {$act_nome} ({$curso_escolar})" );

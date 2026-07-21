@@ -13,7 +13,7 @@ use PHPUnit\Framework\TestCase;
 final class Test_ANPA_Socios_PR_ES9_Horario extends TestCase {
 
 	private function activeActivity(): array {
-		return array( 'estado' => 'activo', 'curso_estado' => 'activo' );
+		return array( 'estado' => 'activo' );
 	}
 
 	private function openGroup( array $replace = array() ): array {

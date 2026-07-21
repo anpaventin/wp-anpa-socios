@@ -88,7 +88,7 @@ final class ANPA_Socios_Extraescolares_REST {
 		global $wpdb;
 
 		$act_t = ANPA_Socios_DB::tabela_actividades();
-		$acy_t = ANPA_Socios_DB::tabela_actividades_cursos();
+
 		$gru_t = ANPA_Socios_DB::tabela_grupos();
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
 		$curso = ANPA_Socios_Curso_Activo::get();
@@ -100,7 +100,7 @@ final class ANPA_Socios_Extraescolares_REST {
 		$curso_fillo = null;
 		$nivel_fillo_id = null;
 		$sen_curso   = false;
-		$sql         = "SELECT a.id, a.nome, a.descripcion FROM {$act_t} a INNER JOIN {$acy_t} ac ON ac.actividad_id = a.id AND ac.curso_escolar = %s WHERE a.estado = 'activo' AND ac.estado = 'activo'";
+		$sql         = "SELECT DISTINCT a.id, a.nome, a.descripcion FROM {$act_t} a INNER JOIN {$gru_t} offered ON offered.actividad_id = a.id AND offered.curso_escolar = %s AND offered.estado = 'aberto' WHERE a.estado = 'activo'";
 		$params      = array( $curso );
 
 		// R-F1: optional fillo_id filters out already-enrolled activities.
@@ -155,7 +155,7 @@ final class ANPA_Socios_Extraescolares_REST {
 				if ( array() === $grupo_niveis ) {
 					continue;
 				}
-				if ( null !== $curso_fillo && ( $nivel_fillo_id <= 0 || ! in_array( $nivel_fillo_id, $grupo_niveis, true ) ) ) {
+				if ( $nivel_fillo_id > 0 && ! in_array( $nivel_fillo_id, $grupo_niveis, true ) ) {
 					continue;
 				}
 

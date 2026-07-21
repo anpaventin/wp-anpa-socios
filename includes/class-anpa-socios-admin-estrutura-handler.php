@@ -49,7 +49,11 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
     }
 
     /**
-     * GET /admin/estrutura?curso_escolar=X
+     * GET /admin/estrutura
+     *
+     * Levels are global since 1.35.0; this endpoint returns the full catalogue
+     * plus the per-level aulas and the optional meal schedule list for the
+     * requested course.
      *
      * @param  WP_REST_Request $request Incoming request.
      * @return WP_REST_Response
@@ -58,29 +62,30 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
         global $wpdb;
 
         $curso = $request->get_param( 'curso_escolar' );
-        if ( ! is_string( $curso ) || ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
-            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Curso escolar inválido.', 'anpa-socios' ) ), 400 );
-        }
+        $curso = is_string( $curso ) && ANPA_Socios_Curso_Escolar::is_valid( $curso ) ? $curso : '';
 
         $niveis_t   = ANPA_Socios_DB::tabela_niveis();
         $aulas_t    = ANPA_Socios_DB::tabela_aulas();
         $horarios_t = ANPA_Socios_DB::tabela_horarios_comedor();
 
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only REST endpoint.
-        $niveis = $wpdb->get_results( $wpdb->prepare(
-            "SELECT id, codigo, etiqueta, orde, horario_comedor_id, estado FROM {$niveis_t} WHERE curso_escolar = %s AND estado = 'activo' ORDER BY orde ASC, codigo ASC",
-            $curso
-        ), ARRAY_A );
+        $niveis = ANPA_Socios_DB::get_niveis();
+        if ( ! is_array( $niveis ) ) {
+            $niveis = array();
+        }
 
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only REST endpoint.
-        $horarios = $wpdb->get_results( $wpdb->prepare(
-            "SELECT id, nome, inicio, fin, orde, estado FROM {$horarios_t} WHERE curso_escolar = %s AND estado = 'activo' ORDER BY orde ASC, nome ASC, id ASC",
-            $curso
-        ), ARRAY_A );
+        // Optional course-scoped meal schedules still come from the selected course.
+        $horarios = array();
+        if ( '' !== $curso ) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only REST endpoint.
+            $horarios = $wpdb->get_results( $wpdb->prepare(
+                "SELECT id, nome, inicio, fin, orde, estado FROM {$horarios_t} WHERE curso_escolar = %s AND estado = 'activo' ORDER BY orde ASC, nome ASC, id ASC",
+                $curso
+            ), ARRAY_A );
+        }
 
         $nivel_ids = array();
-        if ( is_array( $niveis ) ) {
-            foreach ( $niveis as $n ) {
+        foreach ( $niveis as $n ) {
+            if ( isset( $n['id'] ) ) {
                 $nivel_ids[] = (int) $n['id'];
             }
         }
@@ -105,10 +110,10 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
         }
 
         return new WP_REST_Response( array(
-            'success' => true,
-            'curso_escolar' => $curso,
-            'niveis'  => is_array( $niveis ) ? $niveis : array(),
-            'aulas'   => $aulas,
+            'success'          => true,
+            'curso_escolar'    => $curso,
+            'niveis'           => $niveis,
+            'aulas'            => $aulas,
             'horarios_comedor' => is_array( $horarios ) ? $horarios : array(),
         ), 200 );
     }
@@ -125,19 +130,26 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
         global $wpdb;
 
         $accion = $request->get_param( 'accion' );
-        $curso  = $request->get_param( 'curso_escolar' );
 
+        switch ( $accion ) {
+            case 'engadir_nivel':
+                return self::engadir_nivel( $request );
+            case 'editar_nivel':
+                return self::editar_nivel( $request );
+            case 'toggle_nivel':
+                return self::toggle_nivel( $request );
+            case 'rename_nivel':
+                return self::rename_nivel( $request );
+        }
+
+        $curso = $request->get_param( 'curso_escolar' );
         if ( ! is_string( $curso ) || ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Curso escolar inválido.', 'anpa-socios' ) ), 400 );
         }
 
         switch ( $accion ) {
-            case 'engadir_nivel':
-                return self::engadir_nivel( $curso, $request );
-            case 'editar_nivel':
-                return self::editar_nivel( $curso, $request );
             case 'set_aulas':
-                return self::set_aulas( $curso, $request );
+                return self::set_aulas( $request );
             case 'gardar_estrutura':
                 return self::gardar_estrutura_lote( $curso, $request );
             case 'eliminar_horario':
@@ -159,6 +171,17 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
      */
     private static function aula_letras(): array {
         return range( 'A', 'H' );
+    }
+
+    /** Returns a strict positive integer without coercing malformed input. */
+    private static function positive_integer_input( $value ): ?int {
+        if ( is_int( $value ) && $value > 0 ) {
+            return $value;
+        }
+        if ( is_string( $value ) && 1 === preg_match( '/^[1-9][0-9]*$/D', $value ) ) {
+            return (int) $value;
+        }
+        return null;
     }
 
     /**
@@ -249,11 +272,12 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
     /**
      * POST accion=set_aulas — set a level's last classroom letter.
      *
-     * @param  string          $curso   Curso escolar.
+     * Levels are global, so the level lock only checks existence.
+     *
      * @param  WP_REST_Request $request Incoming request.
      * @return WP_REST_Response
      */
-    private static function set_aulas( string $curso, WP_REST_Request $request ): WP_REST_Response {
+    private static function set_aulas( WP_REST_Request $request ): WP_REST_Response {
         global $wpdb;
 
         $nivel_id = (int) $request->get_param( 'nivel_id' );
@@ -262,20 +286,16 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Datos inválidos.', 'anpa-socios' ) ), 400 );
         }
 
-        // Confirm the nivel belongs to this curso escolar.
         $niveis_t = ANPA_Socios_DB::tabela_niveis();
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin handler read.
         $wpdb->last_error = '';
         $owned_result = $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$niveis_t} WHERE id = %d AND curso_escolar = %s",
-            $nivel_id,
-            $curso
+            "SELECT COUNT(*) FROM {$niveis_t} WHERE id = %d",
+            $nivel_id
         ) );
         if ( null === $owned_result || '' !== (string) $wpdb->last_error ) {
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido comprobar o nivel.', 'anpa-socios' ) ), 500 );
         }
-        $owned = (int) $owned_result;
-        if ( $owned < 1 ) {
+        if ( (int) $owned_result < 1 ) {
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Nivel non atopado.', 'anpa-socios' ) ), 404 );
         }
 
@@ -284,9 +304,8 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
         }
         $wpdb->last_error = '';
         $locked_nivel = $wpdb->get_var( $wpdb->prepare(
-            "SELECT id FROM {$niveis_t} WHERE id = %d AND curso_escolar = %s FOR UPDATE",
-            $nivel_id,
-            $curso
+            "SELECT id FROM {$niveis_t} WHERE id = %d FOR UPDATE",
+            $nivel_id
         ) );
         if ( null === $locked_nivel || '' !== (string) $wpdb->last_error ) {
             $wpdb->query( 'ROLLBACK' );
@@ -363,6 +382,7 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
 
         $niveis = array();
         $seen_codes = array();
+        $seen_ages = array();
         $submitted_ids = array();
         foreach ( $raw_niveis as $index => $raw ) {
             if ( ! is_array( $raw ) ) {
@@ -370,6 +390,7 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
             }
             $id = absint( $raw['id'] ?? 0 );
             $codigo = trim( sanitize_text_field( (string) ( $raw['codigo'] ?? '' ) ) );
+            $age = self::positive_integer_input( $raw['orde'] ?? null );
             $ultima = strtoupper( trim( sanitize_text_field( (string) ( $raw['ultima_aula'] ?? '' ) ) ) );
             $horario_key = sanitize_key( (string) ( $raw['horario_comedor_key'] ?? '' ) );
             if ( '' === $codigo || strlen( $codigo ) > 30 || ! in_array( $ultima, self::aula_letras(), true ) || ( '' !== $horario_key && ! isset( $horarios[ $horario_key ] ) ) ) {
@@ -380,13 +401,20 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
                 return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non pode haber dous niveis co mesmo nome.', 'anpa-socios' ) ), 409 );
             }
             $seen_codes[ $canonical_code ] = true;
+            if ( null === $age ) {
+                return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Indica unha idade válida para cada nivel.', 'anpa-socios' ) ), 400 );
+            }
+            if ( isset( $seen_ages[ $age ] ) ) {
+                return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non pode haber dous niveis coa mesma idade do alumnado.', 'anpa-socios' ) ), 409 );
+            }
+            $seen_ages[ $age ] = true;
             if ( $id > 0 ) {
                 $submitted_ids[ $id ] = true;
             }
             $niveis[] = array(
                 'id'                   => $id,
                 'codigo'               => $codigo,
-                'orde'                 => max( 1, absint( $raw['orde'] ?? ( ( $index + 1 ) * 10 ) ) ),
+                'orde'                 => $age,
                 'ultima_aula'          => $ultima,
                 'horario_comedor_key'  => $horario_key,
             );
@@ -423,7 +451,7 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
         foreach ( $niveis as $nivel ) {
             if ( $nivel['id'] > 0 ) {
                 $wpdb->last_error = '';
-                $owned = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$niveis_t} WHERE id = %d AND curso_escolar = %s", $nivel['id'], $curso ) );
+                $owned = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$niveis_t} WHERE id = %d", $nivel['id'] ) );
                 if ( null === $owned || '' !== (string) $wpdb->last_error ) {
                     return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido comprobar o nivel.', 'anpa-socios' ) ), 500 );
                 }
@@ -431,14 +459,14 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
                     return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Nivel non atopado.', 'anpa-socios' ) ), 404 );
                 }
                 $wpdb->last_error = '';
-                $current_horario = $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(horario_comedor_id, 0) FROM {$niveis_t} WHERE id = %d AND curso_escolar = %s", $nivel['id'], $curso ) );
+                $current_horario = $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(horario_comedor_id, 0) FROM {$niveis_t} WHERE id = %d", $nivel['id'] ) );
                 if ( null === $current_horario || '' !== (string) $wpdb->last_error ) {
                     return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido comprobar o horario asignado ao nivel.', 'anpa-socios' ) ), 500 );
                 }
                 $current_nivel_horarios[ $nivel['id'] ] = (int) $current_horario;
             }
             $wpdb->last_error = '';
-            $duplicate_id = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$niveis_t} WHERE curso_escolar = %s AND codigo = %s AND estado = 'activo' LIMIT 1", $curso, $nivel['codigo'] ) );
+            $duplicate_id = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$niveis_t} WHERE codigo = %s AND estado = 'activo' AND id <> %d LIMIT 1", $nivel['codigo'], $nivel['id'] ) );
             if ( '' !== (string) $wpdb->last_error ) {
                 return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puideron comprobar os niveis duplicados.', 'anpa-socios' ) ), 500 );
             }
@@ -462,9 +490,8 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
         foreach ( $nivel_ids as $nivel_id ) {
             $wpdb->last_error = '';
             $locked_id = $wpdb->get_var( $wpdb->prepare(
-                "SELECT id FROM {$niveis_t} WHERE id = %d AND curso_escolar = %s FOR UPDATE",
-                $nivel_id,
-                $curso
+                "SELECT id FROM {$niveis_t} WHERE id = %d FOR UPDATE",
+                $nivel_id
             ) );
             if ( null === $locked_id || '' !== (string) $wpdb->last_error ) {
                 $wpdb->query( 'ROLLBACK' );
@@ -560,7 +587,7 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
             foreach ( $niveis as $nivel ) {
                 if ( $nivel['id'] > 0 ) {
                     $temporary = '__bulk_' . $nivel['id'];
-                    if ( false === $wpdb->query( $wpdb->prepare( "UPDATE {$niveis_t} SET codigo = %s WHERE id = %d AND curso_escolar = %s", $temporary, $nivel['id'], $curso ) ) ) {
+                    if ( false === $wpdb->query( $wpdb->prepare( "UPDATE {$niveis_t} SET codigo = %s WHERE id = %d", $temporary, $nivel['id'] ) ) ) {
                         $wpdb->query( 'ROLLBACK' );
                         return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puideron preparar os niveis.', 'anpa-socios' ) ), 500 );
                     }
@@ -575,8 +602,7 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
                 $nivel_id    = $nivel['id'];
 
                 if ( $nivel_id < 1 ) {
-                    $inactive_id = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$niveis_t} WHERE curso_escolar = %s AND codigo = %s AND estado = 'inactivo' LIMIT 1", $curso, $nivel['codigo'] ) );
-                    $nivel_id = null !== $inactive_id ? (int) $inactive_id : 0;
+                    $nivel_id = 0;
                 }
 
                 $values = array(
@@ -590,7 +616,7 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
                     'actualizado_en'      => current_time( 'mysql' ),
                 );
                 if ( $nivel_id > 0 ) {
-                    $written = $wpdb->update( $niveis_t, $values, array( 'id' => $nivel_id, 'curso_escolar' => $curso ), array( '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s' ), array( '%d', '%s' ) );
+                    $written = $wpdb->update( $niveis_t, $values, array( 'id' => $nivel_id ), array( '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s' ), array( '%d' ) );
                 } else {
                     $values['curso_escolar'] = $curso;
                     $values['creado_en'] = current_time( 'mysql' );
@@ -646,9 +672,8 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
 
         $wpdb->last_error = '';
         $exists = $wpdb->get_var( $wpdb->prepare(
-            "SELECT id FROM {$niveis_t} WHERE id = %d AND curso_escolar = %s FOR UPDATE",
-            $nivel_id,
-            $curso
+            "SELECT id FROM {$niveis_t} WHERE id = %d FOR UPDATE",
+            $nivel_id
         ) );
         if ( '' !== (string) $wpdb->last_error ) {
             $wpdb->query( 'ROLLBACK' );
@@ -715,9 +740,9 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
                 'comedor_fin'        => $interval['fin'] ?? null,
                 'actualizado_en'     => current_time( 'mysql' ),
             ),
-            array( 'id' => $nivel_id, 'curso_escolar' => $curso ),
+            array( 'id' => $nivel_id ),
             array( '%d', '%s', '%s', '%s' ),
-            array( '%d', '%s' )
+            array( '%d' )
         );
         if ( false === $updated || false === $wpdb->query( 'COMMIT' ) ) {
             $wpdb->query( 'ROLLBACK' );
@@ -763,8 +788,8 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
 
         $wpdb->last_error = '';
         $wpdb->get_col( $wpdb->prepare(
-            "SELECT id FROM {$niveis_t} WHERE curso_escolar = %s ORDER BY id FOR UPDATE",
-            $curso
+            "SELECT id FROM {$niveis_t} WHERE horario_comedor_id = %d ORDER BY id FOR UPDATE",
+            $horario_id
         ) );
         if ( '' !== (string) $wpdb->last_error ) {
             $wpdb->query( 'ROLLBACK' );
@@ -788,8 +813,7 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
 
         $wpdb->last_error = '';
         $references = $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$niveis_t} WHERE curso_escolar = %s AND horario_comedor_id = %d",
-            $curso,
+            "SELECT COUNT(*) FROM {$niveis_t} WHERE horario_comedor_id = %d",
             $horario_id
         ) );
         if ( null === $references || '' !== (string) $wpdb->last_error ) {
@@ -941,23 +965,20 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
     }
 
     /**
-     * POST accion=editar_nivel — rename a level's label/orde.
+     * POST accion=editar_nivel — rename a level's code and order.
      *
-     * The single "Nivel" value is stored as both `codigo` and `etiqueta`
-     * (they were historically split into a relation key + a display label,
-     * but the editor now uses one field to avoid the redundancy).
+     * Levels are global, so the duplicate check now spans the full catalogue.
      *
-     * @param  string          $curso   Curso escolar.
      * @param  WP_REST_Request $request Incoming request.
      * @return WP_REST_Response
      */
-    private static function editar_nivel( string $curso, WP_REST_Request $request ): WP_REST_Response {
+    private static function editar_nivel( WP_REST_Request $request ): WP_REST_Response {
         global $wpdb;
 
         $nivel_id = (int) $request->get_param( 'nivel_id' );
         $codigo   = trim( (string) $request->get_param( 'codigo' ) );
-        $orde     = (int) $request->get_param( 'orde' );
-        if ( $nivel_id < 1 || '' === $codigo ) {
+        $orde     = self::positive_integer_input( $request->get_param( 'orde' ) );
+        if ( $nivel_id < 1 || '' === $codigo || null === $orde ) {
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Datos inválidos.', 'anpa-socios' ) ), 400 );
         }
 
@@ -969,9 +990,8 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
 
         $wpdb->last_error = '';
         $owned_result = $wpdb->get_var( $wpdb->prepare(
-            "SELECT id FROM {$niveis_t} WHERE id = %d AND curso_escolar = %s FOR UPDATE",
-            $nivel_id,
-            $curso
+            "SELECT id FROM {$niveis_t} WHERE id = %d FOR UPDATE",
+            $nivel_id
         ) );
         if ( '' !== (string) $wpdb->last_error ) {
             $wpdb->query( 'ROLLBACK' );
@@ -982,12 +1002,9 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Nivel non atopado.', 'anpa-socios' ) ), 404 );
         }
 
-        // Lock the duplicate natural-key row (or its indexed gap) so the
-        // preflight and UPDATE remain one serialised decision.
         $wpdb->last_error = '';
         $duplicate_id = $wpdb->get_var( $wpdb->prepare(
-            "SELECT id FROM {$niveis_t} WHERE curso_escolar = %s AND codigo = %s AND id <> %d FOR UPDATE",
-            $curso,
+            "SELECT id FROM {$niveis_t} WHERE codigo = %s AND id <> %d FOR UPDATE",
             $codigo,
             $nivel_id
         ) );
@@ -997,16 +1014,16 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
         }
         if ( null !== $duplicate_id ) {
             $wpdb->query( 'ROLLBACK' );
-            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Xa existe outro nivel con ese código neste curso.', 'anpa-socios' ) ), 409 );
+            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Xa existe outro nivel con ese código.', 'anpa-socios' ) ), 409 );
         }
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin handler write.
         $updated = $wpdb->update(
             $niveis_t,
-            array( 'codigo' => $codigo, 'etiqueta' => $codigo, 'orde' => $orde > 0 ? $orde : 10, 'actualizado_en' => current_time( 'mysql' ) ),
-            array( 'id' => $nivel_id, 'curso_escolar' => $curso ),
+            array( 'codigo' => $codigo, 'etiqueta' => $codigo, 'orde' => $orde, 'actualizado_en' => current_time( 'mysql' ) ),
+            array( 'id' => $nivel_id ),
             array( '%s', '%s', '%d', '%s' ),
-            array( '%d', '%s' )
+            array( '%d' )
         );
         if ( false === $updated ) {
             $wpdb->query( 'ROLLBACK' );
@@ -1022,42 +1039,102 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
     }
 
     /**
-     * Engade un novo nivel (e opcionalmente aulas) ao curso.
+     * POST accion=toggle_nivel — enable/disable a level.
      *
-     * @param  string          $curso   Curso escolar.
      * @param  WP_REST_Request $request Incoming request.
      * @return WP_REST_Response
      */
-    private static function engadir_nivel( string $curso, WP_REST_Request $request ): WP_REST_Response {
+    private static function toggle_nivel( WP_REST_Request $request ): WP_REST_Response {
+        $nivel_id   = (int) $request->get_param( 'nivel_id' );
+        $habilitado = rest_sanitize_boolean( $request->get_param( 'habilitado' ) );
+
+        if ( $nivel_id < 1 ) {
+            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'ID de nivel inválido.', 'anpa-socios' ) ), 400 );
+        }
+
+        $result = ANPA_Socios_DB::toggle_nivel( $nivel_id, $habilitado );
+        if ( is_wp_error( $result ) ) {
+            $data   = $result->get_error_data();
+            $status = is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 409;
+            return new WP_REST_Response(
+                array(
+                    'success' => false,
+                    'message' => $result->get_error_message(),
+                ),
+                $status > 0 ? $status : 409
+            );
+        }
+
+        return new WP_REST_Response(
+            array(
+                'success'    => true,
+                'habilitado' => $habilitado,
+                'message'    => $habilitado ? __( 'Nivel habilitado.', 'anpa-socios' ) : __( 'Nivel deshabilitado.', 'anpa-socios' ),
+            ),
+            200
+        );
+    }
+
+    /**
+     * POST accion=rename_nivel — rename only the display label.
+     *
+     * @param  WP_REST_Request $request Incoming request.
+     * @return WP_REST_Response
+     */
+    private static function rename_nivel( WP_REST_Request $request ): WP_REST_Response {
+        $nivel_id = (int) $request->get_param( 'nivel_id' );
+        $etiqueta = trim( (string) $request->get_param( 'etiqueta' ) );
+
+        if ( $nivel_id < 1 || '' === $etiqueta ) {
+            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Datos inválidos.', 'anpa-socios' ) ), 400 );
+        }
+
+        $result = ANPA_Socios_DB::rename_nivel( $nivel_id, $etiqueta );
+        if ( is_wp_error( $result ) ) {
+            $data   = $result->get_error_data();
+            $status = is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 400;
+            return new WP_REST_Response(
+                array(
+                    'success' => false,
+                    'message' => $result->get_error_message(),
+                ),
+                $status > 0 ? $status : 400
+            );
+        }
+
+        return new WP_REST_Response(
+            array(
+                'success'  => true,
+                'message'  => __( 'Nivel renomeado correctamente.', 'anpa-socios' ),
+                'etiqueta' => $etiqueta,
+            ),
+            200
+        );
+    }
+
+    /**
+     * Engade un novo nivel.
+     *
+     * @param  WP_REST_Request $request Incoming request.
+     * @return WP_REST_Response
+     */
+    private static function engadir_nivel( WP_REST_Request $request ): WP_REST_Response {
         global $wpdb;
 
         // Single "Nivel" value used as both codigo (relation key) and etiqueta
         // (display) — the editor no longer asks for both separately.
         $codigo = trim( (string) $request->get_param( 'codigo' ) );
-        $orde   = (int) $request->get_param( 'orde' );
+        $orde   = self::positive_integer_input( $request->get_param( 'orde' ) );
         $ultima = strtoupper( trim( (string) $request->get_param( 'ultima_aula' ) ) );
         if ( ! in_array( $ultima, self::aula_letras(), true ) ) {
             $ultima = 'D';
         }
 
-        if ( '' === $codigo ) {
-            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'O nivel é obrigatorio.', 'anpa-socios' ) ), 400 );
+        if ( '' === $codigo || null === $orde ) {
+            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'O nivel e unha idade válida son obrigatorios.', 'anpa-socios' ) ), 400 );
         }
 
         $niveis_t = ANPA_Socios_DB::tabela_niveis();
-
-        // Default orde to the end of the list when not provided.
-        if ( $orde <= 0 ) {
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin REST handler read.
-            $orde_result = $wpdb->get_var( $wpdb->prepare(
-                "SELECT COALESCE(MAX(orde), 0) FROM {$niveis_t} WHERE curso_escolar = %s",
-                $curso
-            ) );
-            if ( null === $orde_result ) {
-                return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido gardar o nivel.', 'anpa-socios' ) ), 500 );
-            }
-            $orde = 10 + (int) $orde_result;
-        }
 
         if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido gardar o nivel.', 'anpa-socios' ) ), 500 );
@@ -1067,26 +1144,25 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
         $inserted = $wpdb->insert(
             $niveis_t,
             array(
-                'curso_escolar' => $curso,
-                'codigo'        => $codigo,
-                'etiqueta'      => $codigo,
-                'orde'          => $orde,
-                'estado'        => 'activo',
-                'creado_en'     => current_time( 'mysql' ),
+                'codigo'         => $codigo,
+                'etiqueta'       => $codigo,
+                'orde'           => $orde,
+                'estado'         => 'activo',
+                'habilitado'     => 1,
+                'creado_en'      => current_time( 'mysql' ),
                 'actualizado_en' => current_time( 'mysql' ),
             ),
-            array( '%s', '%s', '%s', '%d', '%s', '%s', '%s' )
+            array( '%s', '%s', '%d', '%s', '%d', '%s', '%s' )
         );
 
         if ( false === $inserted ) {
             $wpdb->query( 'ROLLBACK' );
-            if ( false !== strpos( $wpdb->last_error, 'Duplicate entry' ) ) {
-                return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Xa existe un nivel con ese código neste curso.', 'anpa-socios' ) ), 409 );
+            if ( false !== strpos( (string) $wpdb->last_error, 'Duplicate entry' ) ) {
+                return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Xa existe un nivel con ese código.', 'anpa-socios' ) ), 409 );
             }
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido gardar o nivel.', 'anpa-socios' ) ), 500 );
         }
 
-        // Create the level's classrooms A..ultima in the same transaction.
         if ( ! self::sync_aulas_nivel( (int) $wpdb->insert_id, $ultima ) ) {
             $wpdb->query( 'ROLLBACK' );
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido gardar o nivel.', 'anpa-socios' ) ), 500 );
@@ -1287,8 +1363,8 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
     /**
      * DELETE /admin/estrutura?nivel_id=N&curso_escolar=X
      *
-     * If the nivel has active references (fillos_cursos, grupos_niveis,
-     * actividades_cursos) it is set to inactive instead of deleted.
+     * If the nivel has active references (fillos_cursos or grupos_niveis),
+     * it is set to inactive instead of deleted.
      *
      * @param  WP_REST_Request $request Incoming request.
      * @return WP_REST_Response
@@ -1307,7 +1383,7 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
         $aulas_t    = ANPA_Socios_DB::tabela_aulas();
         $fc_t       = ANPA_Socios_DB::tabela_fillos_cursos();
         $gn_t       = ANPA_Socios_DB::tabela_grupos_niveis();
-        $ac_t       = ANPA_Socios_DB::tabela_actividades_cursos();
+
 
         if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido actualizar o nivel.', 'anpa-socios' ) ), 500 );
@@ -1368,16 +1444,6 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puideron bloquear as referencias dos grupos.', 'anpa-socios' ) ), 500 );
         }
 
-        $wpdb->last_error = '';
-        $wpdb->get_col( $wpdb->prepare(
-            "SELECT id FROM {$ac_t} WHERE nivel_min_id = %d OR nivel_max_id = %d ORDER BY id FOR UPDATE",
-            $nivel_id,
-            $nivel_id
-        ) );
-        if ( '' !== (string) $wpdb->last_error ) {
-            $wpdb->query( 'ROLLBACK' );
-            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puideron bloquear as referencias das actividades.', 'anpa-socios' ) ), 500 );
-        }
 
         $wpdb->last_error = '';
         $fc_refs_result = $wpdb->get_var( $wpdb->prepare(
@@ -1398,16 +1464,6 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puideron comprobar as referencias do nivel.', 'anpa-socios' ) ), 500 );
         }
 
-        $wpdb->last_error = '';
-        $ac_refs_result = $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$ac_t} WHERE nivel_min_id = %d OR nivel_max_id = %d",
-            $nivel_id,
-            $nivel_id
-        ) );
-        if ( null === $ac_refs_result || '' !== (string) $wpdb->last_error ) {
-            $wpdb->query( 'ROLLBACK' );
-            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puideron comprobar as referencias das actividades.', 'anpa-socios' ) ), 500 );
-        }
 
         $aula_refs_result = 0;
         foreach ( $locked_aula_ids as $aula_id ) {
@@ -1423,7 +1479,7 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
             $aula_refs_result += (int) $refs;
         }
 
-        $has_references = ( (int) $fc_refs_result + (int) $gn_refs_result + (int) $ac_refs_result + $aula_refs_result ) > 0;
+        $has_references = ( (int) $fc_refs_result + (int) $gn_refs_result + $aula_refs_result ) > 0;
 
         // Delete or deactivate aulas.
         if ( $has_references ) {

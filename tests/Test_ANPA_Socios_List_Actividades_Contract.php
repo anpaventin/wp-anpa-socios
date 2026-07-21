@@ -1,10 +1,9 @@
 <?php
 /**
  * Source-inspection contract tests for PR-ES9 task 82/83: the admin
- * actividades listing endpoint must return one row per activity (delegating
- * the collapsing logic to the pure ANPA_Socios_Actividades_Collapse helper)
- * and the admin UI must add the `cursos_ofertados` column with the exact
- * "Cursos nos que se oferta" label, per design.md §8.7.
+ * actividades listing endpoint must return one row per activity. Fase30
+ * supersedes the old actividades_cursos collapse: annual presence is now a
+ * projection of the activity-owned annual groups.
  *
  * @package ANPA_Socios
  */
@@ -23,7 +22,7 @@ final class Test_ANPA_Socios_List_Actividades_Contract extends TestCase {
 	}
 
 	/**
-	 * @testdox list_actividades no longer JOINs actividades_cursos row-per-year without collapsing
+	 * @testdox list_actividades derives annual presence from groups without an actividades_cursos join
 	 */
 	public function test_list_actividades_selects_base_rows_without_fanout_join(): void {
 		$source = file_get_contents( $this->handler_file );
@@ -34,7 +33,8 @@ final class Test_ANPA_Socios_List_Actividades_Contract extends TestCase {
 			$body,
 			'Must not keep the old unfiltered fan-out JOIN'
 		);
-		$this->assertStringContainsString( 'ANPA_Socios_Actividades_Collapse::collapse(', $body, 'Must delegate collapsing to the pure helper' );
+		$this->assertStringContainsString( 'ANPA_Socios_Activity_Group_Projection::build(', $body, 'Must delegate annual presence to the group projection' );
+		$this->assertStringNotContainsString( 'tabela_actividades_cursos', $body, 'Fase30 forbids the retired annual-offer table in this reader' );
 		$this->assertStringContainsString( 'ANPA_Socios_Curso_Activo::get()', $body, 'Must resolve the active curso per design §8.7' );
 	}
 
@@ -88,27 +88,24 @@ final class Test_ANPA_Socios_List_Actividades_Contract extends TestCase {
 	/**
 	 * @testdox renderActividadForm reads the multi-course selection from cursos_ofertados, not the old cursos field
 	 */
-	public function test_form_reads_cursos_ofertados_not_legacy_cursos_field(): void {
+	public function test_form_reads_group_derived_course_history(): void {
 		$source = file_get_contents( $this->js_file );
 		$body   = $this->extract_method_body( $source, 'renderActividadForm' );
-		$this->assertStringContainsString( 'act.cursos_ofertados', $body );
+		$this->assertStringContainsString( 'act.cursos_con_grupos', $body );
+		$this->assertStringContainsString( 'act.ten_grupo_curso_activo', $body );
 		$this->assertStringNotContainsString( 'act.cursos)', $body, 'Must not reference the old (removed) act.cursos field' );
 	}
 
 	/**
 	 * @testdox Toggle Activar/Desactivar payload preserves cursos_ofertados (regression: used to wipe other years)
 	 */
-	public function test_toggle_estado_payload_preserves_cursos_ofertados(): void {
+	public function test_toggle_estado_payload_does_not_write_courses(): void {
 		$source = file_get_contents( $this->js_file );
 		// The toggle handler builds its PUT payload right before this call.
 		$idx = strpos( $source, "anpaAdminFetch('actividad/' + row.id, { method: 'PUT'" );
 		$this->assertNotFalse( $idx, 'Toggle estado fetch call not found' );
 		$window = substr( $source, max( 0, $idx - 900 ), 900 );
-		$this->assertStringContainsString(
-			'cursos: Array.isArray(row.cursos_ofertados) ? row.cursos_ofertados : []',
-			$window,
-			'Toggle payload must send cursos_ofertados back, otherwise sync_actividad_cursos() array_diff wipes every OTHER offered year'
-		);
+		$this->assertStringNotContainsString( 'cursos:', $window );
 	}
 
 	// ────────────────────────────────────────────────────────────────────

@@ -317,9 +317,9 @@ final class Test_ANPA_Socios_PR_ES8_Second_Half extends TestCase {
 	// Task 70: Backup version bump and v1 restore compatibility
 	// ────────────────────────────────────────────────────────────────────
 
-	public function test_backup_version_is_5_after_menu_name_roundtrip(): void {
+	public function test_backup_version_is_6_after_retiring_activity_courses(): void {
 		require_once $this->backup_file;
-		$this->assertSame( 5, ANPA_Socios_Backup::VERSION );
+		$this->assertSame( 6, ANPA_Socios_Backup::VERSION );
 	}
 
 	public function test_restore_reads_payload_version(): void {
@@ -372,13 +372,12 @@ final class Test_ANPA_Socios_PR_ES8_Second_Half extends TestCase {
 	// Task 72+74: Actividade deletion cascade
 	// ────────────────────────────────────────────────────────────────────
 
-	public function test_delete_actividad_gate_counts_only_matriculas(): void {
+	public function test_delete_actividad_gate_locks_direct_and_group_matriculas(): void {
 		$source = file_get_contents( $this->actividades_handler );
 		$body   = $this->extract_method_body( $source, 'delete_actividad' );
 		// Must count matriculas only, NOT groups.
-		$this->assertStringContainsString( 'has_matriculas', $body );
-		// The old pattern counted groups too — ensure it is gone.
-		$this->assertStringNotContainsString( 'has_related', $body );
+		$this->assertStringContainsString( 'ORDER BY id FOR UPDATE', $body );
+		$this->assertStringContainsString( 'OR grupo_id IN', $body );
 	}
 
 	public function test_delete_actividad_deletes_grupos_niveis(): void {
@@ -387,29 +386,24 @@ final class Test_ANPA_Socios_PR_ES8_Second_Half extends TestCase {
 		$this->assertStringContainsString( 'grupos_niveis', $body );
 	}
 
-	public function test_delete_actividad_deletes_grupos_before_actividad(): void {
+	public function test_delete_actividad_has_no_retired_activity_course_delete(): void {
 		$source = file_get_contents( $this->actividades_handler );
 		$body   = $this->extract_method_body( $source, 'delete_actividad' );
-		$pos_groups  = strpos( $body, 'deleted_groups' );
-		$pos_deleted = strpos( $body, 'deleted_courses' );
-		$this->assertIsInt( $pos_groups );
-		$this->assertIsInt( $pos_deleted );
-		$this->assertLessThan( $pos_deleted, $pos_groups, 'Groups must be deleted before actividades_cursos' );
+		$this->assertStringNotContainsString( 'actividades_cursos', $body );
+		$this->assertStringContainsString( "DELETE FROM {\$groups}", $body );
 	}
 
 	public function test_delete_actividad_cascade_order(): void {
 		$source = file_get_contents( $this->actividades_handler );
 		$body   = $this->extract_method_body( $source, 'delete_actividad' );
-		// Order: grupos_niveis → grupos → actividades_cursos → actividades.
-		$pos_gn      = strpos( $body, 'deleted_gn' );
-		$pos_groups  = strpos( $body, 'deleted_groups' );
-		$pos_courses = strpos( $body, 'deleted_courses' );
-		$pos_act     = strrpos( $body, '$deleted' ); // last $deleted is the actividade itself
+		// Order: grupos_niveis → grupos → actividade.
+		$pos_gn      = strpos( $body, "DELETE FROM {\$relations}" );
+		$pos_groups  = strpos( $body, "DELETE FROM {\$groups}" );
+		$pos_act     = strpos( $body, '$wpdb->delete( $table' );
 		$this->assertIsInt( $pos_gn );
 		$this->assertIsInt( $pos_groups );
-		$this->assertIsInt( $pos_courses );
 		$this->assertLessThan( $pos_groups, $pos_gn );
-		$this->assertLessThan( $pos_courses, $pos_groups );
+		$this->assertLessThan( $pos_act, $pos_groups );
 	}
 
 	public function test_delete_actividad_rolls_back_on_group_delete_failure(): void {

@@ -80,11 +80,13 @@ class ANPA_Socios_DB {
 	 * 1.32.0 adds nullable annual meal-window fields to each school level.
 	 * 1.33.0 normalizes reusable annual meal schedules, links levels to them,
 	 *        backfills 1.32.0 windows and retires the global aula_max option.
+	 * 1.34.0 retires actividades_cursos after verifying every legacy annual
+	 *        offer has an annual group with at least one assigned level.
 	 *
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.33.0';
+	const DB_VERSION = '1.35.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -263,6 +265,22 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.33.0', '<' ) && ! self::migrate_to_1_33_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.33.0 (migrate_to_1_33_0): ' . $wpdb->last_error );
+			return;
+		}
+
+		// 1.34.0: annual groups become the only activity-offer authority.
+		$wpdb->last_error = '';
+		if ( version_compare( $installed_version, '1.34.0', '<' ) && ! self::migrate_to_1_34_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.34.0 (migrate_to_1_34_0): ' . $wpdb->last_error );
+			return;
+		}
+
+		// 1.35.0: niveis become global (no curso_escolar), with habilitado toggle.
+		$wpdb->last_error = '';
+		if ( version_compare( $installed_version, '1.35.0', '<' ) && ! self::migrate_to_1_35_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.35.0 (migrate_to_1_35_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -654,21 +672,38 @@ class ANPA_Socios_DB {
 	 * @since  1.39.0
 	 * @param  int    $fillo_id      Fillo id.
 	 * @param  string $curso_escolar School year (e.g. "2025/2026").
-	 * @param  string $curso         Grade code (e.g. "3").
+	 * @param  string $curso         Grade code (e.g. "3") or an explicit empty
+	 *                               value when the child completed the last level.
 	 * @param  string $aula          Classroom code (e.g. "B").
 	 * @return bool True on success, false on DB write failure.
 	 */
 	public static function upsert_fillo_curso_assignment( int $fillo_id, string $curso_escolar, string $curso, string $aula ): bool {
-		if ( $fillo_id <= 0 || '' === $curso_escolar || '' === $curso || '' === $aula ) {
+		if ( $fillo_id <= 0 || '' === $curso_escolar || '' === $aula ) {
 			return false;
 		}
 
 		global $wpdb;
 
-		$fc_table = self::tabela_fillos_cursos();
+		$fillos_table = self::tabela_fillos();
+		$fc_table     = self::tabela_fillos_cursos();
 		$now      = current_time( 'mysql' );
+		$wpdb->last_error = '';
+		// Canonical lock order: fillos -> fillos_cursos. This matches callers
+		// that update the child before its annual assignment and prevents the
+		// promotion batch from taking the same pair in the opposite order.
+		$locked_fillo = $wpdb->get_var(
+			$wpdb->prepare( "SELECT id FROM {$fillos_table} WHERE id = %d FOR UPDATE", $fillo_id )
+		);
+		if ( '' !== (string) $wpdb->last_error || $fillo_id !== (int) $locked_fillo ) {
+			return false;
+		}
 
-		list( $nivel_id, $aula_id ) = self::resolve_nivel_aula_ids( $curso_escolar, $curso, $aula );
+		if ( '' === $curso ) {
+			$nivel_id = null;
+			$aula_id  = null;
+		} else {
+			list( $nivel_id, $aula_id ) = self::resolve_nivel_aula_ids( $curso_escolar, $curso, $aula );
+		}
 
 		// %d would coerce an unresolved null to 0 (a real, wrong value), so
 		// the nivel_id/aula_id placeholders are literal NULL or %d chosen
@@ -704,7 +739,6 @@ class ANPA_Socios_DB {
 		// anpa_fillos.curso/aula (design.md §7.1 — mirror is transitional,
 		// never fallback for other years).
 		if ( $curso_escolar === self::resolve_operational_curso_activo() ) {
-			$fillos_table = self::tabela_fillos();
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- legacy mirror update within caller transaction.
 			$mirror = $wpdb->update(
 				$fillos_table,
@@ -955,22 +989,19 @@ class ANPA_Socios_DB {
 	}
 
 	/**
-	 * Gets all niveis for a given curso_escolar, ordered by `order`.
+	 * Gets all active global niveis, ordered by orde.
 	 *
 	 * @since  1.28.0
-	 * @param  string $curso_escolar Course school year e.g. '2025-2026'.
-	 * @return array[] Array of nivel rows (id, codigo, etiqueta, order, curso_escolar).
+	 * @param  string $curso_escolar Deprecated — ignored (levels are global since 1.35.0).
+	 * @return array[] Array of nivel rows (id, codigo, etiqueta, orde, estado).
 	 */
-	public static function get_niveis_for_curso( string $curso_escolar ): array {
+	public static function get_niveis_for_curso( string $curso_escolar = '' ): array {
 		global $wpdb;
 		$table = self::tabela_niveis();
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read helper.
 		$results = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT id, codigo, etiqueta, orde, estado FROM {$table} WHERE curso_escolar = %s AND estado = 'activo' ORDER BY orde ASC",
-				$curso_escolar
-			),
+			"SELECT id, codigo, etiqueta, orde, estado FROM {$table} WHERE estado = 'activo' ORDER BY orde ASC",
 			ARRAY_A
 		);
 
@@ -978,22 +1009,135 @@ class ANPA_Socios_DB {
 	}
 
 	/**
-	 * Resolves a nivel/aula text-code pair to their (id) foreign keys for a
-	 * given curso_escolar.
+	 * Gets all global niveis (active + inactive), ordered by orde.
 	 *
-	 * Used by `upsert_fillo_curso_assignment()` (the single write point for
-	 * `fillos_cursos`) to keep `nivel_id`/`aula_id` populated on every write,
-	 * not just the one-off 1.27.0 migration backfill. Matching is scoped by
-	 * `curso_escolar` + `codigo` (niveis are per-year rows, so the same code
-	 * "3" resolves to a different nivel id across school years) and the
-	 * aula lookup is additionally scoped to that resolved nivel_id. Either
-	 * lookup can legitimately miss (stale/foreign code, or nivel/aula not
-	 * yet created for that curso_escolar) — in that case the corresponding
-	 * slot is `null` and the caller must NOT fail the write, since the text
-	 * columns (`curso`/`aula`) remain authoritative.
+	 * @since  1.45.0
+	 * @return array[] Array of nivel rows (id, codigo, etiqueta, orde, estado, habilitado).
+	 */
+	public static function get_niveis(): array {
+		global $wpdb;
+		$table = self::tabela_niveis();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read helper.
+		$results = $wpdb->get_results(
+			"SELECT id, codigo, etiqueta, orde, estado, habilitado FROM {$table} ORDER BY orde ASC",
+			ARRAY_A
+		);
+
+		return is_array( $results ) ? $results : array();
+	}
+
+	/**
+	 * Gets only active and enabled global niveis (for dropdowns/selectors).
+	 *
+	 * @since  1.45.0
+	 * @return array[] Array of nivel rows (id, codigo, etiqueta, orde).
+	 */
+	public static function get_niveis_habilitados(): array {
+		global $wpdb;
+		$table = self::tabela_niveis();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read helper.
+		$results = $wpdb->get_results(
+			"SELECT id, codigo, etiqueta, orde FROM {$table} WHERE estado = 'activo' AND habilitado = 1 ORDER BY orde ASC",
+			ARRAY_A
+		);
+
+		return is_array( $results ) ? $results : array();
+	}
+
+	/**
+	 * Checks if any fillo has this nivel assigned in any curso_escolar.
+	 *
+	 * @since  1.45.0
+	 * @param  int $nivel_id Nivel id to check.
+	 * @return int Number of children assigned (0 = safe to disable).
+	 */
+	public static function nivel_has_alumnos( int $nivel_id ): int {
+		global $wpdb;
+		$fc_t = self::tabela_fillos_cursos();
+
+		$count = $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$fc_t} WHERE nivel_id = %d",
+			$nivel_id
+		) );
+
+		return null === $count ? 0 : (int) $count;
+	}
+
+	/**
+	 * Toggles the habilitado flag of a nivel.
+	 *
+	 * @since  1.45.0
+	 * @param  int  $nivel_id  Nivel id.
+	 * @param  bool $habilitado New value.
+	 * @return bool|WP_Error True on success, WP_Error on failure.
+	 */
+	public static function toggle_nivel( int $nivel_id, bool $habilitado ) {
+		global $wpdb;
+		$table = self::tabela_niveis();
+
+		if ( $nivel_id < 1 ) {
+			return new \WP_Error( 'anpa_nivel_invalid', __( 'ID de nivel inválido.', 'anpa-socios' ) );
+		}
+
+		// Cannot disable if has children.
+		if ( ! $habilitado && self::nivel_has_alumnos( $nivel_id ) > 0 ) {
+			return new \WP_Error(
+				'anpa_nivel_has_children',
+				__( 'Non se pode deshabilitar un nivel que ten alumnos asociados.', 'anpa-socios' )
+			);
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- explicit CRUD helper.
+		$result = $wpdb->update(
+			$table,
+			array( 'habilitado' => $habilitado ? 1 : 0 ),
+			array( 'id' => $nivel_id ),
+			array( '%d' ),
+			array( '%d' )
+		);
+
+		return false !== $result;
+	}
+
+	/**
+	 * Renames a nivel (changes etiqueta).
+	 *
+	 * @since  1.45.0
+	 * @param  int    $nivel_id Nivel id.
+	 * @param  string $etiqueta New label.
+	 * @return bool|WP_Error True on success, WP_Error on failure.
+	 */
+	public static function rename_nivel( int $nivel_id, string $etiqueta ) {
+		global $wpdb;
+		$table = self::tabela_niveis();
+
+		$etiqueta = trim( $etiqueta );
+		if ( $nivel_id < 1 || '' === $etiqueta ) {
+			return new \WP_Error( 'anpa_nivel_invalid', __( 'Datos inválidos.', 'anpa-socios' ) );
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- explicit CRUD helper.
+		$result = $wpdb->update(
+			$table,
+			array( 'etiqueta' => $etiqueta ),
+			array( 'id' => $nivel_id ),
+			array( '%s' ),
+			array( '%d' )
+		);
+
+		return false !== $result;
+	}
+
+	/**
+	 * Resolves a nivel/aula text-code pair to their (id) foreign keys.
+	 *
+	 * Since 1.35.0 niveis are global (no curso_escolar). The lookup is by
+	 * codigo only. Returns null|null if not found.
 	 *
 	 * @since  1.41.0
-	 * @param  string $curso_escolar Course school year e.g. '2025/2026'.
+	 * @param  string $curso_escolar Deprecated — ignored.
 	 * @param  string $curso         Nivel codigo, e.g. "3".
 	 * @param  string $aula          Aula codigo, e.g. "B".
 	 * @return array{0: int|null, 1: int|null} [nivel_id, aula_id].
@@ -1005,8 +1149,7 @@ class ANPA_Socios_DB {
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- scoped read helper.
 		$nivel_id = $wpdb->get_var( $wpdb->prepare(
-			"SELECT id FROM {$niveis_t} WHERE curso_escolar = %s AND codigo = %s LIMIT 1",
-			$curso_escolar,
+			"SELECT id FROM {$niveis_t} WHERE codigo = %s LIMIT 1",
 			$curso
 		) );
 
@@ -1129,37 +1272,32 @@ class ANPA_Socios_DB {
 	}
 
 	/**
-	 * Whether every given nivel id belongs to the given curso_escolar.
+	 * Whether every given nivel id exists and is active.
 	 *
-	 * Used to validate a grupo's `nivel_ids` payload against the activity's
-	 * course year (a grupo must never reference niveis from a different
-	 * curso_escolar than the activity it belongs to). Returns false for an
-	 * empty id list (nothing to validate should never be treated as valid).
+	 * Since 1.35.0 niveis are global. This checks existence only.
 	 *
 	 * @since  1.39.1
 	 * @param  int[]  $nivel_ids     Candidate nivel ids.
-	 * @param  string $curso_escolar Expected curso escolar.
+	 * @param  string $curso_escolar Deprecated — ignored.
 	 * @return bool
 	 */
-	public static function niveis_belong_to_curso( array $nivel_ids, string $curso_escolar ): bool {
+	public static function niveis_belong_to_curso( array $nivel_ids, string $curso_escolar = '' ): bool {
 		global $wpdb;
 
 		$nivel_ids = array_values( array_unique( array_filter( array_map( 'intval', $nivel_ids ), static function ( $v ) {
 			return $v > 0;
 		} ) ) );
-		if ( array() === $nivel_ids || '' === $curso_escolar ) {
+		if ( array() === $nivel_ids ) {
 			return false;
 		}
 
-		$table         = self::tabela_niveis();
-		$placeholders  = implode( ',', array_fill( 0, count( $nivel_ids ), '%d' ) );
-		$params        = $nivel_ids;
-		$params[]      = $curso_escolar;
+		$table        = self::tabela_niveis();
+		$placeholders = implode( ',', array_fill( 0, count( $nivel_ids ), '%d' ) );
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- explicit CRUD helper.
 		$matched = (int) $wpdb->get_var( $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$table} WHERE id IN ({$placeholders}) AND curso_escolar = %s",
-			$params
+			"SELECT COUNT(*) FROM {$table} WHERE id IN ({$placeholders}) AND estado = 'activo'",
+			$nivel_ids
 		) );
 
 		return $matched === count( $nivel_ids );
@@ -2739,6 +2877,90 @@ class ANPA_Socios_DB {
 	}
 
 	/**
+	 * Migration 1.34.0: retire the redundant activity/course offer table.
+	 *
+	 * Retry-safe and fail-closed: the destructive DROP runs only when every
+	 * legacy offer has a corresponding annual group with at least one level.
+	 * If the table is already absent, the postcondition is already satisfied.
+	 */
+	private static function migrate_to_1_34_0(): bool {
+		global $wpdb;
+
+		$offers     = self::tabela_actividades_cursos();
+		$activities = self::tabela_actividades();
+		$grupos     = self::tabela_grupos();
+		$relations  = self::tabela_grupos_niveis();
+		$wpdb->last_error = '';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- destructive migration table preflight.
+		$found = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $offers ) ) );
+		if ( '' !== (string) $wpdb->last_error ) {
+			return false;
+		}
+		if ( $offers !== $found ) {
+			return true;
+		}
+
+		$wpdb->last_error = '';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- destructive migration semantic preflight.
+		$conflicts = $wpdb->get_var(
+			"SELECT COUNT(*)
+			 FROM {$offers} ac
+			 LEFT JOIN {$activities} a ON a.id = ac.actividad_id
+			 WHERE a.id IS NULL OR ac.custo <> a.custo OR ac.estado <> a.estado"
+		);
+		if ( null === $conflicts || '' !== (string) $wpdb->last_error ) {
+			$wpdb->last_error = '' !== (string) $wpdb->last_error ? $wpdb->last_error : '1.34.0 cost/state preflight failed';
+			return false;
+		}
+		if ( (int) $conflicts > 0 ) {
+			$wpdb->last_error = '1.34.0 blocked: divergent legacy activity cost or state';
+			return false;
+		}
+
+		$wpdb->last_error = '';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- destructive migration representation preflight.
+		$missing = $wpdb->get_var(
+			"SELECT COUNT(*)
+			 FROM {$offers} ac
+			 WHERE NOT EXISTS (
+			   SELECT 1
+			   FROM {$grupos} g
+			   INNER JOIN {$relations} gn ON gn.grupo_id = g.id
+			   WHERE g.actividad_id = ac.actividad_id
+			     AND g.curso_escolar = ac.curso_escolar
+			 )
+			 AND NOT (
+			   COALESCE(ac.franxa, '') = ''
+			   AND COALESCE(ac.horarios, '') = ''
+			   AND COALESCE(ac.grupos, '') = ''
+			   AND COALESCE(ac.dias, '') = ''
+			   AND COALESCE(ac.min_pupilos, 0) = 0
+			   AND COALESCE(ac.max_pupilos, 0) = 0
+			   AND ac.nivel_min_id IS NULL
+			   AND ac.nivel_max_id IS NULL
+			 )"
+		);
+		if ( null === $missing || '' !== (string) $wpdb->last_error ) {
+			$wpdb->last_error = '' !== (string) $wpdb->last_error ? $wpdb->last_error : '1.34.0 offer equivalence preflight failed';
+			return false;
+		}
+		if ( (int) $missing > 0 ) {
+			$wpdb->last_error = '1.34.0 blocked: material legacy activity offers without equivalent annual groups';
+			return false;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded destructive migration.
+		if ( false === $wpdb->query( "DROP TABLE {$offers}" ) ) {
+			return false;
+		}
+
+		$wpdb->last_error = '';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- destructive migration postcondition.
+		$remaining = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $offers ) ) );
+		return '' === (string) $wpdb->last_error && $offers !== $remaining;
+	}
+
+	/**
 	 * Promotes complete legacy per-level meal windows into the shared catalogue.
 	 *
 	 * Public for backup v1-v3 restore compatibility; idempotent and intended
@@ -3116,5 +3338,135 @@ class ANPA_Socios_DB {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration guarded by column check.
 			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN baixa_solicitada_en datetime NULL DEFAULT NULL AFTER baixa_estado" );
 		}
+	}
+
+	/**
+	 * Migrates niveis from per-curso-escolar to global (no curso_escolar).
+	 *
+	 * Strategy:
+	 *  1. For each unique orde, keep the nivel from the most recent curso.
+	 *  2. Remap fillos_cursos.nivel_id to the surviving global nivel.
+	 *  3. Drop curso_escolar column and update indexes.
+	 *  4. Add habilitado column.
+	 *
+	 * @since  1.45.0
+	 * @return bool Whether the migration completed.
+	 */
+	private static function migrate_to_1_35_0(): bool {
+		global $wpdb;
+
+		$niveis_t = self::tabela_niveis();
+		$fc_t     = self::tabela_fillos_cursos();
+
+		// Guard: if curso_escolar column doesn't exist, migration already done.
+		$wpdb->last_error = '';
+		$cols = $wpdb->get_col( "SHOW COLUMNS FROM {$niveis_t} LIKE 'curso_escolar'" );
+		if ( '' !== (string) $wpdb->last_error ) {
+			return false;
+		}
+		if ( empty( $cols ) ) {
+			// Already migrated (no curso_escolar column).
+			return true;
+		}
+
+		// Step 1: Build mapping old_nivel_id → new_nivel_id by orde.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one-time migration read.
+		$all = $wpdb->get_results(
+			"SELECT id, codigo, etiqueta, orde, curso_escolar
+			   FROM {$niveis_t}
+			  ORDER BY curso_escolar DESC, orde ASC, id ASC",
+			ARRAY_A
+		);
+		if ( ! is_array( $all ) ) {
+			return false;
+		}
+
+		// Group by orde, keep the first (most recent curso).
+		$by_orde  = array();
+		$to_keep  = array(); // orde => row.
+		$old_ids  = array(); // nivel_ids to remove.
+		foreach ( $all as $row ) {
+			$orde = (int) $row['orde'];
+			if ( ! isset( $to_keep[ $orde ] ) ) {
+				$to_keep[ $orde ] = $row;
+			} else {
+				// Duplicate orde from older curso — will be remapped.
+				$old_ids[] = (int) $row['id'];
+			}
+		}
+
+		// Also collect the "keep" ids that will survive.
+		$keep_ids = array();
+		foreach ( $to_keep as $row ) {
+			$keep_ids[] = (int) $row['id'];
+		}
+
+		// Build mapping: old_id → keep_id (by matching orde).
+		$keep_by_orde = array();
+		foreach ( $to_keep as $orde => $row ) {
+			$keep_by_orde[ $orde ] = (int) $row['id'];
+		}
+		$mapping = array(); // old_id => new_id.
+		foreach ( $all as $row ) {
+			$old_id = (int) $row['id'];
+			$orde   = (int) $row['orde'];
+			if ( in_array( $old_id, $keep_ids, true ) ) {
+				$mapping[ $old_id ] = $old_id; // maps to itself.
+			} elseif ( isset( $keep_by_orde[ $orde ] ) ) {
+				$mapping[ $old_id ] = $keep_by_orde[ $orde ];
+			}
+		}
+
+		// Step 2: Remap fillos_cursos.nivel_id.
+		$remapped = 0;
+		foreach ( $mapping as $old_id => $new_id ) {
+			if ( $old_id === $new_id ) {
+				continue;
+			}
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one-time migration write.
+			$result = $wpdb->query( $wpdb->prepare(
+				"UPDATE {$fc_t} SET nivel_id = %d WHERE nivel_id = %d",
+				$new_id,
+				$old_id
+			) );
+			if ( false === $result ) {
+				return false;
+			}
+			$remapped += (int) $result;
+		}
+
+		// Step 3: Delete the duplicate nivel rows (the ones NOT in keep_ids).
+		if ( ! empty( $old_ids ) ) {
+			$placeholders = implode( ',', array_fill( 0, count( $old_ids ), '%d' ) );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one-time migration delete.
+			if ( false === $wpdb->query( $wpdb->prepare(
+				"DELETE FROM {$niveis_t} WHERE id IN ({$placeholders})",
+				$old_ids
+			) ) ) {
+				return false;
+			}
+		}
+
+		// Step 4: Drop curso_escolar column.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+		$wpdb->query( "ALTER TABLE {$niveis_t} DROP COLUMN curso_escolar" );
+
+		// Step 5: Add habilitado column.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+		$wpdb->query( "ALTER TABLE {$niveis_t} ADD COLUMN habilitado tinyint(1) unsigned NOT NULL DEFAULT 1 AFTER estado" );
+
+		// Step 6: Update unique key — from (curso_escolar, codigo) to just (codigo).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+		$wpdb->query( "ALTER TABLE {$niveis_t} DROP INDEX curso_nivel" );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+		$wpdb->query( "ALTER TABLE {$niveis_t} ADD UNIQUE KEY codigo_unico (codigo)" );
+
+		// Step 7: Drop curso_escolar index, add a simple estado+orde index.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+		$wpdb->query( "ALTER TABLE {$niveis_t} DROP INDEX curso_estado_orde" );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+		$wpdb->query( "ALTER TABLE {$niveis_t} ADD INDEX estado_orde (estado, orde)" );
+
+		return '' === (string) $wpdb->last_error;
 	}
 }

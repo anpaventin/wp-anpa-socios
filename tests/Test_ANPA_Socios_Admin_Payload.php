@@ -125,7 +125,6 @@ class Test_ANPA_Socios_Admin_Payload extends TestCase {
 			'empresa_id'  => 1,
 			'nome'        => 'Teatro infantil',
 			'descripcion' => 'Iniciación ao teatro',
-			'cursos'      => array( '2025/2026', '2026/2027' ),
 			'custo'       => '30.00',
 			'estado'      => 'activo',
 		);
@@ -135,7 +134,8 @@ class Test_ANPA_Socios_Admin_Payload extends TestCase {
 		$result = ANPA_Socios_Admin_Payload::validar_actividad( $this->validActividadInput() );
 		$this->assertIsArray( $result );
 		$this->assertSame( 'Teatro infantil', $result['nome'] );
-		$this->assertSame( '2025/2026', $result['curso_escolar'] );
+		$this->assertArrayNotHasKey( 'curso_escolar', $result );
+		$this->assertArrayNotHasKey( 'cursos', $result );
 		$this->assertSame( '🎒', $result['icono'] );
 	}
 
@@ -153,16 +153,9 @@ class Test_ANPA_Socios_Admin_Payload extends TestCase {
 		) );
 		$result = ANPA_Socios_Admin_Payload::validar_actividad( $input );
 		$this->assertIsArray( $result );
-		$this->assertNull( $result['horario'] );
-		$this->assertSame( '', $result['franxa'] );
-		$this->assertSame( '', $result['horarios'] );
-		$this->assertSame( '', $result['grupos'] );
-		$this->assertSame( '', $result['dias'] );
-		// PR-GA5: activity-level range is gone from the payload shape, not zeroed.
-		$this->assertArrayNotHasKey( 'curso_min', $result );
-		$this->assertArrayNotHasKey( 'curso_max', $result );
-		$this->assertSame( 0, $result['min_pupilos'] );
-		$this->assertSame( 0, $result['max_pupilos'] );
+		foreach ( array( 'curso_escolar', 'cursos', 'horario', 'franxa', 'horarios', 'grupos', 'dias', 'curso_min', 'curso_max', 'min_pupilos', 'max_pupilos' ) as $field ) {
+			$this->assertArrayNotHasKey( $field, $result );
+		}
 	}
 
 	/**
@@ -180,12 +173,9 @@ class Test_ANPA_Socios_Admin_Payload extends TestCase {
 			$this->assertStringNotContainsString( "'{$field}'", $body, "base_payload must not write legacy column {$field}" );
 		}
 
-		$dup = strpos( $src, "'curso_escolar' => \$target," );
-		$this->assertNotFalse( $dup );
-		$copy_block = substr( $src, strpos( $src, '$copy = array(' ), strpos( $src, '$wpdb->last_error', $dup ) - strpos( $src, '$copy = array(' ) );
-		foreach ( array( 'franxa', 'horarios', 'grupos', 'dias', 'curso_min', 'curso_max', 'min_pupilos', 'max_pupilos' ) as $field ) {
-			$this->assertStringNotContainsString( "\$src['{$field}']", $copy_block, "duplicate must not copy legacy activity column {$field}" );
-		}
+		$this->assertStringNotContainsString( 'tabela_actividades_cursos', $src );
+		$this->assertStringContainsString( 'Duplicates only the descriptive identity', $src );
+		$this->assertStringNotContainsString( 'duplicate_groups', $src );
 	}
 
 	/** PR-GA5: dead get_activity() helper is removed from the grupos handler. */
@@ -211,17 +201,18 @@ class Test_ANPA_Socios_Admin_Payload extends TestCase {
 		$this->assertNull( ANPA_Socios_Admin_Payload::validar_actividad( $input ) );
 	}
 
-	public function test_validar_actividad_requires_registered_year_shape(): void {
-		$input = array_merge( $this->validActividadInput(), array( 'cursos' => array() ) );
-		$this->assertNull( ANPA_Socios_Admin_Payload::validar_actividad( $input ) );
-		$input['cursos'] = array( '2025' );
-		$this->assertNull( ANPA_Socios_Admin_Payload::validar_actividad( $input ) );
+	public function test_validar_actividad_ignores_legacy_course_selection(): void {
+		$input = array_merge( $this->validActividadInput(), array( 'cursos' => array( 'curso-invalido' ), 'curso_escolar' => '2025' ) );
+		$result = ANPA_Socios_Admin_Payload::validar_actividad( $input );
+		$this->assertIsArray( $result );
+		$this->assertArrayNotHasKey( 'curso_escolar', $result );
+		$this->assertArrayNotHasKey( 'cursos', $result );
 	}
 
 	public function test_diagnosticar_actividad_identifies_current_contract_errors(): void {
 		$base = $this->validActividadInput();
 		$this->assertNull( ANPA_Socios_Admin_Payload::diagnosticar_actividad( $base ) );
-		$this->assertSame( 'cursos_required', ANPA_Socios_Admin_Payload::diagnosticar_actividad( array_replace( $base, array( 'cursos' => array() ) ) ) );
+		$this->assertNull( ANPA_Socios_Admin_Payload::diagnosticar_actividad( array_replace( $base, array( 'cursos' => array() ) ) ) );
 		$this->assertSame( 'custo_invalid', ANPA_Socios_Admin_Payload::diagnosticar_actividad( array_replace( $base, array( 'custo' => 'abc' ) ) ) );
 	}
 

@@ -205,7 +205,8 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 		$curso_errors = array_filter( $result['errors'], function ( $e ) {
 			return 'curso_escolar' === $e['field'];
 		} );
-		$this->assertNotEmpty( $curso_errors );
+		$this->assertEmpty( $curso_errors );
+		$this->assertNotEmpty( $result['to_insert'] );
 	}
 
 	// ─── analyze() — matriculas validation ─────────────────────
@@ -461,7 +462,7 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 	public function test_compute_natural_key_actividades(): void {
 		$row = array( 'empresa_email' => 'e@example.com', 'nome' => 'Futbol', 'curso_escolar' => '2025/2026' );
 		$key = ANPA_Socios_Csv_Import::compute_natural_key( 'actividades', $row );
-		$this->assertSame( 'actividades:e@example.com|futbol|2025/2026', $key );
+		$this->assertSame( 'actividades:e@example.com|futbol', $key );
 	}
 
 	public function test_compute_natural_key_matriculas(): void {
@@ -645,30 +646,28 @@ final class Test_ANPA_Socios_Csv_Import extends TestCase {
 
 	public function test_actividades_entity_headers_drop_legacy_capacity_columns(): void {
 		$headers = ANPA_Socios_Csv_Import::ENTITY_HEADERS['actividades'];
-		$this->assertContains( 'nivel_min_codigo', $headers );
-		$this->assertContains( 'nivel_max_codigo', $headers );
-		foreach ( array( 'min_pupilos', 'max_pupilos', 'curso_min', 'curso_max' ) as $field ) {
+		foreach ( array( 'curso_escolar', 'nivel_min_codigo', 'nivel_max_codigo', 'min_pupilos', 'max_pupilos', 'curso_min', 'curso_max' ) as $field ) {
 			$this->assertNotContains( $field, $headers );
 		}
 	}
 
 	// ─── actividades nivel_min_codigo/nivel_max_codigo (PR-ES9 task 84) ──
 
-	public function test_actividades_entity_headers_includes_nivel_codigo_columns(): void {
-		$headers = ANPA_Socios_Csv_Import::ENTITY_HEADERS['actividades'];
-		$this->assertContains( 'nivel_min_codigo', $headers );
-		$this->assertContains( 'nivel_max_codigo', $headers );
+	public function test_grupos_entity_headers_include_annual_levels_and_capacity(): void {
+		$headers = ANPA_Socios_Csv_Import::ENTITY_HEADERS['grupos'];
+		$this->assertContains( 'niveis_codigos', $headers );
+		$this->assertContains( 'min_pupilos', $headers );
+		$this->assertContains( 'max_pupilos', $headers );
 	}
 
-	public function test_analyze_actividades_trims_nivel_codigo_columns(): void {
+	public function test_analyze_grupos_trims_niveis_codigos(): void {
 		$rows = array(
-			array( 'empresa_email' => 'e@example.com', 'nome' => 'Futbol', 'descripcion' => 'desc', 'curso_escolar' => '2025/2026', 'nivel_min_codigo' => '  1  ', 'nivel_max_codigo' => '  3  ', 'custo' => '10', 'estado' => 'activo' ),
+			array( 'empresa_email' => 'e@example.com', 'actividade_nome' => 'Futbol', 'curso_escolar' => '2025/2026', 'grupo_nome' => 'Iniciación', 'niveis_codigos' => '  1, 3  ', 'horario' => 'tarde', 'franxa' => '16:00-17:00', 'dias' => 'luns', 'min_pupilos' => '10', 'max_pupilos' => '15', 'estado' => 'aberto' ),
 		);
 
-		$result = ANPA_Socios_Csv_Import::analyze( 'actividades', $rows );
+		$result = ANPA_Socios_Csv_Import::analyze( 'grupos', $rows );
 
-		$this->assertSame( '1', $result['rows'][0]['nivel_min_codigo'] );
-		$this->assertSame( '3', $result['rows'][0]['nivel_max_codigo'] );
+		$this->assertSame( '1,3', $result['rows'][0]['niveis_codigos'] );
 	}
 
 	public function test_analyze_actividades_nivel_codigo_columns_default_to_empty_string(): void {
