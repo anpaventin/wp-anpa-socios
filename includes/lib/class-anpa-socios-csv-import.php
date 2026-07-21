@@ -32,10 +32,10 @@ final class ANPA_Socios_Csv_Import {
 		'socios'      => array( 'id_familia', 'rol_familia', 'nome', 'apelidos' ),
 		'fillos'      => array( 'proxenitor_email', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula' ),
 		'empresas'    => array( 'nome', 'email' ),
-		'actividades' => array( 'empresa_email', 'nome', 'curso_escolar' ),
+		'actividades' => array( 'empresa_email', 'nome' ),
 		'matriculas'  => array( 'proxenitor_email', 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar' ),
 		'socios_iban' => array( 'id_familia', 'titular_nome', 'titular_apelidos', 'titular_nif', 'iban' ),
-		'grupos'      => array( 'actividade_nome', 'empresa_email', 'curso_escolar' ),
+		'grupos'      => array( 'actividade_nome', 'empresa_email', 'curso_escolar', 'grupo_nome', 'niveis_codigos', 'horario', 'franxa', 'dias' ),
 	);
 
 	/**
@@ -48,10 +48,10 @@ final class ANPA_Socios_Csv_Import {
 		'socios'      => array( 'id_familia', 'rol_familia', 'email', 'nome', 'apelidos', 'nif', 'telefono', 'estado', 'segundo_proxenitor_nome', 'segundo_proxenitor_apelidos', 'segundo_proxenitor_email', 'segundo_proxenitor_nif', 'segundo_proxenitor_telefono' ),
 		'fillos'      => array( 'proxenitor_email', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'curso_escolar', 'image_consent', 'estado' ),
 		'empresas'    => array( 'nome', 'email', 'responsable', 'telefono', 'url_web', 'estado' ),
-		'actividades' => array( 'empresa_email', 'nome', 'icono', 'descripcion', 'curso_escolar', 'nivel_min_codigo', 'nivel_max_codigo', 'custo', 'estado' ),
+		'actividades' => array( 'empresa_email', 'nome', 'icono', 'descripcion', 'custo', 'estado' ),
 		'matriculas'  => array( 'proxenitor_email', 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar', 'grupo_nome', 'grupo_curso_range', 'grupo_franxa', 'grupo_dias', 'trimestre', 'posicion', 'comedor', 'tarde', 'observaciones', 'estado' ),
 		'socios_iban' => array( 'id_familia', 'titular_nome', 'titular_apelidos', 'titular_nif', 'iban', 'entidade_bancaria', 'autorizacion' ),
-		'grupos'      => array( 'actividade_nome', 'empresa_email', 'curso_escolar', 'niveis_codigos', 'franxa', 'dias', 'min_pupilos', 'max_pupilos', 'estado', 'grupo_curso_range' ),
+		'grupos'      => array( 'actividade_nome', 'empresa_email', 'curso_escolar', 'grupo_nome', 'serie_uid', 'niveis_codigos', 'horario', 'franxa', 'dias', 'min_pupilos', 'max_pupilos', 'estado' ),
 	);
 
 	/**
@@ -275,32 +275,11 @@ final class ANPA_Socios_Csv_Import {
 			$row['dias'] = mb_strtolower( trim( $row['dias'] ), 'UTF-8' );
 		}
 
-		// Actividades: trim optional nivel_min_codigo/nivel_max_codigo (resolved
-		// to nivel_min_id/nivel_max_id per curso_escolar at commit time, since
-		// codigo→id resolution needs the row's own curso_escolar and thus a
-		// DB lookup — normalize() stays pure/DB-free).
-		if ( 'actividades' === $entity ) {
-			foreach ( array( 'nivel_min_codigo', 'nivel_max_codigo' ) as $field ) {
-				if ( isset( $row[ $field ] ) ) {
-					$row[ $field ] = trim( (string) $row[ $field ] );
-				}
-			}
-		}
-
-		// Grupos: resolve niveis_codigos from grupo_curso_range fallback.
+		// Grupos: normalize the annual level-code list.
 		if ( 'grupos' === $entity ) {
 			$niveis = trim( $row['niveis_codigos'] ?? '' );
-			if ( '' === $niveis ) {
-				// Fallback: parse grupo_curso_range (e.g. "1-2-3" → "1,2,3").
-				$range = trim( $row['grupo_curso_range'] ?? '' );
-				if ( '' !== $range ) {
-					$parts = preg_split( '/[\-\/]+/', $range );
-					if ( is_array( $parts ) ) {
-						$niveis = implode( ',', array_map( 'trim', $parts ) );
-					}
-				}
-			}
-			$row['niveis_codigos'] = $niveis;
+			$parts = preg_split( '/\s*,\s*/', $niveis, -1, PREG_SPLIT_NO_EMPTY );
+			$row['niveis_codigos'] = is_array( $parts ) ? implode( ',', array_values( array_unique( $parts ) ) ) : '';
 		}
 
 		return $row;
@@ -388,11 +367,10 @@ final class ANPA_Socios_Csv_Import {
 			case 'actividades':
 				$empresa_email = $row['empresa_email'] ?? '';
 				$nome          = mb_strtolower( $row['nome'] ?? '', 'UTF-8' );
-				$curso         = $row['curso_escolar'] ?? '';
-				if ( '' === $empresa_email || '' === $nome || '' === $curso ) {
+				if ( '' === $empresa_email || '' === $nome ) {
 					return null;
 				}
-				return "actividades:{$empresa_email}|{$nome}|{$curso}";
+				return "actividades:{$empresa_email}|{$nome}";
 
 			case 'socios_iban':
 				$id_familia = $row['id_familia'] ?? '';
@@ -405,11 +383,11 @@ final class ANPA_Socios_Csv_Import {
 				$empresa_email   = $row['empresa_email'] ?? '';
 				$actividade_nome = mb_strtolower( $row['actividade_nome'] ?? '', 'UTF-8' );
 				$curso_escolar   = $row['curso_escolar'] ?? '';
-				$niveis_codigos  = mb_strtolower( $row['niveis_codigos'] ?? '', 'UTF-8' );
-				if ( '' === $empresa_email || '' === $actividade_nome || '' === $curso_escolar ) {
+				$grupo_nome      = mb_strtolower( $row['grupo_nome'] ?? '', 'UTF-8' );
+				if ( '' === $empresa_email || '' === $actividade_nome || '' === $curso_escolar || '' === $grupo_nome ) {
 					return null;
 				}
-				return "grupos:{$empresa_email}|{$actividade_nome}|{$curso_escolar}|{$niveis_codigos}";
+				return "grupos:{$empresa_email}|{$actividade_nome}|{$curso_escolar}|{$grupo_nome}";
 
 			default:
 				return null;

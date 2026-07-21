@@ -46,8 +46,7 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 		global $wpdb;
 
 		$cursos_t = ANPA_Socios_DB::tabela_cursos();
-		$acts_t   = ANPA_Socios_DB::tabela_actividades();
-		$acy_t    = ANPA_Socios_DB::tabela_actividades_cursos();
+		$groups_t = ANPA_Socios_DB::tabela_grupos();
 		$suggested = ANPA_Socios_Curso_Escolar::current();
 		$active    = ANPA_Socios_Curso_Activo::get();
 
@@ -56,10 +55,9 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent selector seed.
 		$wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$cursos_t} (curso_escolar, matriculas_abertas, estado) VALUES (%s, 0, 'pendente')", $suggested ) );
 
-		// Seed course rows discovered in activities as inactive candidates.
+		// Seed course rows discovered in annual groups as inactive candidates.
 		$activity_courses = $wpdb->get_col(
-			"SELECT curso_escolar FROM {$acy_t} WHERE curso_escolar <> ''
-			 UNION SELECT curso_escolar FROM {$acts_t} WHERE curso_escolar <> ''"
+			"SELECT DISTINCT curso_escolar FROM {$groups_t} WHERE curso_escolar <> ''"
 		);
 		if ( is_array( $activity_courses ) ) {
 			foreach ( $activity_courses as $curso ) {
@@ -318,34 +316,20 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 		}
 
 		// Reactivate matching classrooms left inactive by legacy seeded targets.
-		$ok = $wpdb->query( $wpdb->prepare(
+		$ok = $wpdb->query(
 			"UPDATE {$aulas_t} ad
-			 INNER JOIN {$niveis_t} nd ON nd.id = ad.nivel_id AND nd.curso_escolar = %s AND nd.estado = 'activo'
-			 INNER JOIN {$niveis_t} no ON no.curso_escolar = %s AND no.codigo = nd.codigo AND no.estado = 'activo'
-			 INNER JOIN {$aulas_t} ao ON ao.nivel_id = no.id AND ao.codigo = ad.codigo AND ao.estado = 'activo'
+			 INNER JOIN {$niveis_t} nd ON nd.id = ad.nivel_id AND nd.estado = 'activo'
+			 INNER JOIN {$aulas_t} ao ON ao.nivel_id = nd.id AND ao.codigo = ad.codigo AND ao.estado = 'activo'
 			 SET ad.etiqueta = ao.etiqueta, ad.orde = ao.orde, ad.estado = 'activo', ad.actualizado_en = NOW()
-			 WHERE ad.estado = 'inactivo'",
-			$destino,
-			$orixe
-		) );
+			 WHERE ad.estado = 'inactivo'"
+		);
 		if ( false === $ok ) {
 			return false;
 		}
 
-		// Copy missing active aulas: map old nivel_id → new nivel_id via codigo.
-		$ok = $wpdb->query( $wpdb->prepare(
-			"INSERT IGNORE INTO {$aulas_t} (nivel_id, codigo, etiqueta, orde, estado, creado_en, actualizado_en)
-			 SELECT nd.id, a.codigo, a.etiqueta, a.orde, a.estado, NOW(), NOW()
-			 FROM {$aulas_t} a
-			 INNER JOIN {$niveis_t} no ON no.id = a.nivel_id AND no.curso_escolar = %s AND no.estado = 'activo'
-			 INNER JOIN {$niveis_t} nd ON nd.curso_escolar = %s AND nd.codigo = no.codigo AND nd.estado = 'activo'
-			 WHERE a.estado = 'activo'",
-			$orixe,
-			$destino
-		) );
-		if ( false === $ok ) {
-			return false;
-		}
+		// Copy missing active aulas: since levels are global, aulas already
+		// share the same nivel_id. No cross-course remapping needed.
+		// (Levels no longer have curso_escolar since 1.35.0.)
 
 		return true;
 	}

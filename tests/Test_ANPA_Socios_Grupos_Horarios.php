@@ -148,7 +148,7 @@ final class Test_ANPA_Socios_Grupos_Horarios extends TestCase {
 		$this->assertStringContainsString( 'nivel_ids', $js );
 		$this->assertStringContainsString( "makeMetaLabel('Niveis'", $js );
 		$this->assertStringContainsString( 'function openGroupEditor', $js );
-		$this->assertStringContainsString( 'renderGrupoForm(targetGroup, targetActivity)', $js );
+		$this->assertStringContainsString( 'renderGrupoForm(targetGroup, targetActivity, activeCourse, true)', $js );
 		$this->assertStringNotContainsString( 'pendingActivityGroupsId', $js );
 		$this->assertStringNotContainsString( 'function openActivityGroups', $js );
 		$this->assertStringContainsString( '.anpa-grupos-horarios-panel', $css );
@@ -172,7 +172,7 @@ final class Test_ANPA_Socios_Grupos_Horarios extends TestCase {
 		$this->assertLessThan( strpos( $grid, "courseLabel.textContent = 'Curso escolar'" ), strpos( $grid, "newGroupBtn.textContent = 'Novo grupo'" ) );
 		$this->assertStringContainsString( 'function openNewGroupEditor', $js );
 		$this->assertStringContainsString( "anpaAdminFetch('actividades')", $js );
-		$this->assertStringContainsString( 'actividad.cursos_ofertados.indexOf(course)', $js );
+		$this->assertStringNotContainsString( 'actividad.cursos_ofertados.indexOf(course)', $js );
 		$this->assertStringContainsString( 'renderGrupoForm(null, selectedActivity, course, true)', $js );
 		$this->assertStringContainsString( 'preferredCourse', $js );
 		$this->assertStringContainsString( 'returnToGrid ? loadGruposHorarios() : renderGruposPanel(actividad)', $js );

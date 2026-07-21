@@ -35,6 +35,7 @@ final class ANPA_Socios_Admin_Export_Handler {
 		'socios',
 		'empresas',
 		'actividades',
+		'grupos',
 		'matriculas',
 		'fillos',
 	);
@@ -53,7 +54,8 @@ final class ANPA_Socios_Admin_Export_Handler {
 	private const ENTITY_COLUMNS = array(
 		'socios'      => array( 'id_familia', 'rol_familia', 'email', 'nome', 'apelidos', 'nif', 'telefono', 'estado', 'segundo_proxenitor_nome', 'segundo_proxenitor_apelidos', 'segundo_proxenitor_email', 'segundo_proxenitor_nif', 'segundo_proxenitor_telefono' ),
 		'empresas'    => array( 'nome', 'email', 'responsable', 'telefono', 'url_web', 'estado' ),
-		'actividades' => array( 'empresa_email', 'nome', 'icono', 'descripcion', 'curso_escolar', 'nivel_min_codigo', 'nivel_max_codigo', 'custo', 'estado' ),
+		'actividades' => array( 'empresa_email', 'nome', 'icono', 'descripcion', 'custo', 'estado' ),
+		'grupos'      => array( 'actividade_nome', 'empresa_email', 'curso_escolar', 'grupo_nome', 'serie_uid', 'niveis_codigos', 'horario', 'franxa', 'dias', 'min_pupilos', 'max_pupilos', 'estado' ),
 		'matriculas'  => array( 'proxenitor_email', 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar', 'grupo_nome', 'grupo_curso_range', 'grupo_franxa', 'grupo_dias', 'trimestre', 'posicion', 'comedor', 'tarde', 'observaciones', 'estado' ),
 		'fillos'      => array( 'proxenitor_email', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'curso_escolar', 'image_consent', 'estado' ),
 	);
@@ -64,7 +66,7 @@ final class ANPA_Socios_Admin_Export_Handler {
 	 * @since 1.34.0
 	 * @var string[]
 	 */
-	private const JOIN_ENTITIES = array( 'actividades', 'matriculas', 'socios', 'fillos' );
+	private const JOIN_ENTITIES = array( 'actividades', 'grupos', 'matriculas', 'socios', 'fillos' );
 
 	/**
 	 * Registers export admin routes.
@@ -250,15 +252,22 @@ final class ANPA_Socios_Admin_Export_Handler {
 		$prefix = $wpdb->prefix;
 
 		if ( 'actividades' === $entity ) {
-			$sql = "SELECT e.email AS empresa_email, a.nome, a.icono, a.descripcion, ac.curso_escolar,
-					nmin.codigo AS nivel_min_codigo, nmax.codigo AS nivel_max_codigo,
-					ac.custo, ac.estado
+			$sql = "SELECT e.email AS empresa_email, a.nome, a.icono, a.descripcion, a.custo, a.estado
 					FROM {$prefix}anpa_actividades a
-					INNER JOIN {$prefix}anpa_actividades_cursos ac ON ac.actividad_id = a.id
 					LEFT JOIN {$prefix}anpa_empresas e ON e.id = a.empresa_id
-					LEFT JOIN {$prefix}anpa_niveis nmin ON nmin.id = ac.nivel_min_id
-					LEFT JOIN {$prefix}anpa_niveis nmax ON nmax.id = ac.nivel_max_id
-					ORDER BY e.email ASC, a.nome ASC, ac.curso_escolar ASC";
+					ORDER BY e.email ASC, a.nome ASC";
+		} elseif ( 'grupos' === $entity ) {
+			$sql = "SELECT a.nome AS actividade_nome, e.email AS empresa_email,
+					g.curso_escolar, g.nome AS grupo_nome, g.serie_uid,
+					GROUP_CONCAT(DISTINCT n.codigo ORDER BY n.orde, n.codigo SEPARATOR ',') AS niveis_codigos,
+					g.horario, g.franxa, g.dias, g.min_pupilos, g.max_pupilos, g.estado
+					FROM {$prefix}anpa_grupos g
+					INNER JOIN {$prefix}anpa_actividades a ON a.id = g.actividad_id
+					LEFT JOIN {$prefix}anpa_empresas e ON e.id = a.empresa_id
+					INNER JOIN {$prefix}anpa_grupos_niveis gn ON gn.grupo_id = g.id
+					INNER JOIN {$prefix}anpa_niveis n ON n.id = gn.nivel_id
+					GROUP BY g.id, a.nome, e.email, g.curso_escolar, g.nome, g.serie_uid, g.horario, g.franxa, g.dias, g.min_pupilos, g.max_pupilos, g.estado
+					ORDER BY e.email ASC, a.nome ASC, g.curso_escolar ASC, g.nome ASC";
 		} elseif ( 'matriculas' === $entity ) {
 			// Modern matrículas reference the annual group; activitad_id can be
 			// 0, so resolve the activity through the group as fallback or the
@@ -330,6 +339,7 @@ final class ANPA_Socios_Admin_Export_Handler {
 			'socios'      => 'anpa_socios',
 			'empresas'    => 'anpa_empresas',
 			'actividades' => 'anpa_actividades',
+			'grupos'      => 'anpa_grupos',
 			'matriculas'  => 'anpa_matriculas',
 			'fillos'      => 'anpa_fillos',
 		);

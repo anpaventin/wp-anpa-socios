@@ -236,7 +236,7 @@ final class ANPA_Socios_Extraescolares_Page {
 		global $wpdb;
 
 		$act_t = ANPA_Socios_DB::tabela_actividades();
-		$acy_t = ANPA_Socios_DB::tabela_actividades_cursos();
+
 		$gru_t = ANPA_Socios_DB::tabela_grupos();
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
 		$curso = ANPA_Socios_Curso_Activo::get();
@@ -256,10 +256,9 @@ final class ANPA_Socios_Extraescolares_Page {
 				"SELECT a.nome, g.nome AS grupo_nome, g.horario, g.franxa, g.dias, g.max_pupilos,
 				        COUNT(DISTINCT CASE WHEN m.estado = 'activo' THEN m.id END) AS activos
 				 FROM {$act_t} a
-				 INNER JOIN {$acy_t} ac ON ac.actividad_id = a.id AND ac.curso_escolar = %s
-				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = ac.curso_escolar
+				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = %s
 				 LEFT JOIN {$mat_t} m ON m.grupo_id = g.id
-				 WHERE a.estado = 'activo' AND ac.estado = 'activo' AND g.estado = 'aberto'
+				 WHERE a.estado = 'activo' AND g.estado = 'aberto'
 				   AND g.id IN ({$available_placeholders})
 				   AND g.horario IN ('maña','manha','tarde') AND g.franxa <> '' AND g.dias <> ''
 				 GROUP BY g.id, a.nome, g.nome, g.horario, g.franxa, g.dias, g.max_pupilos
@@ -283,8 +282,9 @@ final class ANPA_Socios_Extraescolares_Page {
 		global $wpdb;
 
 		$act_t    = ANPA_Socios_DB::tabela_actividades();
-		$acy_t    = ANPA_Socios_DB::tabela_actividades_cursos();
 		$gru_t    = ANPA_Socios_DB::tabela_grupos();
+		$gn_t     = ANPA_Socios_DB::tabela_grupos_niveis();
+		$niv_t    = ANPA_Socios_DB::tabela_niveis();
 		$mat_t    = ANPA_Socios_DB::tabela_matriculas();
 		$empresas = ANPA_Socios_DB::tabela_empresas();
 		$curso    = ANPA_Socios_Curso_Activo::get();
@@ -301,18 +301,17 @@ final class ANPA_Socios_Extraescolares_Page {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only public blocks from activity/group tables.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT a.id, a.nome, a.icono, a.descripcion, ac.custo,
+				"SELECT a.id, a.nome, a.icono, a.descripcion, a.custo,
 				        e.nome AS empresa_nome, e.url_web,
 				        MIN(g.franxa) AS sort_franxa,
 				        GROUP_CONCAT(DISTINCT g.nome ORDER BY g.nome SEPARATOR ',') AS grupos,
 				        GROUP_CONCAT(DISTINCT CONCAT(g.id, '|', g.nome, '|', g.horario, '|', g.franxa, '|', g.dias) ORDER BY g.franxa, g.nome SEPARATOR ';;') AS horarios_grupos
 				 FROM {$act_t} a
-				 INNER JOIN {$acy_t} ac ON ac.actividad_id = a.id AND ac.curso_escolar = %s
 				 LEFT JOIN {$empresas} e ON e.id = a.empresa_id
-				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = ac.curso_escolar AND g.estado = 'aberto'
-				 WHERE a.estado = 'activo' AND ac.estado = 'activo'
+				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = %s AND g.estado = 'aberto'
+				 WHERE a.estado = 'activo'
 				   AND g.id IN ({$available_placeholders})
-				 GROUP BY a.id, a.nome, a.icono, a.descripcion, ac.custo, e.nome, e.url_web
+				 GROUP BY a.id, a.nome, a.icono, a.descripcion, a.custo, e.nome, e.url_web
 				 ORDER BY sort_franxa ASC, a.nome ASC",
 				...array_merge( array( $curso ), $available_ids )
 			),
@@ -334,9 +333,12 @@ final class ANPA_Socios_Extraescolares_Page {
 		$grupos_raw = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT g.id, g.actividad_id, g.nome, g.min_pupilos, g.max_pupilos,
+				        GROUP_CONCAT(DISTINCT n.etiqueta ORDER BY n.orde SEPARATOR ', ') AS niveis,
 				        COUNT(DISTINCT CASE WHEN m.estado = 'activo' THEN m.id END) AS activos,
 				        COUNT(DISTINCT CASE WHEN m.estado = 'lista_espera' THEN m.id END) AS espera
 				 FROM {$gru_t} g
+				 INNER JOIN {$gn_t} gn ON gn.grupo_id = g.id
+				 INNER JOIN {$niv_t} n ON n.id = gn.nivel_id
 				 LEFT JOIN {$mat_t} m ON m.grupo_id = g.id
 				 WHERE g.actividad_id IN ({$placeholders}) AND g.curso_escolar = %s AND g.estado = 'aberto'
 				   AND g.id IN ({$available_placeholders})
@@ -356,6 +358,7 @@ final class ANPA_Socios_Extraescolares_Page {
 			$by_act[ $aid ][] = array(
 				'id'          => $g['id'],
 				'nome'        => $g['nome'],
+				'niveis'      => $g['niveis'],
 				'min_pupilos' => $g['min_pupilos'],
 				'max_pupilos' => $g['max_pupilos'],
 				'activos'     => $g['activos'],
@@ -432,6 +435,11 @@ final class ANPA_Socios_Extraescolares_Page {
 			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line"><strong>' . esc_html( $part['grupo'] ) . '</strong> — ' . esc_html( $part['franxa'] ) . '</p>';
 			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line anpa-extra-horario-dias">' . esc_html( $part['dias'] ) . '</p>';
 			if ( is_array( $part['capacity'] ) ) {
+				if ( ! empty( $part['capacity']['niveis'] ) ) {
+					$html .= '<p class="anpa-extra-meta anpa-extra-grupo-niveis"><strong>'
+						. esc_html__( 'Cursos:', 'anpa-socios' ) . '</strong> '
+						. esc_html( (string) $part['capacity']['niveis'] ) . '</p>';
+				}
 				$html .= self::group_prazas_html( $part['capacity'] );
 			}
 			$html .= '</div>';

@@ -323,7 +323,10 @@
 	border-radius: 4px;
 	padding: 1.2rem 1.5rem;
 	margin: 1rem 0;
-	max-width: 600px;
+	width: 100%;
+	max-width: none;
+	box-sizing: border-box;
+	overflow-x: auto;
 }
 
 .anpa-mgmt-form h3 {
@@ -486,6 +489,64 @@
 
 .anpa-mgmt-legacy-limits label {
 	margin-top: 0.6rem;
+}
+
+/* ── Historical disclosures / group activity lists ───────────── */
+.anpa-history-disclosure {
+	margin: 0.75rem 0 0;
+	padding: 0.65rem 0.8rem;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	background: #e7eaed;
+	color: #2c3338;
+}
+
+.anpa-history-disclosure summary {
+	cursor: pointer;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.anpa-history-disclosure ul {
+	margin: 0.6rem 0 0 1.2rem;
+}
+
+.anpa-history-disclosure li + li {
+	margin-top: 0.35rem;
+}
+
+.anpa-history-row td {
+	background: #f3f4f5;
+}
+
+/* ── Historical disclosures / group activity lists ───────────── */
+
+.anpa-grupos-activity-toolbar {
+	align-items: center;
+}
+
+.anpa-grupos-activity-list {
+	display: grid;
+	gap: 0.75rem;
+	width: 100%;
+	overflow-x: auto;
+}
+
+.anpa-mgmt-active-levels {
+	padding: 0.5rem 0;
+	gap: 0.35rem 0.6rem;
+}
+
+.anpa-mgmt-active-levels label {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	width: auto;
+	margin: 0;
+}
+
+.anpa-mgmt-activity-groups-table .anpa-mgmt-actions {
+	white-space: nowrap;
 }
 
 /* ── Franxa: start/end time pickers on one row ───────────────────── */

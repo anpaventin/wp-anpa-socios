@@ -319,7 +319,7 @@ class ANPA_Socios_Area_REST {
 		$dom = ANPA_Socios_DB::tabela_domiciliacions();
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT titular_nome, titular_apelidos, entidade_bancaria, iban_last4, autorizacion FROM {$dom} WHERE familia_id = %d",
+				"SELECT titular_nome, titular_apelidos, titular_nif_mask, entidade_bancaria, enderezo, poboacion, codigo_postal, iban_last4, lugar_data, autorizacion FROM {$dom} WHERE familia_id = %d",
 				$fam['familia_id']
 			),
 			ARRAY_A
@@ -335,7 +335,12 @@ class ANPA_Socios_Area_REST {
 				'has_banking'       => true,
 				'titular_nome'      => (string) $row['titular_nome'],
 				'titular_apelidos'  => (string) $row['titular_apelidos'],
+				'titular_nif_mask'  => (string) ( $row['titular_nif_mask'] ?? '' ),
 				'entidade_bancaria' => (string) $row['entidade_bancaria'],
+				'enderezo'          => (string) ( $row['enderezo'] ?? '' ),
+				'poboacion'         => (string) ( $row['poboacion'] ?? '' ),
+				'codigo_postal'     => (string) ( $row['codigo_postal'] ?? '' ),
+				'lugar_data'        => (string) ( $row['lugar_data'] ?? '' ),
 				'iban_mascara'      => ANPA_Socios_Domiciliacion::mask_from_last4( (string) $row['iban_last4'] ),
 				'autorizacion'      => (int) $row['autorizacion'],
 			),
@@ -616,8 +621,15 @@ class ANPA_Socios_Area_REST {
 			);
 		}
 
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
 		$ok = ANPA_Socios_DB::upsert_fillo_curso_assignment( $fillo_id, $curso_escolar, $curso, $aula );
 		if ( ! $ok ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
 			return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 

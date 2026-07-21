@@ -1344,3 +1344,7 @@ msgstr "En Axustes → Cursos → <strong>Estrutura escolar</strong> configúran
 #: includes/class-anpa-socios-admin-settings.php
 msgid "Nota: «aula» (clase ordinaria, ex. 4ºB) non é o mesmo que «grupo de actividade» (agrupamento por niveis dunha extraescolar, ex. 1º-2º-3º). A estrutura escolar define aulas; os grupos de actividade configúranse na ficha de cada actividade."
 msgstr "Nota: «aula» (clase ordinaria, ex. 4ºB) non é o mesmo que «grupo de actividade» (agrupamento por niveis dunha extraescolar, ex. 1º-2º-3º). A estrutura escolar define aulas; os grupos de actividade configúranse na ficha de cada actividade."
+
+#: includes/class-anpa-socios-extraescolares-page.php
+msgid "Cursos:"
+msgstr "Cursos:"

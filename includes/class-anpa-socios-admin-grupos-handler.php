@@ -157,6 +157,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		global $wpdb;
 
 		$actividad_id = (int) $request->get_param( 'id' );
+		$curso_activo = (string) ANPA_Socios_Curso_Activo::get();
 		$table        = ANPA_Socios_DB::tabela_grupos();
 		$rows         = $wpdb->get_results(
 			$wpdb->prepare(
@@ -174,25 +175,35 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			$key = '' !== (string) $row['serie_uid'] ? (string) $row['serie_uid'] : 'legacy-' . (int) $row['id'];
 			if ( ! isset( $series[ $key ] ) ) {
 				$series[ $key ] = array(
-					'id'               => (int) $row['id'],
-					'serie_uid'        => $key,
-					'nome'             => (string) $row['nome'],
-					'horario'          => (string) $row['horario'],
-					'horario_label'    => ANPA_Socios_Grupo_Serie::horario_label( (string) $row['horario'] ),
-					'franxa'           => (string) $row['franxa'],
-					'dias'             => (string) $row['dias'],
-					'min_pupilos'      => (int) $row['min_pupilos'],
-					'max_pupilos'      => (int) $row['max_pupilos'],
-					'estado'           => (string) $row['estado'],
-					'cursos'           => array(),
-					'niveis_por_ano'   => array(),
-					'annual_ids'        => array(),
+					'id'                => 0,
+					'serie_uid'         => $key,
+					'ten_grupo_actual'  => false,
+					'curso_escolar'     => $curso_activo,
+					'nivel_ids'         => array(),
+					'cursos_anteriores' => array(),
 				);
 			}
-			$curso = (string) $row['curso_escolar'];
-			$series[ $key ]['cursos'][] = $curso;
-			$series[ $key ]['annual_ids'][ $curso ] = (int) $row['id'];
-			$series[ $key ]['niveis_por_ano'][ $curso ] = ANPA_Socios_DB::get_niveis_for_grupo( (int) $row['id'] );
+			$annual = array(
+				'id'            => (int) $row['id'],
+				'curso_escolar' => (string) $row['curso_escolar'],
+				'nome'          => (string) $row['nome'],
+				'horario'       => (string) $row['horario'],
+				'horario_label' => ANPA_Socios_Grupo_Serie::horario_label( (string) $row['horario'] ),
+				'franxa'        => (string) $row['franxa'],
+				'dias'          => (string) $row['dias'],
+				'min_pupilos'   => (int) $row['min_pupilos'],
+				'max_pupilos'   => (int) $row['max_pupilos'],
+				'estado'        => (string) $row['estado'],
+				'nivel_ids'     => ANPA_Socios_DB::get_niveis_for_grupo( (int) $row['id'] ),
+			);
+			if ( $curso_activo === (string) $row['curso_escolar'] ) {
+				$series[ $key ] = array_merge( $series[ $key ], $annual, array( 'ten_grupo_actual' => true ) );
+			} else {
+				$series[ $key ]['cursos_anteriores'][] = $annual;
+				if ( 0 === (int) $series[ $key ]['id'] ) {
+					$series[ $key ] = array_merge( $series[ $key ], $annual, array( 'id' => (int) $row['id'], 'curso_escolar' => $curso_activo, 'ten_grupo_actual' => false ) );
+				}
+			}
 		}
 
 		return new WP_REST_Response( array_values( $series ), 200 );
@@ -262,71 +273,30 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 	 */
 	public static function delete_grupo( WP_REST_Request $request ) {
 		global $wpdb;
-
-		$id    = (int) $request->get_param( 'id' );
+		$id = (int) $request->get_param( 'id' );
+		$curso_activo = ANPA_Socios_Curso_Activo::get();
+		if ( null === $curso_activo ) { return new WP_Error( 'anpa_admin_no_active_course', __( 'Non hai un curso escolar activo.', 'anpa-socios' ), array( 'status' => 409 ) ); }
 		$table = ANPA_Socios_DB::tabela_grupos();
-		$mat   = ANPA_Socios_DB::tabela_matriculas();
-		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
-			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-		}
-
+		$mat = ANPA_Socios_DB::tabela_matriculas();
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) { return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) ); }
 		$wpdb->last_error = '';
-		$current = $wpdb->get_row(
-			$wpdb->prepare( "SELECT id, actividad_id, serie_uid FROM {$table} WHERE id = %d FOR UPDATE", $id ),
-			ARRAY_A
-		);
-		if ( '' !== (string) $wpdb->last_error ) {
+		$current = $wpdb->get_row( $wpdb->prepare( "SELECT id, actividad_id, serie_uid, curso_escolar FROM {$table} WHERE id = %d FOR UPDATE", $id ), ARRAY_A );
+		if ( '' !== (string) $wpdb->last_error ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) ); }
+		if ( ! is_array( $current ) ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_grupo_not_found', __( 'Grupo non atopado', 'anpa-socios' ), array( 'status' => 404 ) ); }
+		if ( $curso_activo !== (string) $current['curso_escolar'] ) {
 			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_grupo_historico_readonly', __( 'Os grupos de cursos anteriores son históricos e non se poden eliminar desde este formulario.', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
-		if ( ! is_array( $current ) ) {
-			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_admin_grupo_not_found', __( 'Grupo non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
-		}
-
-		$uid  = (string) ( $current['serie_uid'] ?? '' );
-		$rows = array( $id );
-		if ( '' !== $uid ) {
-			$wpdb->last_error = '';
-			$locked_rows = $wpdb->get_col( $wpdb->prepare(
-				"SELECT id FROM {$table} WHERE actividad_id = %d AND serie_uid = %s ORDER BY id FOR UPDATE",
-				(int) $current['actividad_id'],
-				$uid
-			) );
-			if ( '' !== (string) $wpdb->last_error || ! is_array( $locked_rows ) || array() === $locked_rows ) {
-				$wpdb->query( 'ROLLBACK' );
-				return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido bloquear a serie de grupos.', 'anpa-socios' ), array( 'status' => 500 ) );
-			}
-			$rows = array_values( array_map( 'intval', $locked_rows ) );
-		}
-
-		$in = implode( ',', array_fill( 0, count( $rows ), '%d' ) );
 		$wpdb->last_error = '';
-		$refs = $wpdb->get_col( $wpdb->prepare(
-			"SELECT id FROM {$mat} WHERE grupo_id IN ({$in}) ORDER BY id FOR UPDATE",
-			...$rows
-		) );
-		if ( '' !== (string) $wpdb->last_error || ! is_array( $refs ) ) {
-			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido comprobar o histórico dos grupos.', 'anpa-socios' ), array( 'status' => 500 ) );
-		}
-		if ( array() !== $refs ) {
-			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_admin_grupo_in_use', __( 'Non se pode eliminar: o grupo ten matrículas ou histórico asociado.', 'anpa-socios' ), array( 'status' => 409 ) );
-		}
-
-		foreach ( $rows as $row_id ) {
-			if ( ! ANPA_Socios_DB::delete_grupo_niveis( $row_id )
-				|| false === $wpdb->delete( $table, array( 'id' => $row_id ), array( '%d' ) ) ) {
-				$wpdb->query( 'ROLLBACK' );
-				return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-			}
-		}
-		if ( false === $wpdb->query( 'COMMIT' ) ) {
+		$refs = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$mat} WHERE grupo_id = %d ORDER BY id FOR UPDATE", $id ) );
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $refs ) ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido comprobar o histórico do grupo.', 'anpa-socios' ), array( 'status' => 500 ) ); }
+		if ( array() !== $refs ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_grupo_in_use', __( 'Non se pode eliminar: o grupo ten matrículas ou histórico asociado.', 'anpa-socios' ), array( 'status' => 409 ) ); }
+		if ( ! ANPA_Socios_DB::delete_grupo_niveis( $id ) || false === $wpdb->delete( $table, array( 'id' => $id ), array( '%d' ) ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
-		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo_serie', $uid, 'delete' );
+		if ( false === $wpdb->query( 'COMMIT' ) ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) ); }
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $id, 'delete' );
 		return new WP_REST_Response( null, 204 );
 	}
 
@@ -339,98 +309,41 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 	 */
 	public static function set_estado( WP_REST_Request $request ) {
 		global $wpdb;
-
-		$id      = (int) $request->get_param( 'id' );
+		$id = (int) $request->get_param( 'id' );
 		$current = self::get_grupo_row( $id );
-		if ( null === $current ) {
-			return new WP_Error( 'anpa_admin_grupo_not_found', __( 'Grupo non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
-		}
-		$body   = ANPA_Socios_Admin_Shared::json_body( $request );
+		if ( null === $current ) { return new WP_Error( 'anpa_admin_grupo_not_found', __( 'Grupo non atopado', 'anpa-socios' ), array( 'status' => 404 ) ); }
+		$body = ANPA_Socios_Admin_Shared::json_body( $request );
 		$estado = isset( $body['estado'] ) ? (string) $body['estado'] : '';
-		if ( ! in_array( $estado, ANPA_Socios_Admin_Payload::GRUPO_ESTADO, true ) ) {
-			return new WP_Error( 'anpa_admin_invalid', __( 'Estado inválido', 'anpa-socios' ), array( 'status' => 400 ) );
-		}
+		if ( ! in_array( $estado, ANPA_Socios_Admin_Payload::GRUPO_ESTADO, true ) ) { return new WP_Error( 'anpa_admin_invalid', __( 'Estado inválido', 'anpa-socios' ), array( 'status' => 400 ) ); }
 		$uid = (string) ( $current['serie_uid'] ?? '' );
-		if ( '' === $uid ) {
-			return new WP_Error( 'anpa_admin_grupo_legacy', __( 'Actualiza primeiro o esquema de grupos.', 'anpa-socios' ), array( 'status' => 409 ) );
-		}
-
+		$curso_activo = ANPA_Socios_Curso_Activo::get();
+		if ( '' === $uid || null === $curso_activo ) { return new WP_Error( 'anpa_admin_grupo_legacy', __( 'Non hai unha serie editable no curso activo.', 'anpa-socios' ), array( 'status' => 409 ) ); }
 		$table = ANPA_Socios_DB::tabela_grupos();
-		$gn_t  = ANPA_Socios_DB::tabela_grupos_niveis();
-		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
-			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-		}
-
+		$gn_t = ANPA_Socios_DB::tabela_grupos_niveis();
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) { return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) ); }
 		$wpdb->last_error = '';
-		$series_rows = $wpdb->get_results( $wpdb->prepare(
-			"SELECT id, curso_escolar, franxa, dias FROM {$table}
-			 WHERE actividad_id = %d AND serie_uid = %s ORDER BY id FOR UPDATE",
-			(int) $current['actividad_id'],
-			$uid
+		$current_row = $wpdb->get_row( $wpdb->prepare(
+			"SELECT id, curso_escolar, franxa, dias FROM {$table} WHERE actividad_id = %d AND serie_uid = %s AND curso_escolar = %s FOR UPDATE",
+			(int) $current['actividad_id'], $uid, $curso_activo
 		), ARRAY_A );
-		if ( '' !== (string) $wpdb->last_error || ! is_array( $series_rows ) ) {
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $current_row ) ) {
 			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido bloquear a serie de grupos.', 'anpa-socios' ), array( 'status' => 500 ) );
+			return new WP_Error( 'anpa_admin_grupo_not_found', __( 'Non hai grupo desta serie no curso activo.', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
-		if ( array() === $series_rows ) {
-			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_admin_grupo_not_found', __( 'Grupo non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
-		}
-
-		$all_conflicts = array();
+		$current_id = (int) $current_row['id'];
 		if ( 'aberto' === $estado ) {
-			foreach ( $series_rows as $series_row ) {
-				$wpdb->last_error = '';
-				$nivel_ids = $wpdb->get_col( $wpdb->prepare(
-					"SELECT nivel_id FROM {$gn_t} WHERE grupo_id = %d ORDER BY nivel_id FOR UPDATE",
-					(int) $series_row['id']
-				) );
-				if ( '' !== (string) $wpdb->last_error || ! is_array( $nivel_ids ) || array() === $nivel_ids ) {
-					$wpdb->query( 'ROLLBACK' );
-					return new WP_Error( 'anpa_admin_db_error', __( 'Non se puideron comprobar os niveis da serie.', 'anpa-socios' ), array( 'status' => 500 ) );
-				}
-				$curso = (string) $series_row['curso_escolar'];
-				$payload = array(
-					'estado'          => 'aberto',
-					'cursos'          => array( $curso ),
-					'niveis_por_ano' => array( $curso => array_map( 'intval', $nivel_ids ) ),
-					'franxa'          => (string) $series_row['franxa'],
-					'dias'            => (string) $series_row['dias'],
-				);
-				$conflicts = ANPA_Socios_Grupo_Comedor_Gate::conflicts_for_series( $payload );
-				if ( is_wp_error( $conflicts ) ) {
-					$wpdb->query( 'ROLLBACK' );
-					return $conflicts;
-				}
-				$all_conflicts = array_merge( $all_conflicts, $conflicts );
-			}
-			if ( array() !== $all_conflicts ) {
-				$wpdb->query( 'ROLLBACK' );
-				return new WP_Error(
-					'anpa_admin_grupo_comedor_conflict',
-					__( 'A serie solapa co horario de comedor dalgún nivel seleccionado.', 'anpa-socios' ),
-					array( 'status' => 409, 'conflicts' => $all_conflicts )
-				);
-			}
+			$nivel_ids = $wpdb->get_col( $wpdb->prepare( "SELECT nivel_id FROM {$gn_t} WHERE grupo_id = %d ORDER BY nivel_id FOR UPDATE", $current_id ) );
+			if ( '' !== (string) $wpdb->last_error || ! is_array( $nivel_ids ) || array() === $nivel_ids ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_db_error', __( 'Non se puideron comprobar os niveis do grupo.', 'anpa-socios' ), array( 'status' => 500 ) ); }
+			$payload = array( 'estado' => 'aberto', 'cursos' => array( $curso_activo ), 'niveis_por_ano' => array( $curso_activo => array_map( 'intval', $nivel_ids ) ), 'franxa' => (string) $current_row['franxa'], 'dias' => (string) $current_row['dias'] );
+			$conflicts = ANPA_Socios_Grupo_Comedor_Gate::conflicts_for_series( $payload );
+			if ( is_wp_error( $conflicts ) ) { $wpdb->query( 'ROLLBACK' ); return $conflicts; }
+			if ( array() !== $conflicts ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_grupo_comedor_conflict', __( 'O grupo solapa co horario de comedor dalgún nivel seleccionado.', 'anpa-socios' ), array( 'status' => 409, 'conflicts' => $conflicts ) ); }
 		}
-
-		$updated = $wpdb->update(
-			$table,
-			array( 'estado' => $estado, 'actualizado_en' => current_time( 'mysql' ) ),
-			array( 'actividad_id' => (int) $current['actividad_id'], 'serie_uid' => $uid ),
-			array( '%s', '%s' ),
-			array( '%d', '%s' )
-		);
-		if ( false === $updated ) {
-			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-		}
-		if ( false === $wpdb->query( 'COMMIT' ) ) {
-			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-		}
-		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo_serie', $uid, 'estado_' . $estado );
-		return new WP_REST_Response( array( 'serie_uid' => $uid, 'estado' => $estado ), 200 );
+		$updated = $wpdb->update( $table, array( 'estado' => $estado, 'actualizado_en' => current_time( 'mysql' ) ), array( 'id' => $current_id ), array( '%s', '%s' ), array( '%d' ) );
+		if ( false === $updated ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) ); }
+		if ( false === $wpdb->query( 'COMMIT' ) ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) ); }
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $current_id, 'estado_' . $estado );
+		return new WP_REST_Response( array( 'id' => $current_id, 'serie_uid' => $uid, 'estado' => $estado ), 200 );
 	}
 
 	// ──────────────────────────────────────────────
@@ -663,132 +576,92 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 	private static function validate_series_payload( int $actividad_id, array $body ) {
 		global $wpdb;
 
+		$curso_activo = ANPA_Socios_Curso_Activo::get();
+		if ( null === $curso_activo ) {
+			return new WP_Error( 'anpa_admin_no_active_course', __( 'Non hai un curso escolar activo.', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+		$nivel_ids = isset( $body['nivel_ids'] ) && is_array( $body['nivel_ids'] )
+			? $body['nivel_ids']
+			: ( $body['niveis_por_ano'][ $curso_activo ] ?? array() );
+		$body['cursos'] = array( $curso_activo );
+		$body['niveis_por_ano'] = array( $curso_activo => $nivel_ids );
+
 		$payload = ANPA_Socios_Grupo_Serie::normalize( $body );
 		if ( array() === $payload ) {
-			return new WP_Error( 'anpa_admin_invalid', __( 'Revisa o nome, cursos, niveis, horario, franxa, días e capacidade do grupo.', 'anpa-socios' ), array( 'status' => 400 ) );
+			return new WP_Error( 'anpa_admin_invalid', __( 'Revisa o nome, niveis, horario, franxa, días e capacidade do grupo.', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
-		$offers = $wpdb->get_col( $wpdb->prepare(
-			'SELECT curso_escolar FROM ' . ANPA_Socios_DB::tabela_actividades_cursos() . ' WHERE actividad_id = %d',
-			$actividad_id
-		) );
-		$offers = is_array( $offers ) ? array_map( 'strval', $offers ) : array();
-		foreach ( $payload['cursos'] as $curso ) {
-			if ( ! in_array( $curso, $offers, true ) ) {
-				return new WP_Error( 'anpa_admin_grupo_curso', __( 'Os cursos do grupo deben estar entre os anos nos que se oferta a actividade.', 'anpa-socios' ), array( 'status' => 400 ) );
-			}
-			if ( ! ANPA_Socios_DB::niveis_belong_to_curso( $payload['niveis_por_ano'][ $curso ], $curso ) ) {
-				return new WP_Error( 'anpa_admin_grupo_niveis', __( 'Os niveis seleccionados deben pertencer ao curso escolar correspondente.', 'anpa-socios' ), array( 'status' => 400 ) );
-			}
+		$activities = ANPA_Socios_DB::tabela_actividades();
+		$exists = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$activities} WHERE id = %d", $actividad_id ) );
+		if ( 0 === $exists ) {
+			return new WP_Error( 'anpa_admin_actividad_not_found', __( 'Actividade non atopada.', 'anpa-socios' ), array( 'status' => 404 ) );
+		}
+		if ( ! ANPA_Socios_DB::niveis_belong_to_curso( $payload['niveis_por_ano'][ $curso_activo ], $curso_activo ) ) {
+			return new WP_Error( 'anpa_admin_grupo_niveis', __( 'Os niveis seleccionados deben pertencer ao curso escolar activo.', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		return $payload;
 	}
 
 	/**
-	 * Persists every annual row in a logical group series atomically.
+	 * Persists only the active annual row in a logical group series.
 	 *
 	 * @param array<string,mixed> $payload Normalized series payload.
 	 * @return array<string,int>|WP_Error Map curso_escolar => annual grupo id.
 	 */
 	private static function persist_series( int $actividad_id, string $uid, array $payload ) {
 		global $wpdb;
-
+		$curso_activo = ANPA_Socios_Curso_Activo::get();
+		if ( null === $curso_activo ) {
+			return new WP_Error( 'anpa_admin_no_active_course', __( 'Non hai un curso escolar activo.', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
 		$table = ANPA_Socios_DB::tabela_grupos();
-		$mat   = ANPA_Socios_DB::tabela_matriculas();
+		$courses = ANPA_Socios_DB::tabela_cursos();
+		$activities = ANPA_Socios_DB::tabela_actividades();
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
-
 		$wpdb->last_error = '';
-		$existing = $wpdb->get_results( $wpdb->prepare(
-			"SELECT id, curso_escolar FROM {$table}
-			 WHERE actividad_id = %d AND serie_uid = %s ORDER BY id FOR UPDATE",
-			$actividad_id,
-			$uid
-		), ARRAY_A );
+		$locked_activity = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$activities} WHERE id = %d FOR UPDATE", $actividad_id ) );
+		if ( '' !== (string) $wpdb->last_error || $actividad_id !== (int) $locked_activity ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_actividad_not_found', __( 'Actividade non atopada.', 'anpa-socios' ), array( 'status' => 404 ) );
+		}
+		$wpdb->last_error = '';
+		$locked_course = $wpdb->get_var( $wpdb->prepare( "SELECT curso_escolar FROM {$courses} WHERE curso_escolar = %s AND estado = 'activo' FOR UPDATE", $curso_activo ) );
+		if ( '' !== (string) $wpdb->last_error || $curso_activo !== (string) $locked_course ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_active_course_changed', __( 'O curso activo cambiou. Recarga a páxina e téntao de novo.', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+		$wpdb->last_error = '';
+		$existing = $wpdb->get_results( $wpdb->prepare( "SELECT id, curso_escolar FROM {$table} WHERE actividad_id = %d AND serie_uid = %s ORDER BY id FOR UPDATE", $actividad_id, $uid ), ARRAY_A );
 		if ( '' !== (string) $wpdb->last_error || ! is_array( $existing ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido bloquear a serie de grupos.', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
-
-		$by_year = array();
+		$current_id = 0;
 		foreach ( $existing as $row ) {
-			$by_year[ (string) $row['curso_escolar'] ] = (int) $row['id'];
+			if ( $curso_activo === (string) $row['curso_escolar'] ) { $current_id = (int) $row['id']; break; }
 		}
-		$removed = array_diff( array_keys( $by_year ), $payload['cursos'] );
-		foreach ( $removed as $curso ) {
-			$wpdb->last_error = '';
-			$refs = $wpdb->get_col( $wpdb->prepare(
-				"SELECT id FROM {$mat} WHERE grupo_id = %d ORDER BY id FOR UPDATE",
-				$by_year[ $curso ]
-			) );
-			if ( '' !== (string) $wpdb->last_error || ! is_array( $refs ) ) {
-				$wpdb->query( 'ROLLBACK' );
-				return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido comprobar o histórico do grupo.', 'anpa-socios' ), array( 'status' => 500 ) );
-			}
-			if ( array() !== $refs ) {
-				$wpdb->query( 'ROLLBACK' );
-				return new WP_Error( 'anpa_admin_grupo_year_in_use', sprintf( __( 'Non se pode retirar o curso %s: o grupo ten matrículas ou histórico asociado.', 'anpa-socios' ), $curso ), array( 'status' => 409 ) );
-			}
-		}
-
 		$conflicts = ANPA_Socios_Grupo_Comedor_Gate::conflicts_for_series( $payload );
-		if ( is_wp_error( $conflicts ) ) {
-			$wpdb->query( 'ROLLBACK' );
-			return $conflicts;
-		}
+		if ( is_wp_error( $conflicts ) ) { $wpdb->query( 'ROLLBACK' ); return $conflicts; }
 		if ( array() !== $conflicts ) {
 			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error(
-				'anpa_admin_grupo_comedor_conflict',
-				__( 'O grupo solapa co horario de comedor dalgún nivel seleccionado.', 'anpa-socios' ),
-				array( 'status' => 409, 'conflicts' => $conflicts )
-			);
+			return new WP_Error( 'anpa_admin_grupo_comedor_conflict', __( 'O grupo solapa co horario de comedor dalgún nivel seleccionado.', 'anpa-socios' ), array( 'status' => 409, 'conflicts' => $conflicts ) );
 		}
-		foreach ( $removed as $curso ) {
-			$id = $by_year[ $curso ];
-			if ( ! ANPA_Socios_DB::delete_grupo_niveis( $id ) || false === $wpdb->delete( $table, array( 'id' => $id ), array( '%d' ) ) ) {
-				$wpdb->query( 'ROLLBACK' );
-				return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-			}
-			unset( $by_year[ $curso ] );
-		}
-
-		foreach ( $payload['cursos'] as $curso ) {
-			$data = array(
-				'actividad_id'  => $actividad_id,
-				'curso_escolar' => $curso,
-				'serie_uid'     => $uid,
-				'nome'          => $payload['nome'],
-				'horario'       => $payload['horario'],
-				'curso_range'   => '',
-				'franxa'        => $payload['franxa'],
-				'dias'          => $payload['dias'],
-				'min_pupilos'   => $payload['min_pupilos'],
-				'max_pupilos'   => $payload['max_pupilos'],
-				'estado'        => $payload['estado'],
-				'actualizado_en'=> current_time( 'mysql' ),
-			);
-			if ( isset( $by_year[ $curso ] ) ) {
-				$id = $by_year[ $curso ];
-				$ok = $wpdb->update( $table, $data, array( 'id' => $id ), null, array( '%d' ) );
-			} else {
-				$data['creado_en'] = current_time( 'mysql' );
-				$ok = $wpdb->insert( $table, $data );
-				$id = (int) $wpdb->insert_id;
-				$by_year[ $curso ] = $id;
-			}
-			if ( false === $ok || $id <= 0 || ! ANPA_Socios_DB::delete_grupo_niveis( $id ) || ! ANPA_Socios_DB::insert_grupo_niveis( $id, $payload['niveis_por_ano'][ $curso ] ) ) {
-				$wpdb->query( 'ROLLBACK' );
-				return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-			}
-		}
-		if ( false === $wpdb->query( 'COMMIT' ) ) {
+		$data = array(
+			'actividad_id' => $actividad_id, 'curso_escolar' => $curso_activo, 'serie_uid' => $uid,
+			'nome' => $payload['nome'], 'horario' => $payload['horario'], 'curso_range' => '',
+			'franxa' => $payload['franxa'], 'dias' => $payload['dias'], 'min_pupilos' => $payload['min_pupilos'],
+			'max_pupilos' => $payload['max_pupilos'], 'estado' => $payload['estado'], 'actualizado_en' => current_time( 'mysql' ),
+		);
+		if ( $current_id > 0 ) { $ok = $wpdb->update( $table, $data, array( 'id' => $current_id ), null, array( '%d' ) ); }
+		else { $data['creado_en'] = current_time( 'mysql' ); $ok = $wpdb->insert( $table, $data ); $current_id = (int) $wpdb->insert_id; }
+		if ( false === $ok || $current_id <= 0 || ! ANPA_Socios_DB::delete_grupo_niveis( $current_id ) || ! ANPA_Socios_DB::insert_grupo_niveis( $current_id, $payload['niveis_por_ano'][ $curso_activo ] ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
-
-		return $by_year;
+		if ( false === $wpdb->query( 'COMMIT' ) ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) ); }
+		return array( $curso_activo => $current_id );
 	}
 
 	/**

@@ -27,19 +27,21 @@ final class Test_ANPA_Socios_Cursos_Niveis_Contract extends TestCase {
 
 	public function test_activity_create_update_do_not_validate_level_bounds(): void {
 		$this->assertStringNotContainsString( 'self::validated_cursos_niveis( $body, $cursos )', $this->activities );
-		$this->assertStringContainsString( 'self::validated_cursos( $body )', $this->activities );
+		$this->assertStringNotContainsString( 'validated_cursos', $this->activities );
 	}
 
-	public function test_group_payload_owns_levels_per_year(): void {
+	public function test_group_payload_owns_levels_for_the_active_year(): void {
 		$this->assertStringContainsString( 'ANPA_Socios_Grupo_Serie::normalize', $this->groups );
-		$this->assertStringContainsString( "\$payload['niveis_por_ano'][ \$curso ]", $this->groups );
+		$this->assertStringContainsString( "\$body['nivel_ids']", $this->groups );
+		$this->assertStringContainsString( "\$body['niveis_por_ano'] = array( \$curso_activo => \$nivel_ids )", $this->groups );
 		$this->assertStringContainsString( 'ANPA_Socios_DB::niveis_belong_to_curso', $this->groups );
 		$this->assertStringContainsString( 'ANPA_Socios_DB::insert_grupo_niveis', $this->groups );
 	}
 
-	public function test_group_form_loads_structure_for_each_selected_year(): void {
+	public function test_group_form_loads_structure_only_for_the_active_year(): void {
 		$this->assertStringContainsString( "estrutura?curso_escolar=", $this->js );
-		$this->assertStringContainsString( 'niveis_por_ano: levels', $this->js );
+		$this->assertStringContainsString( "encodeURIComponent(activeCourse)", $this->js );
+		$this->assertStringNotContainsString( 'niveis_por_ano: levels', $this->js );
 		$this->assertStringNotContainsString( 'Niveis mínimo/máximo por curso escolar', $this->js );
 	}
 

@@ -32,8 +32,9 @@ final class Test_ANPA_Socios_Backup_Tables extends TestCase {
 		$this->assertContains( 'grupos_niveis', $keys );
 	}
 
-	public function test_current_backup_format_is_v5_after_menu_name_roundtrip(): void {
-		$this->assertSame( 5, ANPA_Socios_Backup::VERSION );
+	public function test_current_backup_format_is_v6_after_retiring_activity_course_offers(): void {
+		$this->assertSame( 6, ANPA_Socios_Backup::VERSION );
+		$this->assertNotContains( 'actividades_cursos', $this->get_table_keys() );
 	}
 
 	public function test_v5_restore_preserves_menu_name_and_v4_uses_default(): void {
@@ -186,6 +187,104 @@ final class Test_ANPA_Socios_Backup_Tables extends TestCase {
 		}
 
 		$this->assertSame( '2025-2026', $method->invoke( null, 'actividades', $fixtures['actividades']['row'], 2 )['curso_escolar'] );
+	}
+
+	public function test_restore_rejects_malformed_known_table_before_destructive_work(): void {
+		$reflection = new ReflectionClass( ANPA_Socios_Backup::class );
+		$this->assertTrue( $reflection->hasMethod( 'validate_restore_dump_shape' ) );
+		$method = $reflection->getMethod( 'validate_restore_dump_shape' );
+		$method->setAccessible( true );
+
+		$this->assertNull( $method->invoke( null, array( 'socios' => array(), 'actividades_cursos' => array() ) ) );
+		$this->assertSame( 'invalid_table_shape', $method->invoke( null, array( 'socios' => 'corrupt' ) ) );
+		$this->assertSame( 'invalid_table_shape', $method->invoke( null, array( 'actividades_cursos' => false ) ) );
+	}
+
+	public function test_legacy_activity_course_restore_classifies_before_destructive_work(): void {
+		$reflection = new ReflectionClass( ANPA_Socios_Backup::class );
+		$this->assertTrue( $reflection->hasMethod( 'validate_legacy_activity_course_dump' ) );
+		$method = $reflection->getMethod( 'validate_legacy_activity_course_dump' );
+		$method->setAccessible( true );
+
+		$activity = array( 'id' => 7, 'custo' => '20.00', 'estado' => 'activo' );
+		$empty_offer = array(
+			'id' => 8, 'actividad_id' => 7, 'curso_escolar' => '2026/2027',
+			'custo' => '20.00', 'estado' => 'activo', 'franxa' => '', 'horarios' => '',
+			'grupos' => '', 'dias' => '', 'min_pupilos' => 0, 'max_pupilos' => 0,
+			'nivel_min_id' => null, 'nivel_max_id' => null,
+		);
+		$base = array(
+			'actividades' => array( $activity ),
+			'actividades_cursos' => array( $empty_offer ),
+			'grupos' => array(),
+			'grupos_niveis' => array(),
+		);
+		$this->assertNull( $method->invoke( null, $base ), 'A genuinely empty legacy row is safely discarded.' );
+
+		$material = $empty_offer;
+		$material['dias'] = 'luns';
+		$represented = $base;
+		$represented['actividades_cursos'] = array( $material );
+		$represented['grupos'] = array( array( 'id' => 30, 'actividad_id' => 7, 'curso_escolar' => '2026/2027' ) );
+		$represented['grupos_niveis'] = array( array( 'grupo_id' => 30, 'nivel_id' => 2 ) );
+		$this->assertNull( $method->invoke( null, $represented ), 'A material row represented by a levelled group is adapted through groups.' );
+
+		$divergent = $base;
+		$divergent['actividades_cursos'][0]['custo'] = '21.00';
+		$this->assertSame( 'divergent_cost_or_state', $method->invoke( null, $divergent ) );
+
+		$missing = $base;
+		$missing['actividades_cursos'] = array( $material );
+		$this->assertSame( 'material_offer_without_group', $method->invoke( null, $missing ) );
+
+		$orphan = $base;
+		$orphan['actividades_cursos'][0]['actividad_id'] = 999;
+		$this->assertSame( 'orphan_activity', $method->invoke( null, $orphan ) );
+	}
+
+	public function test_legacy_offer_rejects_array_values_in_scalar_fields(): void {
+		$reflection = new ReflectionClass( ANPA_Socios_Backup::class );
+		$method = $reflection->getMethod( 'validate_legacy_activity_course_dump' );
+		$method->setAccessible( true );
+
+		$activity = array( 'id' => 7, 'custo' => '20.00', 'estado' => 'activo' );
+		$base = array(
+			'actividades'       => array( $activity ),
+			'actividades_cursos' => array(
+				array(
+					'id' => 8, 'actividad_id' => 7, 'curso_escolar' => '2026/2027',
+					'custo' => '20.00', 'estado' => 'activo', 'franxa' => '', 'horarios' => '',
+					'grupos' => '', 'dias' => '', 'min_pupilos' => 0, 'max_pupilos' => 0,
+					'nivel_min_id' => null, 'nivel_max_id' => null,
+				),
+			),
+			'grupos'            => array(),
+			'grupos_niveis'     => array(),
+		);
+
+		// Array in 'dias' field — should reject cleanly, not warn.
+		$array_offer = $base;
+		$array_offer['actividades_cursos'][0]['dias'] = array( 'luns', 'martes' );
+		$this->assertSame( 'invalid_legacy_offer_shape', $method->invoke( null, $array_offer ) );
+
+		// Array in 'curso_escolar' field.
+		$array_offer2 = $base;
+		$array_offer2['actividades_cursos'][0]['curso_escolar'] = array( '2026/2027' );
+		$this->assertSame( 'invalid_legacy_offer_shape', $method->invoke( null, $array_offer2 ) );
+	}
+
+	public function test_restore_validates_legacy_offers_before_starting_transaction(): void {
+		$source = file_get_contents( __DIR__ . '/../includes/class-anpa-socios-backup.php' );
+		$start  = strpos( $source, 'public static function restore' );
+		$end    = strpos( $source, 'public static function wipe', $start );
+		$body   = substr( $source, $start, $end - $start );
+		$validation = strpos( $body, 'validate_legacy_activity_course_dump' );
+		$transaction = strpos( $body, "query( 'START TRANSACTION' )" );
+
+		$this->assertIsInt( $validation );
+		$this->assertIsInt( $transaction );
+		$this->assertLessThan( $transaction, $validation );
+		$this->assertStringContainsString( "'anpa_bak_legacy_offer_conflict'", $body );
 	}
 
 	public function test_restore_rolls_back_when_any_domain_write_fails(): void {

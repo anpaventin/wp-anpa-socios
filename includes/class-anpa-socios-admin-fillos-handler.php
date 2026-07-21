@@ -167,12 +167,16 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 			$formats[] = ( 'familia_id' === $key ) ? '%d' : '%s';
 		}
 
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
 		$inserted = $wpdb->insert(
 			$wpdb->prefix . 'anpa_fillos',
 			$payload,
 			$formats
 		);
 		if ( false === $inserted ) {
+			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
@@ -180,8 +184,6 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 		// $wpdb->insert_id. Capture the fillo id FIRST or the re-select
 		// misses, the fillos_cursos sync is skipped and the 201 body is [].
 		$fillo_id = (int) $wpdb->insert_id;
-		ANPA_Socios_Admin_Shared::write_audit( $request, 'fillo', (string) $fillo_id, 'create' );
-
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
 				"SELECT id, socio_email, nome, apelidos, data_nacemento, curso, aula, estado FROM {$wpdb->prefix}anpa_fillos WHERE id = %d",
@@ -189,11 +191,17 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 			),
 			ARRAY_A
 		);
-		if ( is_array( $row ) ) {
-			self::sync_current_course_assignment( (int) $row['id'], (string) $row['curso'], (string) $row['aula'] );
+		if ( ! is_array( $row ) || ! self::sync_current_course_assignment( $fillo_id, (string) $payload['curso'], (string) $payload['aula'] ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido gardar a asignación anual do fillo/a.', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'fillo', (string) $fillo_id, 'create' );
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
-		return new WP_REST_Response( is_array( $row ) ? $row : array(), 201 );
+		return new WP_REST_Response( $row, 201 );
 	}
 
 	/**
@@ -218,6 +226,9 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 		}
 		$payload['actualizado_en'] = current_time( 'mysql' );
 
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'anpa_fillos',
 			$payload,
@@ -226,11 +237,19 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 			array( '%d' )
 		);
 		if ( false === $updated ) {
+			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
+		if ( ! self::sync_current_course_assignment( $id, (string) $payload['curso'], (string) $payload['aula'] ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido gardar a asignación anual do fillo/a.', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'fillo', (string) $id, 'update' );
-		self::sync_current_course_assignment( $id, (string) $payload['curso'], (string) $payload['aula'] );
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
 
 		return new WP_REST_Response( $payload + array( 'id' => $id ), 200 );
 	}
@@ -380,7 +399,11 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 		$hard = in_array( (string) $request->get_param( 'hard' ), array( '1', 'true' ), true );
 
 		$fillos_t = ANPA_Socios_DB::tabela_fillos();
-		$estado   = $wpdb->get_var( $wpdb->prepare( "SELECT estado FROM {$fillos_t} WHERE id = %d", $id ) );
+		$wpdb->last_error = '';
+		$estado = $wpdb->get_var( $wpdb->prepare( "SELECT estado FROM {$fillos_t} WHERE id = %d", $id ) );
+		if ( '' !== (string) $wpdb->last_error ) {
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
 		if ( null === $estado ) {
 			return new WP_Error( 'anpa_admin_not_found', __( 'Fillo/a non atopado.', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
@@ -390,14 +413,25 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 				return new WP_Error( 'anpa_admin_must_deactivate', __( 'Desactiva o fillo/a antes de eliminalo definitivamente.', 'anpa-socios' ), array( 'status' => 409 ) );
 			}
 			$mat_t = ANPA_Socios_DB::tabela_matriculas();
-			$refs  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$mat_t} WHERE fillo_id = %d", $id ) );
-			if ( $refs > 0 ) {
-				return new WP_Error( 'anpa_admin_fillo_has_data', __( 'Non se pode eliminar: o fillo/a ten matrículas asociadas.', 'anpa-socios' ), array( 'status' => 409 ) );
-			}
-
 			$fc_t = ANPA_Socios_DB::tabela_fillos_cursos();
 			if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 				return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+			}
+			$wpdb->last_error = '';
+			$locked_estado = $wpdb->get_var( $wpdb->prepare( "SELECT estado FROM {$fillos_t} WHERE id = %d FOR UPDATE", $id ) );
+			if ( '' !== (string) $wpdb->last_error || 'baixa' !== $locked_estado ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'anpa_admin_fillo_changed', __( 'O fillo/a cambiou mentres se procesaba o borrado. Recarga e téntao de novo.', 'anpa-socios' ), array( 'status' => 409 ) );
+			}
+			$wpdb->last_error = '';
+			$refs = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$mat_t} WHERE fillo_id = %d ORDER BY id FOR UPDATE", $id ) );
+			if ( '' !== (string) $wpdb->last_error || ! is_array( $refs ) ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+			}
+			if ( array() !== $refs ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'anpa_admin_fillo_has_data', __( 'Non se pode eliminar: o fillo/a ten matrículas asociadas.', 'anpa-socios' ), array( 'status' => 409 ) );
 			}
 			$deleted_assignments = $wpdb->query( $wpdb->prepare( "DELETE FROM {$fc_t} WHERE fillo_id = %d", $id ) );
 			if ( false === $deleted_assignments ) {
@@ -514,21 +548,21 @@ final class ANPA_Socios_Admin_Fillos_Handler {
 	 * @param  int    $fillo_id Fillo id.
 	 * @param  string $curso    Curso 1-6.
 	 * @param  string $aula     Aula A-H.
-	 * @return void
+	 * @return bool
 	 */
-	private static function sync_current_course_assignment( int $fillo_id, string $curso, string $aula ): void {
+	private static function sync_current_course_assignment( int $fillo_id, string $curso, string $aula ): bool {
 		if ( $fillo_id <= 0 ) {
-			return;
+			return false;
 		}
 
 		$curso_escolar = ANPA_Socios_Curso_Activo::get();
 		if ( null === $curso_escolar ) {
-			return;
+			return false;
 		}
 
 		// D94: the payload was already validated by validar_fillo() and the
 		// upsert resolves nivel_id/aula_id safely (NULL when unmapped), so
 		// re-validating here silently skipped the annual row on create.
-		ANPA_Socios_DB::upsert_fillo_curso_assignment( $fillo_id, $curso_escolar, $curso, $aula );
+		return ANPA_Socios_DB::upsert_fillo_curso_assignment( $fillo_id, $curso_escolar, $curso, $aula );
 	}
 }

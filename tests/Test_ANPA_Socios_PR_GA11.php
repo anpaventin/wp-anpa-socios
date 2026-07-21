@@ -77,18 +77,17 @@ final class Test_ANPA_Socios_PR_GA11 extends TestCase {
 		);
 		$this->assertStringContainsString( "'cursoactivo'", $this->management_page );
 		$this->assertStringContainsString( 'cfg.cursoactivo', $this->js );
-		$this->assertStringContainsString( 'r.cursos_ofertados.indexOf(activeCourse) !== -1', $this->js );
+		$this->assertStringContainsString( 'r.ten_grupo_curso_activo === true', $this->js );
 	}
 
 	public function test_activity_form_preserves_history_but_only_edits_active_course(): void {
-		$this->assertStringContainsString( 'Cursos nos que se ofertou', $this->js );
+		$this->assertStringContainsString( 'Curso activo no que se oferta', $this->js );
+		$this->assertStringContainsString( 'Cursos escolares anteriores e inactivos', $this->js );
 		$this->assertStringContainsString( "document.createElement('details')", $this->js );
-		$this->assertStringContainsString( 'historicalCourses.concat(activeSelection)', $this->js );
-		$this->assertStringContainsString( 'activeCourseCheckbox.disabled = !isEdit;', $this->js );
-		$this->assertStringContainsString( 'Desmarca para retirar a oferta deste curso', $this->js );
-		$this->assertStringContainsString( 'validated_cursos_for_activity', $this->handler );
-		$this->assertStringContainsString( 'ANPA_Socios_Curso_Activo::get()', $this->handler );
-		$this->assertStringContainsString( 'Só se pode engadir o curso activo á oferta.', $this->handler );
+		$this->assertStringContainsString( 'act.cursos_con_grupos', $this->js );
+		$this->assertStringNotContainsString( 'historicalCourses.concat(activeSelection)', $this->js );
+		$this->assertStringNotContainsString( 'validated_cursos_for_activity', $this->handler );
+		$this->assertStringNotContainsString( 'tabela_actividades_cursos', $this->handler );
 	}
 
 	public function test_every_empty_search_result_rewires_input_before_return(): void {

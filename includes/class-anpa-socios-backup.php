@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class ANPA_Socios_Backup {
 
 	const MAGIC   = 'ANPABAK1';
-	const VERSION = 5;
+	const VERSION = 6;
 
 	/**
 	 * Domain tables included in a backup, in FK-safe insert order.
@@ -40,7 +40,7 @@ final class ANPA_Socios_Backup {
 			'fillos_cursos'      => ANPA_Socios_DB::tabela_fillos_cursos(),
 			'empresas'           => ANPA_Socios_DB::tabela_empresas(),
 			'actividades'        => ANPA_Socios_DB::tabela_actividades(),
-			'actividades_cursos' => ANPA_Socios_DB::tabela_actividades_cursos(),
+
 			'cursos'             => ANPA_Socios_DB::tabela_cursos(),
 			'horarios_comedor'   => ANPA_Socios_DB::tabela_horarios_comedor(),
 			'niveis'             => ANPA_Socios_DB::tabela_niveis(),
@@ -144,6 +144,111 @@ final class ANPA_Socios_Backup {
 		}
 
 		return $row;
+	}
+
+	/**
+	 * Rejects malformed values for every known backup table before deletion.
+	 * Missing keys remain valid for backwards compatibility with older formats.
+	 *
+	 * @param  array<string,mixed> $dump Decrypted backup table map.
+	 * @return string|null Conflict category, or null when all present tables are arrays.
+	 */
+	private static function validate_restore_dump_shape( array $dump ): ?string {
+		$known = array_merge( array_keys( self::tables() ), array( 'actividades_cursos' ) );
+		foreach ( $known as $key ) {
+			if ( array_key_exists( $key, $dump ) && ! is_array( $dump[ $key ] ) ) {
+				return 'invalid_table_shape';
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Validates the retired annual-offer projection carried by pre-v6 backups.
+	 *
+	 * The projection itself is never restored. Empty rows are safely discarded;
+	 * material rows are accepted only when the same activity/year is represented
+	 * by a restored annual group with at least one level. Cost/state divergence
+	 * and orphan activities fail closed before the destructive restore starts.
+	 *
+	 * @param  array<string,mixed> $dump Decrypted backup table map.
+	 * @return string|null Conflict category, or null when adaptation is lossless.
+	 */
+	private static function validate_legacy_activity_course_dump( array $dump ): ?string {
+		if ( ! array_key_exists( 'actividades_cursos', $dump ) ) {
+			return null;
+		}
+		if ( ! is_array( $dump['actividades_cursos'] ) ) {
+			return 'invalid_legacy_offer_shape';
+		}
+
+		$activities = array();
+		foreach ( is_array( $dump['actividades'] ?? null ) ? $dump['actividades'] : array() as $row ) {
+			if ( is_array( $row ) && isset( $row['id'] ) ) {
+				$activities[ (int) $row['id'] ] = $row;
+			}
+		}
+
+		$levelled_groups = array();
+		$group_scopes    = array();
+		foreach ( is_array( $dump['grupos'] ?? null ) ? $dump['grupos'] : array() as $row ) {
+			if ( ! is_array( $row ) || empty( $row['id'] ) ) {
+				continue;
+			}
+			$group_scopes[ (int) $row['id'] ] = (int) ( $row['actividad_id'] ?? 0 ) . '|' . trim( (string) ( $row['curso_escolar'] ?? '' ) );
+		}
+		foreach ( is_array( $dump['grupos_niveis'] ?? null ) ? $dump['grupos_niveis'] : array() as $row ) {
+			if ( is_array( $row ) && ! empty( $row['grupo_id'] ) && ! empty( $row['nivel_id'] ) ) {
+				$group_id = (int) $row['grupo_id'];
+				if ( isset( $group_scopes[ $group_id ] ) ) {
+					$levelled_groups[ $group_scopes[ $group_id ] ] = true;
+				}
+			}
+		}
+
+		foreach ( $dump['actividades_cursos'] as $offer ) {
+			if ( ! is_array( $offer ) ) {
+				return 'invalid_legacy_offer_shape';
+			}
+			$activity_id = (int) ( $offer['actividad_id'] ?? 0 );
+			if ( $activity_id <= 0 || ! isset( $activities[ $activity_id ] ) ) {
+				return 'orphan_activity';
+			}
+			$activity = $activities[ $activity_id ];
+			if (
+				round( (float) ( $offer['custo'] ?? 0 ), 2 ) !== round( (float) ( $activity['custo'] ?? 0 ), 2 )
+				|| (string) ( $offer['estado'] ?? '' ) !== (string) ( $activity['estado'] ?? '' )
+			) {
+				return 'divergent_cost_or_state';
+			}
+
+			$material = false;
+			foreach ( array( 'franxa', 'horario', 'horarios', 'grupos', 'dias' ) as $field ) {
+				$val = $offer[ $field ] ?? '';
+				if ( ! is_scalar( $val ) ) {
+					return 'invalid_legacy_offer_shape';
+				}
+				$material = $material || '' !== trim( (string) $val );
+			}
+			$material = $material
+				|| 0.0 !== (float) ( $offer['min_pupilos'] ?? 0 )
+				|| 0.0 !== (float) ( $offer['max_pupilos'] ?? 0 );
+			foreach ( array( 'nivel_min_id', 'nivel_max_id' ) as $field ) {
+				$material = $material || ( array_key_exists( $field, $offer ) && null !== $offer[ $field ] );
+			}
+
+			$curso_val = $offer['curso_escolar'] ?? '';
+			if ( ! is_scalar( $curso_val ) ) {
+				return 'invalid_legacy_offer_shape';
+			}
+			$scope = $activity_id . '|' . trim( (string) $curso_val );
+			if ( $material && empty( $levelled_groups[ $scope ] ) ) {
+				return 'material_offer_without_group';
+			}
+		}
+
+		return null;
 	}
 
 	/**
@@ -285,12 +390,28 @@ final class ANPA_Socios_Backup {
 			return new WP_Error( 'anpa_bak_bad_pw', 'Frase da clave bancaria incorrecta ou copia corrupta.', array( 'status' => 403 ) );
 		}
 		$payload = json_decode( $json, true );
-		if ( ! is_array( $payload ) || ( $payload['magic'] ?? '' ) !== self::MAGIC || empty( $payload['tables'] ) ) {
+		if ( ! is_array( $payload ) || ( $payload['magic'] ?? '' ) !== self::MAGIC || ! is_array( $payload['tables'] ?? null ) || empty( $payload['tables'] ) ) {
 			return new WP_Error( 'anpa_bak_payload', 'Contido da copia non válido.', array( 'status' => 400 ) );
 		}
 		$backup_version = (int) ( $payload['version'] ?? 1 );
 		if ( $backup_version < 1 || $backup_version > self::VERSION ) {
 			return new WP_Error( 'anpa_bak_version', 'A versión desta copia non é compatible.', array( 'status' => 400 ) );
+		}
+		$dump_shape = self::validate_restore_dump_shape( $payload['tables'] );
+		if ( null !== $dump_shape ) {
+			return new WP_Error(
+				'anpa_bak_payload',
+				'O contido dunha táboa da copia non é válido.',
+				array( 'status' => 400, 'reason' => $dump_shape )
+			);
+		}
+		$legacy_conflict = self::validate_legacy_activity_course_dump( $payload['tables'] );
+		if ( null !== $legacy_conflict ) {
+			return new WP_Error(
+				'anpa_bak_legacy_offer_conflict',
+				'A copia antiga contén unha oferta anual que non se pode adaptar sen perder información.',
+				array( 'status' => 400, 'reason' => $legacy_conflict )
+			);
 		}
 
 		$public = ANPA_Socios_Banking_Key::public_key();

@@ -40,6 +40,7 @@ final class ANPA_Socios_Admin_Settings {
 		add_action( 'admin_post_anpa_socios_save_location', array( __CLASS__, 'handle_save_location' ) );
 		add_action( 'admin_post_anpa_socios_save_cursos', array( __CLASS__, 'handle_save_cursos' ) );
 		add_action( 'admin_post_anpa_socios_run_season', array( __CLASS__, 'handle_run_season' ) );
+		add_action( 'admin_post_anpa_socios_update_child_levels', array( __CLASS__, 'handle_update_child_levels' ) );
 		add_action( 'admin_post_anpa_socios_check_updates', array( __CLASS__, 'handle_check_updates' ) );
 		add_action( 'admin_post_anpa_socios_backup', array( __CLASS__, 'handle_backup' ) );
 		add_action( 'admin_post_anpa_socios_wipe', array( __CLASS__, 'handle_wipe' ) );
@@ -912,6 +913,19 @@ final class ANPA_Socios_Admin_Settings {
 		wp_nonce_field( 'anpa_socios_run_season' );
 		submit_button( __( 'Executar comprobación de temporada agora', 'anpa-socios' ), 'secondary', 'submit', false );
 		echo '</form>';
+		echo '<p class="description">' . esc_html__( 'Comproba as datas dos cursos, pecha os que xa remataron e crea o curso seguinte como pendente e coas matrículas pechadas. Esta acción non activa automaticamente o curso seguinte.', 'anpa-socios' ) . '</p>';
+
+		echo '<hr>';
+		echo '<h3>' . esc_html__( 'Actualizar niveis dos fillos', 'anpa-socios' ) . '</h3>';
+		echo '<p class="description">' . esc_html__( 'Recalcula o nivel dos fillos activos segundo a idade que cumpren no ano final do curso escolar activo. Conserva a letra da aula e non modifica cursos anteriores nin matrículas.', 'anpa-socios' ) . '</p>';
+		$confirm = __( 'Actualizar agora os niveis de todos os fillos activos? A operación pararase sen cambios se detecta calquera inconsistencia.', 'anpa-socios' );
+		echo '<form method="post" action="' . $post_url . '" onsubmit="return confirm(\'' . esc_js( $confirm ) . '\');">';
+		echo '<input type="hidden" name="action" value="anpa_socios_update_child_levels">';
+		echo '<input type="hidden" name="tab" value="xeral">';
+		echo '<input type="hidden" name="section" value="mantemento">';
+		wp_nonce_field( 'anpa_socios_update_child_levels' );
+		submit_button( __( 'Actualizar niveis dos fillos', 'anpa-socios' ), 'secondary', 'submit', false );
+		echo '</form>';
 	}
 
 	/**
@@ -1198,6 +1212,40 @@ final class ANPA_Socios_Admin_Settings {
 	}
 
 	/**
+	 * admin-post: recalculate active children's levels for the active course.
+	 *
+	 * @return void
+	 */
+	public static function handle_update_child_levels(): void {
+		self::guard( 'anpa_socios_update_child_levels' );
+		$result = ANPA_Socios_Nivel_Promotion_Service::run();
+		if ( is_wp_error( $result ) ) {
+			set_transient( self::promotion_result_key(),
+				array( 'type' => 'error', 'message' => $result->get_error_message() ),
+				5 * MINUTE_IN_SECONDS
+			);
+			self::redirect_msg( 'child_levels_result' );
+		}
+
+		set_transient(
+			self::promotion_result_key(),
+			array( 'type' => 'success', 'result' => $result ),
+			5 * MINUTE_IN_SECONDS
+		);
+		$user = wp_get_current_user();
+		if ( $user instanceof WP_User && is_email( $user->user_email ) ) {
+			ANPA_Socios_Admin_Shared::write_audit_actor(
+				strtolower( $user->user_email ),
+				'wordpress_admin',
+				'niveis_fillos',
+				(string) $result['curso_escolar'],
+				'actualizar_niveis_fillos'
+			);
+		}
+		self::redirect_msg( 'child_levels_result' );
+	}
+
+	/**
 	 * admin-post: force a plugin update check now (clears the cache).
 	 *
 	 * @return void
@@ -1463,6 +1511,31 @@ final class ANPA_Socios_Admin_Settings {
 		if ( '' === $key ) {
 			return;
 		}
+		if ( 'child_levels_result' === $key ) {
+			$notice = get_transient( self::promotion_result_key() );
+			delete_transient( self::promotion_result_key() );
+			if ( ! is_array( $notice ) ) {
+				return;
+			}
+			if ( 'error' === ( $notice['type'] ?? '' ) ) {
+				printf( '<div class="notice notice-error is-dismissible"><p>%s</p></div>', esc_html( (string) ( $notice['message'] ?? '' ) ) );
+				return;
+			}
+			$result = is_array( $notice['result'] ?? null ) ? $notice['result'] : array();
+			printf(
+				'<div class="notice notice-success"><p><strong>%s</strong> %s</p>',
+				esc_html__( 'Niveis actualizados correctamente.', 'anpa-socios' ),
+				esc_html( sprintf( __( 'Curso %1$s: %2$d actualizados, %3$d xa correctos e %4$d finalizados.', 'anpa-socios' ), (string) ( $result['curso_escolar'] ?? '' ), (int) ( $result['actualizados'] ?? 0 ), (int) ( $result['sen_cambios'] ?? 0 ), (int) ( $result['finalizados'] ?? 0 ) ) )
+			);
+			$emails = is_array( $result['emails_cco'] ?? null ) ? array_filter( array_map( 'sanitize_email', $result['emails_cco'] ) ) : array();
+			if ( array() !== $emails ) {
+				echo '<p><strong>' . esc_html__( 'Emails dos proxenitores principais dos alumnos que remataron:', 'anpa-socios' ) . '</strong></p>';
+				echo '<p class="description">' . esc_html__( 'Copia esta lista no campo CCO do correo para notificar que foi o seu último curso e que poden solicitar a baixa como socios se o desexan.', 'anpa-socios' ) . '</p>';
+				printf( '<textarea class="large-text code" rows="3" readonly onclick="this.select();">%s</textarea>', esc_textarea( implode( ', ', $emails ) ) );
+			}
+			echo '</div>';
+			return;
+		}
 		$map = array(
 			'settings_saved' => array( 'success', __( 'Configuración gardada.', 'anpa-socios' ) ),
 			'pw_ok'          => array( 'success', __( 'Contrasinal de admin actualizado.', 'anpa-socios' ) ),
@@ -1483,6 +1556,11 @@ final class ANPA_Socios_Admin_Settings {
 			return;
 		}
 		printf( '<div class="notice notice-%s is-dismissible"><p>%s</p></div>', esc_attr( $map[ $key ][0] ), esc_html( $map[ $key ][1] ) );
+	}
+
+	/** Per-admin transient key for the one-time promotion result. */
+	private static function promotion_result_key(): string {
+		return 'anpa_child_levels_result_' . get_current_user_id();
 	}
 
 	/**
@@ -1522,7 +1600,8 @@ final class ANPA_Socios_Admin_Settings {
 		echo '<section id="ciclo-curso" class="card"><h2>' . esc_html( $sections['ciclo-curso'] ) . '</h2><ul>';
 		echo '<li>' . wp_kses_post( __( 'Cada curso vai do 1 de xullo ao 30 de xuño e usa formato <code>AAAA/AAAA+1</code>.', 'anpa-socios' ) ) . '</li>';
 		echo '<li>' . esc_html__( 'O 20 de xuño péchase o curso activo e créase o seguinte en estado pendente.', 'anpa-socios' ) . '</li>';
-		echo '<li>' . esc_html__( 'O curso pendente actívase automaticamente o 1 de setembro.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . esc_html__( 'O curso seguinte créase como pendente e debe activarse manualmente desde Axustes → Cursos cando corresponda.', 'anpa-socios' ) . '</li>';
+		echo '<li>' . esc_html__( 'En Axustes → Mantemento podes actualizar os niveis dos fillos activos pola idade que cumpren no ano final do curso. A ferramenta conserva a letra, non toca o histórico e entrega unha lista CCO para os que rematan o último nivel.', 'anpa-socios' ) . '</li>';
 		echo '<li>' . esc_html__( 'En pretempada só o equipo administrador pode iniciar sesión; as familias quedan protexidas ata a apertura.', 'anpa-socios' ) . '</li>';
 		echo '<li>' . esc_html__( 'En Axustes → Cursos → Matrículas podes abrir ou pechar novas matrículas sen tocar datas nin estado do curso.', 'anpa-socios' ) . '</li>';
 		echo '<li>' . wp_kses_post( __( 'En Axustes → Cursos → <strong>Estrutura escolar</strong> configúranse os niveis (cursos) e aulas do centro para cada ano. Ao crear un novo curso escolar pódese copiar a estrutura do anterior. Os cambios nun curso non afectan aos anos xa pechados.', 'anpa-socios' ) ) . '</li>';

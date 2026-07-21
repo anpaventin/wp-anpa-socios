@@ -323,19 +323,20 @@ class Test_ANPA_Socios_Admin_Estrutura_Handler extends TestCase {
 		$this->assertGreaterThanOrEqual( 3, substr_count( $bulk, "'' !== (string) \$wpdb->last_error" ) );
 	}
 
-	public function test_edit_nivel_locks_and_proves_course_ownership_before_duplicate_check(): void {
+	public function test_edit_nivel_locks_and_proves_ownership_before_duplicate_check(): void {
 		$source = file_get_contents( $this->handler_file );
 		$start  = strpos( $source, 'private static function editar_nivel' );
 		$end    = strpos( $source, 'private static function engadir_nivel', $start );
 		$method = substr( $source, $start, $end - $start );
 
 		$this->assertStringContainsString( "query( 'START TRANSACTION' )", $method );
-		$this->assertStringContainsString( 'WHERE id = %d AND curso_escolar = %s FOR UPDATE', $method );
+		// Since 1.35.0 niveis are global: no curso_escolar in the lock query.
+		$this->assertStringContainsString( 'WHERE id = %d FOR UPDATE', $method );
 		$this->assertStringContainsString( 'Nivel non atopado.', $method );
 		$this->assertStringContainsString( 'codigo = %s AND id <> %d FOR UPDATE', $method );
 		$this->assertStringContainsString( "query( 'ROLLBACK' )", $method );
 		$this->assertStringContainsString( "query( 'COMMIT' )", $method );
-		$this->assertLessThan( strpos( $method, 'codigo = %s AND id <> %d FOR UPDATE' ), strpos( $method, 'WHERE id = %d AND curso_escolar = %s FOR UPDATE' ) );
+		$this->assertLessThan( strpos( $method, 'codigo = %s AND id <> %d FOR UPDATE' ), strpos( $method, 'WHERE id = %d FOR UPDATE' ) );
 	}
 
 	public function test_structure_dispatcher_can_return_rest_errors_without_php_fatal(): void {
@@ -391,16 +392,14 @@ class Test_ANPA_Socios_Admin_Estrutura_Handler extends TestCase {
 		$this->assertStringContainsString( "false === \$wpdb->query( 'COMMIT' )", $body );
 	}
 
-	public function test_delete_nivel_includes_activity_course_min_max_references(): void {
+	public function test_delete_nivel_does_not_query_retired_activity_course_bounds(): void {
 		$source = file_get_contents( $this->handler_file );
 		$start  = strpos( $source, 'public static function delete_nivel' );
 		$body   = substr( $source, $start );
 
-		$this->assertStringContainsString( 'tabela_actividades_cursos', $body );
-		$this->assertStringContainsString( 'nivel_min_id = %d OR nivel_max_id = %d', $body );
-		$this->assertStringContainsString( '$ac_refs_result', $body );
-		$this->assertStringContainsString( 'null === $ac_refs_result', $body );
-		$this->assertStringContainsString( '(int) $ac_refs_result', $body );
+		$this->assertStringNotContainsString( 'tabela_actividades_cursos', $body );
+		$this->assertStringNotContainsString( '$ac_refs_result', $body );
+		$this->assertStringContainsString( 'tabela_grupos_niveis', $body );
 	}
 
 	public function test_meal_conflicts_are_checked_under_transaction_and_locked_group_ranges(): void {
@@ -520,7 +519,7 @@ class Test_ANPA_Socios_Admin_Estrutura_Handler extends TestCase {
         $source = file_get_contents( $this->handler_file );
         $this->assertStringContainsString( 'fillos_cursos', $source );
         $this->assertStringContainsString( 'grupos_niveis', $source );
-        $this->assertStringContainsString( 'actividades_cursos', $source );
+        $this->assertStringNotContainsString( 'tabela_actividades_cursos', $source );
         $this->assertStringContainsString( 'Nivel desactivado', $source );
         $this->assertStringContainsString( 'Nivel e aulas eliminados', $source );
     }

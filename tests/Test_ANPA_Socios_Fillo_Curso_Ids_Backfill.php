@@ -74,22 +74,22 @@ final class Test_ANPA_Socios_Fillo_Curso_Ids_Backfill extends TestCase {
 	/**
 	 * @testdox resolve_nivel_aula_ids() scopes the nivel lookup by curso_escolar + codigo.
 	 */
-	public function test_resolve_helper_scopes_nivel_lookup_by_curso_escolar(): void {
-		$this->assertMatchesRegularExpression(
-			'/SELECT id FROM \{\$niveis_t\} WHERE curso_escolar = %s AND codigo = %s/',
-			$this->src
-		);
-	}
+	public function test_resolve_helper_scopes_nivel_lookup_by_codigo(): void {
+			$this->assertMatchesRegularExpression(
+				'/SELECT id FROM \{\$niveis_t\} WHERE codigo = %s/',
+				$this->src
+			);
+		}
 
 	/**
 	 * @testdox resolve_nivel_aula_ids() scopes the aula lookup by the resolved nivel_id + codigo.
 	 */
 	public function test_resolve_helper_scopes_aula_lookup_by_nivel_id(): void {
-		$this->assertMatchesRegularExpression(
-			'/SELECT id FROM \{\$aulas_t\} WHERE nivel_id = %d AND codigo = %s/',
-			$this->src
-		);
-	}
+			$this->assertMatchesRegularExpression(
+				'/SELECT id FROM \{\$aulas_t\} WHERE nivel_id = %d AND codigo = %s/',
+				$this->src
+			);
+		}
 
 	/**
 	 * @testdox resolve_nivel_aula_ids() returns [null, null] when the nivel code does not resolve, never throws.

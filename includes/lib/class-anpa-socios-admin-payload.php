@@ -427,9 +427,6 @@ final class ANPA_Socios_Admin_Payload {
 				return $field . '_required';
 			}
 		}
-		if ( ! isset( $input['cursos'] ) || ! is_array( $input['cursos'] ) || null === self::normalizar_cursos_actividad( $input['cursos'] ) ) {
-			return 'cursos_required';
-		}
 		if ( null === self::parse_custo( $input['custo'] ?? null ) ) {
 			return 'custo_invalid';
 		}
@@ -444,8 +441,8 @@ final class ANPA_Socios_Admin_Payload {
 	/**
 	 * Validates and returns a canonical actividad payload.
 	 *
-	 * Required: empresa_id, nome, descripcion, curso_escolar.
-	 * Optional: curso_min, curso_max, custo, estado.
+	 * Required: empresa_id, nome, descripcion and custo.
+	 * Annual presence and scheduling belong exclusively to annual groups.
 	 *
 	 * @since  1.2.0
 	 * @param  array<string,mixed> $input Raw input.
@@ -456,8 +453,6 @@ final class ANPA_Socios_Admin_Payload {
 		$nome          = self::sanitise_optional_string( $input['nome'] ?? null, self::ACTIVIDAD_NOME_MAX_LEN );
 		$icono         = self::sanitise_optional_string( $input['icono'] ?? null, 20 );
 		$descripcion   = self::sanitise_optional_string( $input['descripcion'] ?? null, self::ACTIVIDAD_DESC_MAX_LEN );
-		$cursos        = isset( $input['cursos'] ) && is_array( $input['cursos'] ) ? self::normalizar_cursos_actividad( $input['cursos'] ) : null;
-		$curso_escolar = is_array( $cursos ) ? (string) $cursos[0] : '';
 		$custo         = self::parse_custo( $input['custo'] ?? null );
 		$estado        = isset( $input['estado'] ) ? (string) $input['estado'] : 'activo';
 		if ( ! in_array( $estado, self::EMPRESA_ESTADO, true ) ) {
@@ -467,13 +462,10 @@ final class ANPA_Socios_Admin_Payload {
 		if ( $empresa_id <= 0 ) {
 			return null;
 		}
-		if ( null === $nome || null === $descripcion || null === $cursos ) {
+		if ( null === $nome || null === $descripcion ) {
 			return null;
 		}
-		if ( '' === $nome || '' === $descripcion || '' === $curso_escolar ) {
-			return null;
-		}
-		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso_escolar ) ) {
+		if ( '' === $nome || '' === $descripcion ) {
 			return null;
 		}
 		if ( null === $custo ) {
@@ -485,14 +477,6 @@ final class ANPA_Socios_Admin_Payload {
 			'nome'          => $nome,
 			'icono'         => ( null === $icono || '' === $icono ) ? '🎒' : $icono,
 			'descripcion'   => $descripcion,
-			'curso_escolar' => $curso_escolar,
-			'horario'       => null,
-			'franxa'        => '',
-			'horarios'      => '',
-			'grupos'        => '',
-			'dias'          => '',
-			'min_pupilos'   => 0,
-			'max_pupilos'   => 0,
 			'custo'         => $custo,
 			'estado'        => $estado,
 		);

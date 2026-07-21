@@ -141,11 +141,6 @@ final class ANPA_Socios_Horario_Builder {
 			return 'estado_inactivo';
 		}
 
-		// Gate: curso_estado from actividades_cursos row must be active.
-		if ( 'activo' !== ( $activity_row['curso_estado'] ?? '' ) ) {
-			return 'estado_inactivo';
-		}
-
 		foreach ( $grupos as $g ) {
 			if ( 'aberto' !== ( $g['estado'] ?? '' ) ) {
 				continue;

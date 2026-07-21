@@ -38,4 +38,18 @@ final class Test_ANPA_Socios_Fillo_Curso_Assignment_Mirror extends TestCase {
 			'The legacy-mirror gate must use the operational Curso_Activo resolver (with Curso_Escolar::current() as its own fallback only), not compare directly against Curso_Escolar::current().'
 		);
 	}
+
+	public function test_writer_locks_child_before_upserting_the_annual_assignment(): void {
+		$src   = file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-db.php' );
+		$start = strpos( $src, 'public static function upsert_fillo_curso_assignment' );
+		$end   = strpos( $src, 'private static function resolve_operational_curso_activo', $start );
+		$body  = substr( $src, $start, $end - $start );
+		$lock  = strpos( $body, 'FOR UPDATE' );
+		$write = strpos( $body, 'INSERT INTO {$fc_table}' );
+
+		$this->assertIsInt( $lock );
+		$this->assertIsInt( $write );
+		$this->assertLessThan( $write, $lock );
+		$this->assertStringContainsString( 'self::tabela_fillos()', $body );
+	}
 }
