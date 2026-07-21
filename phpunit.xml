@@ -69,6 +69,7 @@
       <file>tests/Test_ANPA_Socios_PR_ES9_Horario.php</file>
       <file>tests/Test_ANPA_Socios_Actividades_Collapse.php</file>
       <file>tests/Test_ANPA_Socios_List_Actividades_Contract.php</file>
+      <file>tests/Test_ANPA_Socios_Actividades_Retired_Horario.php</file>
       <file>tests/Test_ANPA_Socios_Cursos_Niveis_Contract.php</file>
       <file>tests/Test_ANPA_Socios_PR_ES9_Icono.php</file>
       <file>tests/Test_ANPA_Socios_Fillo_Curso_Ids_Backfill.php</file>
