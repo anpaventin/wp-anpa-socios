@@ -183,4 +183,45 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 		$this->assertStringContainsString( "yearsWrap.querySelectorAll('.anpa-mgmt-ano-check:checked')", $form );
 		$this->assertStringNotContainsString( "yearsWrap.querySelectorAll('input:checked')", $form );
 	}
+
+	public function test_group_form_prevalidates_payload_before_rest_write(): void {
+		$start = strpos( $this->js, 'function renderGrupoForm' );
+		$end   = strpos( $this->js, 'function renderGrupoMatriculas', $start );
+		$form  = substr( $this->js, $start, $end - $start );
+
+		$this->assertStringContainsString( 'function validateGrupoFormPayload', $this->js );
+		$this->assertStringContainsString( 'var validationError = validateGrupoFormPayload(payload, levelControls);', $form );
+		$this->assertStringContainsString( "showMessage(validationError, 'error')", $form );
+		$this->assertLessThan(
+			strpos( $form, "anpaAdminFetch(isEdit ? 'grupo/'" ),
+			strpos( $form, 'validateGrupoFormPayload(payload, levelControls)')
+		);
+	}
+
+	public function test_group_form_defaults_active_or_single_offered_course(): void {
+		$start = strpos( $this->js, 'function renderGrupoForm' );
+		$end   = strpos( $this->js, 'function renderGrupoMatriculas', $start );
+		$form  = substr( $this->js, $start, $end - $start );
+
+		$this->assertStringContainsString( 'offered.indexOf(activeCourse) !== -1', $form );
+		$this->assertStringContainsString( 'offered.length === 1', $form );
+	}
+
+	public function test_group_form_disables_submit_while_request_is_pending(): void {
+		$start = strpos( $this->js, 'function renderGrupoForm' );
+		$end   = strpos( $this->js, 'function renderGrupoMatriculas', $start );
+		$form  = substr( $this->js, $start, $end - $start );
+
+		$this->assertStringContainsString( 'if (save.disabled) { return; }', $form );
+		$this->assertStringContainsString( 'save.disabled = true;', $form );
+		$this->assertStringContainsString( 'save.disabled = false;', $form );
+	}
+
+	public function test_matriculas_uses_requested_visual_trimester_label_without_changing_key(): void {
+		$this->assertStringContainsString( "trimestres: 'Trimestre inscripción'", $this->js );
+		$this->assertStringContainsString(
+			"var MAT_COLS = ['fillo_apelidos', 'fillo_nome', 'actividade', 'curso_completo', 'estado', 'franxa', 'dias', 'trimestres', 'creado_en', 'posicion'];",
+			$this->js
+		);
+	}
 }
