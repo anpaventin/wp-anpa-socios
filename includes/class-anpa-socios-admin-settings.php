@@ -963,6 +963,20 @@ final class ANPA_Socios_Admin_Settings {
 		submit_button( __( 'Comprobar actualizacións agora', 'anpa-socios' ), 'secondary', 'submit', false );
 		echo '</form>';
 		echo '<p class="description">Comproba a última <em>Release</em> publicada no repositorio e, se hai unha versión máis nova, aparecerá en <strong>Plugins</strong> para actualizar cun clic.</p>';
+
+		// Prerelease (beta) channel opt-in. Isolated form so it never clears
+		// other options. Default OFF so production installs stay on stable.
+		$use_pre = ANPA_Socios_Config::use_prereleases();
+		echo '<hr>';
+		echo '<h3>' . esc_html__( 'Canle de actualizacións', 'anpa-socios' ) . '</h3>';
+		echo '<form method="post" action="' . $post_url . '">';
+		echo '<input type="hidden" name="action" value="anpa_socios_save_settings">';
+		echo '<input type="hidden" name="anpa_prerelease_form" value="1">';
+		wp_nonce_field( 'anpa_socios_save_settings' );
+		echo '<label><input type="checkbox" name="use_prereleases" value="1"' . checked( $use_pre, true, false ) . '> ' . esc_html__( 'Recibir versións de proba (prereleases)', 'anpa-socios' ) . '</label>';
+		echo '<p class="description">' . esc_html__( 'Actívao só nun sitio de probas. Cando está activo, este sitio pode actualizar a versións beta (prerelease) antes de publicarse como estables. Un sitio en produción debe deixalo DESACTIVADO para non recibir cambios sen probar.', 'anpa-socios' ) . '</p>';
+		submit_button( __( 'Gardar canle', 'anpa-socios' ), 'secondary', 'submit', false );
+		echo '</form>';
 	}
 
 	/**
@@ -1115,6 +1129,12 @@ final class ANPA_Socios_Admin_Settings {
 		}
 		if ( array_key_exists( 'require_approval', $_POST ) || array_key_exists( 'association_name', $_POST ) ) {
 			update_option( ANPA_Socios_Config::OPTION_APPROVAL, ! empty( $_POST['require_approval'] ) ? '1' : '0' );
+		}
+
+		// Prerelease channel opt-in (isolated form marker so the checkbox is
+		// only processed when its own form was submitted).
+		if ( array_key_exists( 'anpa_prerelease_form', $_POST ) ) {
+			update_option( ANPA_Socios_Config::OPTION_USE_PRERELEASES, ! empty( $_POST['use_prereleases'] ) ? '1' : '0' );
 		}
 
 		self::redirect_msg( 'settings_saved' );

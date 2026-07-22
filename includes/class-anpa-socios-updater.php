@@ -31,6 +31,14 @@ final class ANPA_Socios_Updater {
 	const METADATA_URL = 'https://raw.githubusercontent.com/anpaventin/wp-anpa-socios/main/details.json';
 
 	/**
+	 * Prerelease (beta) channel metadata URL. Only used when the install opts
+	 * in via Axustes → Actualizacións (ANPA_Socios_Config::use_prereleases()).
+	 *
+	 * @var string
+	 */
+	const PRERELEASE_METADATA_URL = 'https://raw.githubusercontent.com/anpaventin/wp-anpa-socios/main/details-prerelease.json';
+
+	/**
 	 * Public repository URL (for the admin "update source" link).
 	 *
 	 * @var string
@@ -64,9 +72,17 @@ final class ANPA_Socios_Updater {
 			}
 		}
 
-		$url = defined( 'ANPA_SOCIOS_UPDATE_URL' ) && ANPA_SOCIOS_UPDATE_URL
-			? (string) ANPA_SOCIOS_UPDATE_URL
-			: self::METADATA_URL;
+		// Channel resolution (highest priority first):
+		//   1. ANPA_SOCIOS_UPDATE_URL constant (wp-config.php) — full override.
+		//   2. Prerelease channel when the admin opted in (Axustes → Actualizacións).
+		//   3. Stable channel (default) — production installs stay here.
+		if ( defined( 'ANPA_SOCIOS_UPDATE_URL' ) && ANPA_SOCIOS_UPDATE_URL ) {
+			$url = (string) ANPA_SOCIOS_UPDATE_URL;
+		} elseif ( class_exists( 'ANPA_Socios_Config' ) && ANPA_Socios_Config::use_prereleases() ) {
+			$url = self::PRERELEASE_METADATA_URL;
+		} else {
+			$url = self::METADATA_URL;
+		}
 
 		call_user_func( array( $factory, 'buildUpdateChecker' ), $url, ANPA_SOCIOS_PLUGIN_FILE, self::SLUG );
 	}

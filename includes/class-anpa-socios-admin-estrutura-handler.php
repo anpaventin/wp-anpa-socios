@@ -109,12 +109,18 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
             }
         }
 
+        // fase31: per-course comedor assignment (nivel_id → horario_comedor_id)
+        // resolved from the pivot, since levels are global but comedor is per
+        // course.
+        $comedor_por_nivel = '' !== $curso ? ANPA_Socios_DB::get_niveis_comedor_curso( $curso ) : array();
+
         return new WP_REST_Response( array(
-            'success'          => true,
-            'curso_escolar'    => $curso,
-            'niveis'           => $niveis,
-            'aulas'            => $aulas,
-            'horarios_comedor' => is_array( $horarios ) ? $horarios : array(),
+            'success'           => true,
+            'curso_escolar'     => $curso,
+            'niveis'            => $niveis,
+            'aulas'             => $aulas,
+            'horarios_comedor'  => is_array( $horarios ) ? $horarios : array(),
+            'comedor_por_nivel' => $comedor_por_nivel,
         ), 200 );
     }
 
@@ -420,6 +426,7 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
 
         $niveis_t   = ANPA_Socios_DB::tabela_niveis();
         $horarios_t = ANPA_Socios_DB::tabela_horarios_comedor();
+        $pivot_t    = ANPA_Socios_DB::tabela_niveis_curso();
         $changed_horario_ids     = array();
         $current_nivel_horarios  = array();
 
@@ -456,9 +463,12 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
                 if ( (int) $owned < 1 ) {
                     return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Nivel non atopado.', 'anpa-socios' ) ), 404 );
                 }
+                // fase31: the current comedor assignment is per-course (pivot).
+                // No pivot row means "no comedor that course" (null → 0), which
+                // is not an error.
                 $wpdb->last_error = '';
-                $current_horario = $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(horario_comedor_id, 0) FROM {$niveis_t} WHERE id = %d", $nivel['id'] ) );
-                if ( null === $current_horario || '' !== (string) $wpdb->last_error ) {
+                $current_horario = $wpdb->get_var( $wpdb->prepare( "SELECT horario_comedor_id FROM {$pivot_t} WHERE nivel_id = %d AND curso_escolar = %s", $nivel['id'], $curso ) );
+                if ( '' !== (string) $wpdb->last_error ) {
                     return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido comprobar o horario asignado ao nivel.', 'anpa-socios' ) ), 500 );
                 }
                 $current_nivel_horarios[ $nivel['id'] ] = (int) $current_horario;
@@ -625,6 +635,14 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
                     $wpdb->query( 'ROLLBACK' );
                     return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido gardar a estrutura completa.', 'anpa-socios' ) ), 500 );
                 }
+
+                // fase31: authoritative per-course comedor assignment lives in the
+                // pivot. The niveis.horario_comedor_id above is kept only as the
+                // legacy compatibility bridge until 1.37.0 drops it.
+                if ( ! ANPA_Socios_DB::set_nivel_comedor( $nivel_id, $curso, null !== $horario_id ? (int) $horario_id : null ) ) {
+                    $wpdb->query( 'ROLLBACK' );
+                    return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido gardar a asignación de comedor.', 'anpa-socios' ) ), 500 );
+                }
             }
         }
 
@@ -742,7 +760,17 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
             array( '%d', '%s', '%s', '%s' ),
             array( '%d' )
         );
-        if ( false === $updated || false === $wpdb->query( 'COMMIT' ) ) {
+        if ( false === $updated ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido gardar o horario de comedor.', 'anpa-socios' ) ), 500 );
+        }
+        // fase31: authoritative per-course comedor assignment (pivot). Clearing
+        // the window (null id) removes the pivot row for this course.
+        if ( ! ANPA_Socios_DB::set_nivel_comedor( $nivel_id, $curso, null !== $horario_id ? (int) $horario_id : null ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido gardar o horario de comedor.', 'anpa-socios' ) ), 500 );
+        }
+        if ( false === $wpdb->query( 'COMMIT' ) ) {
             $wpdb->query( 'ROLLBACK' );
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido gardar o horario de comedor.', 'anpa-socios' ) ), 500 );
         }

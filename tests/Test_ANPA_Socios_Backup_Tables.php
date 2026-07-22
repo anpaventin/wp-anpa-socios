@@ -32,9 +32,22 @@ final class Test_ANPA_Socios_Backup_Tables extends TestCase {
 		$this->assertContains( 'grupos_niveis', $keys );
 	}
 
-	public function test_current_backup_format_is_v6_after_retiring_activity_course_offers(): void {
-		$this->assertSame( 6, ANPA_Socios_Backup::VERSION );
-		$this->assertNotContains( 'actividades_cursos', $this->get_table_keys() );
+	public function test_current_backup_format_is_v7_with_per_course_comedor_pivot(): void {
+		$this->assertSame( 7, ANPA_Socios_Backup::VERSION );
+		$keys = $this->get_table_keys();
+		$this->assertNotContains( 'actividades_cursos', $keys );
+		$this->assertContains( 'niveis_curso', $keys );
+	}
+
+	public function test_niveis_curso_pivot_after_niveis_and_horarios(): void {
+		$keys              = $this->get_table_keys();
+		$pos_niveis        = array_search( 'niveis', $keys, true );
+		$pos_horarios      = array_search( 'horarios_comedor', $keys, true );
+		$pos_niveis_curso  = array_search( 'niveis_curso', $keys, true );
+
+		$this->assertIsInt( $pos_niveis_curso );
+		$this->assertLessThan( $pos_niveis_curso, $pos_niveis, 'niveis must come before niveis_curso (FK: nivel_id)' );
+		$this->assertLessThan( $pos_niveis_curso, $pos_horarios, 'horarios_comedor must come before niveis_curso (FK: horario_comedor_id)' );
 	}
 
 	public function test_v5_restore_preserves_menu_name_and_v4_uses_default(): void {

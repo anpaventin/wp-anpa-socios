@@ -24,7 +24,7 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 	}
 
 	public function test_schema_adds_group_series_fields_and_backfill(): void {
-		$this->assertStringContainsString( "const DB_VERSION = '1.35.0'", $this->db );
+		$this->assertStringContainsString( "const DB_VERSION = '1.36.0'", $this->db );
 		$this->assertStringContainsString( 'function migrate_to_1_29_0', $this->db );
 		$this->assertStringContainsString( 'ADD COLUMN serie_uid', $this->db );
 		$this->assertStringContainsString( 'ADD COLUMN nome', $this->db );

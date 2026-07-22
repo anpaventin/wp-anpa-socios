@@ -82,11 +82,16 @@ class ANPA_Socios_DB {
 	 *        backfills 1.32.0 windows and retires the global aula_max option.
 	 * 1.34.0 retires actividades_cursos after verifying every legacy annual
 	 *        offer has an annual group with at least one assigned level.
+	 * 1.35.0 makes niveis global (drops curso_escolar) with a habilitado toggle.
+	 * 1.36.0 (fase31) adds wp_anpa_niveis_curso pivot so a global level can carry
+	 *        a per-course comedor schedule; backfills from the legacy global
+	 *        niveis.horario_comedor_id column, which is kept as a compatibility
+	 *        bridge until the destructive 1.37.0 migration retires it.
 	 *
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.35.0';
+	const DB_VERSION = '1.36.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -281,6 +286,14 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.35.0', '<' ) && ! self::migrate_to_1_35_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.35.0 (migrate_to_1_35_0): ' . $wpdb->last_error );
+			return;
+		}
+
+		// 1.36.0: per-course comedor pivot for global levels (additive).
+		$wpdb->last_error = '';
+		if ( version_compare( $installed_version, '1.36.0', '<' ) && ! self::migrate_to_1_36_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.36.0 (migrate_to_1_36_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -811,6 +824,21 @@ class ANPA_Socios_DB {
 		global $wpdb;
 
 		return $wpdb->prefix . 'anpa_horarios_comedor';
+	}
+
+	/**
+	 * Returns the per-course level→comedor pivot table name (fase31).
+	 *
+	 * A global level (wp_anpa_niveis) can carry a different comedor schedule per
+	 * curso_escolar through this pivot, since 1.36.0.
+	 *
+	 * @since  1.46.0
+	 * @return string
+	 */
+	public static function tabela_niveis_curso(): string {
+		global $wpdb;
+
+		return $wpdb->prefix . 'anpa_niveis_curso';
 	}
 
 	/**
@@ -3502,5 +3530,194 @@ class ANPA_Socios_DB {
 		$wpdb->query( "ALTER TABLE {$niveis_t} ADD INDEX estado_orde (estado, orde)" );
 
 		return '' === (string) $wpdb->last_error;
+	}
+
+	/**
+	 * Migration 1.36.0 (fase31): per-course comedor pivot for global levels.
+	 *
+	 * ADDITIVE ONLY. Creates wp_anpa_niveis_curso and backfills it from the
+	 * legacy global column niveis.horario_comedor_id (resolving each schedule's
+	 * curso_escolar via horarios_comedor). The global column is kept as a
+	 * compatibility bridge; its destructive removal happens later in 1.37.0 once
+	 * every reader/writer is cut over. Idempotent and fail-closed.
+	 *
+	 * @since  1.46.0
+	 * @return bool Whether the migration completed.
+	 */
+	private static function migrate_to_1_36_0(): bool {
+		global $wpdb;
+
+		$charset_collate = $wpdb->get_charset_collate();
+		$pivot    = self::tabela_niveis_curso();
+		$niveis   = self::tabela_niveis();
+		$horarios = self::tabela_horarios_comedor();
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		dbDelta( "CREATE TABLE {$pivot} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			nivel_id bigint(20) unsigned NOT NULL,
+			curso_escolar varchar(9) NOT NULL,
+			horario_comedor_id bigint(20) unsigned NULL DEFAULT NULL,
+			creado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			actualizado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE KEY nivel_curso (nivel_id, curso_escolar),
+			KEY curso_escolar (curso_escolar),
+			KEY horario_comedor_id (horario_comedor_id),
+			PRIMARY KEY  (id)
+		) {$charset_collate};" );
+		if ( '' !== (string) $wpdb->last_error || self::table_missing( $pivot ) ) {
+			return false;
+		}
+
+		// Backfill from the legacy global column while it still exists.
+		if ( self::tem_columna( $niveis, 'horario_comedor_id' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one-time migration backfill.
+			$result = $wpdb->query(
+				"INSERT INTO {$pivot} (nivel_id, curso_escolar, horario_comedor_id)
+				 SELECT n.id, h.curso_escolar, n.horario_comedor_id
+				   FROM {$niveis} n
+				   INNER JOIN {$horarios} h ON h.id = n.horario_comedor_id
+				  WHERE n.horario_comedor_id IS NOT NULL
+				 ON DUPLICATE KEY UPDATE horario_comedor_id = VALUES(horario_comedor_id), actualizado_en = NOW()"
+			);
+			if ( false === $result ) {
+				return false;
+			}
+
+			// Postcondition: every resolvable global assignment is in the pivot.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- migration verification.
+			$missing = $wpdb->get_var(
+				"SELECT COUNT(*)
+				   FROM {$niveis} n
+				   INNER JOIN {$horarios} h ON h.id = n.horario_comedor_id
+				   LEFT JOIN {$pivot} p ON p.nivel_id = n.id AND p.curso_escolar = h.curso_escolar
+				  WHERE n.horario_comedor_id IS NOT NULL AND p.id IS NULL"
+			);
+			if ( null === $missing || (int) $missing > 0 ) {
+				if ( '' === (string) $wpdb->last_error ) {
+					$wpdb->last_error = '1.36.0 comedor pivot backfill postcondition failed';
+				}
+				return false;
+			}
+		}
+
+		return '' === (string) $wpdb->last_error;
+	}
+
+	/**
+	 * Returns [nivel_id => horario_comedor_id] for a course from the pivot.
+	 *
+	 * Falls back to the legacy global niveis.horario_comedor_id column for any
+	 * level that has no pivot row yet (bridge compatibility during cutover).
+	 *
+	 * @since  1.46.0
+	 * @param  string $curso_escolar Course year.
+	 * @return array<int,int> Map of nivel_id → horario_comedor_id.
+	 */
+	public static function get_niveis_comedor_curso( string $curso_escolar ): array {
+		global $wpdb;
+
+		if ( '' === $curso_escolar ) {
+			return array();
+		}
+
+		$pivot = self::tabela_niveis_curso();
+		$map   = array();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read helper.
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT nivel_id, horario_comedor_id FROM {$pivot} WHERE curso_escolar = %s AND horario_comedor_id IS NOT NULL",
+			$curso_escolar
+		), ARRAY_A );
+		if ( is_array( $rows ) ) {
+			foreach ( $rows as $r ) {
+				$map[ (int) $r['nivel_id'] ] = (int) $r['horario_comedor_id'];
+			}
+		}
+
+		return $map;
+	}
+
+	/**
+	 * Upserts (or clears) a level's comedor schedule for a course in the pivot.
+	 *
+	 * Participates in the caller's transaction; never starts its own. Passing a
+	 * null/0 schedule id deletes the pivot row (no comedor that course).
+	 *
+	 * @since  1.46.0
+	 * @param  int      $nivel_id      Level id.
+	 * @param  string   $curso_escolar Course year.
+	 * @param  int|null $horario_id    Schedule id, or null to clear.
+	 * @return bool
+	 */
+	public static function set_nivel_comedor( int $nivel_id, string $curso_escolar, ?int $horario_id ): bool {
+		global $wpdb;
+
+		if ( $nivel_id <= 0 || '' === $curso_escolar ) {
+			return false;
+		}
+
+		$pivot = self::tabela_niveis_curso();
+
+		if ( null === $horario_id || $horario_id <= 0 ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- pivot delete within caller transaction.
+			$res = $wpdb->query( $wpdb->prepare(
+				"DELETE FROM {$pivot} WHERE nivel_id = %d AND curso_escolar = %s",
+				$nivel_id,
+				$curso_escolar
+			) );
+			return false !== $res;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- pivot upsert within caller transaction.
+		$res = $wpdb->query( $wpdb->prepare(
+			"INSERT INTO {$pivot} (nivel_id, curso_escolar, horario_comedor_id)
+			 VALUES (%d, %s, %d)
+			 ON DUPLICATE KEY UPDATE horario_comedor_id = VALUES(horario_comedor_id), actualizado_en = NOW()",
+			$nivel_id,
+			$curso_escolar,
+			$horario_id
+		) );
+
+		return false !== $res;
+	}
+
+	/**
+	 * Resolves a level's comedor interval [inicio,fin] for a course.
+	 *
+	 * Joins the pivot to horarios_comedor. Returns null when the level has no
+	 * comedor assigned that course.
+	 *
+	 * @since  1.46.0
+	 * @param  int    $nivel_id      Level id.
+	 * @param  string $curso_escolar Course year.
+	 * @return array{inicio:string,fin:string}|null
+	 */
+	public static function get_nivel_comedor_interval( int $nivel_id, string $curso_escolar ): ?array {
+		global $wpdb;
+
+		if ( $nivel_id <= 0 || '' === $curso_escolar ) {
+			return null;
+		}
+
+		$pivot    = self::tabela_niveis_curso();
+		$horarios = self::tabela_horarios_comedor();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read helper.
+		$row = $wpdb->get_row( $wpdb->prepare(
+			"SELECT h.inicio, h.fin
+			   FROM {$pivot} p
+			   INNER JOIN {$horarios} h ON h.id = p.horario_comedor_id
+			  WHERE p.nivel_id = %d AND p.curso_escolar = %s
+			  LIMIT 1",
+			$nivel_id,
+			$curso_escolar
+		), ARRAY_A );
+
+		if ( ! is_array( $row ) || ! isset( $row['inicio'], $row['fin'] ) ) {
+			return null;
+		}
+
+		return array( 'inicio' => (string) $row['inicio'], 'fin' => (string) $row['fin'] );
 	}
 }

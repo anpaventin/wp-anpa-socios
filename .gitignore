@@ -17,6 +17,7 @@ out.txt
 /bak/
 
 # Local planning / agent artefacts (not shipped in the public plugin ZIP/repo)
+/AGENTS.md
 /IDEA.md
 /openspec/
 /.hermes/
