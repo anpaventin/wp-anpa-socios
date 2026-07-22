@@ -230,40 +230,33 @@ class Test_ANPA_Socios_Admin_Estrutura_Handler extends TestCase {
      * @testdox Copy structure uses INSERT IGNORE with transaction.
      */
     public function test_copy_uses_insert_ignore(): void {
-        $source = file_get_contents( $this->handler_file );
-        $this->assertStringContainsString( 'INSERT IGNORE', $source );
-		$this->assertStringContainsString( "WHERE nd.curso_escolar = %s AND nd.estado = 'inactivo'", $source );
-		$this->assertStringContainsString( "WHERE ad.estado = 'inactivo'", $source );
-        $this->assertStringContainsString( 'START TRANSACTION', $source );
-        $this->assertStringContainsString( 'COMMIT', $source );
-        $this->assertStringContainsString( 'ROLLBACK', $source );
-    }
+    		$source = file_get_contents( $this->handler_file );
+    		// Since 1.35.0 copiar_estrutura was removed (levels are global).
+    		$this->assertStringNotContainsString( 'private static function copiar_estrutura', $source );
+    		$this->assertStringContainsString( 'START TRANSACTION', $source );
+    		$this->assertStringContainsString( 'COMMIT', $source );
+    		$this->assertStringContainsString( 'ROLLBACK', $source );
+    	}
 
     public function test_all_structure_transactions_fail_closed_on_db_errors(): void {
-        $source       = file_get_contents( $this->handler_file );
-        $add_start    = strpos( $source, 'private static function engadir_nivel' );
-        $copy_start   = strpos( $source, 'private static function copiar_estrutura', $add_start );
-        $delete_start = strpos( $source, 'public static function delete_nivel', $copy_start );
-        $add          = substr( $source, $add_start, $copy_start - $add_start );
-        $copy         = substr( $source, $copy_start, $delete_start - $copy_start );
-        $delete       = substr( $source, $delete_start );
+    	$source       = file_get_contents( $this->handler_file );
+    	$add_start    = strpos( $source, 'private static function engadir_nivel' );
+    	$delete_start = strpos( $source, 'public static function delete_nivel', $add_start );
+    	$add          = substr( $source, $add_start, $delete_start - $add_start );
+    	$delete       = substr( $source, $delete_start );
 
-        $this->assertStringContainsString( "false === \$wpdb->query( 'START TRANSACTION' )", $add );
-        $this->assertStringContainsString( '! self::sync_aulas_nivel', $add );
-        $this->assertStringContainsString( "false === \$wpdb->query( 'COMMIT' )", $add );
-        $this->assertStringContainsString( "query( 'ROLLBACK' )", $add );
+    	$this->assertStringContainsString( "false === \$wpdb->query( 'START TRANSACTION' )", $add );
+    	$this->assertStringContainsString( '! self::sync_aulas_nivel', $add );
+    	$this->assertStringContainsString( "false === \$wpdb->query( 'COMMIT' )", $add );
+    	$this->assertStringContainsString( "query( 'ROLLBACK' )", $add );
 
-        $this->assertStringContainsString( "false === \$wpdb->query( 'START TRANSACTION' )", $copy );
-        $this->assertStringContainsString( "false === \$wpdb->query( 'COMMIT' )", $copy );
-        $this->assertStringContainsString( "query( 'ROLLBACK' )", $copy );
-
-        $this->assertStringContainsString( 'null === $fc_refs_result', $delete );
-        $this->assertStringContainsString( 'null === $gn_refs_result', $delete );
-        $this->assertStringContainsString( 'null === $refs', $delete );
-        $this->assertStringContainsString( "false === \$wpdb->query( 'START TRANSACTION' )", $delete );
-        $this->assertStringContainsString( 'false === $aulas_result || false === $nivel_result', $delete );
-        $this->assertStringContainsString( "false === \$wpdb->query( 'COMMIT' )", $delete );
-        $this->assertStringContainsString( "query( 'ROLLBACK' )", $delete );
+    	$this->assertStringContainsString( 'null === $fc_refs_result', $delete );
+    	$this->assertStringContainsString( 'null === $gn_refs_result', $delete );
+    	$this->assertStringContainsString( 'null === $refs', $delete );
+    	$this->assertStringContainsString( "false === \$wpdb->query( 'START TRANSACTION' )", $delete );
+    	$this->assertStringContainsString( 'false === $aulas_result || false === $nivel_result', $delete );
+    	$this->assertStringContainsString( "false === \$wpdb->query( 'COMMIT' )", $delete );
+    	$this->assertStringContainsString( "query( 'ROLLBACK' )", $delete );
     }
 
     public function test_set_aulas_rolls_back_when_any_classroom_write_fails(): void {
@@ -420,25 +413,11 @@ class Test_ANPA_Socios_Admin_Estrutura_Handler extends TestCase {
 		$this->assertGreaterThanOrEqual( 2, substr_count( $source, 'null === $conflicts' ) );
 		$this->assertStringContainsString( '@return array<int,array<string,mixed>>|null', $source );
 	}
-
     public function test_copy_meal_catalogue_is_explicit_and_repairs_only_empty_or_reactivated_levels(): void {
-        $source = file_get_contents( $this->handler_file );
-		$start  = strpos( $source, 'private static function copiar_estrutura' );
-		$end    = strpos( $source, 'public static function delete_nivel', $start );
-		$copy   = substr( $source, $start, $end - $start );
-
-		$this->assertStringContainsString( "get_param( 'copiar_comedor' )", $copy );
-		$this->assertStringContainsString( '$reactivated_level_ids', $copy );
-		$this->assertStringContainsString( "hd.estado = 'inactivo'", $copy );
-		$this->assertStringContainsString( "SET hd.nome = ho.nome, hd.orde = ho.orde, hd.estado = 'activo'", $copy );
-		$this->assertStringContainsString( 'INSERT IGNORE INTO {$horarios_t}', $copy );
-		$this->assertStringContainsString( 'SET nd.horario_comedor_id = hd.id,', $copy );
-		$this->assertStringContainsString( 'nd.horario_comedor_id IS NULL', $copy );
-		$this->assertStringContainsString( 'nd.id IN (', $copy );
-		$this->assertStringNotContainsString( 'ON DUPLICATE KEY UPDATE', $copy );
-		$this->assertStringContainsString( "'horarios_reactivados'", $copy );
-		$this->assertStringContainsString( 'sen cambios', $copy );
-    }
+		$source = file_get_contents( $this->handler_file );
+		// Since 1.35.0 copiar_estrutura was removed (levels are global).
+		$this->assertStringNotContainsString( 'private static function copiar_estrutura', $source );
+	}
 
     public function test_gardar_comedor_blocks_conflicting_open_groups_before_write(): void {
         $source = file_get_contents( $this->handler_file );
@@ -487,29 +466,23 @@ class Test_ANPA_Socios_Admin_Estrutura_Handler extends TestCase {
     }
 
     public function test_course_activation_copy_uses_the_same_explicit_meal_contract(): void {
-        $source = file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-cursos-handler.php' );
-		$copy_start = strpos( $source, 'private static function copiar_estrutura_interna' );
-		$update     = substr( $source, strpos( $source, 'public static function update_curso' ), $copy_start - strpos( $source, 'public static function update_curso' ) );
-		$copy       = substr( $source, $copy_start );
+    	$source = file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-cursos-handler.php' );
+    	$copy_start = strpos( $source, 'private static function copiar_estrutura_interna' );
+    	$update     = substr( $source, strpos( $source, 'public static function update_curso' ), $copy_start - strpos( $source, 'public static function update_curso' ) );
+    	$copy       = substr( $source, $copy_start );
 
-		$this->assertStringContainsString( "! empty( \$body['copiar_comedor'] )", $source );
-		$this->assertStringContainsString( '! self::copiar_estrutura_interna( $curso, $copiar_de, $copiar_comedor )', $update );
-		$this->assertStringContainsString( 'private static function copiar_estrutura_interna( string $destino, string $orixe, bool $copiar_comedor = false ): bool', $source );
-		$this->assertStringContainsString( 'ANPA_Socios_DB::tabela_horarios_comedor()', $copy );
-		$this->assertStringContainsString( '$reactivated_level_ids', $copy );
-		$this->assertStringContainsString( "SET hd.nome = ho.nome, hd.orde = ho.orde, hd.estado = 'activo'", $copy );
-		$this->assertStringContainsString( 'INSERT IGNORE INTO {$horarios_t}', $copy );
-		$this->assertStringContainsString( 'SET nd.horario_comedor_id = hd.id,', $copy );
-		$this->assertStringContainsString( 'nd.horario_comedor_id IS NULL', $copy );
-		$this->assertStringContainsString( 'nd.id IN (', $copy );
-		$this->assertStringNotContainsString( 'ON DUPLICATE KEY UPDATE', $copy );
-		$this->assertStringContainsString( "false === \$wpdb->query( 'START TRANSACTION' )", $update );
-		$this->assertStringContainsString( '! is_array( $locked_rows )', $update );
-		$this->assertStringContainsString( "query( 'ROLLBACK' )", $update );
-		$this->assertStringContainsString( "false === \$wpdb->query( 'COMMIT' )", $update );
-		$this->assertLessThan( strpos( $update, "query( 'COMMIT' )" ), strpos( $update, '! self::copiar_estrutura_interna' ) );
-		$this->assertStringNotContainsString( 'START TRANSACTION', $copy );
-		$this->assertStringNotContainsString( "query( 'COMMIT' )", $copy );
+    	$this->assertStringContainsString( "! empty( \$body['copiar_comedor'] )", $source );
+    	$this->assertStringContainsString( '! self::copiar_estrutura_interna( $curso, $copiar_de, $copiar_comedor )', $update );
+    	$this->assertStringContainsString( 'private static function copiar_estrutura_interna( string $destino, string $orixe, bool $copiar_comedor = false ): bool', $source );
+    	$this->assertStringContainsString( 'ANPA_Socios_DB::tabela_horarios_comedor()', $copy );
+    	$this->assertStringContainsString( "SET hd.nome = ho.nome, hd.orde = ho.orde, hd.estado = 'activo'", $copy );
+    	$this->assertStringContainsString( 'INSERT IGNORE INTO {$horarios_t}', $copy );
+    	$this->assertStringNotContainsString( 'ON DUPLICATE KEY UPDATE', $copy );
+    	// Since 1.35.0: no nivel copying, no linked comedor, no transactions.
+    	$this->assertStringNotContainsString( '$reactivated_level_ids', $copy );
+    	$this->assertStringNotContainsString( 'nd.horario_comedor_id', $copy );
+    	$this->assertStringNotContainsString( 'START TRANSACTION', $copy );
+    	$this->assertStringNotContainsString( "query( 'COMMIT' )", $copy );
     }
 
     /**

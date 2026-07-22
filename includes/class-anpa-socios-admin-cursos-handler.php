@@ -223,30 +223,22 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 	private static function copiar_estrutura_interna( string $destino, string $orixe, bool $copiar_comedor = false ): bool {
 		global $wpdb;
 
-		$niveis_t   = ANPA_Socios_DB::tabela_niveis();
-		$aulas_t    = ANPA_Socios_DB::tabela_aulas();
+		// Since 1.35.0: levels and aulas are global (no curso_escolar).
+		// Only horarios de comedor are per-course.
+
+		if ( ! $copiar_comedor ) {
+			return true;
+		}
+
 		$horarios_t = ANPA_Socios_DB::tabela_horarios_comedor();
 
-		$wpdb->last_error = '';
-		$reactivated_level_ids = $wpdb->get_col( $wpdb->prepare(
-			"SELECT nd.id FROM {$niveis_t} nd
-			 INNER JOIN {$niveis_t} no ON no.curso_escolar = %s AND no.codigo = nd.codigo AND no.estado = 'activo'
-			 WHERE nd.curso_escolar = %s AND nd.estado = 'inactivo'
-			 ORDER BY nd.id FOR UPDATE",
-			$orixe,
-			$destino
-		) );
-		if ( '' !== (string) $wpdb->last_error || ! is_array( $reactivated_level_ids ) ) {
-			return false;
-		}
-		$reactivated_level_ids = array_values( array_map( 'intval', $reactivated_level_ids ) );
-
-		// Reactivate matching legacy placeholders; preserve active destination rows.
+		// Reactivate matching inactive horarios in destination.
 		$ok = $wpdb->query( $wpdb->prepare(
-			"UPDATE {$niveis_t} nd
-			 INNER JOIN {$niveis_t} no ON no.curso_escolar = %s AND no.codigo = nd.codigo AND no.estado = 'activo'
-			 SET nd.etiqueta = no.etiqueta, nd.orde = no.orde, nd.estado = 'activo', nd.actualizado_en = NOW()
-			 WHERE nd.curso_escolar = %s AND nd.estado = 'inactivo'",
+			"UPDATE {$horarios_t} hd
+			 INNER JOIN {$horarios_t} ho ON ho.curso_escolar = %s
+			    AND ho.inicio = hd.inicio AND ho.fin = hd.fin AND ho.estado = 'activo'
+			 SET hd.nome = ho.nome, hd.orde = ho.orde, hd.estado = 'activo', hd.actualizado_en = NOW()
+			 WHERE hd.curso_escolar = %s AND hd.estado = 'inactivo'",
 			$orixe,
 			$destino
 		) );
@@ -254,82 +246,17 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 			return false;
 		}
 
-		// Copy missing active niveis; INSERT IGNORE preserves active destination rows.
+		// Copy missing active horarios from source to destination.
 		$ok = $wpdb->query( $wpdb->prepare(
-			"INSERT IGNORE INTO {$niveis_t} (curso_escolar, codigo, etiqueta, orde, estado, creado_en, actualizado_en)
-			 SELECT %s, codigo, etiqueta, orde, estado, NOW(), NOW()
-			 FROM {$niveis_t} WHERE curso_escolar = %s AND estado = 'activo'",
+			"INSERT IGNORE INTO {$horarios_t} (curso_escolar, nome, inicio, fin, orde, estado, creado_en, actualizado_en)
+			 SELECT %s, nome, inicio, fin, orde, estado, NOW(), NOW()
+			 FROM {$horarios_t} WHERE curso_escolar = %s AND estado = 'activo'",
 			$destino,
 			$orixe
 		) );
 		if ( false === $ok ) {
 			return false;
 		}
-
-		if ( $copiar_comedor ) {
-			$ok = $wpdb->query( $wpdb->prepare(
-				"UPDATE {$horarios_t} hd
-				 INNER JOIN {$horarios_t} ho ON ho.curso_escolar = %s
-				    AND ho.inicio = hd.inicio AND ho.fin = hd.fin AND ho.estado = 'activo'
-				 SET hd.nome = ho.nome, hd.orde = ho.orde, hd.estado = 'activo', hd.actualizado_en = NOW()
-				 WHERE hd.curso_escolar = %s AND hd.estado = 'inactivo'",
-				$orixe,
-				$destino
-			) );
-			if ( false === $ok ) {
-				return false;
-			}
-
-			$ok = $wpdb->query( $wpdb->prepare(
-				"INSERT IGNORE INTO {$horarios_t} (curso_escolar, nome, inicio, fin, orde, estado, creado_en, actualizado_en)
-				 SELECT %s, nome, inicio, fin, orde, estado, NOW(), NOW()
-				 FROM {$horarios_t} WHERE curso_escolar = %s AND estado = 'activo'",
-				$destino,
-				$orixe
-			) );
-			if ( false === $ok ) {
-				return false;
-			}
-
-			$link_condition = 'nd.horario_comedor_id IS NULL';
-			$link_args      = array( $orixe, $destino, $destino );
-			if ( array() !== $reactivated_level_ids ) {
-				$level_in       = implode( ',', array_fill( 0, count( $reactivated_level_ids ), '%d' ) );
-				$link_condition = "(nd.horario_comedor_id IS NULL OR nd.id IN ({$level_in}))";
-				$link_args      = array_merge( $link_args, $reactivated_level_ids );
-			}
-			$ok = $wpdb->query( $wpdb->prepare(
-				"UPDATE {$niveis_t} nd
-				 INNER JOIN {$niveis_t} no ON no.curso_escolar = %s AND no.codigo = nd.codigo AND no.estado = 'activo'
-				 INNER JOIN {$horarios_t} ho ON ho.id = no.horario_comedor_id AND ho.estado = 'activo'
-				 INNER JOIN {$horarios_t} hd ON hd.curso_escolar = %s AND hd.inicio = ho.inicio AND hd.fin = ho.fin AND hd.estado = 'activo'
-				 SET nd.horario_comedor_id = hd.id,
-				     nd.comedor_inicio = hd.inicio,
-				     nd.comedor_fin = hd.fin,
-				     nd.actualizado_en = NOW()
-				 WHERE nd.curso_escolar = %s AND {$link_condition}",
-				...$link_args
-			) );
-			if ( false === $ok ) {
-				return false;
-			}
-		}
-
-		// Reactivate matching classrooms left inactive by legacy seeded targets.
-		$ok = $wpdb->query(
-			"UPDATE {$aulas_t} ad
-			 INNER JOIN {$niveis_t} nd ON nd.id = ad.nivel_id AND nd.estado = 'activo'
-			 INNER JOIN {$aulas_t} ao ON ao.nivel_id = nd.id AND ao.codigo = ad.codigo AND ao.estado = 'activo'
-			 SET ad.etiqueta = ao.etiqueta, ad.orde = ao.orde, ad.estado = 'activo', ad.actualizado_en = NOW()
-			 WHERE ad.estado = 'inactivo'"
-		);
-		if ( false === $ok ) {
-			return false;
-		}
-
-		// Copy missing active aulas: since levels are global, aulas already
-		// share the same nivel_id. No cross-course remapping needed.
-		// (Levels no longer have curso_escolar since 1.35.0.)
 
 		return true;
 	}
