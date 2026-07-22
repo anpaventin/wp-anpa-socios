@@ -790,7 +790,10 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
         }
 
         $horarios_t = ANPA_Socios_DB::tabela_horarios_comedor();
-        $niveis_t   = ANPA_Socios_DB::tabela_niveis();
+        // fase31: comedor→nivel references live in the per-course pivot
+        // (wp_anpa_niveis_curso) since 1.36.0; the legacy niveis.horario_comedor_id
+        // column was dropped in 1.37.0, so the reference check must target the pivot.
+        $pivot_t = ANPA_Socios_DB::tabela_niveis_curso();
 
         if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido iniciar a eliminación do horario.', 'anpa-socios' ) ), 500 );
@@ -798,7 +801,7 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
 
         $wpdb->last_error = '';
         $wpdb->get_col( $wpdb->prepare(
-            "SELECT id FROM {$niveis_t} WHERE horario_comedor_id = %d ORDER BY id FOR UPDATE",
+            "SELECT nivel_id FROM {$pivot_t} WHERE horario_comedor_id = %d ORDER BY nivel_id FOR UPDATE",
             $horario_id
         ) );
         if ( '' !== (string) $wpdb->last_error ) {
@@ -823,7 +826,7 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
 
         $wpdb->last_error = '';
         $references = $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$niveis_t} WHERE horario_comedor_id = %d",
+            "SELECT COUNT(*) FROM {$pivot_t} WHERE horario_comedor_id = %d",
             $horario_id
         ) );
         if ( null === $references || '' !== (string) $wpdb->last_error ) {
