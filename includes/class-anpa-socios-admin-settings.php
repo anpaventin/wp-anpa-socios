@@ -653,7 +653,7 @@ final class ANPA_Socios_Admin_Settings {
 		foreach ( $estados as $value => $label ) {
 			printf( '<option value="%1$s"%2$s>%3$s</option>', esc_attr( $value ), selected( $value, (string) $srow['estado'], false ), esc_html( $label ) );
 		}
-		echo '</select><p class="description">' . esc_html__( 'Só pode existir un curso activo. Para activar este e pechar o anterior, marca a confirmación inferior.', 'anpa-socios' ) . '</p></td></tr>';
+		echo '</select><p class="description">' . esc_html__( 'Só pode existir un curso activo: ao activar este curso, o curso activo anterior pecharase automaticamente (coas súas matrículas).', 'anpa-socios' ) . '</p></td></tr>';
 		printf(
 			'<tr><th scope="row">%s</th><td><label><input type="checkbox" name="matriculas_abertas" value="1" %s> %s</label><p class="description">%s</p></td></tr>',
 			esc_html__( 'Matrículas', 'anpa-socios' ),
@@ -661,7 +661,7 @@ final class ANPA_Socios_Admin_Settings {
 			esc_html__( 'Matrículas abertas', 'anpa-socios' ),
 			esc_html__( 'Só se poden abrir no curso activo.', 'anpa-socios' )
 		);
-		echo '<tr><th scope="row">' . esc_html__( 'Substituír curso activo', 'anpa-socios' ) . '</th><td><label><input type="checkbox" name="replace_active" value="1"> ' . esc_html__( 'Se activo este curso, pechar o curso activo anterior e as súas matrículas.', 'anpa-socios' ) . '</label></td></tr>';
+		echo '<tr><th scope="row">' . esc_html__( 'Substituír curso activo', 'anpa-socios' ) . '</th><td><div class="notice notice-warning inline" style="margin:0"><p>' . esc_html__( 'Ao activar este curso, se hai outro curso activo pecharase automaticamente coas súas matrículas. Non é opcional: só pode haber un curso activo á vez.', 'anpa-socios' ) . '</p></div></td></tr>';
 		printf( '<tr><th scope="row"><label for="cfg-inicio">%s</label></th><td><input name="data_inicio" id="cfg-inicio" type="date" value="%s"></td></tr>', esc_html__( 'Comeza (data_inicio)', 'anpa-socios' ), esc_attr( (string) $srow['data_inicio'] ) );
 		printf( '<tr><th scope="row"><label for="cfg-peche">%s</label></th><td><input name="data_peche" id="cfg-peche" type="date" value="%s"></td></tr>', esc_html__( 'Pecha (data_peche)', 'anpa-socios' ), esc_attr( (string) $srow['data_peche'] ) );
 
@@ -1156,7 +1156,11 @@ final class ANPA_Socios_Admin_Settings {
 		$peche  = sanitize_text_field( (string) wp_unslash( $_POST['data_peche'] ?? '' ) );
 		$estado = sanitize_key( (string) wp_unslash( $_POST['estado'] ?? ANPA_Socios_Season::ESTADO_PENDENTE ) );
 		$open   = isset( $_POST['matriculas_abertas'] ) && '1' === (string) wp_unslash( $_POST['matriculas_abertas'] );
-		$replace_active = isset( $_POST['replace_active'] ) && '1' === (string) wp_unslash( $_POST['replace_active'] );
+		// Mejora 1: replacing the active course on activation is NOT optional —
+		// only one course can be active at a time, so always close the previous
+		// active course (and its matrículas). The UI shows an informative note
+		// instead of a checkbox. This flag only has effect when activating.
+		$replace_active = true;
 
 		// Create-new path (from the "Crear novo curso" form) takes precedence:
 		// create it as pendente with default season dates and select it.
