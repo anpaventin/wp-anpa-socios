@@ -99,29 +99,64 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			return new WP_Error( 'anpa_admin_curso_invalid', __( 'Selecciona un curso escolar válido.', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
-		$niveis   = ANPA_Socios_DB::tabela_niveis();
+		$niveis_t = ANPA_Socios_DB::tabela_niveis();
 		$horarios = ANPA_Socios_DB::tabela_horarios_comedor();
+		$pivot    = ANPA_Socios_DB::tabela_niveis_curso();
 		$grupos   = ANPA_Socios_DB::tabela_grupos();
 		$gn       = ANPA_Socios_DB::tabela_grupos_niveis();
 		$acts     = ANPA_Socios_DB::tabela_actividades();
 
+		// fase31: levels are GLOBAL (no curso_escolar column) since 1.35.0 and
+		// their comedor schedule is per-course in the wp_anpa_niveis_curso pivot
+		// since 1.36.0. Load the global active levels first, then resolve each
+		// level's meal window for the requested course from the pivot. (The old
+		// query joined the dropped n.curso_escolar / n.horario_comedor_id columns
+		// and therefore failed with a SQL error on every load.)
 		$wpdb->last_error = '';
-		$level_rows = $wpdb->get_results(
+		$niveis_rows = $wpdb->get_results(
+			"SELECT id, codigo, etiqueta, orde
+			 FROM {$niveis_t} WHERE estado = 'activo'
+			 ORDER BY orde ASC, id ASC",
+			ARRAY_A
+		);
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $niveis_rows ) ) {
+			return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido cargar a estrutura escolar.', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+
+		$wpdb->last_error = '';
+		$meal_rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT n.id, n.codigo, n.etiqueta, n.orde,
-				        h.id AS horario_id, h.nome AS horario_nome,
+				"SELECT p.nivel_id, h.id AS horario_id, h.nome AS horario_nome,
 				        h.inicio AS comedor_inicio, h.fin AS comedor_fin
-				 FROM {$niveis} n
-				 LEFT JOIN {$horarios} h
-				   ON h.id = n.horario_comedor_id AND h.curso_escolar = n.curso_escolar
-				 WHERE n.curso_escolar = %s AND n.estado = 'activo'
-				 ORDER BY n.orde ASC, n.id ASC",
+				 FROM {$pivot} p
+				 INNER JOIN {$horarios} h ON h.id = p.horario_comedor_id
+				 WHERE p.curso_escolar = %s",
 				$curso
 			),
 			ARRAY_A
 		);
-		if ( '' !== (string) $wpdb->last_error || ! is_array( $level_rows ) ) {
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $meal_rows ) ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido cargar a estrutura escolar.', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		$meal_by_nivel = array();
+		foreach ( $meal_rows as $meal_row ) {
+			$meal_by_nivel[ (int) $meal_row['nivel_id'] ] = $meal_row;
+		}
+
+		$level_rows = array();
+		foreach ( $niveis_rows as $nivel_row ) {
+			$nid  = (int) $nivel_row['id'];
+			$meal = $meal_by_nivel[ $nid ] ?? array();
+			$level_rows[] = array(
+				'id'             => $nid,
+				'codigo'         => (string) $nivel_row['codigo'],
+				'etiqueta'       => (string) $nivel_row['etiqueta'],
+				'orde'           => (int) $nivel_row['orde'],
+				'horario_id'     => isset( $meal['horario_id'] ) ? (int) $meal['horario_id'] : 0,
+				'horario_nome'   => (string) ( $meal['horario_nome'] ?? '' ),
+				'comedor_inicio' => $meal['comedor_inicio'] ?? null,
+				'comedor_fin'    => $meal['comedor_fin'] ?? null,
+			);
 		}
 
 		$wpdb->last_error = '';
