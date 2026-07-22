@@ -1187,6 +1187,80 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
     }
 
     /**
+     * Seeds default global levels + their classrooms (first-run wizard).
+     *
+     * Idempotent and transactional: a level whose codigo already exists is
+     * skipped, so re-running never duplicates. Reuses sync_aulas_nivel so each
+     * level gets classrooms A..última. Each spec: [codigo, orde (age), ultima_aula].
+     *
+     * @since  1.46.4
+     * @param  array<int,array<string,mixed>> $specs Level specifications.
+     * @return bool True on success (or nothing to do), false on DB failure.
+     */
+    public static function seed_default_structure( array $specs ): bool {
+        global $wpdb;
+
+        if ( empty( $specs ) ) {
+            return true;
+        }
+
+        $niveis_t = ANPA_Socios_DB::tabela_niveis();
+
+        if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+            return false;
+        }
+
+        foreach ( $specs as $spec ) {
+            $codigo = trim( (string) ( $spec['codigo'] ?? '' ) );
+            $orde   = (int) ( $spec['orde'] ?? 0 );
+            $ultima = strtoupper( trim( (string) ( $spec['ultima_aula'] ?? 'D' ) ) );
+            if ( '' === $codigo || $orde < 1 ) {
+                continue;
+            }
+            if ( ! in_array( $ultima, self::aula_letras(), true ) ) {
+                $ultima = 'D';
+            }
+
+            // Idempotent: skip a level that already exists (by codigo).
+            $wpdb->last_error = '';
+            $exists = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$niveis_t} WHERE codigo = %s", $codigo ) );
+            if ( '' !== (string) $wpdb->last_error ) {
+                $wpdb->query( 'ROLLBACK' );
+                return false;
+            }
+            if ( null !== $exists ) {
+                continue;
+            }
+
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded seed within transaction.
+            $inserted = $wpdb->insert(
+                $niveis_t,
+                array(
+                    'codigo'         => $codigo,
+                    'etiqueta'       => $codigo,
+                    'orde'           => $orde,
+                    'estado'         => 'activo',
+                    'habilitado'     => 1,
+                    'creado_en'      => current_time( 'mysql' ),
+                    'actualizado_en' => current_time( 'mysql' ),
+                ),
+                array( '%s', '%s', '%d', '%s', '%d', '%s', '%s' )
+            );
+            if ( false === $inserted || ! self::sync_aulas_nivel( (int) $wpdb->insert_id, $ultima ) ) {
+                $wpdb->query( 'ROLLBACK' );
+                return false;
+            }
+        }
+
+        if ( false === $wpdb->query( 'COMMIT' ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * DELETE /admin/estrutura?nivel_id=N&curso_escolar=X
      *
      * If the nivel has active references (fillos_cursos or grupos_niveis),

@@ -225,7 +225,79 @@ final class ANPA_Socios_Admin_Settings {
 		printf( '<tr><th scope="row"><label for="anpa-inicio">%s</label></th><td><input name="data_inicio" id="anpa-inicio" type="date" value="%s"></td></tr>', esc_html__( 'Comeza (data_inicio)', 'anpa-socios' ), esc_attr( $data_inicio ) );
 		printf( '<tr><th scope="row"><label for="anpa-peche">%s</label></th><td><input name="data_peche" id="anpa-peche" type="date" value="%s"></td></tr>', esc_html__( 'Pecha (data_peche)', 'anpa-socios' ), esc_attr( $data_peche ) );
 
+		echo '<tr><th scope="row">' . esc_html__( 'Matrículas', 'anpa-socios' ) . '</th><td><label><input type="checkbox" name="abrir_matriculas" value="1"> ' . esc_html__( 'Abrir as matrículas neste curso ao activalo', 'anpa-socios' ) . '</label></td></tr>';
+
 		echo '</tbody></table>';
+
+		// ── Identidade da asociación (Xeral) ──────────────────────────
+		echo '<h2>' . esc_html__( 'Datos da asociación', 'anpa-socios' ) . '</h2>';
+		echo '<table class="form-table" role="presentation"><tbody>';
+		printf(
+			'<tr><th scope="row"><label for="anpa-w-assoc">%s</label></th><td><input name="association_name" id="anpa-w-assoc" type="text" class="regular-text" value="%s"></td></tr>',
+			esc_html__( 'Nome da asociación', 'anpa-socios' ),
+			esc_attr( ANPA_Socios_Config::association_name() )
+		);
+		printf(
+			'<tr><th scope="row"><label for="anpa-w-fee">%s</label></th><td><input name="membership_fee" id="anpa-w-fee" type="text" class="small-text" value="%s"> €<p class="description">%s</p></td></tr>',
+			esc_html__( 'Cota anual (por familia e curso)', 'anpa-socios' ),
+			esc_attr( ANPA_Socios_Config::membership_fee() ),
+			esc_html__( 'Amósase no formulario de alta.', 'anpa-socios' )
+		);
+		printf(
+			'<tr><th scope="row"><label for="anpa-w-contact">%s</label></th><td><input name="contact_email" id="anpa-w-contact" type="email" class="regular-text" value="%s"></td></tr>',
+			esc_html__( 'Email de contacto para familias', 'anpa-socios' ),
+			esc_attr( ANPA_Socios_Config::contact_email() )
+		);
+		printf(
+			'<tr><th scope="row"><label for="anpa-w-addr">%s</label></th><td><input name="association_address" id="anpa-w-addr" type="text" class="regular-text" value="%s"><p class="description">%s</p></td></tr>',
+			esc_html__( 'Enderezo (para o aviso RGPD)', 'anpa-socios' ),
+			esc_attr( ANPA_Socios_Config::association_address() ),
+			esc_html__( 'Opcional.', 'anpa-socios' )
+		);
+		printf(
+			'<tr><th scope="row"><label for="anpa-w-menu">%s</label></th><td><input name="menu_name" id="anpa-w-menu" type="text" class="regular-text" maxlength="%d" value="%s"><p class="description">%s</p></td></tr>',
+			esc_html__( 'Nome do menú lateral', 'anpa-socios' ),
+			(int) ANPA_Socios_Config::MENU_NAME_MAX_LENGTH,
+			esc_attr( ANPA_Socios_Config::menu_name() ),
+			esc_html__( 'Etiqueta do menú de administración (por defecto «Xestión ANPA»).', 'anpa-socios' )
+		);
+		echo '<tr><th scope="row">' . esc_html__( 'Aprobación de altas', 'anpa-socios' ) . '</th><td><label><input type="checkbox" name="require_approval" value="1"' . checked( ANPA_Socios_Config::require_approval(), true, false ) . '> ' . esc_html__( 'Requirir aprobación da directiva antes de activar un/unha socio/a novo/a', 'anpa-socios' ) . '</label></td></tr>';
+		echo '</tbody></table>';
+
+		// ── Localización ──────────────────────────────────────────────
+		echo '<h2>' . esc_html__( 'Localización', 'anpa-socios' ) . '</h2>';
+		echo '<p class="description" style="max-width:720px">' . esc_html__( 'Valores por defecto que se prefillan no formulario de alta (a familia pode cambialos).', 'anpa-socios' ) . '</p>';
+		echo '<table class="form-table" role="presentation"><tbody>';
+		printf( '<tr><th scope="row"><label for="anpa-w-country">%s</label></th><td><input name="country" id="anpa-w-country" type="text" class="regular-text" value="%s"></td></tr>', esc_html__( 'País', 'anpa-socios' ), esc_attr( ANPA_Socios_Config::country() ) );
+		printf( '<tr><th scope="row"><label for="anpa-w-prov">%s</label></th><td><input name="default_province" id="anpa-w-prov" type="text" class="regular-text" value="%s"></td></tr>', esc_html__( 'Provincia', 'anpa-socios' ), esc_attr( ANPA_Socios_Config::default_province() ) );
+		printf( '<tr><th scope="row"><label for="anpa-w-town">%s</label></th><td><input name="default_town" id="anpa-w-town" type="text" class="regular-text" value="%s"></td></tr>', esc_html__( 'Poboación', 'anpa-socios' ), esc_attr( ANPA_Socios_Config::default_town() ) );
+		printf( '<tr><th scope="row"><label for="anpa-w-cp">%s</label></th><td><input name="default_postal_code" id="anpa-w-cp" type="text" inputmode="numeric" maxlength="10" class="regular-text" value="%s"></td></tr>', esc_html__( 'Código postal', 'anpa-socios' ), esc_attr( ANPA_Socios_Config::default_postal_code() ) );
+		echo '</tbody></table>';
+
+		// ── Estrutura escolar por defecto (niveis + aulas) ────────────
+		echo '<h2>' . esc_html__( 'Estrutura escolar', 'anpa-socios' ) . '</h2>';
+		echo '<label><input type="checkbox" name="seed_structure" value="1" checked> ' . esc_html__( 'Crear a estrutura por defecto de niveis e aulas (podes editala despois en Axustes → Cursos → Estrutura escolar).', 'anpa-socios' ) . '</label>';
+		echo '<table class="widefat striped" style="max-width:560px;margin-top:.5rem"><thead><tr>';
+		echo '<th>' . esc_html__( 'Nivel', 'anpa-socios' ) . '</th><th>' . esc_html__( 'Idade alumnado', 'anpa-socios' ) . '</th><th>' . esc_html__( 'Última aula', 'anpa-socios' ) . '</th>';
+		echo '</tr></thead><tbody>';
+		$default_niveis = array(
+			array( '1º', 8 ), array( '2º', 9 ), array( '3º', 10 ),
+			array( '4º', 11 ), array( '5º', 12 ), array( '6º', 13 ),
+		);
+		$letras = range( 'A', 'H' );
+		foreach ( $default_niveis as $i => $nv ) {
+			echo '<tr>';
+			printf( '<td><input type="text" name="niveis[%1$d][codigo]" value="%2$s" maxlength="30"></td>', (int) $i, esc_attr( $nv[0] ) );
+			printf( '<td><input type="number" name="niveis[%1$d][orde]" value="%2$d" min="1" class="small-text"></td>', (int) $i, (int) $nv[1] );
+			echo '<td><select name="niveis[' . (int) $i . '][ultima]">';
+			foreach ( $letras as $l ) {
+				printf( '<option value="%1$s"%2$s>A–%1$s</option>', esc_attr( $l ), selected( 'D', $l, false ) );
+			}
+			echo '</select></td></tr>';
+		}
+		echo '</tbody></table>';
+		echo '<p class="description">' . esc_html__( 'Os horarios de comedor por nivel e curso configúranse en Axustes → Cursos → Estrutura escolar e comedor.', 'anpa-socios' ) . '</p>';
+
 		submit_button( __( 'Lanzar instalación', 'anpa-socios' ) );
 		echo '</form>';
 	}
@@ -265,8 +337,60 @@ final class ANPA_Socios_Admin_Settings {
 		// 1) Schema.
 		ANPA_Socios_DB::crear_tabelas();
 
-		// 2) Season config.
+		// 2) Season config (dates + pendente); activation happens in 2c.
 		self::upsert_course( $curso, $inicio, $peche );
+
+		// 2b) Association identity + localization (Xeral). Only non-empty text
+		// overwrites the neutral defaults; the rest are stored as given.
+		$assoc = trim( sanitize_text_field( (string) wp_unslash( $_POST['association_name'] ?? '' ) ) );
+		if ( '' !== $assoc ) {
+			update_option( ANPA_Socios_Config::OPTION_ASSOCIATION, $assoc );
+		}
+		$fee = trim( sanitize_text_field( (string) wp_unslash( $_POST['membership_fee'] ?? '' ) ) );
+		if ( '' !== $fee ) {
+			update_option( ANPA_Socios_Config::OPTION_FEE, $fee );
+		}
+		$contact_email = sanitize_email( (string) wp_unslash( $_POST['contact_email'] ?? '' ) );
+		if ( is_email( $contact_email ) ) {
+			update_option( ANPA_Socios_Config::OPTION_CONTACT_EMAIL, $contact_email );
+		}
+		update_option( ANPA_Socios_Config::OPTION_ADDRESS, sanitize_text_field( (string) wp_unslash( $_POST['association_address'] ?? '' ) ) );
+		$menu_name = trim( wp_strip_all_tags( (string) wp_unslash( $_POST['menu_name'] ?? '' ) ) );
+		if ( '' !== $menu_name ) {
+			update_option( ANPA_Socios_Config::OPTION_MENU_NAME, $menu_name );
+		}
+		update_option( ANPA_Socios_Config::OPTION_APPROVAL, ! empty( $_POST['require_approval'] ) ? '1' : '0' );
+		update_option( ANPA_Socios_Config::OPTION_COUNTRY, sanitize_text_field( (string) wp_unslash( $_POST['country'] ?? '' ) ) );
+		update_option( ANPA_Socios_Config::OPTION_PROVINCE, sanitize_text_field( (string) wp_unslash( $_POST['default_province'] ?? '' ) ) );
+		update_option( ANPA_Socios_Config::OPTION_TOWN, sanitize_text_field( (string) wp_unslash( $_POST['default_town'] ?? '' ) ) );
+		update_option( ANPA_Socios_Config::OPTION_POSTAL_CODE, sanitize_text_field( (string) wp_unslash( $_POST['default_postal_code'] ?? '' ) ) );
+
+		// 2c) Activate the course via the canonical lifecycle writer, opening
+		// matrículas if requested. replace_active is implicit (only one active).
+		$activate = new WP_REST_Request( 'PUT', '/anpa-socios/v1/admin/curso' );
+		$activate->set_body_params( array(
+			'curso_escolar'      => $curso,
+			'estado'             => ANPA_Socios_Season::ESTADO_ACTIVO,
+			'matriculas_abertas' => ! empty( $_POST['abrir_matriculas'] ),
+			'replace_active'     => true,
+		) );
+		ANPA_Socios_Admin_Cursos_Handler::update_curso( $activate );
+
+		// 2d) Seed the default school structure (levels + classrooms) if asked.
+		if ( ! empty( $_POST['seed_structure'] ) && isset( $_POST['niveis'] ) && is_array( $_POST['niveis'] ) ) {
+			$specs = array();
+			foreach ( (array) wp_unslash( $_POST['niveis'] ) as $raw ) {
+				if ( ! is_array( $raw ) ) {
+					continue;
+				}
+				$specs[] = array(
+					'codigo'      => sanitize_text_field( (string) ( $raw['codigo'] ?? '' ) ),
+					'orde'        => (int) ( $raw['orde'] ?? 0 ),
+					'ultima_aula' => sanitize_text_field( (string) ( $raw['ultima'] ?? 'D' ) ),
+				);
+			}
+			ANPA_Socios_Admin_Estrutura_Handler::seed_default_structure( $specs );
+		}
 
 		// 3) Socios page (create or overwrite) with the area shortcode.
 		$page_id = self::ensure_socios_page( $socios_page );
