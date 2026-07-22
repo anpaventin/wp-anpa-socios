@@ -1209,6 +1209,21 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
 
         $niveis_t = ANPA_Socios_DB::tabela_niveis();
 
+        // Only seed on a truly empty catalogue. If ANY level already exists (a
+        // partial prior setup or a restore), skip seeding entirely so we never
+        // create a second set of levels alongside the existing one. The wizard
+        // runs whenever the banking key is unset, which is independent of the
+        // structure state, so this guard is what keeps the seed idempotent at
+        // the catalogue level (not just per codigo).
+        $wpdb->last_error = '';
+        $existing = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$niveis_t}" );
+        if ( '' !== (string) $wpdb->last_error ) {
+            return false;
+        }
+        if ( $existing > 0 ) {
+            return true;
+        }
+
         if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
             return false;
         }

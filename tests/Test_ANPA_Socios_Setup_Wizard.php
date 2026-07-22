@@ -29,6 +29,7 @@ final class Test_ANPA_Socios_Setup_Wizard extends TestCase {
 		foreach ( array(
 			'name="association_name"', 'name="membership_fee"', 'name="contact_email"',
 			'name="association_address"', 'name="menu_name"', 'name="require_approval"',
+			'name="master_email"', 'name="email_signature"',
 			'name="country"', 'name="default_province"', 'name="default_town"', 'name="default_postal_code"',
 			'name="abrir_matriculas"', 'name="seed_structure"', 'name="niveis[',
 		) as $needle ) {
@@ -43,6 +44,8 @@ final class Test_ANPA_Socios_Setup_Wizard extends TestCase {
 
 		$this->assertStringContainsString( 'ANPA_Socios_Config::OPTION_ASSOCIATION', $method );
 		$this->assertStringContainsString( 'ANPA_Socios_Config::OPTION_POSTAL_CODE', $method );
+		$this->assertStringContainsString( 'ANPA_Socios_Config::OPTION_SIGNATURE', $method );
+		$this->assertStringContainsString( "update_option( ANPA_Socios_Config::OPTION, strtolower(", $method ); // master email.
 		$this->assertStringContainsString( 'ANPA_Socios_Season::ESTADO_ACTIVO', $method );
 		$this->assertStringContainsString( 'ANPA_Socios_Admin_Cursos_Handler::update_curso', $method );
 		$this->assertStringContainsString( 'ANPA_Socios_Admin_Estrutura_Handler::seed_default_structure', $method );
@@ -51,7 +54,9 @@ final class Test_ANPA_Socios_Setup_Wizard extends TestCase {
 	public function test_seed_default_structure_is_transactional_and_idempotent(): void {
 		$this->assertStringContainsString( 'public static function seed_default_structure', $this->estrutura );
 		$start  = strpos( $this->estrutura, 'public static function seed_default_structure' );
-		$body   = substr( $this->estrutura, $start, 2600 );
+		$body   = substr( $this->estrutura, $start, 3400 );
+		$this->assertStringContainsString( 'SELECT COUNT(*) FROM', $body ); // empty-catalogue guard.
+		$this->assertStringContainsString( '$existing > 0', $body );        // skip seeding if levels exist.
 		$this->assertStringContainsString( "query( 'START TRANSACTION' )", $body );
 		$this->assertStringContainsString( 'sync_aulas_nivel', $body );
 		$this->assertStringContainsString( 'SELECT id FROM', $body ); // idempotent skip by codigo.
