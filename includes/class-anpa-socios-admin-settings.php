@@ -435,14 +435,24 @@ final class ANPA_Socios_Admin_Settings {
 		echo '<div class="notice notice-success"><p><strong>' . esc_html__( 'Instalación completada.', 'anpa-socios' ) . '</strong> ' . esc_html__( 'A clave bancaria e a páxina de socios quedaron configurados.', 'anpa-socios' ) . '</p></div>';
 
 		echo '<div class="notice notice-warning" style="padding:8px 12px"><p><strong>' . esc_html__( 'Garda esta información AGORA. Non se volverá amosar.', 'anpa-socios' ) . '</strong></p>';
-		echo '<table class="widefat" style="max-width:760px"><tbody>';
-		printf( '<tr><td style="width:220px"><strong>%s</strong></td><td><code>%s</code></td></tr>', esc_html__( 'Frase da clave bancaria', 'anpa-socios' ), esc_html( $passphrase ) );
+		// Stacked layout (label above a full-width code block) so long values wrap
+		// naturally on mobile instead of being squeezed into a narrow table column.
+		echo '<div style="max-width:760px">';
+		printf(
+			'<p style="margin:0 0 2px"><strong>%s</strong></p><p style="margin:0 0 12px"><code style="display:block;padding:8px;word-break:break-all;white-space:normal;line-height:1.5">%s</code></p>',
+			esc_html__( 'Frase da clave bancaria', 'anpa-socios' ),
+			esc_html( $passphrase )
+		);
 		if ( null !== $secret_key && '' !== $secret_key ) {
-			printf( '<tr><td><strong>%s</strong></td><td><code style="word-break:break-all">%s</code></td></tr>', esc_html__( 'Clave privada (escrow)', 'anpa-socios' ), esc_html( $secret_key ) );
+			printf(
+				'<p style="margin:0 0 2px"><strong>%s</strong></p><p style="margin:0"><code style="display:block;padding:8px;word-break:break-all;white-space:normal;line-height:1.5">%s</code></p>',
+				esc_html__( 'Clave privada (escrow)', 'anpa-socios' ),
+				esc_html( $secret_key )
+			);
 		} else {
-			echo '<tr><td><strong>' . esc_html__( 'Clave privada', 'anpa-socios' ) . '</strong></td><td><em>' . esc_html__( 'xa existía; non se rexenerou.', 'anpa-socios' ) . '</em></td></tr>';
+			echo '<p style="margin:0 0 2px"><strong>' . esc_html__( 'Clave privada', 'anpa-socios' ) . '</strong></p><p style="margin:0"><em>' . esc_html__( 'xa existía; non se rexenerou.', 'anpa-socios' ) . '</em></p>';
 		}
-		echo '</tbody></table>';
+		echo '</div>';
 		echo '<p>' . esc_html__( 'Sen a frase e a clave privada, os datos bancarios cifrados serán irrecuperables.', 'anpa-socios' ) . '</p></div>';
 
 		echo '<h2>' . esc_html__( 'Seguintes pasos', 'anpa-socios' ) . '</h2><ol>';
