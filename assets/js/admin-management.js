@@ -53,6 +53,13 @@
 	// ── Fetch helper (always sends X-WP-Nonce) ──────────────────────
 	function anpaAdminFetch(path, opts) {
 		opts = opts || {};
+		var method = (opts.method || 'GET').toUpperCase();
+		// Clear any stale notice as soon as the user performs a mutating action
+		// (create/update/delete). Otherwise a previous error — e.g. "O grupo
+		// solapa co horario de comedor…" — would linger after the corrected
+		// action succeeds, making it look like the last change failed. Reads
+		// (GET) keep the current message.
+		if (method !== 'GET') { clearMessage(); }
 		var url = apiRoot + path;
 		var headers = { 'X-WP-Nonce': nonce };
 		if (opts.body && typeof opts.body === 'object') {
