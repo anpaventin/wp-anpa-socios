@@ -1,17 +1,17 @@
 {
     "name":  "ANPA Socios",
     "slug":  "anpa-socios",
-    "version":  "1.45.0",
-    "download_url":  "https://github.com/anpaventin/wp-anpa-socios/releases/download/v1.45.0/wp-anpa-socios-1.45.0.zip",
+    "version":  "1.45.1",
+    "download_url":  "https://github.com/anpaventin/wp-anpa-socios/releases/download/v1.45.1/wp-anpa-socios-1.45.1.zip",
     "homepage":  "https://github.com/anpaventin/wp-anpa-socios",
     "author":  "ANPA Socios",
     "author_homepage":  "https://github.com/anpaventin/wp-anpa-socios",
     "requires":  "6.0",
     "tested":  "6.7",
     "requires_php":  "7.4",
-    "last_updated":  "2026-07-21T23:30:00+02:00",
+    "last_updated":  "2026-07-22T12:00:00+02:00",
     "sections":  {
                     "description":  "Member management for parents associations (ANPA/AMPA) on WordPress: passwordless member area, children and extracurricular enrolment, encrypted SEPA banking, season lifecycle, native WordPress admin screens, and self-hosted updates from GitHub.",
-                    "changelog":  "<h4>1.45.0</h4><ul><li><strong>Niveis globais:</strong> os niveis xa non se crean por curso escolar. Agora son únicos e compartidos por tódolos cursos. Pódense renomear e a mudanza afecta a tódolos cursos por igual.</li><li><strong>Activar/desactivar niveis:</strong> engadido botón de activación/desactivación na estrutura escolar. Non se pode desactivar un nivel que teña alumnos asociados en calquera curso.</li><li><strong>Renomear nivel:</strong> pódese cambiar a etiqueta dun nivel directamente dende a estrutura escolar.</li><li>Migración automática 1.35.0: fusiona os niveis existentes por curso nun conxunto global.</li><li><strong>Corrixido:</strong> o listado de actividades extraescolares agora móstrase correctamente cando o neno non ten nivel asignado no curso activo.</li><li><strong>Corrixido:</strong> o formulario de modificación de datos bancarios (IBAN) agora carga todos os datos coñecidos do socio (DNI, enderezo, poboación, código postal e lugar/data) deixa o IBAN baleiro por seguridade.</li></ul><h4>1.44.0</h4><ul><li>Novo espazo «Grupos e horarios» para organizar as actividades por curso, nivel e horario dunha forma máis clara.</li><li>A comprobación de solapamentos co comedor evita matrículas incompatibles antes de gardalas.</li><li>Mellorada a estrutura escolar: niveis, aulas e horarios de comedor son máis sinxelos de manter e reutilizar cada curso.</li><li>O menú de Xestión ANPA ten agora unha entrada principal explicativa e accesos máis directos ás tarefas habituais.</li><li>Corrixida a execución remota de mantemento: límites de tempo reais, códigos de erro conservados e rexistros sen datos sensibles.</li></ul>"
+                    "changelog":  "<h4>1.45.1</h4><ul><li><strong>Fix migración 1.35.0:</strong> a migración agora remapea tamén os IDs de <code>grupos_niveis</code> e <code>aulas</code> antes de eliminar os niveis duplicados. Antes deixaba referencias soltas a IDs eliminados.</li><li><strong>Fix estrutura escolar:</strong> gardar un nivel novo xa non intenta insertar a columna <code>curso_escolar</code> (eliminada na migración 1.35.0).</li><li><strong>Fix delete nivel:</strong> a comprobación de existencia xa non filtra por <code>curso_escolar</code> (niveis son globais).</li><li><strong>Eliminada copiar_estrutura:</strong> xa non ten sentido con niveis globais. A función interna de <code>cursos-handler</code> agora só copia horarios de comedor entre cursos.</li></ul><h4>1.45.0</h4><ul><li><strong>Niveis globais:</strong> os niveis xa non se crean por curso escolar. Agora son únicos e compartidos por tódolos cursos.</li><li><strong>Activar/desactivar niveis:</strong> engadido botón de activación/desactivación na estrutura escolar.</li><li><strong>Renomear nivel:</strong> pódese cambiar a etiqueta dun nivel directamente.</li><li>Migración automática 1.35.0.</li><li><strong>Corrixido:</strong> listado de actividades extraescolares cando o neno non ten nivel asignado.</li><li><strong>Corrixido:</strong> formulario de modificación de datos bancarios (IBAN) agora carga todos os datos coñecidos.</li></ul>"
                 }
 }
