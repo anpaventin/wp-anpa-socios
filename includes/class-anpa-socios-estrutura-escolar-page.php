@@ -70,11 +70,13 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
         }
 
         // ── Load existing structure ───────────────────────────────
+        // Levels are global since 1.35.0 — no curso_escolar filter. The
+        // curso selector above only scopes the meal schedules below.
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only list in admin context.
-        $niveis = $wpdb->get_results( $wpdb->prepare(
-            "SELECT id, codigo, etiqueta, orde, horario_comedor_id, estado FROM {$niveis_t} WHERE curso_escolar = %s AND estado = 'activo' ORDER BY orde ASC, codigo ASC",
-            $sel
-        ), ARRAY_A );
+        $niveis = $wpdb->get_results(
+            "SELECT id, codigo, etiqueta, orde, horario_comedor_id, estado FROM {$niveis_t} WHERE estado = 'activo' ORDER BY orde ASC, codigo ASC",
+            ARRAY_A
+        );
         if ( ! is_array( $niveis ) ) {
             $niveis = array();
         }
@@ -87,6 +89,12 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
         if ( ! is_array( $horarios ) ) {
             $horarios = array();
         }
+
+        // Per-course comedor assignment (fase31 pivot). A global level can carry a
+        // different comedor schedule per course, so the select is prefilled from
+        // the pivot for the selected course (falling back to the legacy global
+        // niveis.horario_comedor_id column while the 1.36.0 bridge exists).
+        $comedor_por_nivel = ANPA_Socios_DB::get_niveis_comedor_curso( $sel );
 
         // Load aulas per nivel.
         $nivel_ids = array_map( function ( $n ) { return (int) $n['id']; }, $niveis );
@@ -188,9 +196,10 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
                 printf( '<option value="%1$s"%2$s>A–%1$s</option>', esc_attr( $l ), selected( $ultima_por_nivel[ $nid ] ?? 'D', $l, false ) );
             }
             echo '</select></td><td><select class="est-horario-select"><option value="">' . esc_html__( 'Sen horario', 'anpa-socios' ) . '</option>';
+            $nivel_horario_id = $comedor_por_nivel[ $nid ] ?? (int) ( $n['horario_comedor_id'] ?? 0 );
             foreach ( $horarios as $horario ) {
                 $key = 'h-' . (int) $horario['id'];
-                printf( '<option value="%s"%s>%s (%s–%s)</option>', esc_attr( $key ), selected( (int) ( $n['horario_comedor_id'] ?? 0 ), (int) $horario['id'], false ), esc_html( $horario['nome'] ), esc_html( $horario['inicio'] ), esc_html( $horario['fin'] ) );
+                printf( '<option value="%s"%s>%s (%s–%s)</option>', esc_attr( $key ), selected( $nivel_horario_id, (int) $horario['id'], false ), esc_html( $horario['nome'] ), esc_html( $horario['inicio'] ), esc_html( $horario['fin'] ) );
             }
             echo '</select></td>';
             printf( '<td><button type="button" class="button button-small est-eliminar-nivel" data-id="%d">%s</button></td>', $nid, esc_html__( 'Eliminar', 'anpa-socios' ) );
@@ -202,28 +211,6 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
         echo '<button type="button" id="anpa-est-gardar-niveis" class="button button-primary">' . esc_html__( 'Gardar cambios nos niveis', 'anpa-socios' ) . '</button>';
         echo '<span id="anpa-est-niveis-status" class="est-status" aria-live="polite"></span></div>';
         echo '</section></div>';
-
-        // ── Copy from course ──────────────────────────────────────
-        echo '<hr>';
-        echo '<h3>' . esc_html__( 'Copiar estrutura doutro curso', 'anpa-socios' ) . '</h3>';
-        echo '<form id="anpa-est-copy-form" class="anpa-est-form">';
-        echo '<input type="hidden" name="curso_escolar" value="' . esc_attr( $sel ) . '">';
-        echo '<table class="form-table" role="presentation"><tbody>';
-        echo '<tr><th scope="row"><label for="est-copy-orixe">' . esc_html__( 'Copiar desde', 'anpa-socios' ) . '</label></th><td>';
-        echo '<select name="orixe" id="est-copy-orixe">';
-        foreach ( $existing as $c ) {
-            if ( $c === $sel ) {
-                continue;
-            }
-            printf( '<option value="%s">%s</option>', esc_attr( $c ), esc_html( $c ) );
-        }
-        echo '</select>';
-        echo '<p class="description">' . esc_html__( 'Copiaranse os niveis e aulas que falten e reactivaranse os equivalentes inactivos. Os niveis activos xa configurados no destino consérvanse.', 'anpa-socios' ) . '</p>';
-        echo '</td></tr>';
-        echo '<tr><th scope="row">' . esc_html__( 'Comedor', 'anpa-socios' ) . '</th><td><label><input type="checkbox" name="copiar_comedor" value="1"> ' . esc_html__( 'Copiar tamén os horarios de comedor e as súas asociacións', 'anpa-socios' ) . '</label></td></tr>';
-        echo '</tbody></table>';
-        printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Copiar estrutura', 'anpa-socios' ) );
-        echo '</form>';
 
         // ── Inline JS: batch structure editor ────────────────────
         $rest_url = rest_url( ANPA_Socios_Admin_REST::REST_NAMESPACE . '/estrutura' );
@@ -244,8 +231,6 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
             var saveNiveisButton = document.getElementById( 'anpa-est-gardar-niveis' );
             var horariosStatus = document.getElementById( 'anpa-est-horarios-status' );
             var niveisStatus = document.getElementById( 'anpa-est-niveis-status' );
-            var copyForm = document.getElementById( 'anpa-est-copy-form' );
-            var copyDescription = copyForm ? copyForm.querySelector( '.description' ) : null;
             var letters = [ 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' ];
             var defaultLastClassroom = 'D';
             var horarioSequence = 0;
@@ -258,7 +243,6 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
             var labelDelete = '<?php echo esc_js( __( 'Eliminar', 'anpa-socios' ) ); ?>';
             var labelHorarioNovo = '<?php echo esc_js( __( 'Horario novo', 'anpa-socios' ) ); ?>';
             var labelNivelNovo = '<?php echo esc_js( __( 'Nivel novo', 'anpa-socios' ) ); ?>';
-            var messageCopyDescription = '<?php echo esc_js( __( 'Os niveis e aulas do curso orixe copiaranse para este curso segundo as regras do servidor.', 'anpa-socios' ) ); ?>';
             var messageNeedHorarioName = '<?php echo esc_js( __( 'Indica o nome do horario.', 'anpa-socios' ) ); ?>';
             var messageNeedPair = '<?php echo esc_js( __( 'Completa as dúas horas ou limpa o horario.', 'anpa-socios' ) ); ?>';
             var messageStartBeforeEnd = '<?php echo esc_js( __( 'A hora de inicio debe ser anterior á de fin.', 'anpa-socios' ) ); ?>';
@@ -283,18 +267,12 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
             var messageHorarioAdded = '<?php echo esc_js( __( 'Novo horario engadido. Completa os campos e garda os horarios antes de asignalo a un nivel.', 'anpa-socios' ) ); ?>';
             var messageHorarioRemoved = '<?php echo esc_js( __( 'Horario novo eliminado do borrador.', 'anpa-socios' ) ); ?>';
             var messageNivelAdded = '<?php echo esc_js( __( 'Nivel novo engadido ao borrador. Gárdao para persistilo.', 'anpa-socios' ) ); ?>';
-            var messageNeedCourseCopy = '<?php echo esc_js( __( 'Vai copiar a estrutura desde o curso seleccionado. Continuar?', 'anpa-socios' ) ); ?>';
-            var messageCopyFailed = '<?php echo esc_js( __( 'Non se puido copiar a estrutura.', 'anpa-socios' ) ); ?>';
             var messageLevelDeletePrompt = '<?php echo esc_js( __( 'Eliminar este nivel? O servidor decidirá se o borra ou o desactiva segundo as referencias activas. Continuar?', 'anpa-socios' ) ); ?>';
             var messageLevelDeletedLocal = '<?php echo esc_js( __( 'fila retirada do borrador.', 'anpa-socios' ) ); ?>';
             var messageLevelDeleteFailed = '<?php echo esc_js( __( 'Non se puido eliminar o nivel.', 'anpa-socios' ) ); ?>';
 
             if ( ! editor || ! horariosBody || ! niveisBody || ! saveHorariosButton || ! saveNiveisButton ) {
                 return;
-            }
-
-            if ( copyDescription ) {
-                copyDescription.textContent = messageCopyDescription;
             }
 
             function statusNode( scope ) {
@@ -315,7 +293,7 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
             }
 
             function mutationControls() {
-                return document.querySelectorAll( '#anpa-estrutura-editor input, #anpa-estrutura-editor select, #anpa-estrutura-editor button, #anpa-est-copy-form input, #anpa-est-copy-form select, #anpa-est-copy-form button, #est-curso' );
+                return document.querySelectorAll( '#anpa-estrutura-editor input, #anpa-estrutura-editor select, #anpa-estrutura-editor button, #est-curso' );
             }
 
             function setInteractionLocked( locked ) {
@@ -335,13 +313,6 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
                         editor.setAttribute( 'aria-busy', 'true' );
                     } else {
                         editor.removeAttribute( 'aria-busy' );
-                    }
-                }
-                if ( copyForm ) {
-                    if ( locked ) {
-                        copyForm.setAttribute( 'aria-busy', 'true' );
-                    } else {
-                        copyForm.removeAttribute( 'aria-busy' );
                     }
                 }
             }
@@ -1137,44 +1108,6 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
                     }
                     allowNavigation = true;
                     courseSelect.form.submit();
-                } );
-            }
-
-            if ( copyForm ) {
-                copyForm.addEventListener( 'submit', function( event ) {
-                    var data;
-
-                    event.preventDefault();
-                    if ( ! confirmDiscardDrafts() ) {
-                        return;
-                    }
-                    if ( ! confirm( messageNeedCourseCopy ) ) {
-                        return;
-                    }
-
-                    data = new FormData( copyForm );
-                    data.append( 'accion', 'copiar_estrutura' );
-                    data.append( 'curso_escolar', curso );
-
-                    beginRequest();
-                    fetch( api, {
-                        method: 'POST',
-                        headers: {
-                            'X-WP-Nonce': nonce
-                        },
-                        body: data
-                    } ).then( parseJsonResponse ).then( function( json ) {
-                        if ( json && true === json.success ) {
-                            allowNavigation = true;
-                            location.reload();
-                            return;
-                        }
-                        showResponseError( json, messageCopyFailed );
-                    } ).catch( function( err ) {
-                        setStatus( messageNetwork + err.message, true );
-                    } ).finally( function() {
-                        endRequest();
-                    } );
                 } );
             }
 

@@ -25,7 +25,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class ANPA_Socios_Backup {
 
 	const MAGIC   = 'ANPABAK1';
-	const VERSION = 6;
+	// v7 (fase31): adds the wp_anpa_niveis_curso per-course comedor pivot.
+	const VERSION = 7;
 
 	/**
 	 * Domain tables included in a backup, in FK-safe insert order.
@@ -45,6 +46,7 @@ final class ANPA_Socios_Backup {
 			'horarios_comedor'   => ANPA_Socios_DB::tabela_horarios_comedor(),
 			'niveis'             => ANPA_Socios_DB::tabela_niveis(),
 			'aulas'              => ANPA_Socios_DB::tabela_aulas(),
+			'niveis_curso'       => ANPA_Socios_DB::tabela_niveis_curso(),
 			'grupos'             => ANPA_Socios_DB::tabela_grupos(),
 			'grupos_niveis'      => ANPA_Socios_DB::tabela_grupos_niveis(),
 			'matriculas'         => ANPA_Socios_DB::tabela_matriculas(),

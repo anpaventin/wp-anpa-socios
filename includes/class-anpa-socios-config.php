@@ -81,6 +81,11 @@ final class ANPA_Socios_Config {
 	const OPTION_ADDRESS       = 'anpa_socios_association_address';
 	const OPTION_FEE           = 'anpa_socios_membership_fee';
 	const OPTION_MENU_NAME     = 'anpa_socios_menu_name';
+	// Opt-in beta channel: when '1', the self-hosted updater reads the
+	// prerelease metadata channel (details-prerelease.json) instead of the
+	// stable one. Default '0' so a production install NEVER receives a
+	// prerelease automatically.
+	const OPTION_USE_PRERELEASES = 'anpa_socios_use_prereleases';
 
 	// Localización (multi-tenant location defaults). Language is NOT a plugin
 	// setting: the plugin follows the WordPress site language (see i18n in the
@@ -252,5 +257,20 @@ final class ANPA_Socios_Config {
 	 */
 	public static function require_approval(): bool {
 		return '1' === (string) get_option( self::OPTION_APPROVAL, '0' );
+	}
+
+	/**
+	 * Whether this install opts in to the prerelease (beta) update channel.
+	 *
+	 * When true, the self-hosted updater reads details-prerelease.json and can
+	 * offer prerelease builds. Default false: a production install only ever
+	 * sees stable releases unless the admin explicitly enables this in
+	 * Axustes → Actualizacións.
+	 *
+	 * @since  1.46.0
+	 * @return bool
+	 */
+	public static function use_prereleases(): bool {
+		return '1' === (string) get_option( self::OPTION_USE_PRERELEASES, '0' );
 	}
 }

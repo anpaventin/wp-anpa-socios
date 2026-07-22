@@ -317,9 +317,9 @@ final class Test_ANPA_Socios_PR_ES8_Second_Half extends TestCase {
 	// Task 70: Backup version bump and v1 restore compatibility
 	// ────────────────────────────────────────────────────────────────────
 
-	public function test_backup_version_is_6_after_retiring_activity_courses(): void {
+	public function test_backup_version_is_7_with_per_course_comedor_pivot(): void {
 		require_once $this->backup_file;
-		$this->assertSame( 6, ANPA_Socios_Backup::VERSION );
+		$this->assertSame( 7, ANPA_Socios_Backup::VERSION );
 	}
 
 	public function test_restore_reads_payload_version(): void {

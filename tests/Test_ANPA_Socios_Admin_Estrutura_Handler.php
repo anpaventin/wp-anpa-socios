@@ -124,8 +124,10 @@ class Test_ANPA_Socios_Admin_Estrutura_Handler extends TestCase {
 		$this->assertStringContainsString( 'function endRequest()', $source );
 		$this->assertStringContainsString( 'function hasPendingRequests()', $source );
 		$this->assertStringContainsString( 'hasUnsavedDrafts() || hasPendingRequests()', $source );
-		$this->assertGreaterThanOrEqual( 4, substr_count( $source, 'beginRequest();' ) );
-		$this->assertGreaterThanOrEqual( 4, substr_count( $source, 'endRequest();' ) );
+		// Three in-flight mutations remain after the obsolete "copiar estrutura"
+		// flow was removed (global niveis): delete horario, delete nivel, save.
+		$this->assertGreaterThanOrEqual( 3, substr_count( $source, 'beginRequest();' ) );
+		$this->assertGreaterThanOrEqual( 3, substr_count( $source, 'endRequest();' ) );
 	}
 
     public function test_page_inline_js_posts_one_json_snapshot(): void {

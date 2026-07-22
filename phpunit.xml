@@ -82,6 +82,8 @@
       <file>tests/Test_ANPA_Socios_Activity_Group_Projection.php</file>
       <file>tests/Test_ANPA_Socios_Fase30_Current_Group_Year.php</file>
       <file>tests/Test_ANPA_Socios_Fase30_Admin_Group_UI.php</file>
+      <file>tests/Test_ANPA_Socios_Niveis_Curso_Pivot.php</file>
+      <file>tests/Test_ANPA_Socios_Prerelease_Channel.php</file>
     </testsuite>
   </testsuites>
 </phpunit>
