@@ -141,6 +141,23 @@ final class ANPA_Socios_Admin_Settings {
 	}
 
 	/**
+	 * Value to prefill the wizard's email-signature field.
+	 *
+	 * Uses the saved signature if one already exists; otherwise a neutral
+	 * template built from the association name option (no association-specific
+	 * data is hardcoded, so the public plugin stays reusable).
+	 *
+	 * @return string
+	 */
+	private static function wizard_signature_prefill(): string {
+		$saved = trim( ANPA_Socios_Config::email_signature() );
+		if ( '' !== $saved ) {
+			return $saved;
+		}
+		return "—\n" . ANPA_Socios_Config::association_name();
+	}
+
+	/**
 	 * Settings screen dispatcher. Handles the setup self-POST inline so its
 	 * result renders inside the WordPress admin UI.
 	 *
@@ -244,15 +261,29 @@ final class ANPA_Socios_Admin_Settings {
 			esc_html__( 'Amósase no formulario de alta.', 'anpa-socios' )
 		);
 		printf(
-			'<tr><th scope="row"><label for="anpa-w-contact">%s</label></th><td><input name="contact_email" id="anpa-w-contact" type="email" class="regular-text" value="%s"></td></tr>',
+			'<tr><th scope="row"><label for="anpa-w-contact">%s</label></th><td><input name="contact_email" id="anpa-w-contact" type="email" class="regular-text" value="%s"><p class="description">%s</p></td></tr>',
 			esc_html__( 'Email de contacto para familias', 'anpa-socios' ),
-			esc_attr( ANPA_Socios_Config::contact_email() )
+			esc_attr( ANPA_Socios_Config::contact_email() ),
+			esc_html__( 'Enderezo público ao que escriben as familias.', 'anpa-socios' )
 		);
 		printf(
-			'<tr><th scope="row"><label for="anpa-w-addr">%s</label></th><td><input name="association_address" id="anpa-w-addr" type="text" class="regular-text" value="%s"><p class="description">%s</p></td></tr>',
+			'<tr><th scope="row"><label for="anpa-w-master">%s</label></th><td><input name="master_email" id="anpa-w-master" type="email" class="regular-text" value="%s"><p class="description">%s</p></td></tr>',
+			esc_html__( 'Email do administrador raíz', 'anpa-socios' ),
+			esc_attr( ANPA_Socios_Config::master_email() ),
+			esc_html__( 'Conta protexida que nunca se pode dar de baixa nin eliminar. Non controla o remitente dos correos (iso configúrase en WP Mail SMTP).', 'anpa-socios' )
+		);
+		printf(
+			'<tr><th scope="row"><label for="anpa-w-addr">%s</label></th><td><input name="association_address" id="anpa-w-addr" type="text" class="regular-text" placeholder="%s" value="%s"><p class="description">%s</p></td></tr>',
 			esc_html__( 'Enderezo (para o aviso RGPD)', 'anpa-socios' ),
+			esc_attr__( 'Rúa Exemplo, 1', 'anpa-socios' ),
 			esc_attr( ANPA_Socios_Config::association_address() ),
-			esc_html__( 'Opcional.', 'anpa-socios' )
+			esc_html__( 'Amósase no aviso de protección de datos (RGPD) do formulario de alta. Opcional.', 'anpa-socios' )
+		);
+		printf(
+			'<tr><th scope="row"><label for="anpa-w-sign">%s</label></th><td><textarea name="email_signature" id="anpa-w-sign" class="large-text" rows="3">%s</textarea><p class="description">%s</p></td></tr>',
+			esc_html__( 'Firma dos correos', 'anpa-socios' ),
+			esc_textarea( self::wizard_signature_prefill() ),
+			esc_html__( 'Engádese ao final dos correos que envía o plugin. Podes editala.', 'anpa-socios' )
 		);
 		printf(
 			'<tr><th scope="row"><label for="anpa-w-menu">%s</label></th><td><input name="menu_name" id="anpa-w-menu" type="text" class="regular-text" maxlength="%d" value="%s"><p class="description">%s</p></td></tr>',
@@ -271,7 +302,7 @@ final class ANPA_Socios_Admin_Settings {
 		printf( '<tr><th scope="row"><label for="anpa-w-country">%s</label></th><td><input name="country" id="anpa-w-country" type="text" class="regular-text" value="%s"></td></tr>', esc_html__( 'País', 'anpa-socios' ), esc_attr( ANPA_Socios_Config::country() ) );
 		printf( '<tr><th scope="row"><label for="anpa-w-prov">%s</label></th><td><input name="default_province" id="anpa-w-prov" type="text" class="regular-text" value="%s"></td></tr>', esc_html__( 'Provincia', 'anpa-socios' ), esc_attr( ANPA_Socios_Config::default_province() ) );
 		printf( '<tr><th scope="row"><label for="anpa-w-town">%s</label></th><td><input name="default_town" id="anpa-w-town" type="text" class="regular-text" value="%s"></td></tr>', esc_html__( 'Poboación', 'anpa-socios' ), esc_attr( ANPA_Socios_Config::default_town() ) );
-		printf( '<tr><th scope="row"><label for="anpa-w-cp">%s</label></th><td><input name="default_postal_code" id="anpa-w-cp" type="text" inputmode="numeric" maxlength="10" class="regular-text" value="%s"></td></tr>', esc_html__( 'Código postal', 'anpa-socios' ), esc_attr( ANPA_Socios_Config::default_postal_code() ) );
+		printf( '<tr><th scope="row"><label for="anpa-w-cp">%s</label></th><td><input name="default_postal_code" id="anpa-w-cp" type="text" inputmode="numeric" maxlength="10" class="regular-text" placeholder="%s" value="%s"></td></tr>', esc_html__( 'Código postal', 'anpa-socios' ), esc_attr__( '00000', 'anpa-socios' ), esc_attr( ANPA_Socios_Config::default_postal_code() ) );
 		echo '</tbody></table>';
 
 		// ── Estrutura escolar por defecto (niveis + aulas) ────────────
@@ -354,7 +385,14 @@ final class ANPA_Socios_Admin_Settings {
 		if ( is_email( $contact_email ) ) {
 			update_option( ANPA_Socios_Config::OPTION_CONTACT_EMAIL, $contact_email );
 		}
+		$master_email = sanitize_email( (string) wp_unslash( $_POST['master_email'] ?? '' ) );
+		if ( is_email( $master_email ) ) {
+			update_option( ANPA_Socios_Config::OPTION, strtolower( $master_email ) );
+		}
 		update_option( ANPA_Socios_Config::OPTION_ADDRESS, sanitize_text_field( (string) wp_unslash( $_POST['association_address'] ?? '' ) ) );
+		if ( isset( $_POST['email_signature'] ) ) {
+			update_option( ANPA_Socios_Config::OPTION_SIGNATURE, sanitize_textarea_field( (string) wp_unslash( $_POST['email_signature'] ) ) );
+		}
 		$menu_name = trim( wp_strip_all_tags( (string) wp_unslash( $_POST['menu_name'] ?? '' ) ) );
 		if ( '' !== $menu_name ) {
 			update_option( ANPA_Socios_Config::OPTION_MENU_NAME, $menu_name );
