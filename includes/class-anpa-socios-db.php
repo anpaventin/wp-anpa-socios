@@ -87,11 +87,14 @@ class ANPA_Socios_DB {
 	 *        a per-course comedor schedule; backfills from the legacy global
 	 *        niveis.horario_comedor_id column, which is kept as a compatibility
 	 *        bridge until the destructive 1.37.0 migration retires it.
+	 * 1.37.0 (fase31) drops the now-unused legacy comedor columns from niveis
+	 *        (horario_comedor_id, comedor_inicio, comedor_fin) after the pivot
+	 *        cutover; the wp_anpa_niveis_curso pivot is the sole authority.
 	 *
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.36.0';
+	const DB_VERSION = '1.37.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -294,6 +297,14 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.36.0', '<' ) && ! self::migrate_to_1_36_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.36.0 (migrate_to_1_36_0): ' . $wpdb->last_error );
+			return;
+		}
+
+		// 1.37.0: drop the legacy comedor columns from niveis (pivot is authority).
+		$wpdb->last_error = '';
+		if ( version_compare( $installed_version, '1.37.0', '<' ) && ! self::migrate_to_1_37_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.37.0 (migrate_to_1_37_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -3003,6 +3014,14 @@ class ANPA_Socios_DB {
 		$niveis   = self::tabela_niveis();
 		$horarios = self::tabela_horarios_comedor();
 
+		// Post-1.37.0 the legacy per-level meal columns (comedor_inicio/fin,
+		// horario_comedor_id) no longer exist; there is nothing to promote.
+		// Guarding here keeps both the 1.33.0 migration re-runs and old-backup
+		// restore safe once the columns are gone.
+		if ( ! self::tem_columna( $niveis, 'comedor_inicio' ) ) {
+			return true;
+		}
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent data promotion.
 		if ( false === $wpdb->query(
 			"INSERT INTO {$horarios} (curso_escolar, nome, inicio, fin, orde, estado, creado_en, actualizado_en)
@@ -3597,6 +3616,45 @@ class ANPA_Socios_DB {
 				if ( '' === (string) $wpdb->last_error ) {
 					$wpdb->last_error = '1.36.0 comedor pivot backfill postcondition failed';
 				}
+				return false;
+			}
+		}
+
+		return '' === (string) $wpdb->last_error;
+	}
+
+	/**
+	 * Migration 1.37.0 (fase31): retire the legacy comedor columns from niveis.
+	 *
+	 * DESTRUCTIVE but gated: runs only after the pivot cutover (1.36.0 + code)
+	 * so no reader/writer depends on niveis.horario_comedor_id/comedor_inicio/
+	 * comedor_fin anymore. Each DROP is guarded by a column-existence check, so
+	 * the step is idempotent and fail-closed. Dropping horario_comedor_id also
+	 * removes its single-column index automatically.
+	 *
+	 * @since  1.46.0
+	 * @return bool Whether the migration completed.
+	 */
+	private static function migrate_to_1_37_0(): bool {
+		global $wpdb;
+
+		$niveis  = self::tabela_niveis();
+		$columns = array( 'horario_comedor_id', 'comedor_inicio', 'comedor_fin' );
+
+		foreach ( $columns as $column ) {
+			if ( ! self::tem_columna( $niveis, $column ) ) {
+				continue;
+			}
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$niveis} DROP COLUMN {$column}" ) ) {
+				return false;
+			}
+		}
+
+		// Postcondition: every legacy comedor column is really gone.
+		foreach ( $columns as $column ) {
+			if ( self::tem_columna( $niveis, $column ) ) {
+				$wpdb->last_error = '1.37.0 comedor column retirement postcondition failed';
 				return false;
 			}
 		}

@@ -605,30 +605,29 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
             foreach ( $niveis as $nivel ) {
                 $horario_key = $nivel['horario_comedor_key'];
                 $horario_id  = '' !== $horario_key ? $horario_ids[ $horario_key ] : null;
-                $inicio      = '' !== $horario_key ? $horarios[ $horario_key ]['inicio'] : null;
-                $fin         = '' !== $horario_key ? $horarios[ $horario_key ]['fin'] : null;
                 $nivel_id    = $nivel['id'];
 
                 if ( $nivel_id < 1 ) {
                     $nivel_id = 0;
                 }
 
+                // Levels are global (since 1.35.0) and their comedor is stored
+                // per-course in the pivot (since 1.36.0); the niveis row no longer
+                // carries horario_comedor_id/comedor_inicio/comedor_fin (dropped
+                // in 1.37.0). The comedor assignment is written below via the
+                // pivot (set_nivel_comedor).
                 $values = array(
-                    'codigo'              => $nivel['codigo'],
-                    'etiqueta'            => $nivel['codigo'],
-                    'orde'                => $nivel['orde'],
-                    'horario_comedor_id'  => $horario_id,
-                    'comedor_inicio'      => $inicio,
-                    'comedor_fin'         => $fin,
-                    'estado'              => 'activo',
-                    'actualizado_en'      => current_time( 'mysql' ),
+                    'codigo'         => $nivel['codigo'],
+                    'etiqueta'       => $nivel['codigo'],
+                    'orde'           => $nivel['orde'],
+                    'estado'         => 'activo',
+                    'actualizado_en' => current_time( 'mysql' ),
                 );
                 if ( $nivel_id > 0 ) {
-                		$written = $wpdb->update( $niveis_t, $values, array( 'id' => $nivel_id ), array( '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s' ), array( '%d' ) );
+                		$written = $wpdb->update( $niveis_t, $values, array( 'id' => $nivel_id ), array( '%s', '%s', '%d', '%s', '%s' ), array( '%d' ) );
                 	} else {
-                		// Levels are global (since 1.35.0): no curso_escolar column.
                 		$values['creado_en'] = current_time( 'mysql' );
-                		$written = $wpdb->insert( $niveis_t, $values, array( '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s' ) );
+                		$written = $wpdb->insert( $niveis_t, $values, array( '%s', '%s', '%d', '%s', '%s', '%s' ) );
                 		$nivel_id = (int) $wpdb->insert_id;
                 	}
                 if ( false === $written || $nivel_id < 1 || ! self::sync_aulas_nivel( $nivel_id, $nivel['ultima_aula'] ) ) {
@@ -748,24 +747,9 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
             }
         }
 
-        $updated = $wpdb->update(
-            $niveis_t,
-            array(
-                'horario_comedor_id' => $horario_id,
-                'comedor_inicio'     => $interval['inicio'] ?? null,
-                'comedor_fin'        => $interval['fin'] ?? null,
-                'actualizado_en'     => current_time( 'mysql' ),
-            ),
-            array( 'id' => $nivel_id ),
-            array( '%d', '%s', '%s', '%s' ),
-            array( '%d' )
-        );
-        if ( false === $updated ) {
-            $wpdb->query( 'ROLLBACK' );
-            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido gardar o horario de comedor.', 'anpa-socios' ) ), 500 );
-        }
-        // fase31: authoritative per-course comedor assignment (pivot). Clearing
-        // the window (null id) removes the pivot row for this course.
+        // fase31: comedor is stored per-course in the pivot ONLY. The niveis
+        // bridge columns (horario_comedor_id/comedor_inicio/comedor_fin) were
+        // dropped in 1.37.0. Clearing the window (null id) removes the pivot row.
         if ( ! ANPA_Socios_DB::set_nivel_comedor( $nivel_id, $curso, null !== $horario_id ? (int) $horario_id : null ) ) {
             $wpdb->query( 'ROLLBACK' );
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido gardar o horario de comedor.', 'anpa-socios' ) ), 500 );

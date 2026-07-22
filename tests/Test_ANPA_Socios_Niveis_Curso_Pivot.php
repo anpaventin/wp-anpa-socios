@@ -36,15 +36,16 @@ final class Test_ANPA_Socios_Niveis_Curso_Pivot extends TestCase {
 		$source = file_get_contents( $this->db_file );
 		$start  = strpos( $source, 'private static function migrate_to_1_36_0' );
 		$this->assertNotFalse( $start, 'migrate_to_1_36_0 must exist.' );
-		// The next method after it is get_niveis_comedor_curso.
-		$end = strpos( $source, 'public static function get_niveis_comedor_curso', $start );
+		// The method right after 1.36.0 is the destructive 1.37.0 migration; the
+		// 1.36.0 body ends there (do NOT run into 1.37.0's DROP COLUMN).
+		$end = strpos( $source, 'private static function migrate_to_1_37_0', $start );
 		$this->assertNotFalse( $end );
 		return substr( $source, $start, $end - $start );
 	}
 
-	public function test_db_version_bumped_to_1_36_0_and_wired_in_chain(): void {
+	public function test_db_version_bumped_and_1_36_0_wired_in_chain(): void {
 		$source = file_get_contents( $this->db_file );
-		$this->assertStringContainsString( "const DB_VERSION = '1.36.0';", $source );
+		$this->assertStringContainsString( "const DB_VERSION = '1.37.0';", $source );
 		$this->assertStringContainsString( "version_compare( \$installed_version, '1.36.0', '<' ) && ! self::migrate_to_1_36_0()", $source );
 	}
 
