@@ -87,6 +87,7 @@
       <file>tests/Test_ANPA_Socios_Uninstall.php</file>
       <file>tests/Test_ANPA_Socios_Import_Row_Selection.php</file>
       <file>tests/Test_ANPA_Socios_Setup_Wizard.php</file>
+      <file>tests/Test_ANPA_Socios_Fillos_Grouped_Header.php</file>
     </testsuite>
   </testsuites>
 </phpunit>
