@@ -2478,12 +2478,18 @@
 						if (data.to_insert_count > 0) {
 							commitBtn.style.display = '';
 							commitBtn.onclick = function () {
-								if (!window.confirm('Confirmar a importaci\u00F3n de ' + data.to_insert_count + ' rexistros?')) { return; }
+								var excluded = [];
+								reportArea.querySelectorAll('input[type="checkbox"][data-row-index]').forEach(function (c) {
+									if (!c.checked) { excluded.push(parseInt(c.dataset.rowIndex, 10)); }
+								});
+								var willImport = data.to_insert_count - excluded.length;
+								if (willImport <= 0) { showMessage('Non hai filas seleccionadas para importar.', 'error'); return; }
+								if (!window.confirm('Confirmar a importaci\u00F3n de ' + willImport + ' rexistros?')) { return; }
 								commitBtn.disabled = true;
 								commitBtn.textContent = 'Importando\u2026';
 								anpaAdminFetch('import/' + entity, {
 									method: 'POST',
-									body: { csv: csvText, commit: true },
+									body: { csv: csvText, commit: true, exclude_rows: excluded },
 								}).then(function (result) {
 									commitBtn.style.display = 'none';
 									renderImportResult(reportArea, result);
@@ -2993,17 +2999,35 @@
 			container.appendChild(errList);
 		}
 
-		if (data.preview && data.preview.length > 0) {
+		// All rows that would be inserted (with implicit position index). The
+		// user can uncheck individual rows to exclude them from the import.
+		var insertRows = (data.insert_rows && data.insert_rows.length) ? data.insert_rows : (data.preview || []);
+		if (insertRows.length > 0) {
 			var preTitle = document.createElement('p');
 			preTitle.style.fontWeight = 'bold';
-			preTitle.textContent = 'Vista previa (primeiras ' + data.preview.length + ' filas a inserir):';
+			preTitle.textContent = 'Filas a inserir (' + insertRows.length + '). Desmarca as que non queiras importar:';
 			container.appendChild(preTitle);
-			var cols = Object.keys(data.preview[0]);
+			var cols = Object.keys(insertRows[0]);
+			var wrap = document.createElement('div');
+			wrap.style.maxHeight = '340px';
+			wrap.style.overflow = 'auto';
+			wrap.style.border = '1px solid #dcdcde';
+			wrap.style.marginTop = '0.25rem';
 			var preTable = document.createElement('table');
-			preTable.className = 'anpa-mgmt-table';
+			preTable.className = 'anpa-mgmt-table anpa-import-preview';
 			preTable.style.fontSize = '12px';
 			var thead = document.createElement('thead');
 			var hr = document.createElement('tr');
+			var thAll = document.createElement('th');
+			var allChk = document.createElement('input');
+			allChk.type = 'checkbox';
+			allChk.checked = true;
+			allChk.setAttribute('aria-label', 'Marcar/desmarcar todas');
+			allChk.addEventListener('change', function () {
+				preTable.querySelectorAll('tbody input[type="checkbox"][data-row-index]').forEach(function (c) { c.checked = allChk.checked; });
+			});
+			thAll.appendChild(allChk);
+			hr.appendChild(thAll);
 			cols.forEach(function (c) {
 				var th = document.createElement('th');
 				th.textContent = colLabel(c) || c;
@@ -3012,8 +3036,15 @@
 			thead.appendChild(hr);
 			preTable.appendChild(thead);
 			var tbody = document.createElement('tbody');
-			data.preview.forEach(function (row) {
+			insertRows.forEach(function (row, idx) {
 				var tr = document.createElement('tr');
+				var tdChk = document.createElement('td');
+				var chk = document.createElement('input');
+				chk.type = 'checkbox';
+				chk.checked = true;
+				chk.setAttribute('data-row-index', String(idx));
+				tdChk.appendChild(chk);
+				tr.appendChild(tdChk);
 				cols.forEach(function (c) {
 					var td = document.createElement('td');
 					td.textContent = row[c] != null ? String(row[c]) : '';
@@ -3022,7 +3053,8 @@
 				tbody.appendChild(tr);
 			});
 			preTable.appendChild(tbody);
-			container.appendChild(preTable);
+			wrap.appendChild(preTable);
+			container.appendChild(wrap);
 		}
 	}
 

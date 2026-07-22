@@ -94,15 +94,24 @@ final class ANPA_Socios_Admin_Import_Handler {
 			}
 		}
 
+		// Canonical, position-indexed list of rows that would be inserted. The
+		// position (0..n-1) is a stable identifier between dry-run and commit
+		// because the same CSV is re-analyzed the same way on commit, so the UI
+		// can let the user uncheck individual rows and send their positions back.
+		$to_insert = array_values( $report['to_insert'] );
+
 		if ( ! $commit ) {
 			// Dry-run response.
-			$preview = array_slice( $report['to_insert'], 0, self::PREVIEW_LIMIT );
+			$preview = array_slice( $to_insert, 0, self::PREVIEW_LIMIT );
 			$response_data = array(
 				'total'            => count( $rows ),
-				'to_insert_count'  => count( $report['to_insert'] ),
+				'to_insert_count'  => count( $to_insert ),
 				'duplicates_count' => count( $report['duplicates'] ),
 				'errors'           => $report['errors'],
 				'preview'          => $preview,
+				// Full list (with implicit position index) so the UI can render a
+				// checkbox per row and exclude individual ones on commit.
+				'insert_rows'      => $to_insert,
 			);
 			if ( ! empty( $fillos_warnings ) ) {
 				$response_data['warnings'] = $fillos_warnings;
@@ -110,8 +119,24 @@ final class ANPA_Socios_Admin_Import_Handler {
 			return new WP_REST_Response( $response_data, 200 );
 		}
 
-		// Commit mode.
-		$result = self::commit_rows( $entity, $report['to_insert'], $request );
+		// Commit mode. Drop any row positions the user unchecked in the preview.
+		$exclude = array();
+		foreach ( (array) ( $body['exclude_rows'] ?? array() ) as $ix ) {
+			if ( is_numeric( $ix ) ) {
+				$exclude[ (int) $ix ] = true;
+			}
+		}
+		if ( ! empty( $exclude ) ) {
+			$kept = array();
+			foreach ( $to_insert as $pos => $row ) {
+				if ( ! isset( $exclude[ $pos ] ) ) {
+					$kept[] = $row;
+				}
+			}
+			$to_insert = $kept;
+		}
+
+		$result = self::commit_rows( $entity, $to_insert, $request );
 
 		return new WP_REST_Response( $result, 200 );
 	}

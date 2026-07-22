@@ -208,7 +208,7 @@ class ANPA_Socios_Socios_Page {
 					<input id="anpa-sepa-poboacion" type="text" autocomplete="address-level2" required data-validate="sepa_poboacion" value="<?php echo esc_attr( ANPA_Socios_Config::default_town() ); ?>">
 					<span class="anpa-field-error" data-error="sepa_poboacion" hidden></span>
 					<label for="anpa-sepa-cp"><?php esc_html_e( 'Código postal', 'anpa-socios' ); ?> <span class="anpa-required has-vivid-red-color">*</span></label>
-					<input id="anpa-sepa-cp" type="text" inputmode="numeric" maxlength="5" autocomplete="off" required data-validate="sepa_cp">
+					<input id="anpa-sepa-cp" type="text" inputmode="numeric" maxlength="5" autocomplete="off" required data-validate="sepa_cp" value="<?php echo esc_attr( ANPA_Socios_Config::default_postal_code() ); ?>">
 					<span class="anpa-field-error" data-error="sepa_cp" hidden></span>
 					<label for="anpa-sepa-entidade"><?php esc_html_e( 'Nome da entidade bancaria', 'anpa-socios' ); ?> <span class="anpa-required has-vivid-red-color">*</span></label>
 					<input id="anpa-sepa-entidade" type="text" autocomplete="off" required data-validate="sepa_entidade">

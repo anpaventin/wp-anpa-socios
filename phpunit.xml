@@ -85,6 +85,7 @@
       <file>tests/Test_ANPA_Socios_Niveis_Curso_Pivot.php</file>
       <file>tests/Test_ANPA_Socios_Prerelease_Channel.php</file>
       <file>tests/Test_ANPA_Socios_Uninstall.php</file>
+      <file>tests/Test_ANPA_Socios_Import_Row_Selection.php</file>
     </testsuite>
   </testsuites>
 </phpunit>
