@@ -3435,6 +3435,40 @@ class ANPA_Socios_DB {
 			$remapped += (int) $result;
 		}
 
+		// Step 2b: Remap grupos_niveis.nivel_id (same mapping).
+		$gn_t     = self::tabela_grupos_niveis();
+		$gn_table_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $gn_t ) );
+		if ( $gn_table_exists ) {
+			foreach ( $mapping as $old_id => $new_id ) {
+				if ( $old_id === $new_id ) {
+					continue;
+				}
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one-time migration write.
+				$wpdb->query( $wpdb->prepare(
+					"UPDATE {$gn_t} SET nivel_id = %d WHERE nivel_id = %d",
+					$new_id,
+					$old_id
+				) );
+			}
+		}
+
+		// Step 2c: Remap aulas.nivel_id (same mapping).
+		$aulas_t  = self::tabela_aulas();
+		$aulas_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $aulas_t ) );
+		if ( $aulas_exists ) {
+			foreach ( $mapping as $old_id => $new_id ) {
+				if ( $old_id === $new_id ) {
+					continue;
+				}
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one-time migration write.
+				$wpdb->query( $wpdb->prepare(
+					"UPDATE {$aulas_t} SET nivel_id = %d WHERE nivel_id = %d",
+					$new_id,
+					$old_id
+				) );
+			}
+		}
+
 		// Step 3: Delete the duplicate nivel rows (the ones NOT in keep_ids).
 		if ( ! empty( $old_ids ) ) {
 			$placeholders = implode( ',', array_fill( 0, count( $old_ids ), '%d' ) );

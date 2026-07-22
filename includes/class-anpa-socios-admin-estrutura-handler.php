@@ -4,7 +4,7 @@
  *
  * Endpoints:
  *   GET  /admin/estrutura?curso_escolar=X  — list niveis + aulas
- *   POST /admin/estrutura                  — engadir nivel / copiar estrutura
+ *   POST /admin/estrutura                  — engadir nivel / gardar estrutura
  *   DELETE /admin/estrutura?nivel_id=N     — borrar/desactivar nivel
  *
  * @since  1.27.0
@@ -156,8 +156,6 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
                 return self::eliminar_horario_comedor( $curso, $request );
             case 'gardar_comedor':
                 return self::gardar_comedor( $curso, $request );
-            case 'copiar_estrutura':
-                return self::copiar_estrutura( $curso, $request );
             default:
                 return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Acción descoñecida.', 'anpa-socios' ) ), 400 );
         }
@@ -616,13 +614,13 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
                     'actualizado_en'      => current_time( 'mysql' ),
                 );
                 if ( $nivel_id > 0 ) {
-                    $written = $wpdb->update( $niveis_t, $values, array( 'id' => $nivel_id ), array( '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s' ), array( '%d' ) );
-                } else {
-                    $values['curso_escolar'] = $curso;
-                    $values['creado_en'] = current_time( 'mysql' );
-                    $written = $wpdb->insert( $niveis_t, $values, array( '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s' ) );
-                    $nivel_id = (int) $wpdb->insert_id;
-                }
+                		$written = $wpdb->update( $niveis_t, $values, array( 'id' => $nivel_id ), array( '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s' ), array( '%d' ) );
+                	} else {
+                		// Levels are global (since 1.35.0): no curso_escolar column.
+                		$values['creado_en'] = current_time( 'mysql' );
+                		$written = $wpdb->insert( $niveis_t, $values, array( '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s' ) );
+                		$nivel_id = (int) $wpdb->insert_id;
+                	}
                 if ( false === $written || $nivel_id < 1 || ! self::sync_aulas_nivel( $nivel_id, $nivel['ultima_aula'] ) ) {
                     $wpdb->query( 'ROLLBACK' );
                     return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido gardar a estrutura completa.', 'anpa-socios' ) ), 500 );
@@ -1177,190 +1175,6 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
     }
 
     /**
-     * Copia niveis e aulas doutro curso. INSERT IGNORE — non sobrescribe existentes.
-     *
-     * @param  string          $curso   Curso destino.
-     * @param  WP_REST_Request $request Incoming request.
-     * @return WP_REST_Response
-     */
-    private static function copiar_estrutura( string $curso, WP_REST_Request $request ): WP_REST_Response {
-        global $wpdb;
-
-        $orixe          = $request->get_param( 'orixe' );
-        $copiar_comedor = rest_sanitize_boolean( $request->get_param( 'copiar_comedor' ) );
-        if ( ! is_string( $orixe ) || ! ANPA_Socios_Curso_Escolar::is_valid( $orixe ) ) {
-            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Curso orixe inválido.', 'anpa-socios' ) ), 400 );
-        }
-
-        $niveis_t   = ANPA_Socios_DB::tabela_niveis();
-        $aulas_t    = ANPA_Socios_DB::tabela_aulas();
-        $horarios_t = ANPA_Socios_DB::tabela_horarios_comedor();
-
-        if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
-            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido iniciar a copia da estrutura.', 'anpa-socios' ) ), 500 );
-        }
-
-        $wpdb->last_error = '';
-        $reactivated_level_ids = $wpdb->get_col( $wpdb->prepare(
-            "SELECT nd.id FROM {$niveis_t} nd
-             INNER JOIN {$niveis_t} no ON no.curso_escolar = %s AND no.codigo = nd.codigo AND no.estado = 'activo'
-             WHERE nd.curso_escolar = %s AND nd.estado = 'inactivo'
-             ORDER BY nd.id FOR UPDATE",
-            $orixe,
-            $curso
-        ) );
-        if ( '' !== (string) $wpdb->last_error || ! is_array( $reactivated_level_ids ) ) {
-            $wpdb->query( 'ROLLBACK' );
-            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puideron bloquear os niveis de destino.', 'anpa-socios' ) ), 500 );
-        }
-        $reactivated_level_ids = array_values( array_map( 'intval', $reactivated_level_ids ) );
-
-        // Reactivate matching legacy placeholders before inserting missing levels.
-        // Existing active destination rows remain authoritative and untouched.
-        $reactivated_niveis = $wpdb->query( $wpdb->prepare(
-            "UPDATE {$niveis_t} nd
-             INNER JOIN {$niveis_t} no ON no.curso_escolar = %s AND no.codigo = nd.codigo AND no.estado = 'activo'
-             SET nd.etiqueta = no.etiqueta, nd.orde = no.orde, nd.estado = 'activo', nd.actualizado_en = NOW()
-             WHERE nd.curso_escolar = %s AND nd.estado = 'inactivo'",
-            $orixe,
-            $curso
-        ) );
-        if ( false === $reactivated_niveis ) {
-            $wpdb->query( 'ROLLBACK' );
-            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Erro ao reactivar niveis existentes.', 'anpa-socios' ) ), 500 );
-        }
-
-        // Copy missing active niveis; INSERT IGNORE preserves active destination rows.
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin REST handler with transaction.
-        $copied_niveis = $wpdb->query( $wpdb->prepare(
-            "INSERT IGNORE INTO {$niveis_t} (curso_escolar, codigo, etiqueta, orde, estado, creado_en, actualizado_en)
-             SELECT %s, codigo, etiqueta, orde, estado, NOW(), NOW()
-             FROM {$niveis_t} WHERE curso_escolar = %s AND estado = 'activo'",
-            $curso,
-            $orixe
-        ) );
-        if ( false === $copied_niveis ) {
-            $wpdb->query( 'ROLLBACK' );
-            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Erro ao copiar niveis.', 'anpa-socios' ) ), 500 );
-        }
-
-        $reactivated_comedor = 0;
-        $copied_comedor      = 0;
-        $linked_comedor      = 0;
-        if ( $copiar_comedor ) {
-            $reactivated_comedor = $wpdb->query( $wpdb->prepare(
-                "UPDATE {$horarios_t} hd
-                 INNER JOIN {$horarios_t} ho ON ho.curso_escolar = %s
-                    AND ho.inicio = hd.inicio AND ho.fin = hd.fin AND ho.estado = 'activo'
-                 SET hd.nome = ho.nome, hd.orde = ho.orde, hd.estado = 'activo', hd.actualizado_en = NOW()
-                 WHERE hd.curso_escolar = %s AND hd.estado = 'inactivo'",
-                $orixe,
-                $curso
-            ) );
-            if ( false === $reactivated_comedor ) {
-                $wpdb->query( 'ROLLBACK' );
-                return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Erro ao reactivar os horarios de comedor.', 'anpa-socios' ) ), 500 );
-            }
-
-            $copied_comedor = $wpdb->query( $wpdb->prepare(
-                "INSERT IGNORE INTO {$horarios_t} (curso_escolar, nome, inicio, fin, orde, estado, creado_en, actualizado_en)
-                 SELECT %s, nome, inicio, fin, orde, estado, NOW(), NOW()
-                 FROM {$horarios_t} WHERE curso_escolar = %s AND estado = 'activo'",
-                $curso,
-                $orixe
-            ) );
-            if ( false === $copied_comedor ) {
-                $wpdb->query( 'ROLLBACK' );
-                return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Erro ao copiar os horarios de comedor.', 'anpa-socios' ) ), 500 );
-            }
-
-            $link_condition = 'nd.horario_comedor_id IS NULL';
-            $link_args      = array( $orixe, $curso, $curso );
-            if ( array() !== $reactivated_level_ids ) {
-                $level_in       = implode( ',', array_fill( 0, count( $reactivated_level_ids ), '%d' ) );
-                $link_condition = "(nd.horario_comedor_id IS NULL OR nd.id IN ({$level_in}))";
-                $link_args      = array_merge( $link_args, $reactivated_level_ids );
-            }
-            $linked_comedor = $wpdb->query( $wpdb->prepare(
-                "UPDATE {$niveis_t} nd
-                 INNER JOIN {$niveis_t} no ON no.curso_escolar = %s AND no.codigo = nd.codigo AND no.estado = 'activo'
-                 INNER JOIN {$horarios_t} ho ON ho.id = no.horario_comedor_id AND ho.estado = 'activo'
-                 INNER JOIN {$horarios_t} hd ON hd.curso_escolar = %s AND hd.inicio = ho.inicio AND hd.fin = ho.fin AND hd.estado = 'activo'
-                 SET nd.horario_comedor_id = hd.id,
-                     nd.comedor_inicio = hd.inicio,
-                     nd.comedor_fin = hd.fin,
-                     nd.actualizado_en = NOW()
-                 WHERE nd.curso_escolar = %s AND {$link_condition}",
-                ...$link_args
-            ) );
-            if ( false === $linked_comedor ) {
-                $wpdb->query( 'ROLLBACK' );
-                return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Erro ao asociar os horarios de comedor.', 'anpa-socios' ) ), 500 );
-            }
-        }
-
-        // Reactivate matching classrooms left inactive by legacy seeded targets.
-        $reactivated_aulas = $wpdb->query( $wpdb->prepare(
-            "UPDATE {$aulas_t} ad
-             INNER JOIN {$niveis_t} nd ON nd.id = ad.nivel_id AND nd.curso_escolar = %s AND nd.estado = 'activo'
-             INNER JOIN {$niveis_t} no ON no.curso_escolar = %s AND no.codigo = nd.codigo AND no.estado = 'activo'
-             INNER JOIN {$aulas_t} ao ON ao.nivel_id = no.id AND ao.codigo = ad.codigo AND ao.estado = 'activo'
-             SET ad.etiqueta = ao.etiqueta, ad.orde = ao.orde, ad.estado = 'activo', ad.actualizado_en = NOW()
-             WHERE ad.estado = 'inactivo'",
-            $curso,
-            $orixe
-        ) );
-        if ( false === $reactivated_aulas ) {
-            $wpdb->query( 'ROLLBACK' );
-            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Erro ao reactivar aulas existentes.', 'anpa-socios' ) ), 500 );
-        }
-
-        // Copy missing active aulas: map old nivel_id → new nivel_id via codigo.
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin REST handler with transaction.
-        $copied_aulas = $wpdb->query( $wpdb->prepare(
-            "INSERT IGNORE INTO {$aulas_t} (nivel_id, codigo, etiqueta, orde, estado, creado_en, actualizado_en)
-             SELECT nd.id, a.codigo, a.etiqueta, a.orde, a.estado, NOW(), NOW()
-             FROM {$aulas_t} a
-             INNER JOIN {$niveis_t} no ON no.id = a.nivel_id AND no.curso_escolar = %s AND no.estado = 'activo'
-             INNER JOIN {$niveis_t} nd ON nd.curso_escolar = %s AND nd.codigo = no.codigo AND nd.estado = 'activo'
-             WHERE a.estado = 'activo'",
-            $orixe,
-            $curso
-        ) );
-        if ( false === $copied_aulas ) {
-            $wpdb->query( 'ROLLBACK' );
-            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Erro ao copiar aulas.', 'anpa-socios' ) ), 500 );
-        }
-
-        if ( false === $wpdb->query( 'COMMIT' ) ) {
-            $wpdb->query( 'ROLLBACK' );
-            return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido completar a copia da estrutura.', 'anpa-socios' ) ), 500 );
-        }
-
-        $counts = array(
-            'niveis_reactivados'  => max( 0, (int) $reactivated_niveis ),
-            'niveis_copiados'     => max( 0, (int) $copied_niveis ),
-            'aulas_reactivadas'   => max( 0, (int) $reactivated_aulas ),
-            'aulas_copiadas'      => max( 0, (int) $copied_aulas ),
-            'horarios_reactivados' => max( 0, (int) $reactivated_comedor ),
-            'horarios_copiados'   => max( 0, (int) $copied_comedor ),
-            'horarios_asociados'  => max( 0, (int) $linked_comedor ),
-        );
-        $total = array_sum( $counts );
-        $message = $total > 0
-            ? sprintf(
-                /* translators: 1: changed levels, 2: changed classrooms, 3: changed meal schedule rows. */
-                __( 'Copia completada: %1$d niveis, %2$d aulas e %3$d cambios de comedor.', 'anpa-socios' ),
-                $counts['niveis_reactivados'] + $counts['niveis_copiados'],
-                $counts['aulas_reactivadas'] + $counts['aulas_copiadas'],
-                $counts['horarios_reactivados'] + $counts['horarios_copiados'] + $counts['horarios_asociados']
-            )
-            : __( 'A estrutura de destino xa estaba actualizada; sen cambios.', 'anpa-socios' );
-
-        return new WP_REST_Response( array( 'success' => true, 'message' => $message, 'counts' => $counts ), 200 );
-    }
-
-    /**
      * DELETE /admin/estrutura?nivel_id=N&curso_escolar=X
      *
      * If the nivel has active references (fillos_cursos or grupos_niveis),
@@ -1390,11 +1204,10 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
         }
 
         $wpdb->last_error = '';
-        $exists_result = $wpdb->get_var( $wpdb->prepare(
-            "SELECT id FROM {$niveis_t} WHERE id = %d AND curso_escolar = %s FOR UPDATE",
-            $nivel_id,
-            $curso
-        ) );
+        	$exists_result = $wpdb->get_var( $wpdb->prepare(
+        		"SELECT id FROM {$niveis_t} WHERE id = %d FOR UPDATE",
+        		$nivel_id
+        	) );
         if ( '' !== (string) $wpdb->last_error ) {
             $wpdb->query( 'ROLLBACK' );
             return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Non se puido comprobar o nivel.', 'anpa-socios' ) ), 500 );
