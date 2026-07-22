@@ -340,6 +340,30 @@
 		return table;
 	}
 
+	/**
+	 * Prepends a grouped header row (spanning column groups) to a table built
+	 * by buildTable. Purely presentational: it does not touch the columns, sort,
+	 * search, pagination or CSV contract. `groups` is an array of
+	 * { label, span }; the spans must add up to the table's total column count
+	 * (data columns + the actions column).
+	 * @param {HTMLTableElement} table
+	 * @param {Array<{label:string, span:number}>} groups
+	 */
+	function prependGroupedHeader(table, groups) {
+		var thead = table ? table.querySelector('thead') : null;
+		if (!thead || !Array.isArray(groups)) { return; }
+		var row = document.createElement('tr');
+		row.className = 'anpa-mgmt-colgroup';
+		groups.forEach(function (g) {
+			var th = document.createElement('th');
+			th.scope = 'colgroup';
+			th.textContent = g && g.label ? g.label : '';
+			if (g && g.span > 1) { th.colSpan = g.span; }
+			row.appendChild(th);
+		});
+		thead.insertBefore(row, thead.firstChild);
+	}
+
 	// ── Filter bar builder ────────────────────────────────────────────
 	function buildFilterBar(section, opts) {
 		opts = opts || {};
@@ -1141,6 +1165,13 @@
 			var table = buildTable(paged, FILLOS_COLS, st.sort, render, function (tr, row) {
 				if (row.estado === 'baixa') { tr.classList.add('anpa-row-baixa'); }
 			});
+			// Multilevel header: FILLOS_COLS is 3 proxenitor columns + 6 fillo
+			// columns; the trailing group spans the actions column.
+			prependGroupedHeader(table, [
+				{ label: 'Datos do proxenitor', span: 3 },
+				{ label: 'Datos do/a fillo/a', span: 6 },
+				{ label: '', span: 1 }
+			]);
 
 			// Add edit buttons per fillo row
 			var tbodyRows = table.querySelectorAll('tbody tr');
