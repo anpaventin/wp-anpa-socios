@@ -717,6 +717,10 @@ final class ANPA_Socios_Admin_Settings {
 			'<tr><th scope="row"><label for="loc-town">Poboación (por defecto)</label></th><td><input name="default_town" id="loc-town" type="text" class="regular-text" value="%s"></td></tr>',
 			esc_attr( ANPA_Socios_Config::default_town() )
 		);
+		printf(
+			'<tr><th scope="row"><label for="loc-postal">Código postal (por defecto)</label></th><td><input name="default_postal_code" id="loc-postal" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="10" class="regular-text" value="%s"></td></tr>',
+			esc_attr( ANPA_Socios_Config::default_postal_code() )
+		);
 
 		echo '</tbody></table>';
 		submit_button( __( 'Gardar localización', 'anpa-socios' ) );
@@ -761,6 +765,7 @@ final class ANPA_Socios_Admin_Settings {
 		update_option( ANPA_Socios_Config::OPTION_COUNTRY, sanitize_text_field( (string) wp_unslash( $_POST['country'] ?? '' ) ) );
 		update_option( ANPA_Socios_Config::OPTION_PROVINCE, sanitize_text_field( (string) wp_unslash( $_POST['default_province'] ?? '' ) ) );
 		update_option( ANPA_Socios_Config::OPTION_TOWN, sanitize_text_field( (string) wp_unslash( $_POST['default_town'] ?? '' ) ) );
+		update_option( ANPA_Socios_Config::OPTION_POSTAL_CODE, sanitize_text_field( (string) wp_unslash( $_POST['default_postal_code'] ?? '' ) ) );
 
 		self::redirect_msg( 'settings_saved' );
 	}

@@ -93,6 +93,7 @@ final class ANPA_Socios_Config {
 	const OPTION_COUNTRY       = 'anpa_socios_country';
 	const OPTION_PROVINCE      = 'anpa_socios_default_province';
 	const OPTION_TOWN          = 'anpa_socios_default_town';
+	const OPTION_POSTAL_CODE   = 'anpa_socios_default_postal_code';
 
 
 	/**
@@ -248,6 +249,17 @@ final class ANPA_Socios_Config {
 	 */
 	public static function default_town(): string {
 		return trim( (string) get_option( self::OPTION_TOWN, '' ) );
+	}
+
+	/**
+	 * Default postal code prefilled into the socio's Código Postal field.
+	 * The socio can always overwrite it. Empty by default (generic plugin).
+	 *
+	 * @since  1.46.3
+	 * @return string
+	 */
+	public static function default_postal_code(): string {
+		return trim( (string) get_option( self::OPTION_POSTAL_CODE, '' ) );
 	}
 
 	/**
