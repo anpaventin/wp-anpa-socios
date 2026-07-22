@@ -32,11 +32,24 @@ final class Test_ANPA_Socios_Backup_Tables extends TestCase {
 		$this->assertContains( 'grupos_niveis', $keys );
 	}
 
-	public function test_current_backup_format_is_v7_with_per_course_comedor_pivot(): void {
-		$this->assertSame( 7, ANPA_Socios_Backup::VERSION );
+	public function test_current_backup_format_is_v8_with_per_course_comedor_pivot(): void {
+		$this->assertSame( 8, ANPA_Socios_Backup::VERSION );
 		$keys = $this->get_table_keys();
 		$this->assertNotContains( 'actividades_cursos', $keys );
 		$this->assertContains( 'niveis_curso', $keys );
+	}
+
+	public function test_old_backup_restore_strips_retired_niveis_comedor_columns(): void {
+		$reflection = new ReflectionClass( ANPA_Socios_Backup::class );
+		$method     = $reflection->getMethod( 'normalize_restore_row' );
+		$method->setAccessible( true );
+		$row = array( 'id' => 3, 'codigo' => '1', 'horario_comedor_id' => 5, 'comedor_inicio' => '13:00', 'comedor_fin' => '14:00' );
+		$normalized = $method->invoke( null, 'niveis', $row, 7 );
+		$this->assertSame( 3, $normalized['id'] );
+		$this->assertSame( '1', $normalized['codigo'] );
+		foreach ( array( 'horario_comedor_id', 'comedor_inicio', 'comedor_fin' ) as $col ) {
+			$this->assertArrayNotHasKey( $col, $normalized );
+		}
 	}
 
 	public function test_niveis_curso_pivot_after_niveis_and_horarios(): void {

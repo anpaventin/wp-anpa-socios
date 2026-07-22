@@ -444,15 +444,17 @@ class Test_ANPA_Socios_Admin_Estrutura_Handler extends TestCase {
     public function test_gardar_comedor_audits_only_after_successful_write(): void {
         $source = file_get_contents( $this->handler_file );
         $start  = strpos( $source, 'private static function gardar_comedor' );
-        $update = strpos( $source, '$wpdb->update(', $start );
+        // Since 1.37.0 the comedor is written to the pivot (set_nivel_comedor),
+        // not to a niveis $wpdb->update. The write must precede the audit.
+        $write  = strpos( $source, 'ANPA_Socios_DB::set_nivel_comedor', $start );
         $audit  = strpos( $source, 'write_audit', $start );
         $ok     = strpos( $source, 'Horario de comedor actualizado.', $start );
 
         $this->assertNotFalse( $start );
-        $this->assertNotFalse( $update );
+        $this->assertNotFalse( $write );
         $this->assertNotFalse( $audit );
         $this->assertNotFalse( $ok );
-        $this->assertLessThan( $audit, $update );
+        $this->assertLessThan( $audit, $write );
         $this->assertLessThan( $ok, $audit );
     }
 

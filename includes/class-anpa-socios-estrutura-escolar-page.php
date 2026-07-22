@@ -74,7 +74,7 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
         // curso selector above only scopes the meal schedules below.
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only list in admin context.
         $niveis = $wpdb->get_results(
-            "SELECT id, codigo, etiqueta, orde, horario_comedor_id, estado FROM {$niveis_t} WHERE estado = 'activo' ORDER BY orde ASC, codigo ASC",
+            "SELECT id, codigo, etiqueta, orde, estado FROM {$niveis_t} WHERE estado = 'activo' ORDER BY orde ASC, codigo ASC",
             ARRAY_A
         );
         if ( ! is_array( $niveis ) ) {
@@ -196,7 +196,7 @@ final class ANPA_Socios_Estrutura_Escolar_Page {
                 printf( '<option value="%1$s"%2$s>A–%1$s</option>', esc_attr( $l ), selected( $ultima_por_nivel[ $nid ] ?? 'D', $l, false ) );
             }
             echo '</select></td><td><select class="est-horario-select"><option value="">' . esc_html__( 'Sen horario', 'anpa-socios' ) . '</option>';
-            $nivel_horario_id = $comedor_por_nivel[ $nid ] ?? (int) ( $n['horario_comedor_id'] ?? 0 );
+            $nivel_horario_id = $comedor_por_nivel[ $nid ] ?? 0;
             foreach ( $horarios as $horario ) {
                 $key = 'h-' . (int) $horario['id'];
                 printf( '<option value="%s"%s>%s (%s–%s)</option>', esc_attr( $key ), selected( $nivel_horario_id, (int) $horario['id'], false ), esc_html( $horario['nome'] ), esc_html( $horario['inicio'] ), esc_html( $horario['fin'] ) );

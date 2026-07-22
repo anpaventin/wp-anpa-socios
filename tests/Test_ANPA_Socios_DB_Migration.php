@@ -24,14 +24,27 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		$this->plugin_file = dirname( __DIR__ ) . '/anpa-socios.php';
 	}
 
-	public function test_db_version_constant_is_1_36_0(): void {
-		$this->assertSame( '1.36.0', ANPA_Socios_DB::DB_VERSION );
+	public function test_db_version_constant_is_1_37_0(): void {
+		$this->assertSame( '1.37.0', ANPA_Socios_DB::DB_VERSION );
 	}
 
-	public function test_anpa_socios_db_version_is_1_36_0(): void {
+	public function test_anpa_socios_db_version_is_1_37_0(): void {
 		$source = file_get_contents( $this->plugin_file );
 		$this->assertIsString( $source );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.36.0' )", $source );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.37.0' )", $source );
+	}
+
+	public function test_migrate_to_1_37_0_drops_legacy_comedor_columns_guarded(): void {
+		$source = file_get_contents( $this->db_file );
+		$this->assertStringContainsString( 'private static function migrate_to_1_37_0(): bool', $source );
+		$this->assertStringContainsString( "version_compare( \$installed_version, '1.37.0', '<' ) && ! self::migrate_to_1_37_0()", $source );
+		$start  = strpos( $source, 'private static function migrate_to_1_37_0' );
+		$end    = strpos( $source, 'public static function get_niveis_comedor_curso', $start );
+		$method = substr( $source, $start, $end - $start );
+		$this->assertStringContainsString( "array( 'horario_comedor_id', 'comedor_inicio', 'comedor_fin' )", $method );
+		$this->assertStringContainsString( 'self::tem_columna( $niveis, $column )', $method );
+		$this->assertStringContainsString( 'DROP COLUMN {$column}', $method );
+		$this->assertStringContainsString( 'postcondition failed', $method );
 	}
 
 	// ── fase26 correction: reusable meal schedules (1.33.0) ──────────
@@ -343,7 +356,7 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 
 	public function test_migrate_to_1_34_0_drops_activity_course_offers_only_after_group_equivalence_preflight(): void {
 		$source = file_get_contents( $this->db_file );
-		$this->assertStringContainsString( "const DB_VERSION = '1.36.0'", $source );
+		$this->assertStringContainsString( "const DB_VERSION = '1.37.0'", $source );
 		$this->assertStringContainsString( 'private static function migrate_to_1_34_0(): bool', $source );
 		$this->assertStringContainsString( 'SHOW TABLES LIKE %s', $source );
 		$this->assertStringContainsString( "'' !== (string) \$wpdb->last_error", $source );

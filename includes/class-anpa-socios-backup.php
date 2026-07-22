@@ -26,7 +26,8 @@ final class ANPA_Socios_Backup {
 
 	const MAGIC   = 'ANPABAK1';
 	// v7 (fase31): adds the wp_anpa_niveis_curso per-course comedor pivot.
-	const VERSION = 7;
+	// v8 (fase31): niveis loses its legacy comedor columns (moved to the pivot).
+	const VERSION = 8;
 
 	/**
 	 * Domain tables included in a backup, in FK-safe insert order.
@@ -139,6 +140,12 @@ final class ANPA_Socios_Backup {
 			'actividades'        => array( 'min_pupilos', 'max_pupilos', 'curso_min', 'curso_max' ),
 			'actividades_cursos' => array( 'horario' ),
 			'grupos'             => array( 'grupo_curricular_id' ),
+			// v8 (fase31): niveis lost its per-level comedor columns; the
+			// per-course comedor now lives in the niveis_curso pivot. Old backups
+			// carried these on niveis rows — strip them so the insert matches the
+			// current schema. (The comedor assignment from a pre-v8 backup is not
+			// re-derived; re-assign it in Estrutura escolar if needed.)
+			'niveis'             => array( 'horario_comedor_id', 'comedor_inicio', 'comedor_fin' ),
 		);
 
 		foreach ( $retired[ $key ] ?? array() as $column ) {
