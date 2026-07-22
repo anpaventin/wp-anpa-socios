@@ -45,41 +45,39 @@ final class ANPA_Socios_Grupo_Comedor_Gate {
 		sort( $nivel_ids, SORT_NUMERIC );
 		$placeholders = implode( ',', array_fill( 0, count( $nivel_ids ), '%d' ) );
 		$niveis_t   = ANPA_Socios_DB::tabela_niveis();
-		$horarios_t = ANPA_Socios_DB::tabela_horarios_comedor();
 		$lock_sql   = $lock ? ' FOR UPDATE' : '';
+
+		// Levels are GLOBAL since 1.35.0 (no curso_escolar column) and their
+		// comedor schedule is per-course in the wp_anpa_niveis_curso pivot since
+		// 1.36.0. Validate the levels exist/active here (locking them); resolve
+		// each (nivel, curso) meal window from the pivot below.
 		$wpdb->last_error = '';
 		$rows = $wpdb->get_results( $wpdb->prepare(
-			"SELECT n.id, n.codigo, n.curso_escolar, h.inicio AS comedor_inicio, h.fin AS comedor_fin
-			 FROM {$niveis_t} n
-			 LEFT JOIN {$horarios_t} h ON h.id = n.horario_comedor_id AND h.curso_escolar = n.curso_escolar AND h.estado = 'activo'
-			 WHERE n.id IN ({$placeholders}) AND n.estado = 'activo'
-			 ORDER BY n.id{$lock_sql}",
+			"SELECT id, codigo FROM {$niveis_t} WHERE id IN ({$placeholders}) AND estado = 'activo' ORDER BY id{$lock_sql}",
 			...$nivel_ids
 		), ARRAY_A );
 		if ( '' !== (string) $wpdb->last_error || ! is_array( $rows ) ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido comprobar a dispoñibilidade dos niveis.', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
+		if ( count( $rows ) !== count( $nivel_ids ) ) {
+			return new WP_Error( 'anpa_admin_grupo_niveis', __( 'Non se atoparon todos os niveis seleccionados.', 'anpa-socios' ), array( 'status' => 400 ) );
+		}
 
+		$codigo_by_id = array();
+		foreach ( $rows as $row ) {
+			$codigo_by_id[ (int) ( $row['id'] ?? 0 ) ] = (string) ( $row['codigo'] ?? '' );
+		}
+
+		// Per (nivel, curso) meal window from the pivot. A level with no comedor
+		// that course yields an empty window (never a conflict).
 		$meals = array();
 		$meta  = array();
-		foreach ( $rows as $row ) {
-			$nivel_id = (int) ( $row['id'] ?? 0 );
-			$curso     = (string) ( $row['curso_escolar'] ?? '' );
-			if ( ! isset( $expected[ $nivel_id ] ) || $expected[ $nivel_id ] !== $curso ) {
-				return new WP_Error( 'anpa_admin_grupo_niveis', __( 'Os niveis seleccionados deben pertencer ao curso escolar correspondente.', 'anpa-socios' ), array( 'status' => 400 ) );
-			}
-			$interval = ANPA_Socios_Disponibilidade_Horaria::normalize_interval(
-				$row['comedor_inicio'] ?? null,
-				$row['comedor_fin'] ?? null
-			);
-			if ( null === $interval ) {
-				return new WP_Error( 'anpa_admin_db_error', __( 'Hai un horario de comedor inválido na estrutura escolar.', 'anpa-socios' ), array( 'status' => 500 ) );
-			}
-			$meta[ $nivel_id ]  = array( 'curso_escolar' => $curso, 'nivel' => (string) ( $row['codigo'] ?? '' ) );
-			$meals[ $nivel_id ] = $interval;
-		}
-		if ( count( $rows ) !== count( $expected ) ) {
-			return new WP_Error( 'anpa_admin_grupo_niveis', __( 'Non se atoparon todos os niveis seleccionados.', 'anpa-socios' ), array( 'status' => 400 ) );
+		foreach ( $expected as $nivel_id => $curso ) {
+			$nivel_id = (int) $nivel_id;
+			$curso    = (string) $curso;
+			$interval = ANPA_Socios_DB::get_nivel_comedor_interval( $nivel_id, $curso );
+			$meals[ $nivel_id ] = ( null === $interval ) ? array() : $interval;
+			$meta[ $nivel_id ]  = array( 'curso_escolar' => $curso, 'nivel' => $codigo_by_id[ $nivel_id ] ?? '' );
 		}
 
 		$dias = array_values( array_filter( array_map( 'trim', explode( ',', (string) ( $payload['dias'] ?? '' ) ) ) ) );

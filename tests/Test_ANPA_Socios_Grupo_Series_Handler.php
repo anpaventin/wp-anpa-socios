@@ -78,9 +78,14 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 		$this->assertStringContainsString( 'final class ANPA_Socios_Grupo_Comedor_Gate', $this->gate );
 		$this->assertStringContainsString( 'public static function conflicts_for_series', $this->gate );
 		$this->assertStringContainsString( 'ANPA_Socios_Disponibilidade_Horaria::conflicts', $this->gate );
-		$this->assertStringContainsString( 'tabela_horarios_comedor', $this->gate );
+		// Since 1.36.0 the comedor window is per-course, resolved from the
+		// niveis_curso pivot via this helper (not a direct horarios join here).
+		$this->assertStringContainsString( 'ANPA_Socios_DB::get_nivel_comedor_interval', $this->gate );
 		$this->assertStringContainsString( 'tabela_niveis', $this->gate );
 		$this->assertStringContainsString( 'FOR UPDATE', $this->gate );
+		// Levels are global since 1.35.0 — the gate must not query the dropped
+		// niveis.curso_escolar column anymore.
+		$this->assertStringNotContainsString( 'n.curso_escolar', $this->gate );
 	}
 
 	public function test_reopening_a_series_uses_the_same_meal_gate_and_rolls_back(): void {
