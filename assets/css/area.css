@@ -26,7 +26,10 @@
 	--anpa-radius: var(--theme-border-radius, 10px);
 	--anpa-surface: var(--theme-palette-color-8, #ffffff);
 	--anpa-surface-muted: var(--theme-palette-color-7, #eef7f2);
-	--anpa-content-width: var(--theme-content-width, 880px);
+	/* NOT --theme-content-width: on Blocksy that is the (narrow, ~720px) article
+	   column, which is exactly what looked stranded on big screens. Use a wider
+	   own target; the media query below breaks the area out of a narrow container. */
+	--anpa-content-width: 1080px;
 	--anpa-gap: clamp(0.65rem, 1.4vw, 1.1rem);
 	--anpa-measure: 34rem; /* readable width for form controls */
 
@@ -72,11 +75,24 @@
 }
 
 #anpa-area {
-	/* fase32: fluid width up to the theme content width (was a fixed 720px). */
+	/* fase32: fluid and wider than the old fixed 720px. Within its container it
+	   fills the available width; on wide viewports it breaks out (see below). */
 	width: 100%;
-	max-width: var(--anpa-content-width, 880px);
+	max-width: var(--anpa-content-width, 1080px);
 	margin: 1.5rem auto;
 	font-family: var(--anpa-font, inherit);
+}
+
+/* On wide viewports let the area escape a narrow themed content column (Blocksy's
+   article width is ~720px) so it is not stranded. Centred on the container axis
+   and capped at 92vw to avoid horizontal scroll. */
+@media (min-width: 1024px) {
+	#anpa-area {
+		width: min(var(--anpa-content-width, 1080px), 92vw);
+		max-width: none;
+		margin-left: 50%;
+		transform: translateX(-50%);
+	}
 }
 
 

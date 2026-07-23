@@ -393,26 +393,44 @@
 .anpa-mgmt-table input[type="checkbox"],
 .anpa-mgmt-form input[type="checkbox"],
 .anpa-mgmt-form input[type="radio"] {
-	/* The generic ".anpa-mgmt-form input" rule adds padding + full width, which
-	   with box-sizing:border-box squeezed the check into the bottom-right corner.
-	   We only neutralise that inherited text-input box model and defer the actual
-	   rendering (and mobile sizing) to wp-admin's own checkbox/radio styles.
-	   Do NOT force appearance:auto here: wp-admin/theme draw their own checkmark,
-	   so forcing the native tick on top produced a DOUBLE tick on narrow/mobile. */
-	width: auto;
-	min-width: 0;
-	max-width: none;
-	height: auto;
+	/* The generic ".anpa-mgmt-form input" rule sets width:100% + padding, which
+	   broke wp-admin's own checkbox/radio box (appearance:none + dashicon check):
+	   with padding the check shifted to a corner, and with width:auto the control
+	   collapsed (a dot when unchecked, oversized when checked). We restore exactly
+	   wp-admin's own box size (1rem desktop, 1.5625rem mobile — see the media query
+	   below) and drop the padding, so its check glyph fits as designed. We do NOT
+	   override appearance, so there is a single, native/dashicon check (no double
+	   tick). */
+	width: 1rem;
+	height: 1rem;
+	min-width: 1rem;
+	min-height: 1rem;
+	max-width: 1rem;
+	max-height: 1rem;
 	padding: 0;
 	margin: 0;
 	flex: 0 0 auto;
 	vertical-align: middle;
-	accent-color: #2d6a4f;
 	border-radius: 0;
 }
 
 .anpa-mgmt-form input[type="radio"] {
 	border-radius: 50%;
+}
+
+/* Match wp-admin's larger touch size for checkboxes/radios on mobile so its
+   check glyph (scaled up at this breakpoint) keeps fitting the box. */
+@media (max-width: 782px) {
+	.anpa-mgmt-table input[type="checkbox"],
+	.anpa-mgmt-form input[type="checkbox"],
+	.anpa-mgmt-form input[type="radio"] {
+		width: 1.5625rem;
+		height: 1.5625rem;
+		min-width: 1.5625rem;
+		min-height: 1.5625rem;
+		max-width: 1.5625rem;
+		max-height: 1.5625rem;
+	}
 }
 
 /* ── Inline option groups (icona, cursos, checkboxes de días…) ───
