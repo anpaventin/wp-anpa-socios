@@ -582,12 +582,14 @@
  * ANY theme. Placed last so it wins over the earlier var-based rules.
  * ────────────────────────────────────────────────────────────────── */
 
-/* Primary action button */
+/* Primary action button. Colours come from the plugin tokens (group B) with the
+   proven-accessible values as fallbacks, so the active theme can override the
+   tokens on #anpa-area without us reintroducing the old theme-palette clashes. */
 #anpa-area button,
 #anpa-area .anpa-area-actions button {
-	background: #2d6a4f;
-	color: #ffffff;
-	border: 1px solid #2d6a4f;
+	background: var(--anpa-accent, #2d6a4f);
+	color: var(--anpa-on-accent, #ffffff);
+	border: 1px solid var(--anpa-accent, #2d6a4f);
 	border-radius: 8px;
 	padding: 0.55rem 1rem;
 	font-weight: 600;
@@ -596,41 +598,41 @@
 }
 #anpa-area button:hover,
 #anpa-area .anpa-area-actions button:hover {
-	background: #1f513b;
-	border-color: #1f513b;
-	color: #ffffff;
+	background: var(--anpa-accent-hover, #1f513b);
+	border-color: var(--anpa-accent-hover, #1f513b);
+	color: var(--anpa-on-accent, #ffffff);
 }
 
 /* Secondary (outline) button — white bg, green text/border */
 #anpa-area .anpa-area-secondary {
-	background: #ffffff;
-	color: #1f513b;
-	border: 1px solid #9cc6b4;
+	background: var(--anpa-secondary-bg, #ffffff);
+	color: var(--anpa-secondary-text, #1f513b);
+	border: 1px solid var(--anpa-secondary-border, #9cc6b4);
 }
 #anpa-area .anpa-area-secondary:hover {
-	background: #eef7f2;
+	background: var(--anpa-secondary-hover-bg, #eef7f2);
 	color: #14402f;
-	border-color: #2d6a4f;
+	border-color: var(--anpa-accent, #2d6a4f);
 }
 
 
 /* Danger (baixa, logout) — red */
 #anpa-area .anpa-area-secondary.anpa-area-danger,
 #anpa-area .anpa-area-danger {
-	background: #ffffff;
-	color: #b42318;
+	background: var(--anpa-secondary-bg, #ffffff);
+	color: var(--anpa-danger, #b42318);
 	border: 1px solid #e6a49e;
 }
 #anpa-area .anpa-area-secondary.anpa-area-danger:hover,
 #anpa-area .anpa-area-danger:hover {
 	background: #fdecea;
-	color: #7a271a;
-	border-color: #b42318;
+	color: var(--anpa-danger-hover, #7a271a);
+	border-color: var(--anpa-danger, #b42318);
 }
 
 /* Focus ring for accessibility (all area buttons) */
 #anpa-area button:focus-visible {
-	outline: 2px solid #1a4b8b;
+	outline: 2px solid var(--anpa-focus-ring, #1a4b8b);
 	outline-offset: 2px;
 }
 
