@@ -26,10 +26,10 @@
 	--anpa-radius: var(--theme-border-radius, 10px);
 	--anpa-surface: var(--theme-palette-color-8, #ffffff);
 	--anpa-surface-muted: var(--theme-palette-color-7, #eef7f2);
-	/* NOT --theme-content-width: on Blocksy that is the (narrow, ~720px) article
-	   column, which is exactly what looked stranded on big screens. Use a wider
-	   own target; the media query below breaks the area out of a narrow container. */
-	--anpa-content-width: 1080px;
+	/* Neutral by default: respect the active theme's content width so a site that
+	   wants a 720px column keeps it. Any site-specific widening of #anpa-area is
+	   done in the active (child) theme, NOT hardcoded here. */
+	--anpa-content-width: var(--theme-content-width, 100%);
 	--anpa-gap: clamp(0.65rem, 1.4vw, 1.1rem);
 	--anpa-measure: 34rem; /* readable width for form controls */
 
@@ -75,24 +75,13 @@
 }
 
 #anpa-area {
-	/* fase32: fluid and wider than the old fixed 720px. Within its container it
-	   fills the available width; on wide viewports it breaks out (see below). */
+	/* fase32: fill the container and respect the theme's content width by default.
+	   Any site-specific widening is the theme's job (see the ANPA child theme),
+	   so the plugin stays portable: a site that wants 720px keeps 720px. */
 	width: 100%;
-	max-width: var(--anpa-content-width, 1080px);
+	max-width: var(--anpa-content-width, 100%);
 	margin: 1.5rem auto;
 	font-family: var(--anpa-font, inherit);
-}
-
-/* On wide viewports let the area escape a narrow themed content column (Blocksy's
-   article width is ~720px) so it is not stranded. Centred on the container axis
-   and capped at 92vw to avoid horizontal scroll. */
-@media (min-width: 1024px) {
-	#anpa-area {
-		width: min(var(--anpa-content-width, 1080px), 92vw);
-		max-width: none;
-		margin-left: 50%;
-		transform: translateX(-50%);
-	}
 }
 
 
