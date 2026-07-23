@@ -233,4 +233,17 @@ final class Test_ANPA_Socios_Nivel_Promotion extends TestCase {
 		$this->assertStringNotContainsString( '$age = absint(', $handler );
 		$this->assertStringNotContainsString( 'Default orde to the end of the list', $handler );
 	}
+
+	public function test_lock_rows_does_not_reference_the_retired_niveis_curso_escolar_column(): void {
+		// Since 1.35.0 the niveis table is global (no curso_escolar column).
+		// lock_rows() must lock active levels without that column, or the whole
+		// promotion transaction would error out and always roll back.
+		$source = file_get_contents( __DIR__ . '/../includes/class-anpa-socios-nivel-promotion-service.php' );
+		$start  = strpos( $source, 'private static function lock_rows' );
+		$end    = strpos( $source, "\n\t}", $start );
+		$method = substr( $source, $start, $end - $start );
+
+		$this->assertStringContainsString( "SELECT id FROM {\$levels} WHERE estado = 'activo' ORDER BY id FOR UPDATE", $method );
+		$this->assertStringNotContainsString( "{\$levels} WHERE curso_escolar", $method );
+	}
 }

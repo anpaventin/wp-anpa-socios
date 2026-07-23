@@ -243,7 +243,8 @@ final class ANPA_Socios_Nivel_Promotion_Service {
 		$relations   = ANPA_Socios_DB::tabela_grupos_niveis();
 		$queries = array(
 			"SELECT id FROM {$courses} WHERE estado = 'activo' ORDER BY id FOR UPDATE",
-			$wpdb->prepare( "SELECT id FROM {$levels} WHERE curso_escolar = %s ORDER BY id FOR UPDATE", $school_year ),
+			// Since 1.35.0 niveis are global (no curso_escolar column).
+			"SELECT id FROM {$levels} WHERE estado = 'activo' ORDER BY id FOR UPDATE",
 			"SELECT id FROM {$socios} WHERE estado = 'activo' AND rol_familia = 'principal' ORDER BY id FOR UPDATE",
 			"SELECT id FROM {$fillos} WHERE estado = 'activo' ORDER BY id FOR UPDATE",
 			$wpdb->prepare( "SELECT id FROM {$annual} WHERE curso_escolar = %s ORDER BY id FOR UPDATE", $school_year ),
