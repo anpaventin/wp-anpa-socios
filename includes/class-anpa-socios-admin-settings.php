@@ -1408,8 +1408,9 @@ final class ANPA_Socios_Admin_Settings {
 	 */
 	public static function handle_run_season(): void {
 		self::guard( 'anpa_socios_run_season' );
-		ANPA_Socios_Season_Service::run_check();
-		self::redirect_msg( 'season_ok' );
+		$summary = ANPA_Socios_Season_Service::run_check();
+		set_transient( self::season_result_key(), is_array( $summary ) ? $summary : array(), 5 * MINUTE_IN_SECONDS );
+		self::redirect_msg( 'season_result' );
 	}
 
 	/**
@@ -1722,12 +1723,26 @@ final class ANPA_Socios_Admin_Settings {
 				printf( '<div class="notice notice-error is-dismissible"><p>%s</p></div>', esc_html( (string) ( $notice['message'] ?? '' ) ) );
 				return;
 			}
-			$result = is_array( $notice['result'] ?? null ) ? $notice['result'] : array();
-			printf(
-				'<div class="notice notice-success"><p><strong>%s</strong> %s</p>',
-				esc_html__( 'Niveis actualizados correctamente.', 'anpa-socios' ),
-				esc_html( sprintf( __( 'Curso %1$s: %2$d actualizados, %3$d xa correctos e %4$d finalizados.', 'anpa-socios' ), (string) ( $result['curso_escolar'] ?? '' ), (int) ( $result['actualizados'] ?? 0 ), (int) ( $result['sen_cambios'] ?? 0 ), (int) ( $result['finalizados'] ?? 0 ) ) )
-			);
+			$result       = is_array( $notice['result'] ?? null ) ? $notice['result'] : array();
+			$curso        = (string) ( $result['curso_escolar'] ?? '' );
+			$actualizados = (int) ( $result['actualizados'] ?? 0 );
+			$sen_cambios  = (int) ( $result['sen_cambios'] ?? 0 );
+			$finalizados  = (int) ( $result['finalizados'] ?? 0 );
+			$modificados  = $actualizados + $finalizados;
+			if ( 0 === $modificados ) {
+				printf(
+					'<div class="notice notice-info"><p><strong>%s</strong> %s</p>',
+					esc_html__( 'Non se modificou ningún rexistro.', 'anpa-socios' ),
+					esc_html( sprintf( __( 'Curso %1$s: os %2$d fillos activos xa tiñan o nivel correcto.', 'anpa-socios' ), $curso, $sen_cambios ) )
+				);
+			} else {
+				printf(
+					'<div class="notice notice-success"><p><strong>%s</strong> %s</p>',
+					/* translators: %d: number of modified child records */
+					esc_html( sprintf( _n( '%d rexistro modificado.', '%d rexistros modificados.', $modificados, 'anpa-socios' ), $modificados ) ),
+					esc_html( sprintf( __( 'Curso %1$s: %2$d actualizados, %3$d finalizados e %4$d xa correctos.', 'anpa-socios' ), $curso, $actualizados, $finalizados, $sen_cambios ) )
+				);
+			}
 			$emails = is_array( $result['emails_cco'] ?? null ) ? array_filter( array_map( 'sanitize_email', $result['emails_cco'] ) ) : array();
 			if ( array() !== $emails ) {
 				echo '<p><strong>' . esc_html__( 'Emails dos proxenitores principais dos alumnos que remataron:', 'anpa-socios' ) . '</strong></p>';
@@ -1737,11 +1752,46 @@ final class ANPA_Socios_Admin_Settings {
 			echo '</div>';
 			return;
 		}
+		if ( 'season_result' === $key ) {
+			$summary = get_transient( self::season_result_key() );
+			delete_transient( self::season_result_key() );
+			$summary   = is_array( $summary ) ? $summary : array();
+			$closed    = is_array( $summary['closed'] ?? null ) ? $summary['closed'] : array();
+			$created   = is_array( $summary['created'] ?? null ) ? $summary['created'] : array();
+			$activated = is_array( $summary['activated'] ?? null ) ? $summary['activated'] : array();
+			$total     = count( $closed ) + count( $created ) + count( $activated );
+			if ( 0 === $total ) {
+				printf(
+					'<div class="notice notice-info is-dismissible"><p><strong>%s</strong> %s</p></div>',
+					esc_html__( 'Comprobación de temporada executada.', 'anpa-socios' ),
+					esc_html__( 'Non se modificou nada: os cursos xa estaban ao día.', 'anpa-socios' )
+				);
+				return;
+			}
+			$parts = array();
+			if ( array() !== $closed ) {
+				/* translators: 1: number of closed courses, 2: comma-separated course list */
+				$parts[] = sprintf( __( 'pechados: %1$d (%2$s)', 'anpa-socios' ), count( $closed ), implode( ', ', array_map( 'sanitize_text_field', $closed ) ) );
+			}
+			if ( array() !== $created ) {
+				/* translators: 1: number of created courses, 2: comma-separated course list */
+				$parts[] = sprintf( __( 'creados: %1$d (%2$s)', 'anpa-socios' ), count( $created ), implode( ', ', array_map( 'sanitize_text_field', $created ) ) );
+			}
+			if ( array() !== $activated ) {
+				/* translators: 1: number of activated courses, 2: comma-separated course list */
+				$parts[] = sprintf( __( 'activados: %1$d (%2$s)', 'anpa-socios' ), count( $activated ), implode( ', ', array_map( 'sanitize_text_field', $activated ) ) );
+			}
+			printf(
+				'<div class="notice notice-success is-dismissible"><p><strong>%s</strong> %s</p></div>',
+				esc_html__( 'Comprobación de temporada executada.', 'anpa-socios' ),
+				esc_html( sprintf( __( 'Cambios: %s.', 'anpa-socios' ), implode( '; ', $parts ) ) )
+			);
+			return;
+		}
 		$map = array(
 			'settings_saved' => array( 'success', __( 'Configuración gardada.', 'anpa-socios' ) ),
 			'pw_ok'          => array( 'success', __( 'Contrasinal de admin actualizado.', 'anpa-socios' ) ),
 			'pw_bad'         => array( 'error', __( 'O contrasinal non cumpre os requisitos (mín. 8 caracteres, unha maiúscula e un símbolo).', 'anpa-socios' ) ),
-			'season_ok'      => array( 'success', __( 'Comprobación de temporada executada.', 'anpa-socios' ) ),
 			'updates_checked' => array( 'success', __( 'Comprobación de actualizacións executada. Se hai unha versión nova, aparecerá en Plugins.', 'anpa-socios' ) ),
 			'curso_error'     => array( 'error', __( 'Non se puido gardar o ciclo do curso. Se estás activando outro curso, confirma primeiro a substitución do curso activo.', 'anpa-socios' ) ),
 			'bak_bad_pw'     => array( 'error', __( 'Contrasinal de admin incorrecto.', 'anpa-socios' ) ),
@@ -1762,6 +1812,11 @@ final class ANPA_Socios_Admin_Settings {
 	/** Per-admin transient key for the one-time promotion result. */
 	private static function promotion_result_key(): string {
 		return 'anpa_child_levels_result_' . get_current_user_id();
+	}
+
+	/** Per-admin transient key for the one-time season-check result. */
+	private static function season_result_key(): string {
+		return 'anpa_season_result_' . get_current_user_id();
 	}
 
 	/**
