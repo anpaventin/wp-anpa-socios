@@ -1220,11 +1220,27 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
         if ( '' !== (string) $wpdb->last_error ) {
             return false;
         }
+        // Levels already exist. On a fresh install this is the default structure
+        // auto-seeded by the 1.27.0 migration (levels 1..6 + classrooms A..D for
+        // the default course). The setup wizard's user-provided structure must
+        // win on a fresh site, but we must NEVER destroy a structure that real
+        // data already references. So we only clear + reseed when the catalogue
+        // has NO dependent data (no classroom assignments and no group links);
+        // otherwise we keep the existing structure untouched (idempotent).
+        $replace_existing = false;
         if ( $existing > 0 ) {
-            return true;
+            if ( self::structure_has_dependent_data() ) {
+                return true;
+            }
+            $replace_existing = true;
         }
 
         if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+            return false;
+        }
+
+        if ( $replace_existing && ! self::clear_structure_catalogue() ) {
+            $wpdb->query( 'ROLLBACK' );
             return false;
         }
 
@@ -1272,6 +1288,66 @@ final class ANPA_Socios_Admin_Estrutura_Handler {
 
         if ( false === $wpdb->query( 'COMMIT' ) ) {
             $wpdb->query( 'ROLLBACK' );
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Whether the school-structure catalogue is referenced by real data.
+     *
+     * Used by the setup wizard to decide if it may replace an auto-seeded
+     * default structure: a fresh install has no classroom assignments and no
+     * group→level links, so replacing is safe; any dependent data means the
+     * structure is live and must be preserved.
+     *
+     * @return bool True if any dependent data exists.
+     */
+    private static function structure_has_dependent_data(): bool {
+        global $wpdb;
+
+        $fc_t = ANPA_Socios_DB::tabela_fillos_cursos();
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only guard count.
+        if ( (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$fc_t}" ) > 0 ) {
+            return true;
+        }
+
+        $gn_t = ANPA_Socios_DB::tabela_grupos_niveis();
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only guard count.
+        if ( (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$gn_t}" ) > 0 ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Removes the current (dependency-free) school-structure catalogue so the
+     * setup wizard can recreate it from the user's input. Must be called inside
+     * a transaction and only after structure_has_dependent_data() is false, so a
+     * failure can be rolled back. Deletes dependents (classrooms, per-course
+     * level pivot) before the levels themselves.
+     *
+     * @return bool
+     */
+    private static function clear_structure_catalogue(): bool {
+        global $wpdb;
+
+        $aulas_t  = ANPA_Socios_DB::tabela_aulas();
+        $pivot_t  = ANPA_Socios_DB::tabela_niveis_curso();
+        $niveis_t = ANPA_Socios_DB::tabela_niveis();
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded structure reset within transaction.
+        if ( false === $wpdb->query( "DELETE FROM {$aulas_t}" ) ) {
+            return false;
+        }
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded structure reset within transaction.
+        if ( false === $wpdb->query( "DELETE FROM {$pivot_t}" ) ) {
+            return false;
+        }
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded structure reset within transaction.
+        if ( false === $wpdb->query( "DELETE FROM {$niveis_t}" ) ) {
             return false;
         }
 

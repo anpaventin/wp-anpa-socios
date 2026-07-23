@@ -899,10 +899,21 @@
 		form.appendChild(title);
 
 		function addInlineField(labelText, input) {
+			// Label ABOVE the control (like the other forms). The control is
+			// nested in the label for implicit association, but rendered as a
+			// block on its own line so the caption is not beside the field.
 			var lbl = document.createElement('label');
 			lbl.style.display = 'block';
 			lbl.style.marginTop = '0.5rem';
-			lbl.textContent = labelText;
+			lbl.style.fontWeight = '500';
+			var caption = document.createElement('span');
+			caption.style.display = 'block';
+			caption.style.marginBottom = '0.2rem';
+			caption.textContent = labelText;
+			lbl.appendChild(caption);
+			input.style.display = 'block';
+			input.style.width = '100%';
+			input.style.maxWidth = '400px';
 			lbl.appendChild(input);
 			form.appendChild(lbl);
 		}

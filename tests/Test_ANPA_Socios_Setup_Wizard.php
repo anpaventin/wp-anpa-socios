@@ -54,7 +54,11 @@ final class Test_ANPA_Socios_Setup_Wizard extends TestCase {
 	public function test_seed_default_structure_is_transactional_and_idempotent(): void {
 		$this->assertStringContainsString( 'public static function seed_default_structure', $this->estrutura );
 		$start  = strpos( $this->estrutura, 'public static function seed_default_structure' );
-		$body   = substr( $this->estrutura, $start, 3400 );
+		// Bound the body by the next method declaration (robust to length changes)
+		// instead of a fixed-width window.
+		$after  = $start + strlen( 'public static function seed_default_structure' );
+		$end    = strpos( $this->estrutura, ' function ', $after );
+		$body   = false === $end ? substr( $this->estrutura, $start ) : substr( $this->estrutura, $start, $end - $start );
 		$this->assertStringContainsString( 'SELECT COUNT(*) FROM', $body ); // empty-catalogue guard.
 		$this->assertStringContainsString( '$existing > 0', $body );        // skip seeding if levels exist.
 		$this->assertStringContainsString( "query( 'START TRANSACTION' )", $body );
