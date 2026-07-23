@@ -30,6 +30,25 @@
 	box-sizing: border-box;
 }
 
+/* Checkboxes/radios must never inherit the full-width/padding of text inputs
+   (e.g. via .anpa-fillo-field input or .anpa-parent-field input); otherwise the
+   native tick is squeezed off-centre on mobile. Higher specificity (id + attr)
+   keeps this winning regardless of source order. */
+#anpa-asociarse input[type="checkbox"],
+#anpa-asociarse input[type="radio"] {
+	-webkit-appearance: auto;
+	appearance: auto;
+	width: auto;
+	min-width: 0;
+	max-width: none;
+	height: auto;
+	padding: 0;
+	margin: 0;
+	flex: 0 0 auto;
+	vertical-align: middle;
+	accent-color: #2d6a4f;
+}
+
 /* Cap field widths by the kind of data they hold, so a full-width theme
    container does not stretch a postcode box across the whole page. Fields
    inside fillo rows manage their own width via .anpa-fillo-field. */
