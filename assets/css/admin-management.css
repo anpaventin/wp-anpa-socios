@@ -387,20 +387,18 @@
 .anpa-mgmt-table input[type="checkbox"],
 .anpa-mgmt-form input[type="checkbox"],
 .anpa-mgmt-form input[type="radio"] {
-	/* The generic ".anpa-mgmt-form input" rule adds padding + full width;
-	   without resetting it here the box-sizing:border-box maths squeeze the
-	   native tick into the bottom-right corner (visible on mobile). Reset the
-	   inherited box model so checkboxes/radios render natively at 16px. */
-	-webkit-appearance: auto;
-	appearance: auto;
-	width: 16px;
-	height: 16px;
-	min-width: 16px;
-	min-height: 16px;
-	max-width: 16px;
+	/* The generic ".anpa-mgmt-form input" rule adds padding + full width, which
+	   with box-sizing:border-box squeezed the check into the bottom-right corner.
+	   We only neutralise that inherited text-input box model and defer the actual
+	   rendering (and mobile sizing) to wp-admin's own checkbox/radio styles.
+	   Do NOT force appearance:auto here: wp-admin/theme draw their own checkmark,
+	   so forcing the native tick on top produced a DOUBLE tick on narrow/mobile. */
+	width: auto;
+	min-width: 0;
+	max-width: none;
+	height: auto;
 	padding: 0;
 	margin: 0;
-	box-sizing: border-box;
 	flex: 0 0 auto;
 	vertical-align: middle;
 	accent-color: #2d6a4f;
