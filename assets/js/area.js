@@ -872,6 +872,23 @@
 			const mats = await tokenRequest('GET', root.dataset.extraMatriculasUrl, areaToken, null, root);
 			renderMatriculas(matsEl, Array.isArray(mats) ? mats : []);
 
+			// Banking gate: without COMPLETE SEPA details the family cannot enrol
+			// (the backend enforces this too). Show a red notice + CTA instead of
+			// the enrolment form. Existing matrículas above stay visible.
+			const banking = await tokenRequest('GET', root.dataset.profileUrl + '/banking', areaToken, null, root);
+			if (!banking || !banking.banking_complete) {
+				const warn = document.createElement('p');
+				warn.className = 'anpa-area-required-warning';
+				warn.textContent = __( 'Para matricular en actividades debes ter os datos bancarios completos (IBAN, NIF do titular, enderezo e código postal). Complétaos en «Conta / IBAN».', 'anpa-socios' );
+				enrolEl.appendChild(warn);
+				const goBtn = document.createElement('button');
+				goBtn.type = 'button';
+				goBtn.textContent = __( 'Completar Conta / IBAN', 'anpa-socios' );
+				goBtn.addEventListener('click', function () { navigateArea('banking'); });
+				enrolEl.appendChild(goBtn);
+				return;
+			}
+
 			const fillos = await tokenRequest('GET', root.dataset.fillosUrl, areaToken, null, root);
 			const fillosList = Array.isArray(fillos) ? fillos : [];
 			let oferta = [];
@@ -1223,6 +1240,20 @@
 			// Load existing banking data
 			var banking = await tokenRequest('GET', root.dataset.profileUrl + '/banking', areaToken, null, root);
 			var hasBanking = !!(banking && banking.has_banking);
+			var bankingComplete = !!(banking && banking.banking_complete);
+
+			// Red mandatory-data warning when the SEPA details are missing or
+			// incomplete (e.g. migrated rows with no address). Enrolment in
+			// activities is blocked until these are filled and saved.
+			var missingEl = root.querySelector('[data-banking-missing]');
+			if (missingEl) {
+				if (!bankingComplete) {
+					missingEl.textContent = __( 'Faltan datos bancarios obrigatorios. Debes cubrir o IBAN, o NIF do titular, o enderezo e o código postal e gardar. Mentres non o fagas, non poderás matricular fillos/as en actividades.', 'anpa-socios' );
+					missingEl.hidden = false;
+				} else {
+					missingEl.hidden = true;
+				}
+			}
 
 			// Prefill the non-encrypted holder fields. Account holder defaults to
 			// the socio; a saved record's values win when present.

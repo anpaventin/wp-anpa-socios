@@ -244,6 +244,17 @@ final class ANPA_Socios_Extraescolares_REST {
 			return self::err( 'anpa_extra_not_found', 'Non atopado', 404 );
 		}
 
+		// Banking gate: a family without COMPLETE SEPA banking details (IBAN,
+		// titular NIF, address and authorization) cannot enrol children in
+		// activities, since enrolment implies the direct-debit charge.
+		if ( ! ANPA_Socios_Domiciliacion::is_complete( $familia_id ) ) {
+			return self::err(
+				'anpa_extra_sen_banca',
+				'Para matricular en actividades debes ter os datos bancarios completos. Vai a «Conta / IBAN», cúbreos e garda antes de continuar.',
+				409
+			);
+		}
+
 		$body         = self::json_body( $request );
 		$actividad_id = isset( $body['actividad_id'] ) ? (int) $body['actividad_id'] : 0;
 		$grupo_id     = isset( $body['grupo_id'] ) ? (int) $body['grupo_id'] : 0;

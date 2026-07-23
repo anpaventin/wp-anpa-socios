@@ -236,6 +236,7 @@ class ANPA_Socios_Area_Page {
 			<div class="anpa-area-card" data-step="banking" hidden>
 				<h2>Modificación do IBAN</h2>
 				<p class="anpa-area-muted">Prefíllanse os datos gardados que non están cifrados. Por seguridade, o <strong>IBAN</strong> e o <strong>NIF/NIE do titular</strong> están cifrados e non se poden mostrar: para gardar os cambios debes reintroducilos. Amósase o valor actual enmascarado como referencia.</p>
+				<p class="anpa-area-required-warning" data-banking-missing hidden></p>
 				<label for="anpa-bank-titular-nome">Nome do titular</label>
 				<input id="anpa-bank-titular-nome" type="text" required>
 				<span class="anpa-field-error" data-error="titular_nome" hidden></span>
