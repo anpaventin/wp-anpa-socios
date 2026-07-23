@@ -110,6 +110,55 @@ final class ANPA_Socios_Domiciliacion {
 	}
 
 	/**
+	 * Whether a domiciliación row has ALL mandatory SEPA data (address included).
+	 *
+	 * "Complete" = an IBAN plus the mandatory non-encrypted fields (titular NIF
+	 * mask, enderezo, poboación, código postal, entidade) and the direct-debit
+	 * authorization. Rows created by the IBAN CSV import have empty address
+	 * fields, so they count as incomplete until the family fills them in.
+	 *
+	 * @since  1.47.5
+	 * @param  array<string,mixed> $row Domiciliación row (as read from DB).
+	 * @return bool
+	 */
+	public static function row_is_complete( array $row ): bool {
+		foreach ( array( 'iban_last4', 'titular_nif_mask', 'enderezo', 'poboacion', 'codigo_postal', 'entidade_bancaria' ) as $field ) {
+			if ( '' === trim( (string) ( $row[ $field ] ?? '' ) ) ) {
+				return false;
+			}
+		}
+		return 1 === (int) ( $row['autorizacion'] ?? 0 );
+	}
+
+	/**
+	 * Whether a family has a COMPLETE SEPA domiciliación on file.
+	 *
+	 * Authoritative check used to gate actions that require valid banking
+	 * details (e.g. enrolling children in extraescolares).
+	 *
+	 * @since  1.47.5
+	 * @param  int $familia_id Family id.
+	 * @return bool
+	 */
+	public static function is_complete( int $familia_id ): bool {
+		global $wpdb;
+
+		if ( $familia_id <= 0 ) {
+			return false;
+		}
+		$dom = ANPA_Socios_DB::tabela_domiciliacions();
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT iban_last4, titular_nif_mask, enderezo, poboacion, codigo_postal, entidade_bancaria, autorizacion FROM {$dom} WHERE familia_id = %d",
+				$familia_id
+			),
+			ARRAY_A
+		);
+
+		return is_array( $row ) && self::row_is_complete( $row );
+	}
+
+	/**
 	 * Builds a masked IBAN display from the stored last4 (never the full IBAN).
 	 *
 	 * @since  1.8.0

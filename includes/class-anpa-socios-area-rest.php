@@ -316,13 +316,14 @@ class ANPA_Socios_Area_REST {
 		);
 
 		if ( ! is_array( $row ) ) {
-			return new WP_REST_Response( array( 'has_banking' => false ), 200 );
+			return new WP_REST_Response( array( 'has_banking' => false, 'banking_complete' => false ), 200 );
 		}
 
 		// Masked, non-sensitive view only. NEVER ciphertext, NEVER full IBAN/NIF.
 		return new WP_REST_Response(
 			array(
 				'has_banking'       => true,
+				'banking_complete'  => ANPA_Socios_Domiciliacion::row_is_complete( $row ),
 				'titular_nome'      => (string) $row['titular_nome'],
 				'titular_apelidos'  => (string) $row['titular_apelidos'],
 				'titular_nif_mask'  => (string) ( $row['titular_nif_mask'] ?? '' ),
