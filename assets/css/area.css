@@ -10,6 +10,39 @@
  * @package ANPA_Socios
  */
 
+/* ── Design tokens (fase32) ──────────────────────────────────────────
+ * Two groups:
+ *  A) Structural tokens — SAFE to inherit from the active theme, with a
+ *     plugin fallback. Typography, borders, radii, neutral surfaces, width.
+ *  B) Action/state colours — kept PLUGIN-OWNED and accessible on purpose.
+ *     Inheriting the theme button/palette here previously caused contrast
+ *     clashes (green-on-green, white-on-white); see the note near the end of
+ *     this file. Do NOT route these through --theme-* palette vars.
+ */
+#anpa-area {
+	/* A) Structural — theme-first with fallback */
+	--anpa-font: var(--theme-font-family, inherit);
+	--anpa-border: var(--theme-border-color, #d9d9d9);
+	--anpa-radius: var(--theme-border-radius, 10px);
+	--anpa-surface: var(--theme-palette-color-8, #ffffff);
+	--anpa-surface-muted: var(--theme-palette-color-7, #eef7f2);
+	--anpa-content-width: var(--theme-content-width, 880px);
+	--anpa-gap: clamp(0.65rem, 1.4vw, 1.1rem);
+	--anpa-measure: 34rem; /* readable width for form controls */
+
+	/* B) Action/state — plugin-owned, accessible (do NOT inherit from theme) */
+	--anpa-accent: #2d6a4f;
+	--anpa-accent-hover: #1f513b;
+	--anpa-on-accent: #ffffff;
+	--anpa-secondary-bg: #ffffff;
+	--anpa-secondary-text: #1f513b;
+	--anpa-secondary-border: #9cc6b4;
+	--anpa-secondary-hover-bg: #eef7f2;
+	--anpa-danger: #b42318;
+	--anpa-danger-hover: #7a271a;
+	--anpa-focus-ring: #1a4b8b;
+}
+
 /* ── Plugin-level semantic colour tokens ─────────────────────────── */
 #anpa-area {
 	--anpa-error-bg: #fff1f0;
@@ -39,9 +72,11 @@
 }
 
 #anpa-area {
-	max-width: 720px;
+	/* fase32: fluid width up to the theme content width (was a fixed 720px). */
+	width: 100%;
+	max-width: var(--anpa-content-width, 880px);
 	margin: 1.5rem auto;
-	font-family: inherit;
+	font-family: var(--anpa-font, inherit);
 }
 
 
@@ -50,9 +85,9 @@
 	flex-direction: column;
 	gap: 0.85rem;
 	padding: 1.25rem;
-	border: 1px solid var(--theme-border-color);
-	border-radius: 14px;
-	background: var(--theme-palette-color-8);
+	border: 1px solid var(--anpa-border);
+	border-radius: var(--anpa-radius, 14px);
+	background: var(--anpa-surface);
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
@@ -480,12 +515,17 @@
 }
 
 
-/* Task A: natural-width email/code inputs (were full-width from the theme). */
+/* fase32: form controls use a readable measure (was a narrow 340px that looked
+   cramped once the container went fluid). The login code stays compact. */
 #anpa-area input[type="email"],
-#anpa-area input[type="text"]:not([tabindex="-1"]),
+#anpa-area input[type="text"]:not([tabindex="-1"]) {
+	width: 100%;
+	max-width: var(--anpa-measure, 34rem);
+	box-sizing: border-box;
+}
 #anpa-area input[inputmode="numeric"] {
 	width: 100%;
-	max-width: 340px;
+	max-width: 12rem;
 	box-sizing: border-box;
 }
 
