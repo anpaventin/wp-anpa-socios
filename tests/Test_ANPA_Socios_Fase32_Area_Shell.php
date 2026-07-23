@@ -94,10 +94,22 @@ final class Test_ANPA_Socios_Fase32_Area_Shell extends TestCase {
 		$this->assertStringContainsString( 'var pNome', $this->js );
 		$this->assertStringContainsString( 'var hasBanking', $this->js );
 		$this->assertStringContainsString( "(hasBanking && banking.titular_nome) ? banking.titular_nome : pNome", $this->js );
-		// The socio's own non-encrypted NIF and address are used as defaults too.
+		// The socio's own non-encrypted NIF is used as the holder default.
 		$this->assertStringContainsString( 'var pNif', $this->js );
-		$this->assertStringContainsString( 'var pEnderezo', $this->js );
-		$this->assertStringContainsString( 'var pCp', $this->js );
-		$this->assertStringContainsString( "setVal('anpa-bank-titular-nif', hasBanking ? '' : pNif)", $this->js );
+		$this->assertStringContainsString( "setVal('anpa-bank-titular-nif', pNif)", $this->js );
+	}
+
+	public function test_socios_profile_query_does_not_select_domiciliacion_only_columns(): void {
+		// enderezo/poboacion/codigo_postal live ONLY on the domiciliacions table,
+		// not on wp_anpa_socios. Selecting them in get_active_profile_by_email
+		// caused an "Unknown column" DB error that broke every area login.
+		$rest  = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-area-rest.php' );
+		$start = strpos( $rest, 'function get_active_profile_by_email' );
+		$this->assertNotFalse( $start );
+		$end    = strpos( $rest, 'LIMIT 1', $start );
+		$select = substr( $rest, $start, $end - $start );
+		$this->assertStringNotContainsString( 'enderezo', $select );
+		$this->assertStringNotContainsString( 'poboacion', $select );
+		$this->assertStringNotContainsString( 'codigo_postal', $select );
 	}
 }
