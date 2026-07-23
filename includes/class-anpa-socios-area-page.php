@@ -110,14 +110,19 @@ class ANPA_Socios_Area_Page {
 			</div>
 			<div class="anpa-area-busy" data-busy hidden aria-hidden="true"><span class="anpa-area-spinner" role="status" aria-label="<?php esc_attr_e( 'Traballando', 'anpa-socios' ); ?>"></span></div>
 			<div class="anpa-area-session-header" data-session-header hidden>
-				<details class="anpa-session-menu" data-session-menu>
-					<summary class="anpa-session-summary"><span class="anpa-area-session-who"><?php esc_html_e( 'Conectada/o como', 'anpa-socios' ); ?> <strong data-session-email></strong></span></summary>
-					<div class="anpa-session-menu-body">
-						<button type="button" class="anpa-area-secondary" data-action="header-area"><?php esc_html_e( 'Os meus datos', 'anpa-socios' ); ?></button>
-
+				<nav class="anpa-area-nav" data-area-nav aria-label="<?php esc_attr_e( 'Navegación da área de socios/as', 'anpa-socios' ); ?>">
+					<div class="anpa-area-nav-links">
+						<button type="button" class="anpa-area-nav-btn" data-nav="panel"><?php esc_html_e( 'Inicio', 'anpa-socios' ); ?></button>
+						<button type="button" class="anpa-area-nav-btn" data-nav="extraescolares"><?php esc_html_e( 'Extraescolares', 'anpa-socios' ); ?></button>
+						<button type="button" class="anpa-area-nav-btn" data-nav="fillos"><?php esc_html_e( 'Fillos/as', 'anpa-socios' ); ?></button>
+						<button type="button" class="anpa-area-nav-btn" data-nav="profile"><?php esc_html_e( 'Os meus datos', 'anpa-socios' ); ?></button>
+						<button type="button" class="anpa-area-nav-btn" data-nav="banking"><?php esc_html_e( 'Conta / IBAN', 'anpa-socios' ); ?></button>
+					</div>
+					<div class="anpa-area-nav-session">
+						<span class="anpa-area-session-who"><?php esc_html_e( 'Conectada/o como', 'anpa-socios' ); ?> <strong data-session-email></strong></span>
 						<button type="button" class="anpa-area-secondary anpa-area-danger" data-action="header-logout"><?php esc_html_e( 'Pechar sesión', 'anpa-socios' ); ?></button>
 					</div>
-				</details>
+				</nav>
 			</div>
 			<div class="anpa-area-card" data-step="email" hidden>
 				<h2><?php esc_html_e( 'Área persoal de socios/as', 'anpa-socios' ); ?></h2>
@@ -155,6 +160,25 @@ class ANPA_Socios_Area_Page {
 					<button type="button" data-action="request-reactivar"><?php esc_html_e( 'Solicitar reactivación', 'anpa-socios' ); ?></button>
 					<button type="button" class="anpa-area-secondary" data-action="back-email"><?php esc_html_e( 'Cambiar email', 'anpa-socios' ); ?></button>
 				</div>
+			</div>
+
+			<!-- ── Panel / welcome dashboard (fase32): shown on entry, highlights extraescolares ── -->
+			<div class="anpa-area-card" data-step="panel" hidden>
+				<h2 data-panel-saudo><?php esc_html_e( 'A túa área de socio/a', 'anpa-socios' ); ?></h2>
+				<p class="anpa-area-muted"><?php esc_html_e( 'Dende aquí xestionas as actividades extraescolares e os datos da túa familia.', 'anpa-socios' ); ?></p>
+				<p class="anpa-area-baixa-status" data-panel-baixa hidden></p>
+				<section class="anpa-area-panel-extra">
+					<h3><?php esc_html_e( 'As túas actividades extraescolares', 'anpa-socios' ); ?></h3>
+					<div data-panel-matriculas></div>
+					<div class="anpa-area-actions">
+						<button type="button" data-nav="extraescolares"><?php esc_html_e( 'Nova matrícula', 'anpa-socios' ); ?></button>
+					</div>
+				</section>
+				<section class="anpa-area-panel-shortcuts">
+					<button type="button" class="anpa-area-secondary" data-nav="fillos"><?php esc_html_e( 'Os meus fillos/as', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary" data-nav="profile"><?php esc_html_e( 'Os meus datos', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary" data-nav="banking"><?php esc_html_e( 'Conta / IBAN', 'anpa-socios' ); ?></button>
+				</section>
 			</div>
 
 			<!-- ── Profile step (fase8b: expanded with telefono, nif, email, proxenitor2, banking) ── -->
@@ -197,16 +221,16 @@ class ANPA_Socios_Area_Page {
 				</div>
 
 				<p class="anpa-area-baixa-status" data-baixa-status hidden></p>
+				<!-- Navegación entre seccións (fillos, extraescolares, pechar sesión) vive
+				     agora na barra de navegación persistente. Aquí só quedan a acción
+				     primaria (gardar) e as accións de conta. `toggle-banking` mantense
+				     (oculto na barra) porque a entrada «Conta / IBAN» da nav actívao. -->
 				<div class="anpa-area-actions">
 					<button type="button" data-action="save-profile"><?php esc_html_e( 'Gardar cambios', 'anpa-socios' ); ?></button>
-					<button type="button" class="anpa-area-secondary" data-action="manage-fillos"><?php esc_html_e( 'Xestionar fillos/as', 'anpa-socios' ); ?></button>
-					<button type="button" class="anpa-area-secondary" data-action="manage-extraescolares"><?php esc_html_e( 'Extraescolares', 'anpa-socios' ); ?></button>
 					<button type="button" class="anpa-area-secondary" data-action="toggle-proxenitor2"><?php esc_html_e( 'Engadir outro proxenitor/titor', 'anpa-socios' ); ?></button>
-					<button type="button" class="anpa-area-secondary" data-action="toggle-banking"><?php esc_html_e( 'Modificación IBAN', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary anpa-area-nav-proxy" data-action="toggle-banking" hidden aria-hidden="true" tabindex="-1"><?php esc_html_e( 'Modificación IBAN', 'anpa-socios' ); ?></button>
 					<button type="button" class="anpa-area-secondary anpa-area-danger" data-action="request-baixa" data-baixa-btn hidden><?php esc_html_e( 'Solicitar baixa de socio/a', 'anpa-socios' ); ?></button>
 					<button type="button" class="anpa-area-secondary" data-action="cancel-baixa" data-baixa-cancel-btn hidden><?php esc_html_e( 'Anular solicitude de baixa', 'anpa-socios' ); ?></button>
-					<button type="button" class="anpa-area-secondary" data-action="logout"><?php esc_html_e( 'Pechar sesión', 'anpa-socios' ); ?></button>
-
 				</div>
 			</div>
 
