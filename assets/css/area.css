@@ -656,3 +656,94 @@
 	width: 100%;
 	text-align: left;
 }
+
+/* ── fase32: persistent navigation + welcome panel ─────────────────── */
+#anpa-area .anpa-area-nav {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 1rem;
+	width: 100%;
+}
+#anpa-area .anpa-area-nav-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+	flex: 1 1 auto;
+	min-width: 0;
+}
+#anpa-area .anpa-area-nav-session {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+	margin-left: auto;
+}
+/* Tab-like nav buttons. Higher specificity than the generic button rule so the
+   green "primary" styling does not leak onto inactive tabs. */
+#anpa-area .anpa-area-nav .anpa-area-nav-btn {
+	margin: 0;
+	background: transparent;
+	border: 1px solid transparent;
+	color: var(--anpa-secondary-text, #1f513b);
+	border-radius: 8px;
+	padding: 0.4rem 0.75rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background .15s ease, color .15s ease;
+}
+#anpa-area .anpa-area-nav .anpa-area-nav-btn:hover {
+	background: var(--anpa-secondary-hover-bg, #eef7f2);
+	color: var(--anpa-secondary-text, #1f513b);
+}
+#anpa-area .anpa-area-nav .anpa-area-nav-btn.is-active,
+#anpa-area .anpa-area-nav .anpa-area-nav-btn[aria-current="page"] {
+	background: var(--anpa-accent, #2d6a4f);
+	color: var(--anpa-on-accent, #ffffff);
+	border-color: var(--anpa-accent, #2d6a4f);
+}
+#anpa-area .anpa-area-nav .anpa-area-nav-btn:focus-visible {
+	outline: 2px solid var(--anpa-focus-ring, #1a4b8b);
+	outline-offset: 2px;
+}
+/* The old session-header rule pushed every button to the right; the nav layout
+   manages alignment itself, so neutralise it for nav buttons. */
+#anpa-area .anpa-area-session-header .anpa-area-nav button {
+	margin-left: 0;
+}
+#anpa-area .anpa-area-nav-session .anpa-area-session-who {
+	flex: 0 1 auto;
+}
+
+/* Welcome panel */
+#anpa-area .anpa-area-panel-extra {
+	margin-top: 0.25rem;
+	padding: 1rem;
+	border: 1px solid var(--anpa-border, #d9d9d9);
+	border-radius: var(--anpa-radius, 10px);
+	background: var(--anpa-surface-muted, #eef7f2);
+}
+#anpa-area .anpa-area-panel-extra h3 {
+	margin: 0 0 0.5rem;
+}
+#anpa-area .anpa-area-panel-shortcuts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-top: 1rem;
+}
+
+/* Mobile: nav collapses to a comfortable column-ish wrap. */
+@media (max-width: 480px) {
+	#anpa-area .anpa-area-nav-links {
+		width: 100%;
+	}
+	#anpa-area .anpa-area-nav .anpa-area-nav-btn {
+		flex: 1 1 auto;
+		text-align: center;
+	}
+	#anpa-area .anpa-area-nav-session {
+		width: 100%;
+		margin-left: 0;
+	}
+}

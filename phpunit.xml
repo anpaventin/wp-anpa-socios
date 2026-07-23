@@ -89,6 +89,7 @@
       <file>tests/Test_ANPA_Socios_Setup_Wizard.php</file>
       <file>tests/Test_ANPA_Socios_Fillos_Grouped_Header.php</file>
       <file>tests/Test_ANPA_Socios_Actividades_Effective_State.php</file>
+      <file>tests/Test_ANPA_Socios_Fase32_Area_Shell.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

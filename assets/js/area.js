@@ -357,6 +357,87 @@
 			showMessage(root, message, type);
 		}
 
+		// ── Persistent navigation + welcome panel (fase32) ──────────────
+		// The nav (and the panel's shortcut buttons) route via data-nav using a
+		// single dispatcher that reuses the existing loaders/handlers, so no
+		// behaviour is duplicated and no wiring is removed.
+		function setActiveNav(step) {
+			root.querySelectorAll('[data-area-nav] [data-nav]').forEach(function (b) {
+				if (b.dataset.nav === step) {
+					b.setAttribute('aria-current', 'page');
+					b.classList.add('is-active');
+				} else {
+					b.removeAttribute('aria-current');
+					b.classList.remove('is-active');
+				}
+			});
+		}
+
+		function renderPanel() {
+			// Greeting from the already-filled profile fields (no extra fetch).
+			var saudo = root.querySelector('[data-panel-saudo]');
+			if (saudo) {
+				var nome = (root.querySelector('#anpa-area-nome') || {}).value || '';
+				var emailTxt = (root.querySelector('[data-profile-email]') || {}).textContent || '';
+				saudo.textContent = nome
+					? ( 'Ola, ' + nome )
+					: ( emailTxt ? ( 'Ola, ' + emailTxt ) : 'A túa área de socio/a' );
+			}
+			// Mirror any pending-baixa notice onto the panel.
+			var pbaixa = root.querySelector('[data-panel-baixa]');
+			var sbaixa = root.querySelector('[data-baixa-status]');
+			if (pbaixa) {
+				if (sbaixa && sbaixa.textContent && !sbaixa.hidden) {
+					pbaixa.textContent = sbaixa.textContent;
+					pbaixa.hidden = false;
+				} else {
+					pbaixa.textContent = '';
+					pbaixa.hidden = true;
+				}
+			}
+			// Extraescolares summary (reuses the matriculas renderer). Degrades
+			// gracefully: on any failure the panel still shows with the shortcuts.
+			var host = root.querySelector('[data-panel-matriculas]');
+			if (host && areaToken) {
+				host.textContent = '';
+				tokenRequest('GET', root.dataset.extraMatriculasUrl, areaToken, null, root).then(function (mats) {
+					renderMatriculas(host, Array.isArray(mats) ? mats : []);
+				});
+			}
+		}
+
+		function navigateArea(step) {
+			showMessage(root, '', 'info');
+			if (step === 'panel') {
+				renderPanel();
+				showStep(root, 'panel');
+			} else if (step === 'fillos') {
+				resetFilloForm();
+				showStep(root, 'fillos');
+				loadFillos();
+			} else if (step === 'extraescolares') {
+				showStep(root, 'extraescolares');
+				loadExtraescolares();
+			} else if (step === 'banking') {
+				// Reuse the banking loader (kept as a hidden proxy in the profile card).
+				var b = root.querySelector('[data-action="toggle-banking"]');
+				if (b) { b.click(); }
+			} else if (step === 'profile') {
+				showStep(root, 'profile');
+			}
+			setActiveNav(step);
+			// Move focus to the section heading for keyboard/screen-reader users.
+			var heading = root.querySelector('[data-step="' + step + '"] h2');
+			if (heading) {
+				heading.setAttribute('tabindex', '-1');
+				try { heading.focus(); } catch (_) {}
+			}
+		}
+
+		root.querySelectorAll('[data-nav]').forEach(function (btn) {
+			btn.addEventListener('click', function () { navigateArea(btn.dataset.nav); });
+		});
+
 		bind('[data-action="header-logout"]', 'click', async () => {
 			const wasArea = !!areaToken;
 			if (areaToken) {
@@ -522,7 +603,9 @@
 				if (typeof window.anpaHeaderNavCheck === 'function') {
 					window.anpaHeaderNavCheck();
 				}
-				showStep(root, 'profile');
+				renderPanel();
+				showStep(root, 'panel');
+				setActiveNav('panel');
 				showMessage(root, '', 'info');
 				return;
 			}
@@ -1498,7 +1581,9 @@
 				fillProfile(root, profile);
 				showSessionHeader(status.email);
 				startIdleTimers();
-				showStep(root, 'profile');
+				renderPanel();
+				showStep(root, 'panel');
+				setActiveNav('panel');
 				return true;
 			}());
 
