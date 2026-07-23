@@ -86,4 +86,13 @@ final class Test_ANPA_Socios_Fase32_Area_Shell extends TestCase {
 		// The provincia field (unused by validar_sepa_opcional) is gone.
 		$this->assertStringNotContainsString( 'anpa-bank-provincia', $this->php );
 	}
+
+	public function test_banking_prefills_holder_from_profile(): void {
+		// The account holder defaults to the socio's own known (non-encrypted)
+		// data so the IBAN form is never blank for a socio without a saved
+		// domiciliación; a saved banking record overrides it.
+		$this->assertStringContainsString( 'var pNome', $this->js );
+		$this->assertStringContainsString( 'var hasBanking', $this->js );
+		$this->assertStringContainsString( "(hasBanking && banking.titular_nome) ? banking.titular_nome : pNome", $this->js );
+	}
 }

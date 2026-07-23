@@ -1198,48 +1198,59 @@
 			// Load provincia/poboacion dropdowns
 			await loadBankingReferencias();
 
+			var setVal = function(id, val) {
+				var el = root.querySelector('#' + id);
+				if (el) { el.value = val || ''; }
+			};
+
+			// The socio's own known, non-encrypted data (already loaded into the
+			// profile step at login). Used as sensible defaults for the account
+			// holder so the form is never blank for a socio who has not set up a
+			// domiciliación yet. A saved banking record overrides these.
+			var pNome = (root.querySelector('#anpa-area-nome') || {}).value || '';
+			var pApelidos = (root.querySelector('#anpa-area-apelidos') || {}).value || '';
+
 			// Load existing banking data
 			var banking = await tokenRequest('GET', root.dataset.profileUrl + '/banking', areaToken, null, root);
-			if (banking && banking.has_banking) {
-				var setVal = function(id, val) {
-					var el = root.querySelector('#' + id);
-					if (el) { el.value = val || ''; }
-				};
-				// Prefill ONLY the saved, non-encrypted values.
-				setVal('anpa-bank-titular-nome', banking.titular_nome);
-				setVal('anpa-bank-titular-apelidos', banking.titular_apelidos);
-				setVal('anpa-bank-entidade', banking.entidade_bancaria);
-				setVal('anpa-bank-enderezo', banking.enderezo);
-				setVal('anpa-bank-poboacion', banking.poboacion);
-				setVal('anpa-bank-cp', banking.codigo_postal);
-				// Re-affirm the previously granted authorization by default.
-				var autEl = root.querySelector('#anpa-bank-autorizacion');
-				if (autEl) { autEl.checked = !!banking.autorizacion; }
+			var hasBanking = !!(banking && banking.has_banking);
 
-				// Encrypted fields (IBAN, NIF) are NEVER prefilled: showing the mask
-				// and saving it would fail validation. Clear them and show the
-				// current value masked as a reference; the user re-enters them.
-				setVal('anpa-bank-titular-nif', '');
-				setVal('anpa-bank-iban', '');
-				var nifMaskEl = root.querySelector('[data-nif-mask]');
-				if (nifMaskEl) {
-					if (banking.titular_nif_mask) {
-						nifMaskEl.textContent = 'NIF actual: ' + banking.titular_nif_mask + ' — reintroduce o NIF completo para gardar.';
-						nifMaskEl.hidden = false;
-					} else {
-						nifMaskEl.hidden = true;
-					}
+			// Prefill the non-encrypted holder/address fields. Account holder
+			// defaults to the socio; a saved record's values win when present.
+			setVal('anpa-bank-titular-nome', (hasBanking && banking.titular_nome) ? banking.titular_nome : pNome);
+			setVal('anpa-bank-titular-apelidos', (hasBanking && banking.titular_apelidos) ? banking.titular_apelidos : pApelidos);
+			setVal('anpa-bank-entidade', hasBanking ? banking.entidade_bancaria : '');
+			setVal('anpa-bank-enderezo', hasBanking ? banking.enderezo : '');
+			// Poboación keeps its config default (rendered value) unless a saved
+			// record provides one — never blank it out.
+			if (hasBanking && banking.poboacion) { setVal('anpa-bank-poboacion', banking.poboacion); }
+			setVal('anpa-bank-cp', hasBanking ? banking.codigo_postal : '');
+
+			// Re-affirm the previously granted authorization by default.
+			var autEl = root.querySelector('#anpa-bank-autorizacion');
+			if (autEl) { autEl.checked = hasBanking ? !!banking.autorizacion : false; }
+
+			// Encrypted fields (IBAN, NIF) are NEVER prefilled: showing the mask
+			// and saving it would fail validation. Clear them and show the current
+			// value masked as a reference; the user re-enters them.
+			setVal('anpa-bank-titular-nif', '');
+			setVal('anpa-bank-iban', '');
+			var nifMaskEl = root.querySelector('[data-nif-mask]');
+			if (nifMaskEl) {
+				if (hasBanking && banking.titular_nif_mask) {
+					nifMaskEl.textContent = 'NIF actual: ' + banking.titular_nif_mask + ' — reintroduce o NIF completo para gardar.';
+					nifMaskEl.hidden = false;
+				} else {
+					nifMaskEl.hidden = true;
 				}
-				var maskEl = root.querySelector('[data-iban-mask]');
-				if (maskEl && banking.iban_mascara) {
+			}
+			var maskEl = root.querySelector('[data-iban-mask]');
+			if (maskEl) {
+				if (hasBanking && banking.iban_mascara) {
 					maskEl.textContent = 'IBAN actual: ' + banking.iban_mascara + ' — introduce o novo IBAN para cambialo.';
 					maskEl.hidden = false;
+				} else {
+					maskEl.hidden = true;
 				}
-			} else {
-				var maskEl2 = root.querySelector('[data-iban-mask]');
-				if (maskEl2) { maskEl2.hidden = true; }
-				var nifMaskEl2 = root.querySelector('[data-nif-mask]');
-				if (nifMaskEl2) { nifMaskEl2.hidden = true; }
 			}
 		});
 
