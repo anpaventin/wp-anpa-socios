@@ -36,8 +36,9 @@
    keeps this winning regardless of source order. */
 #anpa-asociarse input[type="checkbox"],
 #anpa-asociarse input[type="radio"] {
-	-webkit-appearance: auto;
-	appearance: auto;
+	/* Only neutralise the inherited full-width/padding of text inputs. Do NOT
+	   force appearance:auto: the theme draws its own checkmark, so forcing the
+	   native tick on top produced a DOUBLE tick on narrow/mobile widths. */
 	width: auto;
 	min-width: 0;
 	max-width: none;
