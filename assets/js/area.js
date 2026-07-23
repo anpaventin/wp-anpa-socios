@@ -1210,47 +1210,43 @@
 			// at login). Used as sensible defaults for the account holder so the
 			// form is never blank for a socio who has not set up a domiciliación
 			// yet. A saved banking record overrides these.
+			// The socio's own known, non-encrypted identity (nome, apelidos, NIF)
+			// loaded with the profile at login. Used as sensible defaults for the
+			// account holder. The address (enderezo/poboación/CP) is NOT stored on
+			// the socio: it only lives in the domiciliación, so it can only be
+			// prefilled from a saved banking record.
 			var prof = root._anpaProfile || {};
 			var pNome = prof.nome || (root.querySelector('#anpa-area-nome') || {}).value || '';
 			var pApelidos = prof.apelidos || (root.querySelector('#anpa-area-apelidos') || {}).value || '';
 			var pNif = prof.nif || (root.querySelector('#anpa-area-nif') || {}).value || '';
-			var pEnderezo = prof.enderezo || '';
-			var pPoboacion = prof.poboacion || '';
-			var pCp = prof.codigo_postal || '';
 
 			// Load existing banking data
 			var banking = await tokenRequest('GET', root.dataset.profileUrl + '/banking', areaToken, null, root);
 			var hasBanking = !!(banking && banking.has_banking);
 
-			// Prefill the non-encrypted holder/address fields. Account holder
-			// defaults to the socio; a saved record's values win when present.
+			// Prefill the non-encrypted holder fields. Account holder defaults to
+			// the socio; a saved record's values win when present.
 			setVal('anpa-bank-titular-nome', (hasBanking && banking.titular_nome) ? banking.titular_nome : pNome);
 			setVal('anpa-bank-titular-apelidos', (hasBanking && banking.titular_apelidos) ? banking.titular_apelidos : pApelidos);
 			setVal('anpa-bank-entidade', hasBanking ? banking.entidade_bancaria : '');
-			setVal('anpa-bank-enderezo', (hasBanking && banking.enderezo) ? banking.enderezo : pEnderezo);
-			// Poboación: saved record > socio profile > config default (rendered
-			// value). Never blank it out.
-			if (hasBanking && banking.poboacion) {
-				setVal('anpa-bank-poboacion', banking.poboacion);
-			} else if (pPoboacion) {
-				setVal('anpa-bank-poboacion', pPoboacion);
-			}
-			setVal('anpa-bank-cp', (hasBanking && banking.codigo_postal) ? banking.codigo_postal : pCp);
+			// Address only exists in the domiciliación record.
+			setVal('anpa-bank-enderezo', hasBanking ? banking.enderezo : '');
+			if (hasBanking && banking.poboacion) { setVal('anpa-bank-poboacion', banking.poboacion); }
+			setVal('anpa-bank-cp', hasBanking ? banking.codigo_postal : '');
 
 			// Re-affirm the previously granted authorization by default.
 			var autEl = root.querySelector('#anpa-bank-autorizacion');
 			if (autEl) { autEl.checked = hasBanking ? !!banking.autorizacion : false; }
 
-			// IBAN is encrypted: never prefill it (a mask can't be saved). The NIF
-			// of the account holder defaults to the socio's own (non-encrypted)
-			// NIF from their profile when there is no saved domiciliación; when a
-			// domiciliación exists the stored NIF is encrypted, so it is cleared
-			// and the current value shown masked to be re-entered.
+			// IBAN is encrypted: never prefill it (a mask can't be saved). The
+			// holder NIF defaults to the socio's own (non-encrypted) NIF so the
+			// field is not blank; the saved NIF is encrypted, so the mask is shown
+			// only as a reference when the socio has no NIF on file.
 			setVal('anpa-bank-iban', '');
-			setVal('anpa-bank-titular-nif', hasBanking ? '' : pNif);
+			setVal('anpa-bank-titular-nif', pNif);
 			var nifMaskEl = root.querySelector('[data-nif-mask]');
 			if (nifMaskEl) {
-				if (hasBanking && banking.titular_nif_mask) {
+				if (!pNif && hasBanking && banking.titular_nif_mask) {
 					nifMaskEl.textContent = 'NIF actual: ' + banking.titular_nif_mask + ' — reintroduce o NIF completo para gardar.';
 					nifMaskEl.hidden = false;
 				} else {
