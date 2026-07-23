@@ -57,7 +57,9 @@ final class Test_ANPA_Socios_Actividades_Effective_State extends TestCase {
 			$this->js
 		);
 		$this->assertStringContainsString( 'r._estado_efectivo = activityEffectiveState(r).label;', $this->js );
-		$this->assertStringContainsString( "_estado_efectivo: 'Estado',", $this->js );
+		// buildTable() strips the leading underscore before colLabel(), so the
+		// label map key is WITHOUT the underscore. The visible header is "Estado".
+		$this->assertStringContainsString( "estado_efectivo: 'Estado',", $this->js );
 		$this->assertStringContainsString( 'buildTable(paged, ACTIV_DISPLAY_COLS', $this->js );
 		$this->assertStringContainsString( 'filterRows(visible, query, ACTIV_DISPLAY_COLS)', $this->js );
 		// CSV export keeps the raw estado column (canonical contract): the CSV
@@ -67,10 +69,13 @@ final class Test_ANPA_Socios_Actividades_Effective_State extends TestCase {
 	}
 
 	public function test_grupos_button_removed_from_listing(): void {
-		// The per-row "Grupos" button was removed; groups are managed from the
-		// edit form ("Xestionar grupos").
+		// The per-row "Grupos" button was removed from the listing, and the
+		// redundant edit-form "Xestionar grupos" button was also removed: groups
+		// are managed inline via renderGroupSeriesList (list + "Novo grupo" +
+		// edit/create per row).
 		$this->assertStringNotContainsString( 'gruposBtn', $this->js );
-		$this->assertStringContainsString( 'Xestionar grupos', $this->js );
+		$this->assertStringNotContainsString( "manage.textContent = 'Xestionar grupos'", $this->js );
+		$this->assertStringContainsString( "renderGroupSeriesList(groupsList, act, { scope: 'activity-inline' })", $this->js );
 	}
 
 	public function test_public_cards_grid_wider_min_and_max_four_columns(): void {

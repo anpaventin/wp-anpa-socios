@@ -387,10 +387,23 @@
 .anpa-mgmt-table input[type="checkbox"],
 .anpa-mgmt-form input[type="checkbox"],
 .anpa-mgmt-form input[type="radio"] {
+	/* The generic ".anpa-mgmt-form input" rule adds padding + full width;
+	   without resetting it here the box-sizing:border-box maths squeeze the
+	   native tick into the bottom-right corner (visible on mobile). Reset the
+	   inherited box model so checkboxes/radios render natively at 16px. */
+	-webkit-appearance: auto;
+	appearance: auto;
 	width: 16px;
 	height: 16px;
 	min-width: 16px;
 	min-height: 16px;
+	max-width: 16px;
+	padding: 0;
+	margin: 0;
+	box-sizing: border-box;
+	flex: 0 0 auto;
+	vertical-align: middle;
+	accent-color: #2d6a4f;
 	border-radius: 0;
 }
 

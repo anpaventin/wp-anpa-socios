@@ -31,7 +31,9 @@
 		resolto_por: 'Resolto por',
 		cursos_ofertados: 'Cursos nos que se oferta',
 		trimestres: 'Trimestre inscripción',
-		_estado_efectivo: 'Estado',
+		// buildTable strips the leading underscore before calling colLabel(),
+		// so the lookup key here must be WITHOUT the underscore.
+		estado_efectivo: 'Estado',
 	};
 	function colLabel(key) { return adminColLabels[key] || baseColLabel(key); }
 	function formatAdminDate(value) {
@@ -1939,9 +1941,11 @@
 			var gp = document.createElement('p'); gp.textContent = 'Todos os grupos móstranse abaixo. Os do curso activo aparecen como filas principais; os de cursos anteriores e pechados móstranse dentro do despregable de cada grupo.'; gruposSection.appendChild(gp);
 			var groupsList = document.createElement('div');
 			gruposSection.appendChild(groupsList);
+			// Groups are fully manageable inline above (list + "Novo grupo" +
+			// edit/create per row), so the redundant "Xestionar grupos" button
+			// that only reopened the same list in a separate panel was removed.
 			renderGroupSeriesList(groupsList, act, { scope: 'activity-inline' });
-			var manage = document.createElement('button'); manage.type = 'button'; manage.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary'; manage.textContent = 'Xestionar grupos';
-			manage.addEventListener('click', function () { renderGruposPanel(act); }); gruposSection.appendChild(manage); form.appendChild(gruposSection);
+			form.appendChild(gruposSection);
 		}
 
 		var actions = document.createElement('div'); actions.className = 'anpa-mgmt-form-actions';
