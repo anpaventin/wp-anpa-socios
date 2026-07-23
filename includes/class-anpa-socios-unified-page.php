@@ -110,7 +110,6 @@ class ANPA_Socios_Unified_Page {
 			<div class="anpa-preseason-notice anpa-aviso" role="status">
 				<h2><?php echo sprintf( esc_html__( 'O curso escolar %s aínda non comezou', 'anpa-socios' ), esc_html( $preseason_curso ) ); ?></h2>
 				<p><?php echo sprintf( __( 'A alta de socios e a matriculación nas actividades extraescolares abriranse automaticamente o <strong>%s</strong>. O proceso farase de xeito automático, non tes que facer nada agora.', 'anpa-socios' ), esc_html( $preseason_date ) ); ?></p>
-				<p><?php esc_html_e( 'Mentres tanto, só o equipo administrador pode iniciar sesión.', 'anpa-socios' ); ?></p>
 			</div>
 			<?php endif; ?>
 

@@ -583,6 +583,15 @@
 			}
 		}
 
+		// Pre-season: the course has not started yet. For non-logged-in visitors
+		// we show ONLY the informative notice (rendered server-side) and hide the
+		// email/login form: members have nothing to do yet, and admins access
+		// wp-admin directly rather than through this page. Already-authenticated
+		// sessions were handled above (they were restored/redirected).
+		if (cfg.root.dataset.preseason === '1') {
+			return;
+		}
+
 		// Prefill email from URL parameter if present.
 		var urlParams = new URLSearchParams(window.location.search);
 		var prefilledEmail = urlParams.get('email');
@@ -613,7 +622,8 @@
 			if (host) { host.hidden = true; }
 			if (altaHost) { altaHost.hidden = true; }
 			cfg.root.hidden = false;
-			showStep(cfg, 'alta');
+			// In pre-season keep the login/alta form hidden (only the notice shows).
+			showStep(cfg, cfg.root.dataset.preseason === '1' ? '' : 'alta');
 			if (message) {
 				showNotice(cfg, message, !!isError);
 			} else {
