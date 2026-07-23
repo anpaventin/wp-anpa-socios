@@ -57,4 +57,33 @@ final class Test_ANPA_Socios_Fase32_Area_Shell extends TestCase {
 		// Navigation is wired via data-nav.
 		$this->assertStringContainsString( "querySelectorAll('[data-nav]')", $this->js );
 	}
+
+	public function test_redundant_back_buttons_removed(): void {
+		// The persistent nav replaces the per-card "Volver" buttons; they are gone.
+		$this->assertStringNotContainsString( 'data-action="back-profile"', $this->php );
+		$this->assertStringNotContainsString( 'data-action="extra-back"', $this->php );
+		$this->assertStringNotContainsString( 'Volver aos meus datos', $this->php );
+		$this->assertStringNotContainsString( 'Volver aos teus datos', $this->php );
+	}
+
+	public function test_reparar_curso_removed(): void {
+		// "Reparar curso" added nothing the socio couldn't do directly: fully removed
+		// (button, JS handler, page wiring and REST route).
+		$rest = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-area-rest.php' );
+		$this->assertStringNotContainsString( 'Reparar curso', $this->js );
+		$this->assertStringNotContainsString( 'filloRepararUrl', $this->js );
+		$this->assertStringNotContainsString( 'data-fillo-reparar-url', $this->php );
+		$this->assertStringNotContainsString( 'reparar-curso', $rest );
+		$this->assertStringNotContainsString( 'handle_reparar_curso', $rest );
+	}
+
+	public function test_banking_card_focused_on_iban(): void {
+		// The IBAN card drops the unused SEPA fields and prefills only non-encrypted
+		// data; encrypted IBAN/NIF are re-entered (masked reference shown).
+		$this->assertStringContainsString( 'data-step="banking"', $this->php );
+		$this->assertStringContainsString( 'data-nif-mask', $this->php );
+		$this->assertStringContainsString( 'data-iban-mask', $this->php );
+		// The provincia field (unused by validar_sepa_opcional) is gone.
+		$this->assertStringNotContainsString( 'anpa-bank-provincia', $this->php );
+	}
 }

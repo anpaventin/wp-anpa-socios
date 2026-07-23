@@ -58,7 +58,6 @@ class ANPA_Socios_Area_Page {
 		$reactivar_url         = rest_url( 'anpa-socios/v1/area/reactivar' );
 		$fillos_url            = rest_url( 'anpa-socios/v1/fillos' );
 		$fillo_url             = rest_url( 'anpa-socios/v1/fillo/' );
-		$fillo_reparar_url     = rest_url( 'anpa-socios/v1/area/me/fillo/' );
 		$referencias_url       = rest_url( 'anpa-socios/v1/area/referencias' );
 
 		// Extraescolares enrolment endpoints (fase7).
@@ -90,7 +89,6 @@ class ANPA_Socios_Area_Page {
 			data-reactivar-url="<?php echo esc_attr( $reactivar_url ); ?>"
 			data-fillos-url="<?php echo esc_attr( $fillos_url ); ?>"
 			data-fillo-url="<?php echo esc_attr( $fillo_url ); ?>"
-			data-fillo-reparar-url="<?php echo esc_attr( $fillo_reparar_url ); ?>"
 			data-referencias-url="<?php echo esc_attr( $referencias_url ); ?>"
 			data-extra-oferta-url="<?php echo esc_attr( $extra_oferta_url ); ?>"
 			data-extra-matriculas-url="<?php echo esc_attr( $extra_matriculas_url ); ?>"
@@ -234,10 +232,10 @@ class ANPA_Socios_Area_Page {
 				</div>
 			</div>
 
-			<!-- ── Banking / Modificación IBAN (fase 1.20.0) ── -->
+			<!-- ── Banking / Modificación do IBAN (fase 1.20.0; fase32: enfocado no IBAN) ── -->
 			<div class="anpa-area-card" data-step="banking" hidden>
-				<h2>Modificación IBAN</h2>
-				<p class="anpa-area-muted">Aquí podes consultar e modificar os datos da túa conta para a domiciliación das cotas. O IBAN está protexido: se queres cambialo, introduce o novo IBAN (e o novo titular se corresponde outra persoa). Para o resto de campos modifica o valor e garda.</p>
+				<h2>Modificación do IBAN</h2>
+				<p class="anpa-area-muted">Prefíllanse os datos gardados que non están cifrados. Por seguridade, o <strong>IBAN</strong> e o <strong>NIF/NIE do titular</strong> están cifrados e non se poden mostrar: para gardar os cambios debes reintroducilos. Amósase o valor actual enmascarado como referencia.</p>
 				<label for="anpa-bank-titular-nome">Nome do titular</label>
 				<input id="anpa-bank-titular-nome" type="text" required>
 				<span class="anpa-field-error" data-error="titular_nome" hidden></span>
@@ -245,10 +243,11 @@ class ANPA_Socios_Area_Page {
 				<input id="anpa-bank-titular-apelidos" type="text" required>
 				<span class="anpa-field-error" data-error="titular_apelidos" hidden></span>
 				<label for="anpa-bank-titular-nif">NIF / NIE do titular</label>
-				<input id="anpa-bank-titular-nif" type="text" required>
+				<input id="anpa-bank-titular-nif" type="text" autocomplete="off" required>
 				<span class="anpa-field-error" data-error="titular_nif" hidden></span>
-				<label for="anpa-bank-iban">IBAN (encriptado: só se mostra enmascarado. Para cambialo, introduce aquí o novo IBAN)</label>
-				<input id="anpa-bank-iban" type="text" placeholder="ES00 0000 0000 0000 0000 0000">
+				<small class="anpa-area-muted" data-nif-mask hidden></small>
+				<label for="anpa-bank-iban">IBAN</label>
+				<input id="anpa-bank-iban" type="text" autocomplete="off" placeholder="ES00 0000 0000 0000 0000 0000">
 				<span class="anpa-field-error" data-error="iban" hidden></span>
 				<small class="anpa-area-muted" id="anpa-bank-iban-mask" data-iban-mask></small>
 				<label for="anpa-bank-entidade">Entidade bancaria</label>
@@ -257,18 +256,12 @@ class ANPA_Socios_Area_Page {
 				<label for="anpa-bank-enderezo">Enderezo</label>
 				<input id="anpa-bank-enderezo" type="text" required>
 				<span class="anpa-field-error" data-error="enderezo" hidden></span>
-				<label for="anpa-bank-provincia">Provincia</label>
-				<input id="anpa-bank-provincia" type="text" autocomplete="address-level1" required value="<?php echo esc_attr( ANPA_Socios_Config::default_province() ); ?>">
-				<span class="anpa-field-error" data-error="provincia" hidden></span>
 				<label for="anpa-bank-poboacion">Poboación</label>
 				<input id="anpa-bank-poboacion" type="text" autocomplete="address-level2" required value="<?php echo esc_attr( ANPA_Socios_Config::default_town() ); ?>">
 				<span class="anpa-field-error" data-error="poboacion" hidden></span>
 				<label for="anpa-bank-cp">Código postal</label>
 				<input id="anpa-bank-cp" type="text" inputmode="numeric" maxlength="5" required>
 				<span class="anpa-field-error" data-error="codigo_postal" hidden></span>
-				<label for="anpa-bank-lugar-data">Lugar e data</label>
-				<input id="anpa-bank-lugar-data" type="text" readonly>
-				<span class="anpa-field-error" data-error="lugar_data" hidden></span>
 				<label class="anpa-admin-check">
 					<input type="checkbox" id="anpa-bank-autorizacion" required>
 					Autorizo a ANPA a domiciliar os recibos das cotas
@@ -276,7 +269,6 @@ class ANPA_Socios_Area_Page {
 				<span class="anpa-field-error" data-error="autorizacion" hidden></span>
 				<div class="anpa-area-actions">
 					<button type="button" data-action="save-banking">Gardar cambios</button>
-					<button type="button" class="anpa-area-secondary" data-action="back-profile">Volver aos meus datos</button>
 				</div>
 			</div>
 
@@ -303,7 +295,6 @@ class ANPA_Socios_Area_Page {
 				<div class="anpa-area-actions">
 					<button type="button" data-action="save-fillo"><?php esc_html_e( 'Gardar fillo/a', 'anpa-socios' ); ?></button>
 					<button type="button" class="anpa-area-secondary" data-action="cancel-fillo-edit" hidden><?php esc_html_e( 'Cancelar edición', 'anpa-socios' ); ?></button>
-					<button type="button" class="anpa-area-secondary" data-action="back-profile"><?php esc_html_e( 'Volver aos meus datos', 'anpa-socios' ); ?></button>
 				</div>
 			</div>
 
@@ -313,9 +304,6 @@ class ANPA_Socios_Area_Page {
 				<div data-extra-matriculas></div>
 				<h3><?php esc_html_e( 'Nova matrícula', 'anpa-socios' ); ?></h3>
 				<div data-extra-enrol></div>
-				<div class="anpa-area-actions">
-					<button type="button" class="anpa-area-secondary" data-action="extra-back"><?php esc_html_e( 'Volver aos teus datos', 'anpa-socios' ); ?></button>
-				</div>
 			</div>
 
 			<div class="anpa-area-card" data-step="empresa" hidden>

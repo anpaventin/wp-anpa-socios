@@ -188,16 +188,6 @@ class ANPA_Socios_Area_REST {
 			)
 		);
 
-		register_rest_route(
-			self::REST_NAMESPACE,
-			'/area/me/fillo/(?P<id>\d+)/reparar-curso',
-			array(
-				'methods'             => WP_REST_Server::CREATABLE,
-				'callback'            => array( __CLASS__, 'handle_reparar_curso' ),
-				'permission_callback' => array( __CLASS__, 'permission_area_session' ),
-			)
-		);
-
 	}
 
 	/**
@@ -542,104 +532,6 @@ class ANPA_Socios_Area_REST {
 				'success'      => true,
 				'baixa_estado' => 'none',
 				'message'      => $message,
-			),
-			200
-		);
-	}
-
-	/**
-	 * POST /area/me/fillo/<id>/reparar-curso — repair a missing annual assignment.
-	 *
-	 * Creates or updates the current year's fillos_cursos row for a fillo using
-	 * the fillo's own legacy curso/aula mirror columns as source. Validates that
-	 * those values still match the current year's school structure; returns a
-	 * clear error if they don't (un-repairable case the family needs to resolve).
-	 *
-	 * Idempotent: calling it when the row already exists just refreshes it.
-	 *
-	 * @since  1.39.0
-	 * @param  WP_REST_Request $request Incoming request.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public static function handle_reparar_curso( WP_REST_Request $request ) {
-		$profile = self::request_profile( $request );
-		if ( null === $profile ) {
-			return self::invalid_session_error();
-		}
-
-		$fam = self::resolve_familia( (string) $profile['email'] );
-		if ( null === $fam ) {
-			return self::invalid_session_error();
-		}
-
-		$fillo_id = (int) $request->get_param( 'id' );
-		if ( $fillo_id <= 0 ) {
-			return new WP_Error( 'anpa_area_invalid', __( 'Identificador de fillo/a non válido', 'anpa-socios' ), array( 'status' => 400 ) );
-		}
-
-		// Verify the fillo belongs to the caller's family.
-		global $wpdb;
-		$fillos_t = ANPA_Socios_DB::tabela_fillos();
-		$fillo    = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT id, curso, aula FROM {$fillos_t} WHERE id = %d AND familia_id = %d AND estado = 'activo'",
-				$fillo_id,
-				$fam['familia_id']
-			),
-			ARRAY_A
-		);
-		if ( ! is_array( $fillo ) ) {
-			return new WP_Error( 'anpa_area_not_found', __( 'Fillo/a non atopado na túa familia', 'anpa-socios' ), array( 'status' => 404 ) );
-		}
-
-		$curso = (string) $fillo['curso'];
-		$aula  = (string) $fillo['aula'];
-
-		if ( '' === $curso || '' === $aula ) {
-			return new WP_Error(
-				'anpa_area_no_curso',
-				__( 'O fillo/a non ten curso/aula asignados. Edita o perfil primeiro.', 'anpa-socios' ),
-				array( 'status' => 409 )
-			);
-		}
-
-		$curso_escolar = ANPA_Socios_Curso_Escolar::current();
-
-		// Validate against current year's dynamic structure.
-		if ( ! ANPA_Socios_Admin_Payload::curso_valido_db( $curso, $curso_escolar ) ) {
-			return new WP_Error(
-				'anpa_area_curso_invalido',
-				__( 'O curso do fillo/a xa non é válido para este ano escolar. Contacta co ANPA.', 'anpa-socios' ),
-				array( 'status' => 409 )
-			);
-		}
-		if ( ! ANPA_Socios_Admin_Payload::aula_valida_db( $aula, $curso_escolar ) ) {
-			return new WP_Error(
-				'anpa_area_aula_invalida',
-				__( 'A aula do fillo/a xa non é válida para este ano escolar. Contacta co ANPA.', 'anpa-socios' ),
-				array( 'status' => 409 )
-			);
-		}
-
-		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
-			return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-		}
-		$ok = ANPA_Socios_DB::upsert_fillo_curso_assignment( $fillo_id, $curso_escolar, $curso, $aula );
-		if ( ! $ok ) {
-			$wpdb->query( 'ROLLBACK' );
-			return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-		}
-		if ( false === $wpdb->query( 'COMMIT' ) ) {
-			return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-		}
-
-		return new WP_REST_Response(
-			array(
-				'success'       => true,
-				'message'       => __( 'Asignación de curso reparada correctamente.', 'anpa-socios' ),
-				'curso_escolar' => $curso_escolar,
-				'curso'         => $curso,
-				'aula'          => $aula,
 			),
 			200
 		);
