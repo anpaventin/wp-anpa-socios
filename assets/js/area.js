@@ -460,21 +460,6 @@
 			}
 		});
 
-		// ── Session dropdown menu shortcuts (PR-12l part 2) ──────────────
-		// These live inside the green session-header <details> and act as
-		// "remote controls" that click the already-wired buttons, so we never
-		// duplicate a data-action (bind() uses first-match) nor its logic.
-		function closeSessionMenu() {
-			var menu = root.querySelector('[data-session-menu]');
-			if (menu) { menu.open = false; }
-		}
-
-		bind('[data-action="header-area"]', 'click', () => {
-			closeSessionMenu();
-			showMessage(root, '', 'info');
-			showStep(root, 'profile');
-		});
-
 		bind('[data-action="request-code"]', 'click', async () => {
 			showMessage(root, '', 'info');
 			email = (root.querySelector('#anpa-area-email').value || '').trim();
@@ -836,26 +821,6 @@
 				editBtn.textContent = __( 'Editar', 'anpa-socios' );
 				row.appendChild(editBtn);
 
-				// Repair annual assignment button (idempotent, harmless).
-				const repairBtn = document.createElement('button');
-				repairBtn.type = 'button';
-				repairBtn.className = 'anpa-area-secondary';
-				repairBtn.textContent = __( 'Reparar curso', 'anpa-socios' );
-				repairBtn.addEventListener('click', async () => {
-					showMessage(root, '', 'info');
-					if (!areaToken) {
-						showStep(root, 'email');
-						showMessage(root, __( 'A sesión caducou. Volve entrar.', 'anpa-socios' ), 'error');
-						return;
-					}
-					const url = root.dataset.filloRepararUrl + String(fillo.id) + '/reparar-curso';
-					const result = await tokenRequest('POST', url, areaToken, {}, root);
-					if (result) {
-						showMessage(root, result.message || __( 'Asignación de curso reparada.', 'anpa-socios' ), 'success');
-					}
-				});
-				row.appendChild(repairBtn);
-
 				const delBtn = document.createElement('button');
 				delBtn.type = 'button';
 				delBtn.className = 'anpa-area-secondary';
@@ -880,13 +845,6 @@
 			}
 		}
 
-		bind('[data-action="manage-fillos"]', 'click', async () => {
-			showMessage(root, '', 'info');
-			resetFilloForm();
-			showStep(root, 'fillos');
-			await loadFillos();
-		});
-
 		// ── Extraescolares (socio self-enrolment, fase7 PR-7d) ───────────
 		const EXTRA_DIA_LABELS = { luns: 'Luns', martes: 'Martes', mercores: 'Mércores', xoves: 'Xoves', venres: 'Venres' };
 		const EXTRA_ESTADO_LABELS = {
@@ -900,17 +858,6 @@
 		function extraDiasText(csv) {
 			return String(csv || '').split(',').filter(Boolean).map((d) => EXTRA_DIA_LABELS[d] || d).join(', ');
 		}
-
-		bind('[data-action="manage-extraescolares"]', 'click', async () => {
-			showMessage(root, '', 'info');
-			showStep(root, 'extraescolares');
-			await loadExtraescolares();
-		});
-
-		bind('[data-action="extra-back"]', 'click', () => {
-			showMessage(root, '', 'info');
-			showStep(root, 'profile');
-		});
 
 		async function loadExtraescolares() {
 			const matsEl = root.querySelector('[data-extra-matriculas]');
@@ -1213,17 +1160,6 @@
 			host.appendChild(form);
 		}
 
-		// Delegated listener: multiple panels have [data-action="back-profile"]
-		// (proxenitor2, fillos, banking) but bind() uses querySelector so it
-		// only catches the first one. A single delegated handler covers all.
-		root.addEventListener('click', function _backProfile(ev) {
-			var btn = ev.target.closest('[data-action="back-profile"]');
-			if (!btn) { return; }
-			showMessage(root, '', 'info');
-			resetFilloForm();
-			showStep(root, 'profile');
-		});
-
 		cancelEditBtn.addEventListener('click', () => {
 			resetFilloForm();
 			showMessage(root, '', 'info');
@@ -1269,25 +1205,41 @@
 					var el = root.querySelector('#' + id);
 					if (el) { el.value = val || ''; }
 				};
+				// Prefill ONLY the saved, non-encrypted values.
 				setVal('anpa-bank-titular-nome', banking.titular_nome);
 				setVal('anpa-bank-titular-apelidos', banking.titular_apelidos);
-				setVal('anpa-bank-titular-nif', banking.titular_nif_mask);
 				setVal('anpa-bank-entidade', banking.entidade_bancaria);
 				setVal('anpa-bank-enderezo', banking.enderezo);
-				setVal('anpa-bank-provincia', banking.provincia);
 				setVal('anpa-bank-poboacion', banking.poboacion);
 				setVal('anpa-bank-cp', banking.codigo_postal);
-				setVal('anpa-bank-lugar-data', banking.lugar_data);
+				// Re-affirm the previously granted authorization by default.
+				var autEl = root.querySelector('#anpa-bank-autorizacion');
+				if (autEl) { autEl.checked = !!banking.autorizacion; }
 
-				// Show IBAN mask
+				// Encrypted fields (IBAN, NIF) are NEVER prefilled: showing the mask
+				// and saving it would fail validation. Clear them and show the
+				// current value masked as a reference; the user re-enters them.
+				setVal('anpa-bank-titular-nif', '');
+				setVal('anpa-bank-iban', '');
+				var nifMaskEl = root.querySelector('[data-nif-mask]');
+				if (nifMaskEl) {
+					if (banking.titular_nif_mask) {
+						nifMaskEl.textContent = 'NIF actual: ' + banking.titular_nif_mask + ' — reintroduce o NIF completo para gardar.';
+						nifMaskEl.hidden = false;
+					} else {
+						nifMaskEl.hidden = true;
+					}
+				}
 				var maskEl = root.querySelector('[data-iban-mask]');
 				if (maskEl && banking.iban_mascara) {
-					maskEl.textContent = 'IBAN actual: ' + banking.iban_mascara;
+					maskEl.textContent = 'IBAN actual: ' + banking.iban_mascara + ' — introduce o novo IBAN para cambialo.';
 					maskEl.hidden = false;
 				}
 			} else {
-				var maskEl = root.querySelector('[data-iban-mask]');
-				if (maskEl) { maskEl.hidden = true; }
+				var maskEl2 = root.querySelector('[data-iban-mask]');
+				if (maskEl2) { maskEl2.hidden = true; }
+				var nifMaskEl2 = root.querySelector('[data-nif-mask]');
+				if (nifMaskEl2) { nifMaskEl2.hidden = true; }
 			}
 		});
 
@@ -1308,7 +1260,6 @@
 				iban: q('anpa-bank-iban'),
 				entidade_bancaria: q('anpa-bank-entidade'),
 				enderezo: q('anpa-bank-enderezo'),
-				provincia: q('anpa-bank-provincia'),
 				poboacion: q('anpa-bank-poboacion'),
 				codigo_postal: q('anpa-bank-cp'),
 				autorizacion: !!(root.querySelector('#anpa-bank-autorizacion') || {}).checked,
