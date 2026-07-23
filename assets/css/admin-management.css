@@ -10,9 +10,15 @@
 
 /* ── Page layout ───────────────────────────────────────────────── */
 .anpa-mgmt-wrap {
+	/* Do NOT force width:100%: the wp-admin ".wrap" already has right/left
+	   margins, and adding 100% width made the box overflow so the content stuck
+	   to the viewport's right edge (nav cards + filter/search bar). Letting the
+	   width stay auto keeps .wrap's natural margin; a small right padding
+	   guarantees a visible gap on the right. */
 	max-width: none;
-	width: 100%;
+	width: auto;
 	box-sizing: border-box;
+	padding-right: 12px;
 }
 
 .anpa-mgmt-wrap h1 {
