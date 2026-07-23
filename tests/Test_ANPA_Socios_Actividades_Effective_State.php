@@ -49,11 +49,21 @@ final class Test_ANPA_Socios_Actividades_Effective_State extends TestCase {
 		);
 	}
 
-	public function test_estado_cell_shows_effective_label_without_mutating_row(): void {
-		$this->assertStringContainsString( 'var effState = activityEffectiveState(row);', $this->js );
-		$this->assertStringContainsString( 'tr.children[estadoIdx].textContent = effState.label;', $this->js );
-		// Must not write estado back onto the row (CSV/export stays canonical).
-		$this->assertStringNotContainsString( 'row.estado = effState', $this->js );
+	public function test_estado_column_shows_effective_label_without_mutating_row(): void {
+		// A presentation-only display column drives the table (display + sort +
+		// search); the CSV export keeps the raw estado column.
+		$this->assertStringContainsString(
+			"var ACTIV_DISPLAY_COLS = ['_empresa_nome', 'nome', 'custo', '_estado_efectivo'];",
+			$this->js
+		);
+		$this->assertStringContainsString( 'r._estado_efectivo = activityEffectiveState(r).label;', $this->js );
+		$this->assertStringContainsString( "_estado_efectivo: 'Estado',", $this->js );
+		$this->assertStringContainsString( 'buildTable(paged, ACTIV_DISPLAY_COLS', $this->js );
+		$this->assertStringContainsString( 'filterRows(visible, query, ACTIV_DISPLAY_COLS)', $this->js );
+		// CSV export keeps the raw estado column (canonical contract): the CSV
+		// column list is ACTIV_COLS (raw estado), separate from the display list.
+		$this->assertStringContainsString( "addCsvExportBtn(bar, 'actividades', visible, ACTIV_COLS)", $this->js );
+		$this->assertStringContainsString( "var ACTIV_COLS = ['_empresa_nome', 'nome', 'custo', 'estado'];", $this->js );
 	}
 
 	public function test_grupos_button_removed_from_listing(): void {

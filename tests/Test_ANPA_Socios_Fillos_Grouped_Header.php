@@ -53,4 +53,10 @@ final class Test_ANPA_Socios_Fillos_Grouped_Header extends TestCase {
 	public function test_grouped_header_has_scoped_css(): void {
 		$this->assertStringContainsString( '.anpa-mgmt-table thead tr.anpa-mgmt-colgroup th', $this->css );
 	}
+
+	public function test_proxenitor_columns_are_tinted(): void {
+		// The Fillos table opts into the proxenitor-column tint.
+		$this->assertStringContainsString( "table.classList.add('anpa-fillos-table');", $this->js );
+		$this->assertStringContainsString( '.anpa-fillos-table tbody td:nth-child(-n+3)', $this->css );
+	}
 }
