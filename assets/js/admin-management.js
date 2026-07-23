@@ -1606,6 +1606,20 @@
 	var ACTIV_COLS = ['_empresa_nome', 'nome', 'custo', 'estado'];
 	var _cachedEmpresas = null;
 
+	/**
+	 * Effective presentation state of an activity for the active course. The DB
+	 * estado is authoritative for 'inactivo'; an otherwise-active activity with
+	 * no group in the active course is presented as "sen grupo" and treated as
+	 * inactive by the show/hide filter. Never mutates the row (CSV stays canonical).
+	 * @param {object} row
+	 * @returns {{token:string,label:string}}
+	 */
+	function activityEffectiveState(row) {
+		if (!row || row.estado === 'inactivo') { return { token: 'inactivo', label: 'Inactiva' }; }
+		if (row.ten_grupo_curso_activo !== true) { return { token: 'sen_grupo', label: 'Sen grupo' }; }
+		return { token: 'activo', label: 'Activa' };
+	}
+
 	function loadActividades() {
 		showLoading();
 		Promise.all([
@@ -1633,8 +1647,7 @@
 			var currentSearch = st.searchQuery || '';
 			root.textContent = '';
 			var active = allRows.filter(function (r) {
-				return r.estado !== 'inactivo' &&
-					r.ten_grupo_curso_activo === true;
+				return activityEffectiveState(r).token === 'activo';
 			});
 			var visible = st.showInactive ? allRows : active;
 			var bar = buildFilterBar('actividades', { hasInactive: true, activeCount: active.length, totalCount: allRows.length, onRefresh: render });
@@ -1664,8 +1677,21 @@
 			// Add action buttons per row
 			var tbodyRows = table.querySelectorAll('tbody tr');
 			paged.forEach(function (row, i) {
-				var actionsTd = tbodyRows[i] ? tbodyRows[i]._actionsCell : null;
+				var tr = tbodyRows[i];
+				var actionsTd = tr ? tr._actionsCell : null;
 				if (!actionsTd) { return; }
+
+				// Effective-state column: replace the raw DB estado shown by
+				// buildTable with the effective label ("Sen grupo" when active but
+				// without a group in the active course) and dim non-active rows.
+				// row.estado is NOT mutated, so the CSV export stays canonical.
+				var effState = activityEffectiveState(row);
+				var estadoIdx = ACTIV_COLS.indexOf('estado');
+				if (estadoIdx > -1 && tr.children[estadoIdx]) {
+					tr.children[estadoIdx].textContent = effState.label;
+				}
+				if (effState.token !== 'activo') { tr.classList.add('anpa-row-baixa'); }
+
 				var editBtn = document.createElement('button');
 				editBtn.type = 'button';
 				editBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
@@ -1673,12 +1699,9 @@
 				editBtn.addEventListener('click', function () { renderActividadForm(row, empresaList); });
 				actionsTd.appendChild(editBtn);
 
-				var gruposBtn = document.createElement('button');
-				gruposBtn.type = 'button';
-				gruposBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
-				gruposBtn.textContent = 'Grupos';
-				gruposBtn.addEventListener('click', function () { renderGruposPanel(row); });
-				actionsTd.appendChild(gruposBtn);
+				// The per-activity "Grupos" panel is reachable from the edit form
+				// ("Xestionar grupos"); it was removed from this listing to reduce
+				// the number of row buttons (fase28).
 
 				var copyBtn = document.createElement('button');
 				copyBtn.type = 'button';
