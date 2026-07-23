@@ -31,6 +31,7 @@
 		resolto_por: 'Resolto por',
 		cursos_ofertados: 'Cursos nos que se oferta',
 		trimestres: 'Trimestre inscripción',
+		_estado_efectivo: 'Estado',
 	};
 	function colLabel(key) { return adminColLabels[key] || baseColLabel(key); }
 	function formatAdminDate(value) {
@@ -1172,6 +1173,9 @@
 				{ label: 'Datos do/a fillo/a', span: 6 },
 				{ label: '', span: 1 }
 			]);
+			// Enables the proxenitor-column tint (see admin-management.css) so the
+			// first three columns read as a distinct block from the fillo columns.
+			table.classList.add('anpa-fillos-table');
 
 			// Add edit buttons per fillo row
 			var tbodyRows = table.querySelectorAll('tbody tr');
@@ -1603,7 +1607,10 @@
 	}
 
 	// ── Section: Actividades ─────────────────────────────────────────
+	// CSV export keeps the raw DB estado (canonical contract). The table shows
+	// (and sorts/searches by) the effective-state label via _estado_efectivo.
 	var ACTIV_COLS = ['_empresa_nome', 'nome', 'custo', 'estado'];
+	var ACTIV_DISPLAY_COLS = ['_empresa_nome', 'nome', 'custo', '_estado_efectivo'];
 	var _cachedEmpresas = null;
 
 	/**
@@ -1640,7 +1647,12 @@
 		var empresaList = Array.isArray(empresas) ? empresas : [];
 		var empresaNome = {};
 		empresaList.forEach(function (e) { empresaNome[String(e.id)] = e.nome; });
-		allRows.forEach(function (r) { r._empresa_nome = empresaNome[String(r.empresa_id)] || ''; });
+		allRows.forEach(function (r) {
+			r._empresa_nome = empresaNome[String(r.empresa_id)] || '';
+			// Presentation-only field for display/sort/search; NOT in ACTIV_COLS
+			// so the CSV export keeps the raw estado. Does not touch r.estado.
+			r._estado_efectivo = activityEffectiveState(r).label;
+		});
 
 		var st = sectionState.actividades || (sectionState.actividades = { sort: { key: 'nome', dir: 'asc' }, page: 1, size: 10 });
 		function render() {
@@ -1665,13 +1677,13 @@
 			bar.appendChild(novaBtn);
 
 			var query = bar._searchInput.value || '';
-			var filtered = filterRows(visible, query, ACTIV_COLS);
+			var filtered = filterRows(visible, query, ACTIV_DISPLAY_COLS);
 			var sorted = tbl.sortRows(filtered, st.sort.key, st.sort.dir);
 			wireSearchInput(bar, st, render);
 			if (!sorted.length) { root.appendChild(emptyEl('Sen actividades.')); return; }
 			var paged = tbl.pageSlice(sorted, st.page, st.size || 0);
-			var table = buildTable(paged, ACTIV_COLS, st.sort, render, function (tr, row) {
-				if (row.estado === 'inactivo') { tr.classList.add('anpa-row-baixa'); }
+			var table = buildTable(paged, ACTIV_DISPLAY_COLS, st.sort, render, function (tr, row) {
+				if (activityEffectiveState(row).token !== 'activo') { tr.classList.add('anpa-row-baixa'); }
 			});
 
 			// Add action buttons per row
@@ -1680,17 +1692,6 @@
 				var tr = tbodyRows[i];
 				var actionsTd = tr ? tr._actionsCell : null;
 				if (!actionsTd) { return; }
-
-				// Effective-state column: replace the raw DB estado shown by
-				// buildTable with the effective label ("Sen grupo" when active but
-				// without a group in the active course) and dim non-active rows.
-				// row.estado is NOT mutated, so the CSV export stays canonical.
-				var effState = activityEffectiveState(row);
-				var estadoIdx = ACTIV_COLS.indexOf('estado');
-				if (estadoIdx > -1 && tr.children[estadoIdx]) {
-					tr.children[estadoIdx].textContent = effState.label;
-				}
-				if (effState.token !== 'activo') { tr.classList.add('anpa-row-baixa'); }
 
 				var editBtn = document.createElement('button');
 				editBtn.type = 'button';

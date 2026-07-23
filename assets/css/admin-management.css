@@ -199,6 +199,17 @@
 	border-bottom-color: transparent;
 }
 
+/* Fillos listing: tint the proxenitor columns (first three) so they read as a
+   distinct block from the fillo columns. */
+.anpa-fillos-table tbody td:nth-child(-n+3),
+.anpa-fillos-table thead tr:not(.anpa-mgmt-colgroup) th:nth-child(-n+3) {
+	background: #eef3f7;
+}
+
+.anpa-fillos-table thead tr.anpa-mgmt-colgroup th:first-child {
+	background: #dde8f0;
+}
+
 .anpa-mgmt-table tbody tr:hover {
 	background: #f9f9f9;
 }
