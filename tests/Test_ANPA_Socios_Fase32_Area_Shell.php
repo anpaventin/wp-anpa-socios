@@ -94,5 +94,10 @@ final class Test_ANPA_Socios_Fase32_Area_Shell extends TestCase {
 		$this->assertStringContainsString( 'var pNome', $this->js );
 		$this->assertStringContainsString( 'var hasBanking', $this->js );
 		$this->assertStringContainsString( "(hasBanking && banking.titular_nome) ? banking.titular_nome : pNome", $this->js );
+		// The socio's own non-encrypted NIF and address are used as defaults too.
+		$this->assertStringContainsString( 'var pNif', $this->js );
+		$this->assertStringContainsString( 'var pEnderezo', $this->js );
+		$this->assertStringContainsString( 'var pCp', $this->js );
+		$this->assertStringContainsString( "setVal('anpa-bank-titular-nif', hasBanking ? '' : pNif)", $this->js );
 	}
 }

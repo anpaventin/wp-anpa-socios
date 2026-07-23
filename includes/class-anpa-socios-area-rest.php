@@ -1323,7 +1323,7 @@ class ANPA_Socios_Area_REST {
 		self::clear_db_error();
 		$profile = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, email, nome, apelidos, nif, telefono, estado, rol, familia_id, rol_familia, baixa_estado, baixa_solicitada_en, creado_en, actualizado_en FROM {$table_name} WHERE email = %s LIMIT 1",
+				"SELECT id, email, nome, apelidos, nif, telefono, enderezo, poboacion, codigo_postal, estado, rol, familia_id, rol_familia, baixa_estado, baixa_solicitada_en, creado_en, actualizado_en FROM {$table_name} WHERE email = %s LIMIT 1",
 				$email
 			),
 			ARRAY_A
@@ -1392,6 +1392,9 @@ class ANPA_Socios_Area_REST {
 			'apelidos'       => isset( $profile['apelidos'] ) ? (string) $profile['apelidos'] : '',
 			'telefono'       => isset( $profile['telefono'] ) ? (string) $profile['telefono'] : '',
 			'nif'            => isset( $profile['nif'] ) ? (string) $profile['nif'] : '',
+			'enderezo'       => isset( $profile['enderezo'] ) ? (string) $profile['enderezo'] : '',
+			'poboacion'      => isset( $profile['poboacion'] ) ? (string) $profile['poboacion'] : '',
+			'codigo_postal'  => isset( $profile['codigo_postal'] ) ? (string) $profile['codigo_postal'] : '',
 			'estado'         => isset( $profile['estado'] ) ? (string) $profile['estado'] : '',
 			'rol'            => isset( $profile['rol'] ) ? (string) $profile['rol'] : 'socio',
 			'baixa_estado'   => isset( $profile['baixa_estado'] ) ? (string) $profile['baixa_estado'] : 'none',
