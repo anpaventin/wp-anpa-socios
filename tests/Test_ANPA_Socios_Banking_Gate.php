@@ -72,4 +72,16 @@ final class Test_ANPA_Socios_Banking_Gate extends TestCase {
 		$page = (string) file_get_contents( __DIR__ . '/../includes/class-anpa-socios-area-page.php' );
 		$this->assertStringContainsString( 'data-banking-missing', $page );
 	}
+
+	public function test_home_panel_shows_red_warning_instead_of_extraescolares_when_incomplete(): void {
+		$js   = (string) file_get_contents( __DIR__ . '/../assets/js/area.js' );
+		$page = (string) file_get_contents( __DIR__ . '/../includes/class-anpa-socios-area-page.php' );
+		// Panel has the red-warning placeholder and targetable title/actions.
+		$this->assertStringContainsString( 'data-panel-banking-missing', $page );
+		$this->assertStringContainsString( 'data-panel-extra-title', $page );
+		$this->assertStringContainsString( 'data-panel-extra-actions', $page );
+		// renderPanel gates the extraescolares summary on banking completeness.
+		$this->assertStringContainsString( '[data-panel-banking-missing]', $js );
+		$this->assertStringContainsString( 'banking.banking_complete', $js );
+	}
 }

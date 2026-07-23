@@ -166,9 +166,10 @@ class ANPA_Socios_Area_Page {
 				<p class="anpa-area-muted"><?php esc_html_e( 'Dende aquí xestionas as actividades extraescolares e os datos da túa familia.', 'anpa-socios' ); ?></p>
 				<p class="anpa-area-baixa-status" data-panel-baixa hidden></p>
 				<section class="anpa-area-panel-extra">
-					<h3><?php esc_html_e( 'As túas actividades extraescolares', 'anpa-socios' ); ?></h3>
+					<h3 data-panel-extra-title><?php esc_html_e( 'As túas actividades extraescolares', 'anpa-socios' ); ?></h3>
+					<p class="anpa-area-required-warning" data-panel-banking-missing hidden></p>
 					<div data-panel-matriculas></div>
-					<div class="anpa-area-actions">
+					<div class="anpa-area-actions" data-panel-extra-actions>
 						<button type="button" data-nav="extraescolares"><?php esc_html_e( 'Nova matrícula', 'anpa-socios' ); ?></button>
 					</div>
 				</section>

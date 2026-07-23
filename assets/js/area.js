@@ -401,10 +401,36 @@
 			// Extraescolares summary (reuses the matriculas renderer). Degrades
 			// gracefully: on any failure the panel still shows with the shortcuts.
 			var host = root.querySelector('[data-panel-matriculas]');
+			var title = root.querySelector('[data-panel-extra-title]');
+			var actions = root.querySelector('[data-panel-extra-actions]');
+			var missing = root.querySelector('[data-panel-banking-missing]');
 			if (host && areaToken) {
 				host.textContent = '';
-				tokenRequest('GET', root.dataset.extraMatriculasUrl, areaToken, null, root).then(function (mats) {
-					renderMatriculas(host, Array.isArray(mats) ? mats : []);
+				// Gate on banking completeness: when the SEPA details are missing
+				// show the red mandatory-data notice INSTEAD of the extraescolares
+				// summary (no enrolment is possible until they are filled).
+				tokenRequest('GET', root.dataset.profileUrl + '/banking', areaToken, null, root).then(function (banking) {
+					var complete = !!(banking && banking.banking_complete);
+					if (!complete) {
+						if (title) { title.hidden = true; }
+						if (actions) { actions.hidden = true; }
+						if (missing) {
+							missing.textContent = __( 'Faltan datos bancarios obrigatorios (IBAN, NIF do titular, enderezo e código postal). É necesario cubrilos en «Conta / IBAN» para poder matricular fillos/as en actividades.', 'anpa-socios' );
+							missing.hidden = false;
+						}
+						var go = document.createElement('button');
+						go.type = 'button';
+						go.textContent = __( 'Completar Conta / IBAN', 'anpa-socios' );
+						go.addEventListener('click', function () { navigateArea('banking'); });
+						host.appendChild(go);
+						return;
+					}
+					if (title) { title.hidden = false; }
+					if (actions) { actions.hidden = false; }
+					if (missing) { missing.hidden = true; }
+					tokenRequest('GET', root.dataset.extraMatriculasUrl, areaToken, null, root).then(function (mats) {
+						renderMatriculas(host, Array.isArray(mats) ? mats : []);
+					});
 				});
 			}
 		}
