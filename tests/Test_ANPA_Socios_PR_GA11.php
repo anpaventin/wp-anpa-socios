@@ -77,7 +77,10 @@ final class Test_ANPA_Socios_PR_GA11 extends TestCase {
 		);
 		$this->assertStringContainsString( "'cursoactivo'", $this->management_page );
 		$this->assertStringContainsString( 'cfg.cursoactivo', $this->js );
-		$this->assertStringContainsString( 'r.ten_grupo_curso_activo === true', $this->js );
+		// fase28: the active-course filter now goes through the effective-state
+		// helper, which still keys "sen grupo" off ten_grupo_curso_activo.
+		$this->assertStringContainsString( "activityEffectiveState(r).token === 'activo'", $this->js );
+		$this->assertStringContainsString( 'row.ten_grupo_curso_activo !== true', $this->js );
 	}
 
 	public function test_activity_form_preserves_history_but_only_edits_active_course(): void {

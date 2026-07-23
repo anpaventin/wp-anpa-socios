@@ -104,9 +104,17 @@
 }
 .anpa-extra-ofertadas .anpa-card-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 	gap: 1rem;
 	margin: 1.25rem 0;
+}
+
+/* fase28: wider minimum card width (was 220px) and never more than 4 columns
+   per row, so cards do not get too narrow on wide/fullscreen viewports. */
+@media (min-width: 1200px) {
+	.anpa-extra-ofertadas .anpa-card-grid {
+		grid-template-columns: repeat(4, 1fr);
+	}
 }
 
 .anpa-extra-card {
