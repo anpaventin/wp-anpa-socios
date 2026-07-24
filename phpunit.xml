@@ -93,7 +93,7 @@
       <file>tests/Test_ANPA_Socios_Banking_Gate.php</file>
       <file>tests/Test_ANPA_Socios_Calendario.php</file>
       <file>tests/Test_ANPA_Socios_Trimestre_Admin_Ui.php</file>
-      <file>tests/Test_ANPA_Socios_Cola_Dominio.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Queue_Domain.php</file>
     </testsuite>
   </testsuites>
 </phpunit>
