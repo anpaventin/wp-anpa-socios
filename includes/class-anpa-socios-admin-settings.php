@@ -1503,6 +1503,13 @@ final class ANPA_Socios_Admin_Settings {
 		if ( empty( $_FILES['backup_file']['tmp_name'] ) || ! is_uploaded_file( (string) $_FILES['backup_file']['tmp_name'] ) ) {
 			self::redirect_msg( 'restore_nofile' );
 		}
+		// Application-level size cap (defence in depth on top of PHP's
+		// upload_max_filesize): a legit .anpabak for an ANPA is well under this.
+		$max_bytes = (int) apply_filters( 'anpa_socios_restore_max_bytes', 50 * 1024 * 1024 );
+		$size      = (int) ( $_FILES['backup_file']['size'] ?? 0 );
+		if ( $size <= 0 || $size > $max_bytes ) {
+			self::redirect_msg( 'restore_err' );
+		}
 		$blob = (string) file_get_contents( (string) $_FILES['backup_file']['tmp_name'] );
 		$res  = ANPA_Socios_Backup::restore( $blob, $pass );
 		if ( is_wp_error( $res ) ) {
