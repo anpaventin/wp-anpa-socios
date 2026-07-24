@@ -52,6 +52,34 @@ final class ANPA_Socios_Trimestre {
 	}
 
 	/**
+	 * Returns the trimester (1..3) derived from the course operative dates when
+	 * available, falling back to the legacy month-based model otherwise.
+	 *
+	 * This is the preferred entry point for new domain logic (fase34+): it
+	 * derives the trimester from the real course calendar (data_inicio /
+	 * t1_peche_operativo / t2_peche_operativo / data_peche) instead of the fixed
+	 * month mapping. When the operative dates are not configured, behaviour is
+	 * byte-for-byte the legacy `actual()` so nothing changes for existing data.
+	 *
+	 * @since  1.38.0
+	 * @param  array<string,string>|null $datas Keys inicio,t1,t2,peche (Y-m-d) or null.
+	 * @param  string|null               $hoxe  Y-m-d date to classify (default: today, month-based fallback uses its month).
+	 * @return int 1, 2 or 3.
+	 */
+	public static function actual_por_datas( ?array $datas, ?string $hoxe = null ): int {
+		if ( is_array( $datas ) && ANPA_Socios_Calendario::ten_datas_operativas( $datas ) ) {
+			$data = ( null !== $hoxe && '' !== $hoxe ) ? $hoxe : gmdate( 'Y-m-d' );
+			return ANPA_Socios_Calendario::trimestre_para_data( $data, $datas );
+		}
+
+		// Fallback: legacy month-based model (unchanged behaviour).
+		$month = ( null !== $hoxe && '' !== $hoxe )
+			? (int) substr( $hoxe, 5, 2 )
+			: null;
+		return self::actual( $month );
+	}
+
+	/**
 	 * Whether a value is a valid trimester number.
 	 *
 	 * @since  1.9.0

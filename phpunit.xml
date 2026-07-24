@@ -91,6 +91,8 @@
       <file>tests/Test_ANPA_Socios_Actividades_Effective_State.php</file>
       <file>tests/Test_ANPA_Socios_Fase32_Area_Shell.php</file>
       <file>tests/Test_ANPA_Socios_Banking_Gate.php</file>
+      <file>tests/Test_ANPA_Socios_Calendario.php</file>
+      <file>tests/Test_ANPA_Socios_Trimestre_Admin_Ui.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

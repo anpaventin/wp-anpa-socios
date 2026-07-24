@@ -39,6 +39,8 @@ final class ANPA_Socios_Admin_Settings {
 		add_action( 'admin_post_anpa_socios_save_settings', array( __CLASS__, 'handle_save_settings' ) );
 		add_action( 'admin_post_anpa_socios_save_location', array( __CLASS__, 'handle_save_location' ) );
 		add_action( 'admin_post_anpa_socios_save_cursos', array( __CLASS__, 'handle_save_cursos' ) );
+		add_action( 'admin_post_anpa_socios_copiar_datas_curso', array( __CLASS__, 'handle_copiar_datas_curso' ) );
+		add_action( 'admin_post_anpa_socios_trimestre_transicion', array( __CLASS__, 'handle_trimestre_transicion' ) );
 		add_action( 'admin_post_anpa_socios_run_season', array( __CLASS__, 'handle_run_season' ) );
 		add_action( 'admin_post_anpa_socios_update_child_levels', array( __CLASS__, 'handle_update_child_levels' ) );
 		add_action( 'admin_post_anpa_socios_check_updates', array( __CLASS__, 'handle_check_updates' ) );
@@ -758,7 +760,7 @@ final class ANPA_Socios_Admin_Settings {
 
 		// All stored courses (current + past + any future already created).
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only course list for the selector.
-		$rows = $wpdb->get_results( "SELECT curso_escolar, matriculas_abertas, estado, data_inicio, data_peche FROM {$cursos_t}", ARRAY_A );
+		$rows = $wpdb->get_results( "SELECT curso_escolar, matriculas_abertas, estado, data_inicio, data_peche, t1_peche_operativo, t2_peche_operativo FROM {$cursos_t}", ARRAY_A );
 		$known = array();
 		foreach ( (array) $rows as $r ) {
 			if ( ANPA_Socios_Curso_Escolar::is_valid( (string) $r['curso_escolar'] ) ) {
@@ -786,7 +788,15 @@ final class ANPA_Socios_Admin_Settings {
 			'estado'      => ANPA_Socios_Season::ESTADO_PENDENTE,
 			'data_inicio' => ANPA_Socios_Season::default_data_inicio( $sel ),
 			'data_peche'  => ANPA_Socios_Season::default_data_peche( $sel ),
+			't1_peche_operativo' => '',
+			't2_peche_operativo' => '',
 		);
+		// Operative dates may be absent on stored rows created before 1.38.0.
+		$srow['t1_peche_operativo'] = (string) ( $srow['t1_peche_operativo'] ?? '' );
+		$srow['t2_peche_operativo'] = (string) ( $srow['t2_peche_operativo'] ?? '' );
+		// MySQL DATE NULLs surface as '0000-00-00' on some stacks; treat as empty.
+		if ( '0000-00-00' === $srow['t1_peche_operativo'] ) { $srow['t1_peche_operativo'] = ''; }
+		if ( '0000-00-00' === $srow['t2_peche_operativo'] ) { $srow['t2_peche_operativo'] = ''; }
 		$estados = array(
 			ANPA_Socios_Season::ESTADO_PENDENTE => __( 'Pendente (pre-temporada)', 'anpa-socios' ),
 			ANPA_Socios_Season::ESTADO_ACTIVO   => __( 'Activo', 'anpa-socios' ),
@@ -837,9 +847,31 @@ final class ANPA_Socios_Admin_Settings {
 		printf( '<tr><th scope="row"><label for="cfg-inicio">%s</label></th><td><input name="data_inicio" id="cfg-inicio" type="date" value="%s"></td></tr>', esc_html__( 'Comeza (data_inicio)', 'anpa-socios' ), esc_attr( (string) $srow['data_inicio'] ) );
 		printf( '<tr><th scope="row"><label for="cfg-peche">%s</label></th><td><input name="data_peche" id="cfg-peche" type="date" value="%s"></td></tr>', esc_html__( 'Pecha (data_peche)', 'anpa-socios' ), esc_attr( (string) $srow['data_peche'] ) );
 
+		echo '<tr><th scope="row" colspan="2" style="padding-bottom:0"><h3 style="margin:0">' . esc_html__( 'Datas operativas dos trimestres', 'anpa-socios' ) . '</h3></th></tr>';
+		echo '<tr><td colspan="2" style="padding-top:0"><p class="description" style="max-width:720px">' . esc_html__( 'As datas de peche operativo son datas de xestión (recoméndase fixalas un pouco antes do remate lectivo de cada trimestre). Serven para derivar o trimestre a partir da data e para avisar cando chega o fin dun trimestre. Son opcionais: se as deixas baleiras, o cálculo do trimestre volve ao modelo mensual. Deben ir en orde: comeza < peche T1 < peche T2 < pecha.', 'anpa-socios' ) . '</p></td></tr>';
+		printf( '<tr><th scope="row"><label for="cfg-t1">%s</label></th><td><input name="t1_peche_operativo" id="cfg-t1" type="date" value="%s"><p class="description">%s</p></td></tr>', esc_html__( 'Peche operativo do 1º trimestre', 'anpa-socios' ), esc_attr( (string) $srow['t1_peche_operativo'] ), esc_html__( 'Ata esta data (incluída) as datas contan como 1º trimestre.', 'anpa-socios' ) );
+		printf( '<tr><th scope="row"><label for="cfg-t2">%s</label></th><td><input name="t2_peche_operativo" id="cfg-t2" type="date" value="%s"><p class="description">%s</p></td></tr>', esc_html__( 'Peche operativo do 2º trimestre', 'anpa-socios' ), esc_attr( (string) $srow['t2_peche_operativo'] ), esc_html__( 'Entre o peche do 1º e esta data contan como 2º trimestre; despois, 3º.', 'anpa-socios' ) );
+
 		echo '</tbody></table>';
 		submit_button( __( 'Gardar curso', 'anpa-socios' ) );
 		echo '</form>';
+
+		// --- "Copiar do curso anterior" (dates shifted +1 year) ---
+		$prev = ANPA_Socios_Curso_Escolar::previous( $sel );
+		echo '<form method="post" action="' . $post_url . '" style="margin-top:-12px">';
+		echo '<input type="hidden" name="action" value="anpa_socios_copiar_datas_curso">';
+		wp_nonce_field( 'anpa_socios_copiar_datas_curso' );
+		echo '<input type="hidden" name="curso_escolar" value="' . esc_attr( $sel ) . '">';
+		echo '<p class="description" style="max-width:720px">' . sprintf(
+			/* translators: %s: previous course, e.g. 2024/2025 */
+			esc_html__( 'Copia as datas do curso anterior (%s) desprazadas un ano ao curso seleccionado. Poderás editalas antes de gardar.', 'anpa-socios' ),
+			esc_html( (string) $prev )
+		) . '</p>';
+		submit_button( __( 'Copiar datas do curso anterior', 'anpa-socios' ), 'secondary', 'submit', false );
+		echo '</form>';
+
+		// --- Trimester + application-window state panel ---
+		self::render_trimestres_panel( $sel );
 
 		// --- Integrated course creation (same canonical section and writer). ---
 		echo '<h2>' . esc_html__( 'Crear novo curso', 'anpa-socios' ) . '</h2>';
@@ -1331,6 +1363,8 @@ final class ANPA_Socios_Admin_Settings {
 		$curso  = sanitize_text_field( (string) wp_unslash( $_POST['curso_escolar'] ?? '' ) );
 		$inicio = sanitize_text_field( (string) wp_unslash( $_POST['data_inicio'] ?? '' ) );
 		$peche  = sanitize_text_field( (string) wp_unslash( $_POST['data_peche'] ?? '' ) );
+		$t1     = sanitize_text_field( (string) wp_unslash( $_POST['t1_peche_operativo'] ?? '' ) );
+		$t2     = sanitize_text_field( (string) wp_unslash( $_POST['t2_peche_operativo'] ?? '' ) );
 		$estado = sanitize_key( (string) wp_unslash( $_POST['estado'] ?? ANPA_Socios_Season::ESTADO_PENDENTE ) );
 		$open   = isset( $_POST['matriculas_abertas'] ) && '1' === (string) wp_unslash( $_POST['matriculas_abertas'] );
 		// Mejora 1: replacing the active course on activation is NOT optional —
@@ -1359,6 +1393,19 @@ final class ANPA_Socios_Admin_Settings {
 			$inicio = self::valid_date( $inicio, ANPA_Socios_Season::default_data_inicio( $curso ) );
 			$peche  = self::valid_date( $peche, ANPA_Socios_Season::default_data_peche( $curso ) );
 
+			// Validate the operative calendar (dates optional; when present they
+			// must be well-formed and strictly ordered inside the course range).
+			// On error, do NOT persist anything — bounce back with a message.
+			$cal_errors = ANPA_Socios_Calendario::validar( array(
+				'inicio' => $inicio,
+				't1'     => $t1,
+				't2'     => $t2,
+				'peche'  => $peche,
+			) );
+			if ( ! empty( $cal_errors ) ) {
+				self::redirect_cursos( $curso, 'curso_datas_error' );
+			}
+
 			// Reuse the canonical transactional lifecycle writer used by REST.
 			// The admin-post guard above already enforces manage_options + nonce;
 			// this avoids a second, weaker implementation of the active-course lock.
@@ -1375,8 +1422,9 @@ final class ANPA_Socios_Admin_Settings {
 			}
 
 			// Lifecycle preserves existing dates on update; save the edited dates
-			// only after the canonical state transition succeeds.
-			self::upsert_course( $curso, $inicio, $peche, $estado );
+			// (including the operative trimester dates) only after the canonical
+			// state transition succeeds.
+			self::upsert_course( $curso, $inicio, $peche, $estado, $t1, $t2 );
 		}
 
 		self::redirect_cursos( $curso );
@@ -1399,6 +1447,214 @@ final class ANPA_Socios_Admin_Settings {
 		}
 		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
 		exit;
+	}
+
+	/**
+	 * admin-post: copy the operative calendar dates from the previous course,
+	 * shifted +1 year, into the selected course (editable before final save).
+	 *
+	 * Only copies DATES (data_inicio, data_peche, t1/t2 operative closes). Never
+	 * changes the course estado or matrículas. If the previous course has no
+	 * stored row, bounces back with a notice and saves nothing.
+	 *
+	 * @return void
+	 */
+	public static function handle_copiar_datas_curso(): void {
+		self::guard( 'anpa_socios_copiar_datas_curso' );
+
+		$curso = sanitize_text_field( (string) wp_unslash( $_POST['curso_escolar'] ?? '' ) );
+		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
+			self::redirect_cursos( $curso, 'curso_error' );
+		}
+
+		global $wpdb;
+		$cursos = ANPA_Socios_DB::tabela_cursos();
+		$prev   = ANPA_Socios_Curso_Escolar::previous( $curso );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- read-only single-row lookup.
+		$prow = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT data_inicio, data_peche, t1_peche_operativo, t2_peche_operativo, estado FROM {$cursos} WHERE curso_escolar = %s",
+				$prev
+			),
+			ARRAY_A
+		);
+		if ( ! is_array( $prow ) ) {
+			self::redirect_cursos( $curso, 'sen_curso_anterior' );
+		}
+
+		$inicio = self::shift_date_one_year( (string) ( $prow['data_inicio'] ?? '' ), ANPA_Socios_Season::default_data_inicio( $curso ) );
+		$peche  = self::shift_date_one_year( (string) ( $prow['data_peche'] ?? '' ), ANPA_Socios_Season::default_data_peche( $curso ) );
+		$t1     = self::shift_date_one_year( (string) ( $prow['t1_peche_operativo'] ?? '' ), '' );
+		$t2     = self::shift_date_one_year( (string) ( $prow['t2_peche_operativo'] ?? '' ), '' );
+
+		// Preserve the selected course's own estado (do not inherit the previous
+		// course's). Fall back to pendente when the course has no row yet.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- read-only single-row lookup.
+		$estado = (string) $wpdb->get_var(
+			$wpdb->prepare( "SELECT estado FROM {$cursos} WHERE curso_escolar = %s", $curso )
+		);
+		if ( ! in_array( $estado, array( ANPA_Socios_Season::ESTADO_PENDENTE, ANPA_Socios_Season::ESTADO_ACTIVO, ANPA_Socios_Season::ESTADO_PECHADO ), true ) ) {
+			$estado = ANPA_Socios_Season::ESTADO_PENDENTE;
+		}
+
+		self::upsert_course( $curso, $inicio, $peche, $estado, $t1, $t2 );
+		self::redirect_cursos( $curso, 'datas_copiadas' );
+	}
+
+	/**
+	 * Shifts a Y-m-d date one year forward. Empty or malformed input returns
+	 * the provided fallback (also possibly empty).
+	 *
+	 * @param  string $date     Y-m-d date or ''.
+	 * @param  string $fallback Value to return when $date is empty/invalid.
+	 * @return string
+	 */
+	private static function shift_date_one_year( string $date, string $fallback ): string {
+		if ( '' === $date || '0000-00-00' === $date || ! ANPA_Socios_Calendario::valida_data( $date ) ) {
+			return $fallback;
+		}
+		$dt = DateTimeImmutable::createFromFormat( '!Y-m-d', $date );
+		return false === $dt ? $fallback : $dt->modify( '+1 year' )->format( 'Y-m-d' );
+	}
+
+	/**
+	 * admin-post: apply a single manual trimester/window state transition.
+	 *
+	 * Delegates validation + persistence + audit logging to the repository,
+	 * which uses the pure value objects for the transition rules. Idempotent.
+	 *
+	 * @return void
+	 */
+	public static function handle_trimestre_transicion(): void {
+		self::guard( 'anpa_socios_trimestre_transicion' );
+
+		$curso     = sanitize_text_field( (string) wp_unslash( $_POST['curso_escolar'] ?? '' ) );
+		$ambito    = sanitize_key( (string) wp_unslash( $_POST['ambito'] ?? '' ) );
+		$trimestre = (int) ( $_POST['trimestre'] ?? 0 );
+		$a_estado  = sanitize_key( (string) wp_unslash( $_POST['a_estado'] ?? '' ) );
+
+		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
+			self::redirect_cursos( $curso, 'curso_error' );
+		}
+
+		$user  = wp_get_current_user();
+		$actor = ( $user instanceof WP_User && is_email( $user->user_email ) ) ? strtolower( $user->user_email ) : 'admin';
+
+		if ( ANPA_Socios_Trimestre_Repo::AMBITO_VENTANA === $ambito ) {
+			$res = ANPA_Socios_Trimestre_Repo::transicionar_ventana( $curso, $trimestre, $a_estado, $actor, 'manual' );
+		} else {
+			$res = ANPA_Socios_Trimestre_Repo::transicionar_trimestre( $curso, $trimestre, $a_estado, $actor, 'manual' );
+			// Once a trimester is closed (managed), clear its pending end-of-term
+			// notice so the persistent admin warning disappears.
+			if ( ! empty( $res['ok'] ) && ANPA_Socios_Trimestre_Estado::PECHADO === $a_estado ) {
+				ANPA_Socios_Season_Service::clear_aviso( $curso, $trimestre );
+			}
+		}
+
+		$msg = 'transicion_err';
+		if ( ! empty( $res['ok'] ) ) {
+			$msg = ! empty( $res['changed'] ) ? 'transicion_ok' : 'transicion_noop';
+		}
+		self::redirect_cursos( $curso, $msg );
+	}
+
+	/**
+	 * Renders the trimester + application-window state panel with manual
+	 * transition buttons. States are shown with explicit text (not colour
+	 * alone) for accessibility. Each action is an isolated nonce-protected POST.
+	 *
+	 * @param  string $curso Selected curso escolar.
+	 * @return void
+	 */
+	private static function render_trimestres_panel( string $curso ): void {
+		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
+			return;
+		}
+
+		$rows      = ANPA_Socios_Trimestre_Repo::for_curso( $curso );
+		$post_url  = esc_url( admin_url( 'admin-post.php' ) );
+		$tri_label = array(
+			ANPA_Socios_Trimestre_Estado::PENDENTE => __( 'Pendente', 'anpa-socios' ),
+			ANPA_Socios_Trimestre_Estado::ACTIVO   => __( 'Activo', 'anpa-socios' ),
+			ANPA_Socios_Trimestre_Estado::PECHADO  => __( 'Pechado', 'anpa-socios' ),
+		);
+		$tri_icon  = array(
+			ANPA_Socios_Trimestre_Estado::PENDENTE => '⏳',
+			ANPA_Socios_Trimestre_Estado::ACTIVO   => '🟢',
+			ANPA_Socios_Trimestre_Estado::PECHADO  => '🔒',
+		);
+		$ven_label = array(
+			ANPA_Socios_Ventana_Estado::PECHADA => __( 'Ventá de solicitudes pechada', 'anpa-socios' ),
+			ANPA_Socios_Ventana_Estado::ABERTA  => __( 'Ventá de solicitudes aberta', 'anpa-socios' ),
+		);
+		$ven_icon  = array(
+			ANPA_Socios_Ventana_Estado::PECHADA => '⛔',
+			ANPA_Socios_Ventana_Estado::ABERTA  => '📨',
+		);
+
+		echo '<h2>' . esc_html__( 'Estado dos trimestres', 'anpa-socios' ) . '</h2>';
+		echo '<p class="description" style="max-width:720px">' . esc_html__( 'Estado lectivo de cada trimestre e da súa ventá de solicitudes. As transicións son manuais e quedan rexistradas (quen, cando e orixe). O sistema avisa cando chega unha data operativa, pero nunca cambia o estado por si só.', 'anpa-socios' ) . '</p>';
+
+		echo '<table class="widefat striped" style="max-width:760px"><thead><tr>';
+		echo '<th>' . esc_html__( 'Trimestre', 'anpa-socios' ) . '</th>';
+		echo '<th>' . esc_html__( 'Estado lectivo', 'anpa-socios' ) . '</th>';
+		echo '<th>' . esc_html__( 'Ventá de solicitudes', 'anpa-socios' ) . '</th>';
+		echo '<th>' . esc_html__( 'Accións', 'anpa-socios' ) . '</th>';
+		echo '</tr></thead><tbody>';
+
+		foreach ( array( 1, 2, 3 ) as $tri ) {
+			$estado = (string) ( $rows[ $tri ]['estado'] ?? ANPA_Socios_Trimestre_Estado::PENDENTE );
+			$ventana = (string) ( $rows[ $tri ]['ventana_estado'] ?? ANPA_Socios_Ventana_Estado::PECHADA );
+
+			echo '<tr>';
+			printf( '<td><strong>%s</strong></td>', esc_html( sprintf( /* translators: %d: trimester number */ __( '%dº trimestre', 'anpa-socios' ), $tri ) ) );
+			printf( '<td>%s %s</td>', esc_html( $tri_icon[ $estado ] ?? '' ), esc_html( $tri_label[ $estado ] ?? $estado ) );
+			printf( '<td>%s %s</td>', esc_html( $ven_icon[ $ventana ] ?? '' ), esc_html( $ven_label[ $ventana ] ?? $ventana ) );
+
+			echo '<td>';
+			// Trimester (lectivo) transition buttons.
+			if ( ANPA_Socios_Trimestre_Estado::PENDENTE === $estado ) {
+				self::render_transicion_button( $post_url, $curso, ANPA_Socios_Trimestre_Repo::AMBITO_TRIMESTRE, $tri, ANPA_Socios_Trimestre_Estado::ACTIVO, sprintf( __( 'Activar %dº trimestre', 'anpa-socios' ), $tri ) );
+			} elseif ( ANPA_Socios_Trimestre_Estado::ACTIVO === $estado ) {
+				self::render_transicion_button( $post_url, $curso, ANPA_Socios_Trimestre_Repo::AMBITO_TRIMESTRE, $tri, ANPA_Socios_Trimestre_Estado::PECHADO, sprintf( __( 'Pechar %dº trimestre', 'anpa-socios' ), $tri ) );
+			} elseif ( ANPA_Socios_Trimestre_Estado::PECHADO === $estado ) {
+				self::render_transicion_button( $post_url, $curso, ANPA_Socios_Trimestre_Repo::AMBITO_TRIMESTRE, $tri, ANPA_Socios_Trimestre_Estado::ACTIVO, sprintf( __( 'Reabrir %dº trimestre', 'anpa-socios' ), $tri ) );
+			}
+			// Application-window transition buttons.
+			if ( ANPA_Socios_Ventana_Estado::PECHADA === $ventana ) {
+				self::render_transicion_button( $post_url, $curso, ANPA_Socios_Trimestre_Repo::AMBITO_VENTANA, $tri, ANPA_Socios_Ventana_Estado::ABERTA, __( 'Abrir ventá', 'anpa-socios' ) );
+			} else {
+				self::render_transicion_button( $post_url, $curso, ANPA_Socios_Trimestre_Repo::AMBITO_VENTANA, $tri, ANPA_Socios_Ventana_Estado::PECHADA, __( 'Pechar ventá', 'anpa-socios' ) );
+			}
+			echo '</td>';
+			echo '</tr>';
+		}
+
+		echo '</tbody></table>';
+	}
+
+	/**
+	 * Renders one isolated nonce-protected transition button.
+	 *
+	 * @param  string $post_url  admin-post.php URL.
+	 * @param  string $curso     Curso escolar.
+	 * @param  string $ambito    trimestre|ventana.
+	 * @param  int    $trimestre 1..3.
+	 * @param  string $a_estado  Target state.
+	 * @param  string $label     Button label.
+	 * @return void
+	 */
+	private static function render_transicion_button( string $post_url, string $curso, string $ambito, int $trimestre, string $a_estado, string $label ): void {
+		echo '<form method="post" action="' . $post_url . '" style="display:inline-block;margin:0 6px 6px 0">';
+		echo '<input type="hidden" name="action" value="anpa_socios_trimestre_transicion">';
+		echo '<input type="hidden" name="curso_escolar" value="' . esc_attr( $curso ) . '">';
+		echo '<input type="hidden" name="ambito" value="' . esc_attr( $ambito ) . '">';
+		echo '<input type="hidden" name="trimestre" value="' . esc_attr( (string) $trimestre ) . '">';
+		echo '<input type="hidden" name="a_estado" value="' . esc_attr( $a_estado ) . '">';
+		wp_nonce_field( 'anpa_socios_trimestre_transicion' );
+		echo '<button type="submit" class="button button-secondary">' . esc_html( $label ) . '</button>';
+		echo '</form>';
 	}
 
 	/**
@@ -1670,21 +1926,29 @@ final class ANPA_Socios_Admin_Settings {
 	 * @param  string|null $estado Optional explicit estado (else date-derived).
 	 * @return void
 	 */
-	private static function upsert_course( string $curso, string $inicio, string $peche, ?string $estado = null ): void {
+	private static function upsert_course( string $curso, string $inicio, string $peche, ?string $estado = null, string $t1 = '', string $t2 = '' ): void {
 		global $wpdb;
 		$cursos = ANPA_Socios_DB::tabela_cursos();
 		if ( null === $estado ) {
 			$estado = ANPA_Socios_Season::estado_for( date( 'Y-m-d' ), $inicio, $peche );
 		}
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent course upsert.
+		// Operative dates are DATE NULL — empty input persists as SQL NULL, not
+		// '0000-00-00'. Build the value + placeholder pair per date.
+		$t1_val = '' === $t1 ? null : $t1;
+		$t2_val = '' === $t2 ? null : $t2;
+		$t1_sql = null === $t1_val ? 'NULL' : '%s';
+		$t2_sql = null === $t2_val ? 'NULL' : '%s';
+
+		$args = array( $curso, $estado, $inicio, $peche );
+		if ( null !== $t1_val ) { $args[] = $t1_val; }
+		if ( null !== $t2_val ) { $args[] = $t2_val; }
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared -- idempotent course upsert; NULL literals are static.
 		$wpdb->query( $wpdb->prepare(
-			"INSERT INTO {$cursos} (curso_escolar, matriculas_abertas, estado, data_inicio, data_peche, creado_en, actualizado_en)
-			 VALUES (%s, 0, %s, %s, %s, NOW(), NOW())
-			 ON DUPLICATE KEY UPDATE estado = VALUES(estado), data_inicio = VALUES(data_inicio), data_peche = VALUES(data_peche), actualizado_en = NOW()",
-			$curso,
-			$estado,
-			$inicio,
-			$peche
+			"INSERT INTO {$cursos} (curso_escolar, matriculas_abertas, estado, data_inicio, data_peche, t1_peche_operativo, t2_peche_operativo, creado_en, actualizado_en)
+			 VALUES (%s, 0, %s, %s, %s, {$t1_sql}, {$t2_sql}, NOW(), NOW())
+			 ON DUPLICATE KEY UPDATE estado = VALUES(estado), data_inicio = VALUES(data_inicio), data_peche = VALUES(data_peche), t1_peche_operativo = VALUES(t1_peche_operativo), t2_peche_operativo = VALUES(t2_peche_operativo), actualizado_en = NOW()",
+			$args
 		) );
 	}
 
@@ -1801,6 +2065,12 @@ final class ANPA_Socios_Admin_Settings {
 			'pw_bad'         => array( 'error', __( 'O contrasinal non cumpre os requisitos (mín. 8 caracteres, unha maiúscula e un símbolo).', 'anpa-socios' ) ),
 			'updates_checked' => array( 'success', __( 'Comprobación de actualizacións executada. Se hai unha versión nova, aparecerá en Plugins.', 'anpa-socios' ) ),
 			'curso_error'     => array( 'error', __( 'Non se puido gardar o ciclo do curso. Se estás activando outro curso, confirma primeiro a substitución do curso activo.', 'anpa-socios' ) ),
+			'curso_datas_error' => array( 'error', __( 'As datas do calendario non son válidas. Comproba que van en orde (comeza < peche T1 < peche T2 < pecha) e dentro do curso. Non se gardou nada.', 'anpa-socios' ) ),
+			'datas_copiadas'  => array( 'success', __( 'Datas copiadas do curso anterior (+1 ano). Revísaas e garda o curso para confirmar.', 'anpa-socios' ) ),
+			'sen_curso_anterior' => array( 'error', __( 'O curso anterior non ten datas gardadas para copiar.', 'anpa-socios' ) ),
+			'transicion_ok'   => array( 'success', __( 'Transición aplicada e rexistrada.', 'anpa-socios' ) ),
+			'transicion_noop' => array( 'info', __( 'Sen cambios: o estado xa era o solicitado.', 'anpa-socios' ) ),
+			'transicion_err'  => array( 'error', __( 'Non se puido aplicar a transición (non permitida ou erro interno).', 'anpa-socios' ) ),
 			'bak_bad_pw'     => array( 'error', __( 'Contrasinal de admin incorrecto.', 'anpa-socios' ) ),
 			'bak_err'        => array( 'error', __( 'Non se puido xerar a copia (revisa a frase da clave bancaria).', 'anpa-socios' ) ),
 			'restored'       => array( 'success', __( 'Copia recuperada correctamente.', 'anpa-socios' ) ),
