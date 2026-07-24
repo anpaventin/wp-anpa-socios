@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 define( 'ANPA_SOCIOS_VERSION', '1.48.0' );
-define( 'ANPA_SOCIOS_DB_VERSION', '1.38.0' );
+define( 'ANPA_SOCIOS_DB_VERSION', '1.38.1' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 

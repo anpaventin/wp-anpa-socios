@@ -41,6 +41,7 @@ final class ANPA_Socios_Admin_Settings {
 		add_action( 'admin_post_anpa_socios_save_cursos', array( __CLASS__, 'handle_save_cursos' ) );
 		add_action( 'admin_post_anpa_socios_copiar_datas_curso', array( __CLASS__, 'handle_copiar_datas_curso' ) );
 		add_action( 'admin_post_anpa_socios_trimestre_transicion', array( __CLASS__, 'handle_trimestre_transicion' ) );
+		add_action( 'admin_post_anpa_socios_inicializar_trimestres', array( __CLASS__, 'handle_inicializar_trimestres' ) );
 		add_action( 'admin_post_anpa_socios_run_season', array( __CLASS__, 'handle_run_season' ) );
 		add_action( 'admin_post_anpa_socios_update_child_levels', array( __CLASS__, 'handle_update_child_levels' ) );
 		add_action( 'admin_post_anpa_socios_check_updates', array( __CLASS__, 'handle_check_updates' ) );
@@ -1541,10 +1542,13 @@ final class ANPA_Socios_Admin_Settings {
 		$user  = wp_get_current_user();
 		$actor = ( $user instanceof WP_User && is_email( $user->user_email ) ) ? strtolower( $user->user_email ) : 'admin';
 
+		// Correlation/idempotency id groups this admin action in the audit log.
+		$correlacion = function_exists( 'wp_generate_uuid4' ) ? wp_generate_uuid4() : uniqid( 'tr_', true );
+
 		if ( ANPA_Socios_Trimestre_Repo::AMBITO_VENTANA === $ambito ) {
-			$res = ANPA_Socios_Trimestre_Repo::transicionar_ventana( $curso, $trimestre, $a_estado, $actor, 'manual' );
+			$res = ANPA_Socios_Trimestre_Repo::transicionar_ventana( $curso, $trimestre, $a_estado, $actor, ANPA_Socios_Trimestre_Repo::ORIXE_MANUAL, $correlacion );
 		} else {
-			$res = ANPA_Socios_Trimestre_Repo::transicionar_trimestre( $curso, $trimestre, $a_estado, $actor, 'manual' );
+			$res = ANPA_Socios_Trimestre_Repo::transicionar_trimestre( $curso, $trimestre, $a_estado, $actor, ANPA_Socios_Trimestre_Repo::ORIXE_MANUAL, $correlacion );
 			// Once a trimester is closed (managed), clear its pending end-of-term
 			// notice so the persistent admin warning disappears.
 			if ( ! empty( $res['ok'] ) && ANPA_Socios_Trimestre_Estado::PECHADO === $a_estado ) {
@@ -1553,9 +1557,36 @@ final class ANPA_Socios_Admin_Settings {
 		}
 
 		$msg = 'transicion_err';
-		if ( ! empty( $res['ok'] ) ) {
+		if ( 'sen_configurar' === (string) ( $res['code'] ?? '' ) ) {
+			$msg = 'transicion_sen_config';
+		} elseif ( ! empty( $res['ok'] ) ) {
 			$msg = ! empty( $res['changed'] ) ? 'transicion_ok' : 'transicion_noop';
 		}
+		self::redirect_cursos( $curso, $msg );
+	}
+
+	/**
+	 * admin-post: explicit, audited repair that seeds any missing trimester
+	 * rows for the selected course (genesis state: T1 activo, T2/T3 pendente,
+	 * windows pechada). Idempotent; never overwrites an existing managed state.
+	 * This is the only ordinary path that creates rows on demand, and it is an
+	 * explicit admin action (never a silent side effect of a read).
+	 *
+	 * @return void
+	 */
+	public static function handle_inicializar_trimestres(): void {
+		self::guard( 'anpa_socios_inicializar_trimestres' );
+
+		$curso = sanitize_text_field( (string) wp_unslash( $_POST['curso_escolar'] ?? '' ) );
+		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
+			self::redirect_cursos( $curso, 'curso_error' );
+		}
+
+		$user  = wp_get_current_user();
+		$actor = ( $user instanceof WP_User && is_email( $user->user_email ) ) ? strtolower( $user->user_email ) : 'admin';
+
+		$res = ANPA_Socios_Trimestre_Repo::ensure_seeded( $curso, ANPA_Socios_Trimestre_Repo::ORIXE_REPARACION, $actor );
+		$msg = ! empty( $res['ok'] ) ? ( $res['created'] > 0 ? 'trimestres_inicializados' : 'transicion_noop' ) : 'transicion_err';
 		self::redirect_cursos( $curso, $msg );
 	}
 
@@ -1572,8 +1603,9 @@ final class ANPA_Socios_Admin_Settings {
 			return;
 		}
 
-		$rows      = ANPA_Socios_Trimestre_Repo::for_curso( $curso );
-		$post_url  = esc_url( admin_url( 'admin-post.php' ) );
+		$rows        = ANPA_Socios_Trimestre_Repo::for_curso( $curso );
+		$inicializado = ANPA_Socios_Trimestre_Repo::esta_inicializado( $curso );
+		$post_url    = esc_url( admin_url( 'admin-post.php' ) );
 		$tri_label = array(
 			ANPA_Socios_Trimestre_Estado::PENDENTE => __( 'Pendente', 'anpa-socios' ),
 			ANPA_Socios_Trimestre_Estado::ACTIVO   => __( 'Activo', 'anpa-socios' ),
@@ -1594,7 +1626,19 @@ final class ANPA_Socios_Admin_Settings {
 		);
 
 		echo '<h2>' . esc_html__( 'Estado dos trimestres', 'anpa-socios' ) . '</h2>';
-		echo '<p class="description" style="max-width:720px">' . esc_html__( 'Estado lectivo de cada trimestre e da súa ventá de solicitudes. As transicións son manuais e quedan rexistradas (quen, cando e orixe). O sistema avisa cando chega unha data operativa, pero nunca cambia o estado por si só.', 'anpa-socios' ) . '</p>';
+		echo '<p class="description" style="max-width:720px">' . esc_html__( 'Estado lectivo de cada trimestre e da súa ventá de solicitudes (dous conceptos distintos: o trimestre lectivo non abre por si só a ventá de solicitudes, nin os grupos, nin acepta matrículas). As transicións son manuais e quedan rexistradas (quen, cando, orixe). O sistema avisa cando chega unha data operativa, pero nunca cambia o estado por si só.', 'anpa-socios' ) . '</p>';
+
+		// Fail-closed: if any trimester row is missing, do NOT fabricate an
+		// "activo" state — surface it and offer an explicit, audited repair.
+		if ( ! $inicializado ) {
+			echo '<div class="notice notice-warning inline"><p>' . esc_html__( 'Este curso aínda non ten inicializados todos os trimestres. Mentres non se inicialicen, non se poden aplicar transicións (o sistema non asume ningún estado por defecto).', 'anpa-socios' ) . '</p>';
+			echo '<form method="post" action="' . $post_url . '" style="margin:0 0 8px">';
+			echo '<input type="hidden" name="action" value="anpa_socios_inicializar_trimestres">';
+			echo '<input type="hidden" name="curso_escolar" value="' . esc_attr( $curso ) . '">';
+			wp_nonce_field( 'anpa_socios_inicializar_trimestres' );
+			echo '<button type="submit" class="button button-primary">' . esc_html__( 'Inicializar trimestres deste curso', 'anpa-socios' ) . '</button>';
+			echo '</form></div>';
+		}
 
 		echo '<table class="widefat striped" style="max-width:760px"><thead><tr>';
 		echo '<th>' . esc_html__( 'Trimestre', 'anpa-socios' ) . '</th>';
@@ -1604,11 +1648,23 @@ final class ANPA_Socios_Admin_Settings {
 		echo '</tr></thead><tbody>';
 
 		foreach ( array( 1, 2, 3 ) as $tri ) {
-			$estado = (string) ( $rows[ $tri ]['estado'] ?? ANPA_Socios_Trimestre_Estado::PENDENTE );
-			$ventana = (string) ( $rows[ $tri ]['ventana_estado'] ?? ANPA_Socios_Ventana_Estado::PECHADA );
+			$presente = ! empty( $rows[ $tri ]['presente'] );
+			$estado   = (string) ( $rows[ $tri ]['estado'] ?? '' );
+			$ventana  = (string) ( $rows[ $tri ]['ventana_estado'] ?? ANPA_Socios_Ventana_Estado::PECHADA );
 
 			echo '<tr>';
 			printf( '<td><strong>%s</strong></td>', esc_html( sprintf( /* translators: %d: trimester number */ __( '%dº trimestre', 'anpa-socios' ), $tri ) ) );
+
+			// Fail-closed: a missing row is shown as "Sen configurar" (never as
+			// activo) and offers no transition actions.
+			if ( ! $presente ) {
+				printf( '<td>⚠️ %s</td>', esc_html__( 'Sen configurar', 'anpa-socios' ) );
+				printf( '<td>%s %s</td>', esc_html( $ven_icon[ $ventana ] ?? '' ), esc_html( $ven_label[ $ventana ] ?? $ventana ) );
+				printf( '<td><span class="description">%s</span></td>', esc_html__( 'Inicializa os trimestres para xestionar este curso.', 'anpa-socios' ) );
+				echo '</tr>';
+				continue;
+			}
+
 			printf( '<td>%s %s</td>', esc_html( $tri_icon[ $estado ] ?? '' ), esc_html( $tri_label[ $estado ] ?? $estado ) );
 			printf( '<td>%s %s</td>', esc_html( $ven_icon[ $ventana ] ?? '' ), esc_html( $ven_label[ $ventana ] ?? $ventana ) );
 
@@ -2071,6 +2127,8 @@ final class ANPA_Socios_Admin_Settings {
 			'transicion_ok'   => array( 'success', __( 'Transición aplicada e rexistrada.', 'anpa-socios' ) ),
 			'transicion_noop' => array( 'info', __( 'Sen cambios: o estado xa era o solicitado.', 'anpa-socios' ) ),
 			'transicion_err'  => array( 'error', __( 'Non se puido aplicar a transición (non permitida ou erro interno).', 'anpa-socios' ) ),
+			'transicion_sen_config' => array( 'error', __( 'Non se puido aplicar: o trimestre non está inicializado neste curso. Inicialízao primeiro.', 'anpa-socios' ) ),
+			'trimestres_inicializados' => array( 'success', __( 'Trimestres inicializados para o curso (T1 activo, T2/T3 pendentes, ventás pechadas).', 'anpa-socios' ) ),
 			'bak_bad_pw'     => array( 'error', __( 'Contrasinal de admin incorrecto.', 'anpa-socios' ) ),
 			'bak_err'        => array( 'error', __( 'Non se puido xerar a copia (revisa a frase da clave bancaria).', 'anpa-socios' ) ),
 			'restored'       => array( 'success', __( 'Copia recuperada correctamente.', 'anpa-socios' ) ),

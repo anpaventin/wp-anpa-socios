@@ -194,6 +194,14 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
+		// fase34: activating a course is the unambiguous point to seed its
+		// trimester rows (T1 activo, T2/T3 pendente, windows pechada). Idempotent
+		// and best-effort — never overwrites managed states, never rolls back the
+		// lifecycle transition, and never opens windows/groups on its own.
+		if ( 'activo' === $plan['target_estado'] && class_exists( 'ANPA_Socios_Trimestre_Repo' ) ) {
+			ANPA_Socios_Trimestre_Repo::ensure_seeded( $curso, ANPA_Socios_Trimestre_Repo::ORIXE_ACTIVACION, 'sistema' );
+		}
+
 		$action = 'activo' === $plan['target_estado'] ? ( $plan['target_open'] ? 'activar_abrir' : 'activar_pechado' ) : 'desactivar_pechar';
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'curso', $curso, $action );
 

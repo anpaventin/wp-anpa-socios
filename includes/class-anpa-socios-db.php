@@ -95,11 +95,13 @@ class ANPA_Socios_DB {
 	 *        wp_anpa_curso_trimestres table (separate trimester + application
 	 *        window states per course) and the append-only wp_anpa_transicions
 	 *        log. Additive and gated; seeds trimesters for the active course.
+	 * 1.38.1 (fase34 close-out) extends wp_anpa_transicions with a correlation/
+	 *        idempotency id and an optional reason. Additive and idempotent.
 	 *
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.38.0';
+	const DB_VERSION = '1.38.1';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -319,6 +321,14 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.38.0', '<' ) && ! self::migrate_to_1_38_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.38.0 (migrate_to_1_38_0): ' . $wpdb->last_error );
+			return;
+		}
+
+		// 1.38.1: extend the transicions audit log (correlation id + reason).
+		$wpdb->last_error = '';
+		if ( version_compare( $installed_version, '1.38.1', '<' ) && ! self::migrate_to_1_38_1() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.38.1 (migrate_to_1_38_1): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -3739,11 +3749,14 @@ class ANPA_Socios_DB {
 				de_estado varchar(20) NOT NULL DEFAULT '',
 				a_estado varchar(20) NOT NULL DEFAULT '',
 				actor_email varchar(100) NOT NULL DEFAULT '',
-				orixe varchar(10) NOT NULL DEFAULT 'manual',
+				orixe varchar(12) NOT NULL DEFAULT 'manual',
+				correlacion varchar(64) NOT NULL DEFAULT '',
+				motivo varchar(255) NOT NULL DEFAULT '',
 				creado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY  (id),
 				KEY curso_escolar (curso_escolar),
-				KEY creado_en (creado_en)
+				KEY creado_en (creado_en),
+				KEY correlacion (correlacion)
 			) {$charset_collate};"
 		);
 
@@ -3774,6 +3787,49 @@ class ANPA_Socios_DB {
 				);
 			}
 			$wpdb->last_error = '';
+		}
+
+		return true;
+	}
+
+	/**
+	 * Migration 1.38.1 (fase34 close-out): extends the transition audit log with
+	 * a correlation/idempotency id and an optional human reason. Additive and
+	 * idempotent — safe to retry; guarded by column-existence checks.
+	 *
+	 * @since  1.38.1
+	 * @return bool
+	 */
+	private static function migrate_to_1_38_1(): bool {
+		global $wpdb;
+
+		$tr = self::tabela_transicions();
+
+		// The transicions table may not exist yet if a very old install jumps
+		// straight here without 1.38.0 having created it — guard defensively.
+		if ( self::table_missing( $tr ) ) {
+			return true; // 1.38.0 creates it with the new columns already.
+		}
+
+		if ( ! self::tem_columna( $tr, 'correlacion' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$tr} ADD COLUMN correlacion varchar(64) NOT NULL DEFAULT '' AFTER orixe" ) ) {
+				return false;
+			}
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- index for correlation lookups.
+			$wpdb->query( "ALTER TABLE {$tr} ADD KEY correlacion (correlacion)" );
+		}
+		if ( ! self::tem_columna( $tr, 'motivo' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$tr} ADD COLUMN motivo varchar(255) NOT NULL DEFAULT '' AFTER correlacion" ) ) {
+				return false;
+			}
+		}
+
+		// Postcondition: both columns present.
+		if ( ! self::tem_columna( $tr, 'correlacion' ) || ! self::tem_columna( $tr, 'motivo' ) ) {
+			$wpdb->last_error = '1.38.1 transicions audit columns postcondition failed';
+			return false;
 		}
 
 		return true;
