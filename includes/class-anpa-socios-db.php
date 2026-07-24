@@ -90,11 +90,16 @@ class ANPA_Socios_DB {
 	 * 1.37.0 (fase31) drops the now-unused legacy comedor columns from niveis
 	 *        (horario_comedor_id, comedor_inicio, comedor_fin) after the pivot
 	 *        cutover; the wp_anpa_niveis_curso pivot is the sole authority.
+	 * 1.38.0 (fase34) adds the academic calendar: operative trimester close
+	 *        dates on cursos (t1_peche_operativo, t2_peche_operativo), the
+	 *        wp_anpa_curso_trimestres table (separate trimester + application
+	 *        window states per course) and the append-only wp_anpa_transicions
+	 *        log. Additive and gated; seeds trimesters for the active course.
 	 *
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.37.0';
+	const DB_VERSION = '1.38.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -305,6 +310,15 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.37.0', '<' ) && ! self::migrate_to_1_37_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.37.0 (migrate_to_1_37_0): ' . $wpdb->last_error );
+			return;
+		}
+
+		// 1.38.0: academic calendar — operative trimester close dates on cursos
+		// + curso_trimestres (separate trimester/window states) + transicions log.
+		$wpdb->last_error = '';
+		if ( version_compare( $installed_version, '1.38.0', '<' ) && ! self::migrate_to_1_38_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.38.0 (migrate_to_1_38_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -646,6 +660,36 @@ class ANPA_Socios_DB {
 		global $wpdb;
 
 		return $wpdb->prefix . 'anpa_cursos';
+	}
+
+	/**
+	 * Returns the full anpa_curso_trimestres table name (fase34).
+	 *
+	 * Persists the SEPARATE trimester state and application-window state per
+	 * course. See ANPA_Socios_Trimestre_Estado / ANPA_Socios_Ventana_Estado.
+	 *
+	 * @since  1.38.0
+	 * @return string
+	 */
+	public static function tabela_curso_trimestres(): string {
+		global $wpdb;
+
+		return $wpdb->prefix . 'anpa_curso_trimestres';
+	}
+
+	/**
+	 * Returns the full anpa_transicions table name (fase34).
+	 *
+	 * Append-only log of admin/cron state transitions (trimester, window, and
+	 * later group/matrícula) with actor, origin and timestamps.
+	 *
+	 * @since  1.38.0
+	 * @return string
+	 */
+	public static function tabela_transicions(): string {
+		global $wpdb;
+
+		return $wpdb->prefix . 'anpa_transicions';
 	}
 
 	/**
@@ -3635,6 +3679,106 @@ class ANPA_Socios_DB {
 	 * @since  1.46.0
 	 * @return bool Whether the migration completed.
 	 */
+	/**
+	 * 1.38.0 — academic calendar (fase34).
+	 *
+	 * Adds the operative trimester close dates to anpa_cursos, and creates the
+	 * curso_trimestres (separate trimester/window states) and transicions
+	 * (transition log) tables. Idempotent and retry-safe; additive only (no
+	 * DROP), so a rollback keeps existing data intact. Does NOT touch
+	 * matriculas.trimestre.
+	 *
+	 * @since  1.38.0
+	 * @return bool
+	 */
+	private static function migrate_to_1_38_0(): bool {
+		global $wpdb;
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		$charset_collate = $wpdb->get_charset_collate();
+		$cursos          = self::tabela_cursos();
+
+		// 1. Operative trimester close dates on anpa_cursos (idempotent).
+		if ( ! self::tem_columna( $cursos, 't1_peche_operativo' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$cursos} ADD COLUMN t1_peche_operativo DATE NULL AFTER data_peche" ) ) {
+				return false;
+			}
+		}
+		if ( ! self::tem_columna( $cursos, 't2_peche_operativo' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$cursos} ADD COLUMN t2_peche_operativo DATE NULL AFTER t1_peche_operativo" ) ) {
+				return false;
+			}
+		}
+
+		// 2. curso_trimestres — separate trimester + window states per course.
+		$ct = self::tabela_curso_trimestres();
+		dbDelta(
+			"CREATE TABLE {$ct} (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				curso_escolar varchar(9) NOT NULL,
+				trimestre tinyint(1) NOT NULL,
+				estado varchar(20) NOT NULL DEFAULT 'pendente',
+				ventana_estado varchar(20) NOT NULL DEFAULT 'pechada',
+				creado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				actualizado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY  (id),
+				UNIQUE KEY curso_trimestre (curso_escolar, trimestre)
+			) {$charset_collate};"
+		);
+
+		// 3. transicions — append-only transition log.
+		$tr = self::tabela_transicions();
+		dbDelta(
+			"CREATE TABLE {$tr} (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				curso_escolar varchar(9) NOT NULL,
+				ambito varchar(20) NOT NULL DEFAULT '',
+				referencia varchar(40) NOT NULL DEFAULT '',
+				de_estado varchar(20) NOT NULL DEFAULT '',
+				a_estado varchar(20) NOT NULL DEFAULT '',
+				actor_email varchar(100) NOT NULL DEFAULT '',
+				orixe varchar(10) NOT NULL DEFAULT 'manual',
+				creado_en datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY  (id),
+				KEY curso_escolar (curso_escolar),
+				KEY creado_en (creado_en)
+			) {$charset_collate};"
+		);
+
+		// Postconditions: tables exist and columns present.
+		if ( self::table_missing( $ct ) || self::table_missing( $tr ) ) {
+			$wpdb->last_error = '1.38.0 table creation postcondition failed';
+			return false;
+		}
+		if ( ! self::tem_columna( $cursos, 't1_peche_operativo' ) || ! self::tem_columna( $cursos, 't2_peche_operativo' ) ) {
+			$wpdb->last_error = '1.38.0 cursos column postcondition failed';
+			return false;
+		}
+
+		// 4. Seed the active course's trimesters (idempotent): T1 activo, T2/T3
+		//    pendente, windows pechada. Best-effort — seeding never blocks.
+		$active = ANPA_Socios_Curso_Activo::get();
+		if ( null !== $active && ANPA_Socios_Curso_Escolar::is_valid( (string) $active ) ) {
+			$seed = array( 1 => 'activo', 2 => 'pendente', 3 => 'pendente' );
+			foreach ( $seed as $tri => $estado ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent seed (unique key guards).
+				$wpdb->query(
+					$wpdb->prepare(
+						"INSERT IGNORE INTO {$ct} (curso_escolar, trimestre, estado, ventana_estado) VALUES (%s, %d, %s, 'pechada')",
+						$active,
+						$tri,
+						$estado
+					)
+				);
+			}
+			$wpdb->last_error = '';
+		}
+
+		return true;
+	}
+
 	private static function migrate_to_1_37_0(): bool {
 		global $wpdb;
 

@@ -24,14 +24,14 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		$this->plugin_file = dirname( __DIR__ ) . '/anpa-socios.php';
 	}
 
-	public function test_db_version_constant_is_1_37_0(): void {
-		$this->assertSame( '1.37.0', ANPA_Socios_DB::DB_VERSION );
+	public function test_db_version_constant_is_1_38_0(): void {
+		$this->assertSame( '1.38.0', ANPA_Socios_DB::DB_VERSION );
 	}
 
-	public function test_anpa_socios_db_version_is_1_37_0(): void {
+	public function test_anpa_socios_db_version_is_1_38_0(): void {
 		$source = file_get_contents( $this->plugin_file );
 		$this->assertIsString( $source );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.37.0' )", $source );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.38.0' )", $source );
 	}
 
 	public function test_migrate_to_1_37_0_drops_legacy_comedor_columns_guarded(): void {
@@ -356,7 +356,7 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 
 	public function test_migrate_to_1_34_0_drops_activity_course_offers_only_after_group_equivalence_preflight(): void {
 		$source = file_get_contents( $this->db_file );
-		$this->assertStringContainsString( "const DB_VERSION = '1.37.0'", $source );
+		$this->assertStringContainsString( "const DB_VERSION = '1.38.0'", $source );
 		$this->assertStringContainsString( 'private static function migrate_to_1_34_0(): bool', $source );
 		$this->assertStringContainsString( 'SHOW TABLES LIKE %s', $source );
 		$this->assertStringContainsString( "'' !== (string) \$wpdb->last_error", $source );
@@ -368,5 +368,29 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		$this->assertStringContainsString( 'COALESCE(ac.min_pupilos, 0) = 0', $source );
 		$this->assertStringContainsString( 'DROP TABLE {$offers}', $source );
 		$this->assertStringContainsString( "version_compare( \$installed_version, '1.34.0', '<' )", $source );
+	}
+
+	// ── fase34: academic calendar migration (1.38.0) ─────────────────
+
+	public function test_migrate_to_1_38_0_adds_calendar_schema_gated_and_additive(): void {
+		$source = (string) file_get_contents( $this->db_file );
+		// Gated in the runner and halts without advancing the version on error.
+		$this->assertStringContainsString( "version_compare( \$installed_version, '1.38.0', '<' ) && ! self::migrate_to_1_38_0()", $source );
+		$this->assertStringContainsString( 'Migration halted at step 1.38.0', $source );
+		$this->assertStringContainsString( 'private static function migrate_to_1_38_0(): bool', $source );
+		// Operative trimester close dates on cursos, guarded (idempotent).
+		$this->assertStringContainsString( "tem_columna( \$cursos, 't1_peche_operativo' )", $source );
+		$this->assertStringContainsString( "tem_columna( \$cursos, 't2_peche_operativo' )", $source );
+		$this->assertStringContainsString( 'ADD COLUMN t1_peche_operativo DATE NULL', $source );
+		$this->assertStringContainsString( 'ADD COLUMN t2_peche_operativo DATE NULL', $source );
+		// New tables + helpers.
+		$this->assertStringContainsString( 'tabela_curso_trimestres', $source );
+		$this->assertStringContainsString( 'anpa_curso_trimestres', $source );
+		$this->assertStringContainsString( 'tabela_transicions', $source );
+		$this->assertStringContainsString( 'anpa_transicions', $source );
+		$this->assertStringContainsString( 'UNIQUE KEY curso_trimestre (curso_escolar, trimestre)', $source );
+		// Postconditions + additive (no DROP in this migration).
+		$this->assertStringContainsString( '1.38.0 table creation postcondition failed', $source );
+		$this->assertStringContainsString( '1.38.0 cursos column postcondition failed', $source );
 	}
 }
