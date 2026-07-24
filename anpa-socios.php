@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 define( 'ANPA_SOCIOS_VERSION', '1.48.0' );
-define( 'ANPA_SOCIOS_DB_VERSION', '1.38.1' );
+define( 'ANPA_SOCIOS_DB_VERSION', '1.39.0' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 
@@ -110,6 +110,7 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-fillo-cursos-r
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-extraescolares-rest.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-extraescolar-offers.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-season-service.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-cron.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-empresa-view.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-empresa-rest.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-page.php';
@@ -132,6 +133,13 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-updater.php';
 register_activation_hook( __FILE__, array( 'ANPA_Socios_DB', 'crear_tabelas' ) );
 register_activation_hook( __FILE__, array( 'ANPA_Socios_Extraescolar_Offers', 'programar' ) );
 register_activation_hook( __FILE__, array( 'ANPA_Socios_Season_Service', 'programar' ) );
+register_activation_hook( __FILE__, array( 'ANPA_Socios_Email_Cron', 'schedule' ) );
+
+// fase35: custom 5-min recurrence for the email queue tick (filterable, bounded).
+add_filter( 'cron_schedules', array( 'ANPA_Socios_Email_Cron', 'add_schedule' ) );
+add_action( ANPA_Socios_Email_Cron::HOOK, array( 'ANPA_Socios_Email_Cron', 'tick' ) );
+// Recover the schedule if the event disappears (idempotent).
+add_action( 'admin_init', array( 'ANPA_Socios_Email_Cron', 'ensure_scheduled' ) );
 
 // Run schema migrations on plugin update (activation hook does not fire on auto-update).
 add_action( 'admin_init', static function () {
@@ -143,6 +151,8 @@ add_action( 'admin_init', static function () {
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_DB', 'desprogramar_limpeza_sesions' ) );
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Extraescolar_Offers', 'desprogramar' ) );
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Season_Service', 'desprogramar' ) );
+// fase35: cancel the email queue tick on deactivation (never deletes data).
+register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Email_Cron', 'unschedule' ) );
 
 add_action( 'rest_api_init', array( 'ANPA_Socios_REST', 'register_routes' ) );
 // fase13b: serve the anpa/v1 verification routes ourselves, but only when the

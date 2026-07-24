@@ -94,6 +94,8 @@
       <file>tests/Test_ANPA_Socios_Calendario.php</file>
       <file>tests/Test_ANPA_Socios_Trimestre_Admin_Ui.php</file>
       <file>tests/Test_ANPA_Socios_Email_Queue_Domain.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Lifecycle.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Migration_Integration.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

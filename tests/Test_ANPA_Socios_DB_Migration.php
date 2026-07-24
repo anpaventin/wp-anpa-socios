@@ -24,14 +24,14 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		$this->plugin_file = dirname( __DIR__ ) . '/anpa-socios.php';
 	}
 
-	public function test_db_version_constant_is_1_38_1(): void {
-		$this->assertSame( '1.38.1', ANPA_Socios_DB::DB_VERSION );
+	public function test_db_version_constant_is_1_39_0(): void {
+		$this->assertSame( '1.39.0', ANPA_Socios_DB::DB_VERSION );
 	}
 
-	public function test_anpa_socios_db_version_is_1_38_1(): void {
+	public function test_anpa_socios_db_version_is_1_39_0(): void {
 		$source = file_get_contents( $this->plugin_file );
 		$this->assertIsString( $source );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.38.1' )", $source );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.39.0' )", $source );
 	}
 
 	public function test_migrate_to_1_37_0_drops_legacy_comedor_columns_guarded(): void {
@@ -356,7 +356,7 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 
 	public function test_migrate_to_1_34_0_drops_activity_course_offers_only_after_group_equivalence_preflight(): void {
 		$source = file_get_contents( $this->db_file );
-		$this->assertStringContainsString( "const DB_VERSION = '1.38.1'", $source );
+		$this->assertStringContainsString( "const DB_VERSION = '1.39.0'", $source );
 		$this->assertStringContainsString( 'private static function migrate_to_1_34_0(): bool', $source );
 		$this->assertStringContainsString( 'SHOW TABLES LIKE %s', $source );
 		$this->assertStringContainsString( "'' !== (string) \$wpdb->last_error", $source );
@@ -415,5 +415,52 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		$this->assertStringNotContainsString( 'DROP COLUMN', $method );
 		$this->assertStringNotContainsString( 'DROP TABLE', $method );
 		$this->assertStringContainsString( '1.38.1 transicions audit columns postcondition failed', $method );
+	}
+
+	// ── fase35: email queue tables migration (1.39.0) ────────────────
+
+	public function test_migrate_to_1_39_0_creates_email_queue_tables_gated_and_additive(): void {
+		$source = (string) file_get_contents( $this->db_file );
+		// Gated in the runner and halts without advancing the version on error.
+		$this->assertStringContainsString( "version_compare( \$installed_version, '1.39.0', '<' ) && ! self::migrate_to_1_39_0()", $source );
+		$this->assertStringContainsString( 'Migration halted at step 1.39.0', $source );
+		$this->assertStringContainsString( 'private static function migrate_to_1_39_0(): bool', $source );
+
+		// Table-name helpers (approved English names).
+		$this->assertStringContainsString( 'public static function tabela_email_campaigns', $source );
+		$this->assertStringContainsString( 'public static function tabela_email_recipients', $source );
+		$this->assertStringContainsString( 'public static function tabela_email_attempts', $source );
+		$this->assertStringContainsString( 'anpa_email_campaigns', $source );
+		$this->assertStringContainsString( 'anpa_email_recipients', $source );
+		$this->assertStringContainsString( 'anpa_email_attempts', $source );
+
+		// Dedup enforced by UNIQUE(idempotency_key) on recipients (index-length safe);
+		// NOT a UNIQUE on the varchar email.
+		$start = strpos( $source, 'private static function migrate_to_1_39_0' );
+		$end   = strpos( $source, 'private static function migrate_to_1_37_0', $start );
+		$body  = substr( $source, $start, $end - $start );
+		$this->assertStringContainsString( 'idempotency_key char(64) NOT NULL', $body );
+		$this->assertStringContainsString( 'UNIQUE KEY idempotency_key (idempotency_key)', $body );
+		$this->assertStringNotContainsString( 'UNIQUE KEY campaign_email', $body );
+		$this->assertStringContainsString( 'UNIQUE KEY recipient_attempt (recipient_id, attempt_no)', $body );
+		$this->assertStringContainsString( 'KEY claimable (state, next_attempt_at)', $body );
+		$this->assertStringContainsString( 'lease_token char(36)', $body );
+
+		// Additive only + postcondition; never drops; never sends.
+		$this->assertStringNotContainsString( 'DROP TABLE', $body );
+		$this->assertStringNotContainsString( 'DROP COLUMN', $body );
+		$this->assertStringContainsString( '1.39.0 email queue table creation postcondition failed', $body );
+		$this->assertStringNotContainsString( 'wp_mail', $body );
+	}
+
+	public function test_migration_1_39_0_does_not_schedule_or_send(): void {
+		$source = (string) file_get_contents( $this->db_file );
+		$start  = strpos( $source, 'private static function migrate_to_1_39_0' );
+		$end    = strpos( $source, 'private static function migrate_to_1_37_0', $start );
+		$body   = substr( $source, $start, $end - $start );
+		// The migration must not create campaigns, schedule sends or send email.
+		$this->assertStringNotContainsString( 'wp_schedule_event', $body );
+		$this->assertStringNotContainsString( 'wp_mail', $body );
+		$this->assertStringNotContainsString( 'INSERT INTO', $body );
 	}
 }

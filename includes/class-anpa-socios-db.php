@@ -97,11 +97,15 @@ class ANPA_Socios_DB {
 	 *        log. Additive and gated; seeds trimesters for the active course.
 	 * 1.38.1 (fase34 close-out) extends wp_anpa_transicions with a correlation/
 	 *        idempotency id and an optional reason. Additive and idempotent.
+	 * 1.39.0 (fase35) adds the email queue tables: wp_anpa_email_campaigns,
+	 *        wp_anpa_email_recipients (one row per recipient; dedup via
+	 *        UNIQUE(idempotency_key)) and wp_anpa_email_attempts (one row per
+	 *        attempt). Additive; creates no campaign and sends no email.
 	 *
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.38.1';
+	const DB_VERSION = '1.39.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -329,6 +333,14 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.38.1', '<' ) && ! self::migrate_to_1_38_1() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.38.1 (migrate_to_1_38_1): ' . $wpdb->last_error );
+			return;
+		}
+
+		// 1.39.0: email queue tables (campaigns + recipients + attempts). Additive.
+		$wpdb->last_error = '';
+		if ( version_compare( $installed_version, '1.39.0', '<' ) && ! self::migrate_to_1_39_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.39.0 (migrate_to_1_39_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -700,6 +712,42 @@ class ANPA_Socios_DB {
 		global $wpdb;
 
 		return $wpdb->prefix . 'anpa_transicions';
+	}
+
+	/**
+	 * Returns the full wp_anpa_email_campaigns table name (fase35).
+	 *
+	 * @since  1.39.0
+	 * @return string
+	 */
+	public static function tabela_email_campaigns(): string {
+		global $wpdb;
+
+		return $wpdb->prefix . 'anpa_email_campaigns';
+	}
+
+	/**
+	 * Returns the full wp_anpa_email_recipients table name (fase35).
+	 *
+	 * @since  1.39.0
+	 * @return string
+	 */
+	public static function tabela_email_recipients(): string {
+		global $wpdb;
+
+		return $wpdb->prefix . 'anpa_email_recipients';
+	}
+
+	/**
+	 * Returns the full wp_anpa_email_attempts table name (fase35).
+	 *
+	 * @since  1.39.0
+	 * @return string
+	 */
+	public static function tabela_email_attempts(): string {
+		global $wpdb;
+
+		return $wpdb->prefix . 'anpa_email_attempts';
 	}
 
 	/**
@@ -3832,6 +3880,136 @@ class ANPA_Socios_DB {
 			return false;
 		}
 
+		return true;
+	}
+
+	/**
+	 * Migration 1.39.0 (fase35): create the email queue tables — campaigns,
+	 * recipients (one row per recipient) and attempts (one row per attempt).
+	 *
+	 * Additive and idempotent (dbDelta creates when missing, no-ops otherwise).
+	 * Never drops anything. Does NOT create, schedule or send any campaign, and
+	 * never sends email. Dedup is enforced by UNIQUE(idempotency_key) on
+	 * recipients (a char(64) sha256 of campaign:email), which stays well within
+	 * InnoDB index-length limits (unlike a UNIQUE on the varchar email).
+	 *
+	 * @since  1.39.0
+	 * @return bool
+	 */
+	private static function migrate_to_1_39_0(): bool {
+		global $wpdb;
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		$charset_collate = $wpdb->get_charset_collate();
+
+		$campaigns  = self::tabela_email_campaigns();
+		$recipients = self::tabela_email_recipients();
+		$attempts   = self::tabela_email_attempts();
+
+		// 1. Campaigns.
+		dbDelta(
+			"CREATE TABLE {$campaigns} (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				uuid char(36) NOT NULL,
+				event_type varchar(40) NOT NULL DEFAULT '',
+				state varchar(16) NOT NULL DEFAULT 'pending',
+				course_year varchar(9) NULL,
+				trimester tinyint(1) NULL,
+				entity_type varchar(20) NOT NULL DEFAULT 'general',
+				entity_id bigint(20) unsigned NULL,
+				template_ref varchar(64) NULL,
+				payload_version smallint(5) unsigned NOT NULL DEFAULT 1,
+				total int(10) unsigned NOT NULL DEFAULT 0,
+				pending_count int(10) unsigned NOT NULL DEFAULT 0,
+				processed_count int(10) unsigned NOT NULL DEFAULT 0,
+				accepted_count int(10) unsigned NOT NULL DEFAULT 0,
+				failed_count int(10) unsigned NOT NULL DEFAULT 0,
+				cancelled_count int(10) unsigned NOT NULL DEFAULT 0,
+				skipped_count int(10) unsigned NOT NULL DEFAULT 0,
+				batch_size smallint(5) unsigned NOT NULL DEFAULT 25,
+				max_attempts smallint(5) unsigned NOT NULL DEFAULT 5,
+				scheduled_at datetime NULL,
+				created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				started_at datetime NULL,
+				finished_at datetime NULL,
+				paused_at datetime NULL,
+				cancelled_at datetime NULL,
+				purge_after datetime NULL,
+				created_by varchar(100) NOT NULL DEFAULT '',
+				idempotency_key varchar(64) NOT NULL,
+				meta_json longtext NULL,
+				PRIMARY KEY  (id),
+				UNIQUE KEY uuid (uuid),
+				UNIQUE KEY idempotency_key (idempotency_key),
+				KEY state (state),
+				KEY created_at (created_at)
+			) {$charset_collate};"
+		);
+
+		// 2. Recipients (one row per recipient). Dedup via UNIQUE(idempotency_key).
+		dbDelta(
+			"CREATE TABLE {$recipients} (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				campaign_id bigint(20) unsigned NOT NULL,
+				email varchar(190) NOT NULL,
+				recipient_type varchar(20) NOT NULL DEFAULT 'other',
+				entity_type varchar(20) NOT NULL DEFAULT 'general',
+				entity_id bigint(20) unsigned NULL,
+				state varchar(20) NOT NULL DEFAULT 'pending',
+				attempts smallint(5) unsigned NOT NULL DEFAULT 0,
+				next_attempt_at datetime NULL,
+				last_attempt_at datetime NULL,
+				accepted_at datetime NULL,
+				last_error varchar(255) NOT NULL DEFAULT '',
+				subject_render varchar(255) NOT NULL DEFAULT '',
+				payload_snapshot longtext NULL,
+				payload_hash char(64) NOT NULL DEFAULT '',
+				lease_token char(36) NOT NULL DEFAULT '',
+				locked_at datetime NULL,
+				locked_until datetime NULL,
+				idempotency_key char(64) NOT NULL,
+				correlation_id varchar(64) NOT NULL DEFAULT '',
+				created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY  (id),
+				UNIQUE KEY idempotency_key (idempotency_key),
+				KEY campaign_state (campaign_id, state),
+				KEY claimable (state, next_attempt_at),
+				KEY locked_until (locked_until)
+			) {$charset_collate};"
+		);
+
+		// 3. Attempts (one row per attempt).
+		dbDelta(
+			"CREATE TABLE {$attempts} (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				campaign_id bigint(20) unsigned NOT NULL,
+				recipient_id bigint(20) unsigned NOT NULL,
+				attempt_no smallint(5) unsigned NOT NULL,
+				started_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				finished_at datetime NULL,
+				result varchar(16) NOT NULL DEFAULT '',
+				error_category varchar(40) NOT NULL DEFAULT '',
+				error_message varchar(255) NOT NULL DEFAULT '',
+				duration_ms int(10) unsigned NULL,
+				correlation_id varchar(64) NOT NULL DEFAULT '',
+				PRIMARY KEY  (id),
+				UNIQUE KEY recipient_attempt (recipient_id, attempt_no),
+				KEY recipient (recipient_id),
+				KEY campaign (campaign_id)
+			) {$charset_collate};"
+		);
+
+		// Postcondition: the three tables exist.
+		if ( self::table_missing( $campaigns ) || self::table_missing( $recipients ) || self::table_missing( $attempts ) ) {
+			$wpdb->last_error = '1.39.0 email queue table creation postcondition failed';
+			return false;
+		}
+
+		// NOTE: this migration intentionally creates NO campaign, schedules NO
+		// send and sends NO email. The recurring cron event is registered
+		// separately (activation/admin_init) and its tick is a no-op until the
+		// queue processor lands (later PR); it never runs during migration.
 		return true;
 	}
 
