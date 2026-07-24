@@ -133,4 +133,34 @@ final class Test_ANPA_Socios_Crypto extends TestCase {
 			ANPA_Socios_Crypto::unseal( $sealed, $kp['public'], $secret )
 		);
 	}
+
+	public function test_generate_passphrase_uses_a_csprng_not_array_rand(): void {
+		// F-007: the suggested passphrase must not be predictable. It must use a
+		// CSPRNG (random_int), never array_rand()'s non-cryptographic PRNG.
+		$src = (string) file_get_contents( __DIR__ . '/../includes/lib/class-anpa-socios-crypto.php' );
+		$start = strpos( $src, 'function generate_passphrase' );
+		$this->assertNotFalse( $start );
+		$method = substr( $src, $start, 900 );
+		$this->assertStringNotContainsString( 'array_rand', $method );
+		$this->assertStringContainsString( 'random_int', $method );
+
+		// Functional: returns 5 hyphen-separated words drawn from the fixed list.
+		$phrase = ANPA_Socios_Crypto::generate_passphrase();
+		$parts  = explode( '-', $phrase );
+		$this->assertCount( 5, $parts );
+		foreach ( $parts as $w ) {
+			$this->assertNotSame( '', $w );
+		}
+	}
+
+	public function test_restore_enforces_an_application_level_size_cap(): void {
+		// F-008: the backup restore handler must reject oversized uploads with an
+		// explicit app-level cap (defence in depth over PHP upload limits).
+		$src = (string) file_get_contents( __DIR__ . '/../includes/class-anpa-socios-admin-settings.php' );
+		$start = strpos( $src, 'function handle_restore' );
+		$this->assertNotFalse( $start );
+		$method = substr( $src, $start, 900 );
+		$this->assertStringContainsString( 'anpa_socios_restore_max_bytes', $method );
+		$this->assertStringContainsString( "\$_FILES['backup_file']['size']", $method );
+	}
 }

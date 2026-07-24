@@ -357,10 +357,14 @@ final class ANPA_Socios_Crypto {
 			'amor', 'paz', 'ben', 'luz', 'vida',
 		);
 
+		// Use a CSPRNG (random_int) rather than a non-cryptographic PRNG. This is
+		// only a suggested passphrase (editable by the admin), but a suggestion
+		// should not be predictable. Words may repeat; that is fine for a 5-word
+		// suggestion and keeps the selection uniform.
+		$count    = count( $words );
 		$selected = array();
-		$keys     = array_rand( $words, 5 );
-		foreach ( (array) $keys as $k ) {
-			$selected[] = $words[ $k ];
+		for ( $i = 0; $i < 5; $i++ ) {
+			$selected[] = $words[ random_int( 0, $count - 1 ) ];
 		}
 
 		return implode( '-', $selected );
