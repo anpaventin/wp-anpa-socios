@@ -72,12 +72,16 @@ final class Test_ANPA_Socios_Email_Lifecycle extends TestCase {
 	}
 
 	public function test_uninstall_preserves_communications_by_default(): void {
-		$this->assertStringContainsString( "get_option( 'anpa_socios_delete_all_on_uninstall'", $this->uninstall );
+		// Communications-only scope, defensively named (NOT "delete all data").
+		$this->assertStringContainsString( "get_option( 'anpa_socios_delete_comms_on_uninstall'", $this->uninstall );
+		$this->assertStringNotContainsString( 'anpa_socios_delete_all_on_uninstall', $this->uninstall );
 		$this->assertStringContainsString( 'anpa_email_campaigns', $this->uninstall );
 		$this->assertStringContainsString( 'anpa_email_recipients', $this->uninstall );
 		$this->assertStringContainsString( 'anpa_email_attempts', $this->uninstall );
 		$this->assertStringContainsString( 'in_array( $table, $preserve, true )', $this->uninstall );
-		// When delete_all is true, nothing is preserved.
-		$this->assertStringContainsString( '$delete_all ? array() :', $this->uninstall );
+		// Only the exact authorized value deletes; otherwise preserve.
+		$this->assertStringContainsString( '$delete_comms ? array() :', $this->uninstall );
+		// Documented multisite policy (per-site).
+		$this->assertStringContainsString( 'MULTISITE', $this->uninstall );
 	}
 }

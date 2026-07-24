@@ -443,8 +443,15 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		$this->assertStringContainsString( 'UNIQUE KEY idempotency_key (idempotency_key)', $body );
 		$this->assertStringNotContainsString( 'UNIQUE KEY campaign_email', $body );
 		$this->assertStringContainsString( 'UNIQUE KEY recipient_attempt (recipient_id, attempt_no)', $body );
-		$this->assertStringContainsString( 'KEY claimable (state, next_attempt_at)', $body );
+		$this->assertStringContainsString( 'KEY claimable (state, next_attempt_at_utc)', $body );
 		$this->assertStringContainsString( 'lease_token char(36)', $body );
+		// UTC convention: no session-tz CURRENT_TIMESTAMP defaults; UTC columns.
+		$this->assertStringNotContainsString( 'DEFAULT CURRENT_TIMESTAMP', $body );
+		$this->assertStringContainsString( 'created_at_utc datetime NOT NULL', $body );
+		$this->assertStringContainsString( 'next_attempt_at_utc datetime NULL', $body );
+		// Email up to RFC max, message_key present for logical dedup.
+		$this->assertStringContainsString( 'email varchar(254) NOT NULL', $body );
+		$this->assertStringContainsString( 'message_key varchar(190)', $body );
 
 		// Additive only + postcondition; never drops; never sends.
 		$this->assertStringNotContainsString( 'DROP TABLE', $body );
