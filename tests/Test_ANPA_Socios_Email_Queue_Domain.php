@@ -72,32 +72,60 @@ final class Test_ANPA_Socios_Email_Queue_Domain extends TestCase {
 
 	public function test_normalize_and_validate(): void {
 		$this->assertSame( 'a@b.com', ANPA_Socios_Email_Recipients::normalize( '  A@B.CoM ' ) );
+		// Dots and +tags are preserved (no provider-specific canonicalization).
+		$this->assertSame( 'a.b+x@gmail.com', ANPA_Socios_Email_Recipients::normalize( ' A.B+X@Gmail.com ' ) );
 		$this->assertTrue( ANPA_Socios_Email_Recipients::valid( 'a@b.com' ) );
 		$this->assertFalse( ANPA_Socios_Email_Recipients::valid( 'nope' ) );
 		$this->assertFalse( ANPA_Socios_Email_Recipients::valid( 'a@b' ) );
 		$this->assertFalse( ANPA_Socios_Email_Recipients::valid( '' ) );
+		// Near-max length (<=254) accepted; over rejected.
+		$local = str_repeat( 'a', 240 );
+		$this->assertTrue( ANPA_Socios_Email_Recipients::valid( $local . '@b.com' ) );
+		$this->assertFalse( ANPA_Socios_Email_Recipients::valid( str_repeat( 'a', 250 ) . '@b.com' ) );
 	}
 
-	public function test_dedup_principal_equals_secondary(): void {
+	public function test_dedup_by_logical_identity_not_email_alone(): void {
 		$raw = array(
-			array( 'email' => 'Pai@Casa.com', 'type' => 'principal', 'entity_type' => 'member', 'entity_id' => 10 ),
-			array( 'email' => 'pai@casa.com', 'type' => 'secondary', 'entity_type' => 'member', 'entity_id' => 11 ),
-			array( 'email' => 'nai@casa.com', 'type' => 'principal', 'entity_type' => 'member', 'entity_id' => 12 ),
-			array( 'email' => 'bad', 'type' => 'principal' ),
-			array( 'email' => '', 'type' => 'principal' ),
+			// principal + secondary of the SAME message (same type+message_key) → collapse.
+			array( 'email' => 'Pai@Casa.com', 'recipient_type' => 'member', 'message_key' => 'enrolment:10', 'entity_id' => 10 ),
+			array( 'email' => 'pai@casa.com', 'recipient_type' => 'member', 'message_key' => 'enrolment:10', 'entity_id' => 11 ),
+			// same email, DIFFERENT message (another child) → kept.
+			array( 'email' => 'pai@casa.com', 'recipient_type' => 'member', 'message_key' => 'enrolment:20', 'entity_id' => 20 ),
+			// same email as a COMPANY responsible → kept.
+			array( 'email' => 'pai@casa.com', 'recipient_type' => 'company', 'message_key' => 'company:7', 'entity_id' => 7 ),
+			array( 'email' => 'bad', 'recipient_type' => 'member' ),
+			array( 'email' => '', 'recipient_type' => 'member' ),
 		);
 		$out = ANPA_Socios_Email_Recipients::prepare( $raw );
 
-		$emails = array_column( $out['valid'], 'email' );
-		$this->assertContains( 'pai@casa.com', $emails );
-		$this->assertContains( 'nai@casa.com', $emails );
-		$this->assertCount( 2, $out['valid'], 'principal==secondary collapses to one send' );
-		$this->assertSame( 'principal', $out['valid'][0]['type'] );
+		$this->assertCount( 3, $out['valid'], 'principal==secondary same message collapses; distinct messages kept' );
+		// First occurrence wins for the collapsed pair.
 		$this->assertSame( 10, $out['valid'][0]['entity_id'] );
 
 		$reasons = array_column( $out['skipped'], 'reason' );
-		$this->assertContains( 'duplicate', $reasons );
-		$this->assertContains( 'invalid', $reasons );
+		$this->assertContains( 'duplicate', $reasons ); // the secondary parent
+		$this->assertContains( 'invalid', $reasons );   // bad + empty
+	}
+
+	public function test_idempotency_key_is_deterministic_and_discriminates(): void {
+		$k1 = ANPA_Socios_Email_Recipients::idempotency_key( 'uuid-1', 'A@b.com', 'member', 'enrolment:10' );
+		$k1b = ANPA_Socios_Email_Recipients::idempotency_key( 'uuid-1', 'a@b.com ', 'member', 'enrolment:10' );
+		$this->assertSame( $k1, $k1b, 'normalization makes the key stable' );
+		$this->assertSame( 64, strlen( $k1 ) );
+
+		// Different message_key, recipient_type, campaign or email → different key.
+		$this->assertNotSame( $k1, ANPA_Socios_Email_Recipients::idempotency_key( 'uuid-1', 'a@b.com', 'member', 'enrolment:20' ) );
+		$this->assertNotSame( $k1, ANPA_Socios_Email_Recipients::idempotency_key( 'uuid-1', 'a@b.com', 'company', 'enrolment:10' ) );
+		$this->assertNotSame( $k1, ANPA_Socios_Email_Recipients::idempotency_key( 'uuid-2', 'a@b.com', 'member', 'enrolment:10' ) );
+		$this->assertNotSame( $k1, ANPA_Socios_Email_Recipients::idempotency_key( 'uuid-1', 'c@b.com', 'member', 'enrolment:10' ) );
+	}
+
+	public function test_canonical_identity_uses_structured_serialization(): void {
+		// Components are serialized as canonical JSON (never blindly concatenated),
+		// so ambiguous boundaries cannot collide.
+		$a = ANPA_Socios_Email_Recipients::idempotency_key( 'u', 'x@y.com', 'a', 'bc' );
+		$b = ANPA_Socios_Email_Recipients::idempotency_key( 'u', 'x@y.com', 'ab', 'c' );
+		$this->assertNotSame( $a, $b, 'boundary between recipient_type and message_key must be unambiguous' );
 	}
 
 	// ── Batch planner ───────────────────────────────────────────────────

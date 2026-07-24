@@ -3906,7 +3906,15 @@ class ANPA_Socios_DB {
 		$recipients = self::tabela_email_recipients();
 		$attempts   = self::tabela_email_attempts();
 
-		// 1. Campaigns.
+		// All datetime columns store UTC (written by the app with gmdate();
+		// SQL scheduling/comparisons use UTC_TIMESTAMP()). NO CURRENT_TIMESTAMP
+		// defaults, whose value depends on the MySQL session time zone. Plain
+		// `datetime` (second precision) is compatible with the minimum supported
+		// engines (WordPress 6.0 → MySQL 5.7+ / MariaDB 10.3+).
+		//
+		// 1. Campaigns. Denormalised counters here are a fast cache, NOT the
+		//    source of truth: totals are recalculable from email_recipients and
+		//    reconciled by the queue service (see design.md §Contadores).
 		dbDelta(
 			"CREATE TABLE {$campaigns} (
 				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -3928,66 +3936,72 @@ class ANPA_Socios_DB {
 				skipped_count int(10) unsigned NOT NULL DEFAULT 0,
 				batch_size smallint(5) unsigned NOT NULL DEFAULT 25,
 				max_attempts smallint(5) unsigned NOT NULL DEFAULT 5,
-				scheduled_at datetime NULL,
-				created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				started_at datetime NULL,
-				finished_at datetime NULL,
-				paused_at datetime NULL,
-				cancelled_at datetime NULL,
-				purge_after datetime NULL,
+				scheduled_at_utc datetime NULL,
+				created_at_utc datetime NOT NULL,
+				started_at_utc datetime NULL,
+				finished_at_utc datetime NULL,
+				paused_at_utc datetime NULL,
+				cancelled_at_utc datetime NULL,
+				purge_after_utc datetime NULL,
 				created_by varchar(100) NOT NULL DEFAULT '',
-				idempotency_key varchar(64) NOT NULL,
+				idempotency_key char(64) NOT NULL,
 				meta_json longtext NULL,
 				PRIMARY KEY  (id),
 				UNIQUE KEY uuid (uuid),
 				UNIQUE KEY idempotency_key (idempotency_key),
 				KEY state (state),
-				KEY created_at (created_at)
+				KEY created_at_utc (created_at_utc)
 			) {$charset_collate};"
 		);
 
-		// 2. Recipients (one row per recipient). Dedup via UNIQUE(idempotency_key).
+		// 2. Recipients (one row per recipient). Dedup via UNIQUE(idempotency_key),
+		//    where the key is sha256 of a canonical JSON of
+		//    [version, campaign_uuid, normalized_email, recipient_type, message_key]
+		//    (see ANPA_Socios_Email_Recipients). email is varchar(254) (RFC max),
+		//    NOT uniquely indexed (the char(64) key handles dedup within index
+		//    limits). All datetimes are UTC.
 		dbDelta(
 			"CREATE TABLE {$recipients} (
 				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 				campaign_id bigint(20) unsigned NOT NULL,
-				email varchar(190) NOT NULL,
+				email varchar(254) NOT NULL,
 				recipient_type varchar(20) NOT NULL DEFAULT 'other',
+				message_key varchar(190) NOT NULL DEFAULT '',
 				entity_type varchar(20) NOT NULL DEFAULT 'general',
 				entity_id bigint(20) unsigned NULL,
 				state varchar(20) NOT NULL DEFAULT 'pending',
 				attempts smallint(5) unsigned NOT NULL DEFAULT 0,
-				next_attempt_at datetime NULL,
-				last_attempt_at datetime NULL,
-				accepted_at datetime NULL,
+				next_attempt_at_utc datetime NULL,
+				last_attempt_at_utc datetime NULL,
+				accepted_at_utc datetime NULL,
 				last_error varchar(255) NOT NULL DEFAULT '',
 				subject_render varchar(255) NOT NULL DEFAULT '',
 				payload_snapshot longtext NULL,
 				payload_hash char(64) NOT NULL DEFAULT '',
 				lease_token char(36) NOT NULL DEFAULT '',
-				locked_at datetime NULL,
-				locked_until datetime NULL,
+				locked_at_utc datetime NULL,
+				locked_until_utc datetime NULL,
 				idempotency_key char(64) NOT NULL,
 				correlation_id varchar(64) NOT NULL DEFAULT '',
-				created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				created_at_utc datetime NOT NULL,
+				updated_at_utc datetime NOT NULL,
 				PRIMARY KEY  (id),
 				UNIQUE KEY idempotency_key (idempotency_key),
 				KEY campaign_state (campaign_id, state),
-				KEY claimable (state, next_attempt_at),
-				KEY locked_until (locked_until)
+				KEY claimable (state, next_attempt_at_utc),
+				KEY locked_until_utc (locked_until_utc)
 			) {$charset_collate};"
 		);
 
-		// 3. Attempts (one row per attempt).
+		// 3. Attempts (one row per attempt). All datetimes are UTC.
 		dbDelta(
 			"CREATE TABLE {$attempts} (
 				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 				campaign_id bigint(20) unsigned NOT NULL,
 				recipient_id bigint(20) unsigned NOT NULL,
 				attempt_no smallint(5) unsigned NOT NULL,
-				started_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				finished_at datetime NULL,
+				started_at_utc datetime NOT NULL,
+				finished_at_utc datetime NULL,
 				result varchar(16) NOT NULL DEFAULT '',
 				error_category varchar(40) NOT NULL DEFAULT '',
 				error_message varchar(255) NOT NULL DEFAULT '',

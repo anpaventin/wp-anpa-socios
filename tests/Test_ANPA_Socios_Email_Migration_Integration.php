@@ -110,11 +110,12 @@ final class Test_ANPA_Socios_Email_Migration_Integration extends TestCase {
 		$campaigns = ANPA_Socios_DB::tabela_email_campaigns();
 		$wpdb->query(
 			$wpdb->prepare(
-				"INSERT INTO `{$campaigns}` (uuid, event_type, state, idempotency_key) VALUES (%s,%s,%s,%s)",
+				"INSERT INTO `{$campaigns}` (uuid, event_type, state, idempotency_key, created_at_utc) VALUES (%s,%s,%s,%s,%s)",
 				'11111111-1111-1111-1111-111111111111',
 				'test',
 				'pending',
-				str_repeat( 'a', 64 )
+				str_repeat( 'a', 64 ),
+				gmdate( 'Y-m-d H:i:s' )
 			)
 		);
 		update_option( ANPA_Socios_DB::VERSION_OPTION, '1.38.1' );
@@ -126,7 +127,7 @@ final class Test_ANPA_Socios_Email_Migration_Integration extends TestCase {
 	public function test_uninstall_preserves_communications_when_option_off(): void {
 		global $wpdb;
 		ANPA_Socios_DB::crear_tabelas();
-		update_option( 'anpa_socios_delete_all_on_uninstall', '0' );
+		update_option( 'anpa_socios_delete_comms_on_uninstall', '0' );
 
 		if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 			define( 'WP_UNINSTALL_PLUGIN', true );
@@ -143,7 +144,7 @@ final class Test_ANPA_Socios_Email_Migration_Integration extends TestCase {
 	public function test_uninstall_deletes_communications_when_option_on(): void {
 		global $wpdb;
 		ANPA_Socios_DB::crear_tabelas();
-		update_option( 'anpa_socios_delete_all_on_uninstall', '1' );
+		update_option( 'anpa_socios_delete_comms_on_uninstall', '1' );
 
 		if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 			define( 'WP_UNINSTALL_PLUGIN', true );
