@@ -160,6 +160,12 @@
 	flex-wrap: wrap;
 	gap: 0.75rem;
 }
+/* The [hidden] attribute must win over the flex display above (otherwise a
+   hidden actions row — e.g. «Nova matrícula» when banking is incomplete —
+   would still render). */
+#anpa-area .anpa-area-actions[hidden] {
+	display: none;
+}
 
 #anpa-area .anpa-area-muted {
 	color: var(--theme-text-color);
