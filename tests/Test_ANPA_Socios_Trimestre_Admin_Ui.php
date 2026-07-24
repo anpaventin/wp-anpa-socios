@@ -115,4 +115,75 @@ final class Test_ANPA_Socios_Trimestre_Admin_Ui extends TestCase {
 	public function test_season_admin_notice_is_wired_in_bootstrap(): void {
 		$this->assertStringContainsString( "add_action( 'admin_notices', array( 'ANPA_Socios_Season_Service', 'render_admin_notice' ) )", $this->bootstrap );
 	}
+
+	// ── fase34 close-out: fail-closed, audit and explicit-seeding contracts ──
+
+	public function test_for_curso_is_read_only_and_never_seeds_or_fabricates_state(): void {
+		$start = strpos( $this->repo, 'public static function for_curso' );
+		$end   = strpos( $this->repo, 'public static function esta_inicializado', $start );
+		$body  = substr( $this->repo, $start, $end - $start );
+
+		// A read must not write or seed.
+		$this->assertStringNotContainsString( 'ensure_seeded', $body );
+		$this->assertStringNotContainsString( '$wpdb->insert', $body );
+		$this->assertStringNotContainsString( 'INSERT', $body );
+		// Missing rows are reported as not-present with a closed window default,
+		// never as an "activo" trimester.
+		$this->assertStringContainsString( "'presente'       => false", $body );
+		$this->assertStringContainsString( 'ANPA_Socios_Ventana_Estado::PECHADA', $body );
+	}
+
+	public function test_transitions_fail_closed_when_row_missing(): void {
+		$this->assertStringContainsString( "'code' => 'sen_configurar'", $this->repo );
+		// Both transition methods check presence before deciding.
+		$this->assertSame( 2, substr_count( $this->repo, "empty( \$rows[ \$trimestre ]['presente'] )" ) );
+	}
+
+	public function test_seeding_is_explicit_and_logged_with_origin(): void {
+		$this->assertStringContainsString( 'public static function ensure_seeded', $this->repo );
+		$this->assertStringContainsString( "const ORIXE_MIGRACION", $this->repo );
+		$this->assertStringContainsString( "const ORIXE_ACTIVACION", $this->repo );
+		$this->assertStringContainsString( "const ORIXE_REPARACION", $this->repo );
+		// ensure_seeded never overwrites an existing row (idempotent, per-trimester).
+		$start = strpos( $this->repo, 'public static function ensure_seeded' );
+		$end   = strpos( $this->repo, 'public static function transicionar_trimestre', $start );
+		$body  = substr( $this->repo, $start, $end - $start );
+		$this->assertStringContainsString( 'in_array( $tri, $existing, true )', $body );
+		$this->assertStringContainsString( 'INSERT IGNORE', $body );
+	}
+
+	public function test_audit_log_carries_correlation_and_reason(): void {
+		// The log writer persists correlation id + reason + origin + actor.
+		$this->assertStringContainsString( "'correlacion'   => \$correlacion", $this->repo );
+		$this->assertStringContainsString( "'motivo'        => \$motivo", $this->repo );
+		$this->assertStringContainsString( "'orixe'         => \$orixe", $this->repo );
+		$this->assertStringContainsString( "'actor_email'   => \$actor", $this->repo );
+	}
+
+	public function test_course_activation_seeds_trimesters(): void {
+		$root    = dirname( __DIR__ );
+		$handler = (string) file_get_contents( $root . '/includes/class-anpa-socios-admin-cursos-handler.php' );
+		$this->assertStringContainsString( 'ANPA_Socios_Trimestre_Repo::ensure_seeded( $curso, ANPA_Socios_Trimestre_Repo::ORIXE_ACTIVACION', $handler );
+		// Seeding runs AFTER commit (never inside the lifecycle transaction).
+		$commit = strpos( $handler, "\$wpdb->query( 'COMMIT' )" );
+		$seed   = strpos( $handler, 'ensure_seeded( $curso, ANPA_Socios_Trimestre_Repo::ORIXE_ACTIVACION' );
+		$this->assertIsInt( $commit );
+		$this->assertIsInt( $seed );
+		$this->assertLessThan( $seed, $commit );
+	}
+
+	public function test_transition_handler_passes_a_correlation_id(): void {
+		$start = strpos( $this->settings, 'public static function handle_trimestre_transicion' );
+		$end   = strpos( $this->settings, 'public static function handle_inicializar_trimestres', $start );
+		$body  = substr( $this->settings, $start, $end - $start );
+		$this->assertStringContainsString( 'wp_generate_uuid4', $body );
+		$this->assertStringContainsString( 'transicion_sen_config', $body );
+	}
+
+	public function test_panel_offers_explicit_repair_when_not_initialised(): void {
+		$this->assertStringContainsString( 'admin_post_anpa_socios_inicializar_trimestres', $this->settings );
+		$this->assertStringContainsString( 'handle_inicializar_trimestres', $this->settings );
+		$this->assertStringContainsString( 'esta_inicializado', $this->settings );
+		$this->assertStringContainsString( 'Sen configurar', $this->settings );
+	}
 }

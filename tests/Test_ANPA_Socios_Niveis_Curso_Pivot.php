@@ -45,7 +45,7 @@ final class Test_ANPA_Socios_Niveis_Curso_Pivot extends TestCase {
 
 	public function test_db_version_bumped_and_1_36_0_wired_in_chain(): void {
 		$source = file_get_contents( $this->db_file );
-		$this->assertStringContainsString( "const DB_VERSION = '1.38.0';", $source );
+		$this->assertStringContainsString( "const DB_VERSION = '1.38.1';", $source );
 		$this->assertStringContainsString( "version_compare( \$installed_version, '1.36.0', '<' ) && ! self::migrate_to_1_36_0()", $source );
 	}
 

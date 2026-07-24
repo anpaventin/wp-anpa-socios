@@ -123,4 +123,63 @@ final class Test_ANPA_Socios_Calendario extends TestCase {
 		// Malformed "today" yields no detection (fail-safe).
 		$this->assertSame( array(), ANPA_Socios_Calendario::trimestres_operativos_alcanzados( 'nope', array( 't1' => '2026-12-15' ) ) );
 	}
+
+	// ── fase34 close-out: explicit edge-case coverage requested in review ──
+
+	public function test_t1_close_before_course_start_is_rejected(): void {
+		$d = $this->datas();
+		$d['t1'] = '2026-08-01'; // before inicio 2026-09-01
+		$this->assertContains( 't1_fora_rango', ANPA_Socios_Calendario::validar( $d ) );
+	}
+
+	public function test_t2_close_after_course_close_is_rejected(): void {
+		$d = $this->datas();
+		$d['t2'] = '2027-07-01'; // after peche 2027-06-20
+		$this->assertContains( 't2_fora_rango', ANPA_Socios_Calendario::validar( $d ) );
+	}
+
+	public function test_t2_equal_or_before_t1_is_rejected(): void {
+		$d = $this->datas();
+		$d['t2'] = $d['t1']; // equal
+		$this->assertContains( 'orde_t1_t2', ANPA_Socios_Calendario::validar( $d ) );
+		$d['t2'] = '2026-12-01'; // strictly before t1
+		$this->assertContains( 'orde_t1_t2', ANPA_Socios_Calendario::validar( $d ) );
+	}
+
+	public function test_operative_date_equal_to_a_course_boundary_is_rejected(): void {
+		$d = $this->datas();
+		// t1 exactly on inicio (boundary) — must be strictly inside (inicio, peche).
+		$d['t1'] = $d['inicio'];
+		$this->assertContains( 't1_fora_rango', ANPA_Socios_Calendario::validar( $d ) );
+		$d = $this->datas();
+		// t2 exactly on peche (boundary) — must be strictly inside.
+		$d['t2'] = $d['peche'];
+		$this->assertContains( 't2_fora_rango', ANPA_Socios_Calendario::validar( $d ) );
+	}
+
+	public function test_course_spanning_two_calendar_years_and_boundaries(): void {
+		// The course spans Sep 2026 → Jun 2027 (two natural years). The trimester
+		// mapping must be continuous across the Dec→Jan year change.
+		$d = $this->datas();
+		$this->assertSame( 1, ANPA_Socios_Calendario::trimestre_para_data( '2026-12-15', $d ) ); // last day of T1
+		$this->assertSame( 2, ANPA_Socios_Calendario::trimestre_para_data( '2026-12-31', $d ) ); // Dec 31 > t1 → T2
+		$this->assertSame( 2, ANPA_Socios_Calendario::trimestre_para_data( '2027-01-01', $d ) ); // new natural year, still T2
+		$this->assertSame( 2, ANPA_Socios_Calendario::trimestre_para_data( '2026-12-16', $d ) );
+	}
+
+	public function test_leap_year_february_29_is_valid_and_maps(): void {
+		// 2028 is a leap year; Feb 29 must validate and map to a trimester.
+		$d = array( 'inicio' => '2027-09-01', 't1' => '2027-12-15', 't2' => '2028-03-20', 'peche' => '2028-06-20' );
+		$this->assertSame( array(), ANPA_Socios_Calendario::validar( $d ) );
+		$this->assertTrue( ANPA_Socios_Calendario::valida_data( '2028-02-29' ) );
+		$this->assertFalse( ANPA_Socios_Calendario::valida_data( '2027-02-29' ) ); // 2027 not a leap year
+		$this->assertSame( 2, ANPA_Socios_Calendario::trimestre_para_data( '2028-02-29', $d ) );
+	}
+
+	public function test_cron_detection_catches_up_after_missed_days(): void {
+		// Cron not run for a while: a date well past both operative closes must
+		// still report BOTH trimesters as reached (>= comparison, not ==).
+		$d = array( 't1' => '2026-12-15', 't2' => '2027-03-20' );
+		$this->assertSame( array( 1, 2 ), ANPA_Socios_Calendario::trimestres_operativos_alcanzados( '2027-05-30', $d ) );
+	}
 }

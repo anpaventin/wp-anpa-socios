@@ -24,14 +24,14 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		$this->plugin_file = dirname( __DIR__ ) . '/anpa-socios.php';
 	}
 
-	public function test_db_version_constant_is_1_38_0(): void {
-		$this->assertSame( '1.38.0', ANPA_Socios_DB::DB_VERSION );
+	public function test_db_version_constant_is_1_38_1(): void {
+		$this->assertSame( '1.38.1', ANPA_Socios_DB::DB_VERSION );
 	}
 
-	public function test_anpa_socios_db_version_is_1_38_0(): void {
+	public function test_anpa_socios_db_version_is_1_38_1(): void {
 		$source = file_get_contents( $this->plugin_file );
 		$this->assertIsString( $source );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.38.0' )", $source );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.38.1' )", $source );
 	}
 
 	public function test_migrate_to_1_37_0_drops_legacy_comedor_columns_guarded(): void {
@@ -356,7 +356,7 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 
 	public function test_migrate_to_1_34_0_drops_activity_course_offers_only_after_group_equivalence_preflight(): void {
 		$source = file_get_contents( $this->db_file );
-		$this->assertStringContainsString( "const DB_VERSION = '1.38.0'", $source );
+		$this->assertStringContainsString( "const DB_VERSION = '1.38.1'", $source );
 		$this->assertStringContainsString( 'private static function migrate_to_1_34_0(): bool', $source );
 		$this->assertStringContainsString( 'SHOW TABLES LIKE %s', $source );
 		$this->assertStringContainsString( "'' !== (string) \$wpdb->last_error", $source );
@@ -392,5 +392,28 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		// Postconditions + additive (no DROP in this migration).
 		$this->assertStringContainsString( '1.38.0 table creation postcondition failed', $source );
 		$this->assertStringContainsString( '1.38.0 cursos column postcondition failed', $source );
+		// The transicions audit table carries the correlation id + reason columns.
+		$this->assertStringContainsString( 'correlacion varchar(64)', $source );
+		$this->assertStringContainsString( 'motivo varchar(255)', $source );
+	}
+
+	public function test_migrate_to_1_38_1_extends_audit_log_gated_and_additive(): void {
+		$source = (string) file_get_contents( $this->db_file );
+		// Gated in the runner and halts without advancing the version on error.
+		$this->assertStringContainsString( "version_compare( \$installed_version, '1.38.1', '<' ) && ! self::migrate_to_1_38_1()", $source );
+		$this->assertStringContainsString( 'Migration halted at step 1.38.1', $source );
+		$this->assertStringContainsString( 'private static function migrate_to_1_38_1(): bool', $source );
+		// Additive columns guarded by existence checks (idempotent).
+		$this->assertStringContainsString( "tem_columna( \$tr, 'correlacion' )", $source );
+		$this->assertStringContainsString( "tem_columna( \$tr, 'motivo' )", $source );
+		$this->assertStringContainsString( "ADD COLUMN correlacion varchar(64) NOT NULL DEFAULT '' AFTER orixe", $source );
+		$this->assertStringContainsString( "ADD COLUMN motivo varchar(255) NOT NULL DEFAULT '' AFTER correlacion", $source );
+		// Additive only — never drops anything in this step.
+		$start  = strpos( $source, 'private static function migrate_to_1_38_1' );
+		$end    = strpos( $source, 'private static function migrate_to_1_37_0', $start );
+		$method = substr( $source, $start, $end - $start );
+		$this->assertStringNotContainsString( 'DROP COLUMN', $method );
+		$this->assertStringNotContainsString( 'DROP TABLE', $method );
+		$this->assertStringContainsString( '1.38.1 transicions audit columns postcondition failed', $method );
 	}
 }
