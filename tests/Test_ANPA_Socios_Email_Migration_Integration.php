@@ -132,10 +132,8 @@ final class Test_ANPA_Socios_Email_Migration_Integration extends TestCase {
 		if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 			define( 'WP_UNINSTALL_PLUGIN', true );
 		}
-		require dirname( __DIR__ ) . '/uninstall.php';
-		if ( function_exists( 'anpa_socios_uninstall_cleanup' ) ) {
-			anpa_socios_uninstall_cleanup();
-		}
+		require_once dirname( __DIR__ ) . '/uninstall.php';
+		anpa_socios_uninstall_cleanup();
 		foreach ( $this->tables() as $t ) {
 			$this->assertTrue( $this->table_exists( $t ), "Comms table $t must be preserved when option off" );
 		}
@@ -149,10 +147,8 @@ final class Test_ANPA_Socios_Email_Migration_Integration extends TestCase {
 		if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 			define( 'WP_UNINSTALL_PLUGIN', true );
 		}
-		require dirname( __DIR__ ) . '/uninstall.php';
-		if ( function_exists( 'anpa_socios_uninstall_cleanup' ) ) {
-			anpa_socios_uninstall_cleanup();
-		}
+		require_once dirname( __DIR__ ) . '/uninstall.php';
+		anpa_socios_uninstall_cleanup();
 		foreach ( $this->tables() as $t ) {
 			$this->assertFalse( $this->table_exists( $t ), "Comms table $t must be dropped when option on" );
 		}

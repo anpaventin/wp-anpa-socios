@@ -126,13 +126,33 @@ bash "$HERE/install-wp-tests.sh" "$DB_NAME" "$DB_USER" "$DB_PASS" "127.0.0.1:${P
 
 # Harden the throwaway WordPress: no external calls, no real mail, no cron.
 cat >> "$WP_TESTS_DIR/wp-tests-config.php" <<'PHPEOF'
-define( 'WP_HTTP_BLOCK_EXTERNAL', true );
-define( 'AUTOMATIC_UPDATER_DISABLED', true );
-define( 'DISABLE_WP_CRON', true );
+if ( ! defined( 'WP_HTTP_BLOCK_EXTERNAL' ) )    { define( 'WP_HTTP_BLOCK_EXTERNAL', true ); }
+if ( ! defined( 'AUTOMATIC_UPDATER_DISABLED' ) ) { define( 'AUTOMATIC_UPDATER_DISABLED', true ); }
+if ( ! defined( 'DISABLE_WP_CRON' ) )            { define( 'DISABLE_WP_CRON', true ); }
 PHPEOF
 
 echo "== composer (dev deps) in the ephemeral copy =="
-( cd "$WORK_PLUGIN" && "$COMPOSER_BIN" install --no-interaction --no-progress >"$BASE/composer.log" 2>&1 )
+# The committed composer.lock may have been produced by a newer PHP than the one
+# available here. The copy is ephemeral, so resolving fresh there is safe and
+# never touches the repository's lock file.
+if ! ( cd "$WORK_PLUGIN" && "$COMPOSER_BIN" install --no-interaction --no-progress >"$BASE/composer.log" 2>&1 ); then
+  echo "   composer install failed for this PHP; resolving fresh in the ephemeral copy"
+  ( cd "$WORK_PLUGIN" && rm -f composer.lock && "$COMPOSER_BIN" update --no-interaction --no-progress >>"$BASE/composer.log" 2>&1 )
+fi
+[[ -x "$WORK_PLUGIN/vendor/bin/phpunit" ]] || { echo "PHPUnit not installed; see $BASE/composer.log" >&2; tail -20 "$BASE/composer.log" >&2; exit 1; }
+
+# The WordPress test suite requires Yoast's PHPUnit-Polyfills. It is only needed
+# for integration runs, so it is installed in the ephemeral copy (the repository
+# composer.json stays untouched).
+if [[ ! -d "$WORK_PLUGIN/vendor/yoast/phpunit-polyfills" ]]; then
+  echo "   installing yoast/phpunit-polyfills (integration-only dependency)"
+  ( cd "$WORK_PLUGIN" && "$COMPOSER_BIN" require --dev --no-interaction --no-progress \
+      "yoast/phpunit-polyfills:^2.0" >>"$BASE/composer.log" 2>&1 ) \
+  || ( cd "$WORK_PLUGIN" && "$COMPOSER_BIN" require --dev --no-interaction --no-progress \
+      "yoast/phpunit-polyfills" >>"$BASE/composer.log" 2>&1 )
+fi
+export WP_TESTS_PHPUNIT_POLYFILLS_PATH="$WORK_PLUGIN/vendor/yoast/phpunit-polyfills"
+[[ -d "$WP_TESTS_PHPUNIT_POLYFILLS_PATH" ]] || { echo "PHPUnit-Polyfills missing; see $BASE/composer.log" >&2; tail -30 "$BASE/composer.log" >&2; exit 1; }
 
 # ── Evidence: environment / timezones ──────────────────────────────────────
 {

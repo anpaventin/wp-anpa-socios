@@ -1506,6 +1506,9 @@ class ANPA_Socios_DB {
 	/**
 	 * Returns whether the given index exists on the given (full) table name.
 	 *
+	 * Also used by migrations that must retire an index BEFORE dropping a column
+	 * it references (MySQL/MariaDB error 1072), idempotently.
+	 *
 	 * @since  1.31.0
 	 * @param  string $table Full table name.
 	 * @param  string $index Index name.
@@ -3630,25 +3633,41 @@ class ANPA_Socios_DB {
 			}
 		}
 
-		// Step 4: Drop curso_escolar column.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
-		$wpdb->query( "ALTER TABLE {$niveis_t} DROP COLUMN curso_escolar" );
+		// Step 4: retire the indexes that INCLUDE curso_escolar BEFORE dropping the
+		// column. MySQL/MariaDB reject `DROP COLUMN` for a column still referenced
+		// by a key with error 1072 ("Key column ... doesn't exist in table"), so the
+		// original order (drop column first, indexes later) failed on a real engine.
+		// Every step is existence-guarded so the migration stays idempotent.
+		if ( self::tem_indice( $niveis_t, 'curso_nivel' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+			$wpdb->query( "ALTER TABLE {$niveis_t} DROP INDEX curso_nivel" );
+		}
+		if ( self::tem_indice( $niveis_t, 'curso_estado_orde' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+			$wpdb->query( "ALTER TABLE {$niveis_t} DROP INDEX curso_estado_orde" );
+		}
 
-		// Step 5: Add habilitado column.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
-		$wpdb->query( "ALTER TABLE {$niveis_t} ADD COLUMN habilitado tinyint(1) unsigned NOT NULL DEFAULT 1 AFTER estado" );
+		// Step 5: now the column can be dropped.
+		if ( self::tem_columna( $niveis_t, 'curso_escolar' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+			$wpdb->query( "ALTER TABLE {$niveis_t} DROP COLUMN curso_escolar" );
+		}
 
-		// Step 6: Update unique key — from (curso_escolar, codigo) to just (codigo).
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
-		$wpdb->query( "ALTER TABLE {$niveis_t} DROP INDEX curso_nivel" );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
-		$wpdb->query( "ALTER TABLE {$niveis_t} ADD UNIQUE KEY codigo_unico (codigo)" );
+		// Step 6: add habilitado (guarded).
+		if ( ! self::tem_columna( $niveis_t, 'habilitado' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+			$wpdb->query( "ALTER TABLE {$niveis_t} ADD COLUMN habilitado tinyint(1) unsigned NOT NULL DEFAULT 1 AFTER estado" );
+		}
 
-		// Step 7: Drop curso_escolar index, add a simple estado+orde index.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
-		$wpdb->query( "ALTER TABLE {$niveis_t} DROP INDEX curso_estado_orde" );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
-		$wpdb->query( "ALTER TABLE {$niveis_t} ADD INDEX estado_orde (estado, orde)" );
+		// Step 7: replacement indexes (guarded).
+		if ( ! self::tem_indice( $niveis_t, 'codigo_unico' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+			$wpdb->query( "ALTER TABLE {$niveis_t} ADD UNIQUE KEY codigo_unico (codigo)" );
+		}
+		if ( ! self::tem_indice( $niveis_t, 'estado_orde' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+			$wpdb->query( "ALTER TABLE {$niveis_t} ADD INDEX estado_orde (estado, orde)" );
+		}
 
 		return '' === (string) $wpdb->last_error;
 	}
