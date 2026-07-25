@@ -70,16 +70,21 @@ if command -v mariadb-install-db >/dev/null 2>&1; then
   mariadb-install-db --datadir="$DATADIR" --auth-root-authentication-method=normal >"$BASE/initdb.log" 2>&1 \
     || mariadb-install-db --datadir="$DATADIR" >>"$BASE/initdb.log" 2>&1
 else
-  "$SERVER_BIN" --initialize-insecure --datadir="$DATADIR" >"$BASE/initdb.log" 2>&1
+  # --no-defaults: ignore /etc/mysql/*.cnf entirely. The system config points at
+  # root-owned paths (e.g. secure-file-priv=/var/lib/mysql-files) that a normal
+  # user cannot use, and we want a fully self-contained ephemeral instance.
+  "$SERVER_BIN" --no-defaults --initialize-insecure --datadir="$DATADIR" >"$BASE/initdb.log" 2>&1
 fi
 
 echo "== starting ephemeral server (port $PORT, session tz $DB_TZ_SQL) =="
 "$SERVER_BIN" \
+  --no-defaults \
   --datadir="$DATADIR" \
   --socket="$SOCKET" \
   --port="$PORT" \
   --pid-file="$BASE/mysqld.pid" \
   --default-time-zone="$DB_TZ_SQL" \
+  --secure-file-priv="$BASE" \
   --skip-name-resolve \
   --log-error="$BASE/mysqld.err" \
   > "$BASE/mysqld.out" 2>&1 &
@@ -96,13 +101,13 @@ trap cleanup EXIT
 
 echo "== waiting for the server =="
 for i in $(seq 1 90); do
-  if "$CLIENT_BIN" --socket="$SOCKET" -uroot -e 'SELECT 1' >/dev/null 2>&1; then echo "DB up"; break; fi
+  if "$CLIENT_BIN" --no-defaults --socket="$SOCKET" -uroot -e 'SELECT 1' >/dev/null 2>&1; then echo "DB up"; break; fi
   sleep 1
   if [[ $i -eq 90 ]]; then echo "DB failed to start; last log lines:" >&2; tail -30 "$BASE/mysqld.err" >&2 || true; exit 1; fi
 done
 
 echo "== creating dedicated test database + user limited to it =="
-"$CLIENT_BIN" --socket="$SOCKET" -uroot <<SQL
+"$CLIENT_BIN" --no-defaults --socket="$SOCKET" -uroot <<SQL
 CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` DEFAULT CHARACTER SET utf8mb4;
 CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
 CREATE USER IF NOT EXISTS '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASS}';
@@ -164,7 +169,7 @@ export WP_TESTS_PHPUNIT_POLYFILLS_PATH="$WORK_PLUGIN/vendor/yoast/phpunit-polyfi
   echo "php version:       $(php -r 'echo PHP_VERSION;')"
 } > "$EV/environment.txt"
 
-"$CLIENT_BIN" --socket="$SOCKET" -uroot -e \
+"$CLIENT_BIN" --no-defaults --socket="$SOCKET" -uroot -e \
   "SELECT VERSION() AS version, @@global.time_zone AS global_tz, @@session.time_zone AS session_tz, NOW() AS now_session, UTC_TIMESTAMP() AS now_utc\G" \
   > "$EV/engine-and-timezones.txt"
 
@@ -181,10 +186,10 @@ tail -40 "$EV/phpunit.txt"
 echo "== collecting schema evidence =="
 : > "$EV/show-create-table.txt"; : > "$EV/show-index.txt"
 for t in wpint_anpa_email_campaigns wpint_anpa_email_recipients wpint_anpa_email_attempts; do
-  "$CLIENT_BIN" --socket="$SOCKET" -uroot "$DB_NAME" -e "SHOW CREATE TABLE \`$t\`\G" >> "$EV/show-create-table.txt" 2>&1 || true
-  "$CLIENT_BIN" --socket="$SOCKET" -uroot "$DB_NAME" -e "SHOW INDEX FROM \`$t\`\G"  >> "$EV/show-index.txt" 2>&1 || true
+  "$CLIENT_BIN" --no-defaults --socket="$SOCKET" -uroot "$DB_NAME" -e "SHOW CREATE TABLE \`$t\`\G" >> "$EV/show-create-table.txt" 2>&1 || true
+  "$CLIENT_BIN" --no-defaults --socket="$SOCKET" -uroot "$DB_NAME" -e "SHOW INDEX FROM \`$t\`\G"  >> "$EV/show-index.txt" 2>&1 || true
 done
-"$CLIENT_BIN" --socket="$SOCKET" -uroot "$DB_NAME" -e \
+"$CLIENT_BIN" --no-defaults --socket="$SOCKET" -uroot "$DB_NAME" -e \
   "SELECT option_value AS db_version FROM wpint_options WHERE option_name='anpa_socios_db_version'\G" \
   > "$EV/db-version.txt" 2>&1 || true
 
