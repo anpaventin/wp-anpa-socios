@@ -3957,6 +3957,7 @@ class ANPA_Socios_DB {
 				max_attempts smallint(5) unsigned NOT NULL DEFAULT 5,
 				scheduled_at_utc datetime NULL,
 				created_at_utc datetime NOT NULL,
+				updated_at_utc datetime NULL,
 				started_at_utc datetime NULL,
 				finished_at_utc datetime NULL,
 				paused_at_utc datetime NULL,
