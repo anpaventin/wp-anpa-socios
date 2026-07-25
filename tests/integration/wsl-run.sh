@@ -7,6 +7,11 @@
 #   bash wsl-run.sh
 #
 # Env overrides: DB_PORT, DB_TZ_SQL, PHP_TZ, WP_TZ, KEEP=1 (keep env for debug).
+#
+# ANPA_GOLDEN_CAPTURE=1 re-captures the transactional email oracle
+# (tests/golden/*.txt) instead of verifying it, and copies the files back into the
+# worktree. Run it deliberately and review the diff: it rewrites the only evidence
+# that family-facing wording did not change.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -174,13 +179,34 @@ export WP_TESTS_PHPUNIT_POLYFILLS_PATH="$WORK_PLUGIN/vendor/yoast/phpunit-polyfi
   > "$EV/engine-and-timezones.txt"
 
 # ── Run the integration suite (skips are failures) ─────────────────────────
+GOLDEN_CAPTURE="${ANPA_GOLDEN_CAPTURE:-0}"
+if [[ "$GOLDEN_CAPTURE" == "1" ]]; then
+  echo "== GOLDEN CAPTURE MODE: the email oracle will be (re)written, not verified =="
+fi
+
 echo "== running integration suite (no skips allowed) =="
 set +e
-( cd "$WORK_PLUGIN" && WP_TZ="$WP_TZ" php -d date.timezone="$PHP_TZ" vendor/bin/phpunit -c phpunit-integration.xml --no-coverage ) \
+( cd "$WORK_PLUGIN" \
+    && WP_TZ="$WP_TZ" ANPA_GOLDEN_CAPTURE="$GOLDEN_CAPTURE" \
+       php -d date.timezone="$PHP_TZ" vendor/bin/phpunit -c phpunit-integration.xml --no-coverage ) \
   > "$EV/phpunit.txt" 2>&1
 RC=$?
 set -e
 tail -40 "$EV/phpunit.txt"
+
+# The suite runs inside the ephemeral /tmp copy, so freshly captured golden
+# files would die with it. Copy them back into the real worktree, and ONLY in
+# capture mode: a verification run must never be able to rewrite its own oracle.
+if [[ "$GOLDEN_CAPTURE" == "1" ]]; then
+  if compgen -G "$WORK_PLUGIN/tests/golden/*.txt" >/dev/null; then
+    mkdir -p "$SRC_PLUGIN/tests/golden"
+    cp "$WORK_PLUGIN"/tests/golden/*.txt "$SRC_PLUGIN/tests/golden/"
+    echo "== golden files copied to $SRC_PLUGIN/tests/golden =="
+    ls -1 "$SRC_PLUGIN/tests/golden"
+  else
+    echo "!! capture mode requested but no golden files were produced" >&2
+  fi
+fi
 
 # ── Evidence: schema ───────────────────────────────────────────────────────
 echo "== collecting schema evidence =="

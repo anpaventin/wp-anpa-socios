@@ -1,0 +1,5 @@
+TO: nai@example.com
+SUBJECT: Hai unha praza dispoñible nunha extraescolar — ANPA Exemplo
+HEADERS: From: ANPA Exemplo <xunta@example.org> | Reply-To: ANPA Exemplo <xunta@example.org>
+---BODY---
+<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;"><h2>Quedou unha praza libre</h2><p>Liberouse unha praza na actividade <strong>Robótica</strong> e o teu fillo/a é o/a seguinte na lista de espera.</p><p>Entra na túa Área persoal da web da ANPA e acepta a praza no apartado «Actividades extraescolares» antes de 3 días. Se non respondes a tempo, a praza ofrecerase á seguinte familia.</p><p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p></body></html>

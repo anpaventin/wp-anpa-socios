@@ -1,0 +1,5 @@
+TO: xunta@example.org
+SUBJECT: Solicitude de baixa nunha extraescolar — ANPA Exemplo
+HEADERS: From: ANPA Exemplo <xunta@example.org> | Reply-To: ANPA Exemplo <xunta@example.org>
+---BODY---
+<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;"><h2>Solicitude de baixa nunha actividade extraescolar</h2><ul><li><strong>Alumno/a:</strong> Antía Exemplo</li><li><strong>Actividade:</strong> Robótica</li><li><strong>Solicitado por:</strong> nai@example.com</li></ul><p>A baixa será efectiva a fin de trimestre, tras a confirmación dun/dunha administrador/a no panel de Xestión ANPA.</p><p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p></body></html>

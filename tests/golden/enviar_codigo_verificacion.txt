@@ -1,0 +1,6 @@
+TO: nai@example.com
+SUBJECT: O teu código de verificación — ANPA Exemplo
+HEADERS: From: ANPA Exemplo <xunta@example.org> | Reply-To: ANPA Exemplo <xunta@example.org>
+---BODY---
+<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;"><h2>Verificación de socio/a</h2><p>O teu código de verificación é:</p><p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; text-align: center; background: #f0f0f0; padding: 15px; border-radius: 8px;">123456</p><p>Este código caduca en <strong>15 minutos</strong>.</p><p style="color: #666; font-size: 12px; margin-top: 30px;">Se non solicitaches este código, ignora este correo.</p><hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">A Xunta Directiva
+ANPA Exemplo</p></body></html>

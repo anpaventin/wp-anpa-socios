@@ -1,0 +1,5 @@
+TO: xunta@example.org
+SUBJECT: Solicitude de reactivación de socio/a — ANPA Exemplo
+HEADERS: From: ANPA Exemplo <xunta@example.org> | Reply-To: ANPA Exemplo <xunta@example.org>
+---BODY---
+<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;"><h2>Solicitude de reactivación</h2><p>Un/unha antig@ socio/a solicitou reactivar a súa conta:</p><ul><li><strong>Email:</strong> nai@example.com</li></ul><p>A conta quedou en estado pendente de alta. Un/unha administrador/a debe activala explicitamente no panel de Xestión ANPA para restaurar o acceso.</p><p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p></body></html>

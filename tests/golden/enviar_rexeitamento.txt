@@ -1,0 +1,6 @@
+TO: nai@example.com
+SUBJECT: Sobre a túa solicitude de alta — ANPA Exemplo
+HEADERS: From: ANPA Exemplo <xunta@example.org> | Reply-To: ANPA Exemplo <xunta@example.org>
+---BODY---
+<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;"><h2>Solicitude de alta</h2><p>Sentímolo, pero por decisión da directiva de ANPA Exemplo non se aprobou a túa solicitude de alta como socio/a neste momento.</p><p>Se pensas que se trata dun erro ou queres máis información, ponte en contacto con nós respondendo a este correo ou escribindo a <a href="mailto:contacto@example.org">contacto@example.org</a>.</p><p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p><hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">A Xunta Directiva
+ANPA Exemplo</p></body></html>
