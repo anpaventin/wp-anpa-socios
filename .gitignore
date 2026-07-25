@@ -47,11 +47,9 @@ pub.txt
 /tests/integration/.env.integration.local
 /.integration-evidence/
 
-# CI workflows are NOT pushed to the public repo yet: the deploy token lacks the
-# GitHub `workflow` scope, so a push touching .github/workflows/ is rejected.
-# The workflow is versioned in the private monorepo meanwhile. Remove this rule
-# once a token with `workflow` scope is available.
-/.github/
+# CI workflows ARE versioned in the public repo (a token with the GitHub
+# `workflow` scope is configured). Only local CI scratch output is ignored.
+/.github/**/*.local.yml
 
 # OS / editor
 .DS_Store
