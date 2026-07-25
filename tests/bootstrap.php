@@ -49,6 +49,7 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-recipient-state
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-backoff.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-recipients.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-batch-planner.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-retention.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-trimestre.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-alta-payload.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-actividades-collapse.php';

@@ -24,6 +24,9 @@ final class ANPA_Socios_Email_Cron {
 	/** Recurring event hook. */
 	const HOOK = 'anpa_socios_email_queue_tick';
 
+	/** Daily maintenance event that enforces retention (fase35 PR-35s6). */
+	const PURGE_HOOK = 'anpa_socios_email_purge_daily';
+
 	/** Default interval seconds. */
 	const DEFAULT_INTERVAL = 300;
 
@@ -75,6 +78,11 @@ final class ANPA_Socios_Email_Cron {
 		if ( ! wp_next_scheduled( self::HOOK ) ) {
 			wp_schedule_event( time() + MINUTE_IN_SECONDS, self::RECURRENCE, self::HOOK );
 		}
+		// Retention runs once a day, on WordPress' own `daily` recurrence: there is
+		// nothing to gain from purging more often, and less to lose if it is late.
+		if ( ! wp_next_scheduled( self::PURGE_HOOK ) ) {
+			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', self::PURGE_HOOK );
+		}
 	}
 
 	/**
@@ -84,12 +92,14 @@ final class ANPA_Socios_Email_Cron {
 	 * @return void
 	 */
 	public static function unschedule(): void {
-		$timestamp = wp_next_scheduled( self::HOOK );
-		while ( false !== $timestamp ) {
-			wp_unschedule_event( $timestamp, self::HOOK );
-			$timestamp = wp_next_scheduled( self::HOOK );
+		foreach ( array( self::HOOK, self::PURGE_HOOK ) as $hook ) {
+			$timestamp = wp_next_scheduled( $hook );
+			while ( false !== $timestamp ) {
+				wp_unschedule_event( $timestamp, $hook );
+				$timestamp = wp_next_scheduled( $hook );
+			}
+			wp_clear_scheduled_hook( $hook );
 		}
-		wp_clear_scheduled_hook( self::HOOK );
 	}
 
 	/**
@@ -125,7 +135,7 @@ final class ANPA_Socios_Email_Cron {
 		}
 
 		$next = wp_next_scheduled( self::HOOK );
-		if ( false === $next ) {
+		if ( false === $next || false === wp_next_scheduled( self::PURGE_HOOK ) ) {
 			$problems[] = 'unscheduled';
 		}
 
@@ -159,6 +169,23 @@ final class ANPA_Socios_Email_Cron {
 		// The processor is introduced in a later PR; until then this is a no-op.
 		if ( class_exists( 'ANPA_Socios_Email_Queue' ) && method_exists( 'ANPA_Socios_Email_Queue', 'process_due_batch' ) ) {
 			ANPA_Socios_Email_Queue::process_due_batch();
+		}
+	}
+
+	/**
+	 * Daily maintenance callback: enforces the retention policy. Guarded the same
+	 * way as the queue tick — it never runs during an install or a migration, and
+	 * it never sends anything.
+	 *
+	 * @since  1.39.0
+	 * @return void
+	 */
+	public static function purge_tick(): void {
+		if ( function_exists( 'wp_installing' ) && wp_installing() ) {
+			return;
+		}
+		if ( class_exists( 'ANPA_Socios_Email_Purge' ) ) {
+			ANPA_Socios_Email_Purge::run();
 		}
 	}
 }
