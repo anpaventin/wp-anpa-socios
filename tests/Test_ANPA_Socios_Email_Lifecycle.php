@@ -47,7 +47,9 @@ final class Test_ANPA_Socios_Email_Lifecycle extends TestCase {
 		$end   = strpos( $this->cron, 'public static function ensure_scheduled', $start );
 		$body  = substr( $this->cron, $start, $end - $start );
 		$this->assertStringContainsString( 'wp_unschedule_event(', $body );
-		$this->assertStringContainsString( 'wp_clear_scheduled_hook( self::HOOK )', $body );
+		$this->assertStringContainsString( 'wp_clear_scheduled_hook( $hook )', $body );
+		// Both own events are removed: the queue tick and the daily retention pass.
+		$this->assertStringContainsString( 'self::HOOK, self::PURGE_HOOK', $body );
 		// Must not touch tables/options/data.
 		$this->assertStringNotContainsString( 'DROP TABLE', $body );
 		$this->assertStringNotContainsString( 'delete_option', $body );

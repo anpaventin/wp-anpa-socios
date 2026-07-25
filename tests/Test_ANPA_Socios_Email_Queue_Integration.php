@@ -35,6 +35,14 @@ final class Test_ANPA_Socios_Email_Queue_Integration extends TestCase {
 		}
 	}
 
+	/**
+	 * Filters are global state: a render provider swapped in by one test would
+	 * otherwise leak into every later test in the same process.
+	 */
+	protected function tearDown(): void {
+		remove_all_filters( 'anpa_socios_email_render_provider' );
+	}
+
 	private function enqueue( array $recipients, string $key = 'op-1', array $extra = array() ): array {
 		return ANPA_Socios_Email_Queue::enqueue_campaign(
 			array_merge(

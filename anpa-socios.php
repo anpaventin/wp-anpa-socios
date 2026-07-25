@@ -67,6 +67,7 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-email-reci
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-email-backoff.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-email-recipients.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-email-batch-planner.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-email-retention.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-course-settings.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-season.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-preseason-gate.php';
@@ -115,6 +116,7 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-queue-re
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-queue.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-processor.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-admin-actions.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-purge.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-cron.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-comunicacions-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-empresa-view.php';
@@ -144,6 +146,8 @@ register_activation_hook( __FILE__, array( 'ANPA_Socios_Email_Cron', 'schedule' 
 // fase35: custom 5-min recurrence for the email queue tick (filterable, bounded).
 add_filter( 'cron_schedules', array( 'ANPA_Socios_Email_Cron', 'add_schedule' ) );
 add_action( ANPA_Socios_Email_Cron::HOOK, array( 'ANPA_Socios_Email_Cron', 'tick' ) );
+// fase35: daily retention pass (purges payload first, then minimal metadata).
+add_action( ANPA_Socios_Email_Cron::PURGE_HOOK, array( 'ANPA_Socios_Email_Cron', 'purge_tick' ) );
 // Recover the schedule if the event disappears (idempotent).
 add_action( 'admin_init', array( 'ANPA_Socios_Email_Cron', 'ensure_scheduled' ) );
 // fase35: admin write actions (process now / pause / resume / cancel / retry).

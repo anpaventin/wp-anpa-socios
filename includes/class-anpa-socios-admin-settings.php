@@ -48,6 +48,7 @@ final class ANPA_Socios_Admin_Settings {
 		add_action( 'admin_post_anpa_socios_backup', array( __CLASS__, 'handle_backup' ) );
 		add_action( 'admin_post_anpa_socios_wipe', array( __CLASS__, 'handle_wipe' ) );
 		add_action( 'admin_post_anpa_socios_save_comms_retention', array( __CLASS__, 'handle_save_comms_retention' ) );
+		add_action( 'admin_post_anpa_socios_save_comms_retention_periods', array( __CLASS__, 'handle_save_comms_retention_periods' ) );
 		add_action( 'admin_post_anpa_socios_restore', array( __CLASS__, 'handle_restore' ) );
 	}
 
@@ -1173,6 +1174,67 @@ final class ANPA_Socios_Admin_Settings {
 		echo '</td></tr></tbody></table>';
 		submit_button( __( 'Gardar opción de comunicacións', 'anpa-socios' ), 'secondary', 'submit', false );
 		echo '</form>';
+
+		self::render_subsection_comunicacions_retencion( $post_url );
+	}
+
+	/**
+	 * Subsection: retention windows for the communications log (fase35 PR-35s6).
+	 *
+	 * Its own form, action and nonce: it writes exactly the two window options and
+	 * nothing else. Both values are clamped by the pure policy, and the metadata
+	 * window can never end up shorter than the payload one.
+	 *
+	 * @since  1.39.0
+	 * @param  string $post_url Admin-post URL.
+	 * @return void
+	 */
+	private static function render_subsection_comunicacions_retencion( string $post_url ): void {
+		$payload  = ANPA_Socios_Email_Purge::payload_days();
+		$metadata = ANPA_Socios_Email_Purge::metadata_days();
+		$last     = (string) get_option( ANPA_Socios_Email_Purge::LAST_RUN_OPTION, '' );
+
+		echo '<h3>' . esc_html__( 'Canto tempo se garda cada cousa', 'anpa-socios' ) . '</h3>';
+		echo '<p class="description">' . esc_html__( 'Unha tarefa diaria limpa primeiro o contido enviado (asunto, corpo e mensaxes de erro) e moito máis tarde os metadatos mínimos das campañas remataDAS ou canceladas. Consérvase sempre a pegada (hash) do contido, para poder acreditar que se enviou e que se enviou.', 'anpa-socios' ) . '</p>';
+
+		echo '<form method="post" action="' . $post_url . '">';
+		echo '<input type="hidden" name="action" value="anpa_socios_save_comms_retention_periods">';
+		echo '<input type="hidden" name="tab" value="xeral">';
+		echo '<input type="hidden" name="section" value="mantemento">';
+		wp_nonce_field( 'anpa_socios_save_comms_retention_periods' );
+		echo '<table class="form-table" role="presentation"><tbody>';
+
+		printf(
+			'<tr><th scope="row"><label for="anpa-payload-days">%s</label></th><td><input type="number" id="anpa-payload-days" name="payload_days" value="%s" min="%d" max="%d" class="small-text"> %s<p class="description">%s</p></td></tr>',
+			esc_html__( 'Contido enviado', 'anpa-socios' ),
+			esc_attr( (string) $payload ),
+			(int) ANPA_Socios_Email_Retention::PAYLOAD_DAYS_MIN,
+			(int) ANPA_Socios_Email_Retention::PAYLOAD_DAYS_MAX,
+			esc_html__( 'días', 'anpa-socios' ),
+			esc_html__( 'Ventá de diagnóstico. Pasado ese tempo bórrase o asunto, o corpo e o texto do erro; mantéñense o estado, os contadores e o hash.', 'anpa-socios' )
+		);
+		printf(
+			'<tr><th scope="row"><label for="anpa-metadata-days">%s</label></th><td><input type="number" id="anpa-metadata-days" name="metadata_days" value="%s" min="%d" max="%d" class="small-text"> %s<p class="description">%s</p></td></tr>',
+			esc_html__( 'Metadatos mínimos', 'anpa-socios' ),
+			esc_attr( (string) $metadata ),
+			(int) ANPA_Socios_Email_Retention::METADATA_DAYS_MIN,
+			(int) ANPA_Socios_Email_Retention::METADATA_DAYS_MAX,
+			esc_html__( 'días', 'anpa-socios' ),
+			esc_html__( 'Cando se borran tamén as filas de campañas, destinatarios e intentos. Non pode ser menor que a ventá do contido enviado.', 'anpa-socios' )
+		);
+
+		echo '</tbody></table>';
+		if ( '' !== $last ) {
+			echo '<p class="description">' . esc_html(
+				sprintf(
+					/* translators: %s: UTC datetime. */
+					__( 'Última limpeza executada: %s (UTC).', 'anpa-socios' ),
+					$last
+				)
+			) . '</p>';
+		}
+		submit_button( __( 'Gardar prazos de retención', 'anpa-socios' ), 'secondary', 'submit', false );
+		echo '</form>';
 	}
 
 	/**
@@ -1905,6 +1967,28 @@ final class ANPA_Socios_Admin_Settings {
 		self::redirect_msg( '1' === $enabled ? 'comms_delete_on' : 'comms_delete_off' );
 	}
 
+	/**
+	 * admin-post: saves ONLY the two communications retention windows (fase35).
+	 *
+	 * Values are normalised by the pure policy before being stored, so an absurd
+	 * or empty input can never shorten retention below its floor nor let the
+	 * metadata window fall under the payload one.
+	 *
+	 * @since  1.39.0
+	 * @return void
+	 */
+	public static function handle_save_comms_retention_periods(): void {
+		self::guard( 'anpa_socios_save_comms_retention_periods' );
+
+		$payload  = ANPA_Socios_Email_Retention::payload_days( isset( $_POST['payload_days'] ) ? wp_unslash( $_POST['payload_days'] ) : '' );
+		$metadata = ANPA_Socios_Email_Retention::metadata_days( isset( $_POST['metadata_days'] ) ? wp_unslash( $_POST['metadata_days'] ) : '', $payload );
+
+		update_option( ANPA_Socios_Email_Purge::OPTION_PAYLOAD_DAYS, $payload );
+		update_option( ANPA_Socios_Email_Purge::OPTION_METADATA_DAYS, $metadata );
+
+		self::redirect_msg( 'comms_retention_saved' );
+	}
+
 	// ─────────────────────────────────────────────────────────────
 	// Helpers
 	// ─────────────────────────────────────────────────────────────
@@ -2196,6 +2280,7 @@ final class ANPA_Socios_Admin_Settings {
 			'wipe_err'       => array( 'error', __( 'Non se puido completar o borrado. Revisa a base de datos antes de continuar.', 'anpa-socios' ) ),
 			'comms_delete_on'  => array( 'success', __( 'Gardado: o rexistro de comunicacións borrarase se se desinstala o plugin.', 'anpa-socios' ) ),
 			'comms_delete_off' => array( 'success', __( 'Gardado: o rexistro de comunicacións consérvase ao desinstalar o plugin.', 'anpa-socios' ) ),
+			'comms_retention_saved' => array( 'success', __( 'Gardáronse os prazos de retención das comunicacións.', 'anpa-socios' ) ),
 		);
 		if ( ! isset( $map[ $key ] ) ) {
 			return;
