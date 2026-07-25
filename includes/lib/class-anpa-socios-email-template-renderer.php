@@ -46,10 +46,9 @@ final class ANPA_Socios_Email_Template_Renderer {
 	 * @param  array<string,array<string,mixed>> $declared Declared tokens for this event
 	 *                                                     (token => descriptor). Only these
 	 *                                                     may appear in the template.
-	 * @param  array<string,string>              $aliases  Alternative spelling => canonical token.
 	 * @return array{ok:bool,code:string,subject:string,body_html:string,body_text:string,undeclared:string[]}
 	 */
-	public static function render( array $template, array $context, array $declared, array $aliases = array() ): array {
+	public static function render( array $template, array $context, array $declared ): array {
 		$fail = array(
 			'ok'         => false,
 			'code'       => '',
@@ -69,19 +68,19 @@ final class ANPA_Socios_Email_Template_Renderer {
 		}
 
 		// Every token used anywhere in the template must be declared for this event.
-		$undeclared = self::undeclared_tokens( $subject . "\n" . $html . "\n" . $text, $declared, $aliases );
+		$undeclared = self::undeclared_tokens( $subject . "\n" . $html . "\n" . $text, $declared );
 		if ( array() !== $undeclared ) {
 			$fail['code']       = self::ERR_UNDECLARED;
 			$fail['undeclared'] = $undeclared;
 			return $fail;
 		}
 
-		$values = self::canonicalise_context( $context, $aliases );
+		$values = self::stringify_context( $context );
 
 		// The subject is a single line and carries no markup, so it uses the text rules.
-		$rendered_subject = self::render_one( $subject, $values, $aliases, self::CHANNEL_TEXT );
-		$rendered_html    = '' === trim( $html ) ? '' : self::render_one( $html, $values, $aliases, self::CHANNEL_HTML );
-		$rendered_text    = '' === trim( $text ) ? '' : self::render_one( $text, $values, $aliases, self::CHANNEL_TEXT );
+		$rendered_subject = self::render_one( $subject, $values, self::CHANNEL_TEXT );
+		$rendered_html    = '' === trim( $html ) ? '' : self::render_one( $html, $values, self::CHANNEL_HTML );
+		$rendered_text    = '' === trim( $text ) ? '' : self::render_one( $text, $values, self::CHANNEL_TEXT );
 
 		if ( null === $rendered_subject || null === $rendered_html || null === $rendered_text ) {
 			$fail['code'] = self::ERR_UNCLOSED_BLOCK;
@@ -104,19 +103,46 @@ final class ANPA_Socios_Email_Template_Renderer {
 	 * @since  1.40.0
 	 * @param  string                            $source   Template text.
 	 * @param  array<string,array<string,mixed>> $declared Declared tokens.
-	 * @param  array<string,string>              $aliases  Alias => canonical.
 	 * @return string[] Undeclared tokens, in order of appearance, without duplicates.
 	 */
-	public static function undeclared_tokens( string $source, array $declared, array $aliases = array() ): array {
+	public static function undeclared_tokens( string $source, array $declared ): array {
 		$found = array();
 		foreach ( self::tokens_in( $source ) as $token ) {
-			$canonical = $aliases[ $token ] ?? $token;
-			if ( ! isset( $declared[ $canonical ] ) && ! in_array( $canonical, $found, true ) ) {
-				$found[] = $canonical;
+			if ( ! isset( $declared[ $token ] ) && ! in_array( $token, $found, true ) ) {
+				$found[] = $token;
 			}
 		}
 
 		return $found;
+	}
+
+	/**
+	 * Rewrites alternative spellings to their canonical token.
+	 *
+	 * Called when a template is SAVED, never when it is rendered: what is stored is
+	 * already canonical, so the renderer only ever knows one name per variable. That
+	 * keeps the parser small and removes a whole class of "which spelling won" bugs
+	 * from the hot path.
+	 *
+	 * @since  1.40.0
+	 * @param  string               $source  Template text as typed by the operator.
+	 * @param  array<string,string> $aliases Alternative spelling => canonical token.
+	 * @return string Template text with canonical tokens only.
+	 */
+	public static function canonicalise( string $source, array $aliases ): string {
+		if ( array() === $aliases ) {
+			return $source;
+		}
+
+		return (string) preg_replace_callback(
+			'/\{\{\s*([#\/]?)\s*([a-zA-Z0-9_\x{00C0}-\x{024F}]+)\s*\}\}/u',
+			static function ( array $m ) use ( $aliases ): string {
+				$canonical = $aliases[ $m[2] ] ?? $m[2];
+
+				return '{{' . $m[1] . $canonical . '}}';
+			},
+			$source
+		);
 	}
 
 	/**
@@ -151,17 +177,16 @@ final class ANPA_Socios_Email_Template_Renderer {
 	 * @since  1.40.0
 	 * @param  string                $source  Template text.
 	 * @param  array<string,string>  $values  Canonical token => value.
-	 * @param  array<string,string>  $aliases Alias => canonical.
 	 * @param  string                $channel CHANNEL_HTML or CHANNEL_TEXT.
 	 * @return string|null Null when a block is left unclosed.
 	 */
-	private static function render_one( string $source, array $values, array $aliases, string $channel ): ?string {
-		$resolved = self::resolve_blocks( $source, $values, $aliases );
+	private static function render_one( string $source, array $values, string $channel ): ?string {
+		$resolved = self::resolve_blocks( $source, $values );
 		if ( null === $resolved ) {
 			return null;
 		}
 
-		return self::substitute( $resolved, $values, $aliases, $channel );
+		return self::substitute( $resolved, $values, $channel );
 	}
 
 	/**
@@ -170,37 +195,33 @@ final class ANPA_Socios_Email_Template_Renderer {
 	 * label left behind without its value reads like a bug to the family.
 	 *
 	 * @since  1.40.0
-	 * @param  string               $source  Template text.
-	 * @param  array<string,string> $values  Canonical token => value.
-	 * @param  array<string,string> $aliases Alias => canonical.
+	 * ONE pass, deliberately. Nesting is not part of the syntax, so a single
+	 * non-greedy pass resolves every sibling block and the function provably
+	 * terminates — no loop, no iteration guard, nothing for a malformed template to
+	 * exploit.
+	 *
+	 * @since  1.40.0
+	 * @param  string               $source Template text.
+	 * @param  array<string,string> $values Canonical token => value.
 	 * @return string|null Null when a block is left unclosed.
 	 */
-	private static function resolve_blocks( string $source, array $values, array $aliases ): ?string {
-		$pattern = '/\{\{\s*#\s*([a-zA-Z0-9_\x{00C0}-\x{024F}]+)\s*\}\}(.*?)\{\{\s*\/\s*(?:\1)?\s*\}\}/us';
+	private static function resolve_blocks( string $source, array $values ): ?string {
+		$resolved = (string) preg_replace_callback(
+			'/\{\{\s*#\s*([a-zA-Z0-9_\x{00C0}-\x{024F}]+)\s*\}\}(.*?)\{\{\s*\/\s*(?:\1)?\s*\}\}/us',
+			static function ( array $m ) use ( $values ): string {
+				$value = (string) ( $values[ $m[1] ] ?? '' );
 
-		$guard = 0;
-		while ( preg_match( $pattern, $source ) ) {
-			$source = (string) preg_replace_callback(
-				$pattern,
-				static function ( array $m ) use ( $values, $aliases ): string {
-					$canonical = $aliases[ $m[1] ] ?? $m[1];
-					$value     = (string) ( $values[ $canonical ] ?? '' );
-
-					return '' === trim( $value ) ? '' : $m[2];
-				},
-				$source
-			);
-			if ( ++$guard > 50 ) {
-				break; // Pathological nesting; treat as rendered rather than loop forever.
-			}
-		}
+				return '' === trim( $value ) ? '' : $m[2];
+			},
+			$source
+		);
 
 		// An opener with no closer would otherwise be silently substituted as text.
-		if ( preg_match( '/\{\{\s*#/u', $source ) ) {
+		if ( preg_match( '/\{\{\s*#/u', $resolved ) ) {
 			return null;
 		}
 
-		return $source;
+		return $resolved;
 	}
 
 	/**
@@ -208,18 +229,22 @@ final class ANPA_Socios_Email_Template_Renderer {
 	 * with no value renders as an empty string (never as a literal token).
 	 *
 	 * @since  1.40.0
+	 * ONE pass, deliberately: `preg_replace_callback` never re-scans what a callback
+	 * returned, so a value that happens to contain `{{outro}}` is inserted as text and
+	 * is never interpreted as a token. That is what makes rendering idempotent —
+	 * rendering an already rendered output changes nothing.
+	 *
+	 * @since  1.40.0
 	 * @param  string               $source  Template text.
 	 * @param  array<string,string> $values  Canonical token => value.
-	 * @param  array<string,string> $aliases Alias => canonical.
 	 * @param  string               $channel CHANNEL_HTML or CHANNEL_TEXT.
 	 * @return string
 	 */
-	private static function substitute( string $source, array $values, array $aliases, string $channel ): string {
+	private static function substitute( string $source, array $values, string $channel ): string {
 		return (string) preg_replace_callback(
 			'/\{\{\s*([a-zA-Z0-9_\x{00C0}-\x{024F}]+)\s*\}\}/u',
-			static function ( array $m ) use ( $values, $aliases, $channel ): string {
-				$canonical = $aliases[ $m[1] ] ?? $m[1];
-				$value     = (string) ( $values[ $canonical ] ?? '' );
+			static function ( array $m ) use ( $values, $channel ): string {
+				$value = (string) ( $values[ $m[1] ] ?? '' );
 
 				return self::CHANNEL_HTML === $channel ? self::escape_html( $value ) : $value;
 			},
@@ -228,18 +253,17 @@ final class ANPA_Socios_Email_Template_Renderer {
 	}
 
 	/**
-	 * Context keyed by canonical token, so a caller may supply either spelling.
+	 * Coerces context values to strings. Non-scalars become empty rather than
+	 * "Array", because a broken caller must not put debug noise in a family's inbox.
 	 *
 	 * @since  1.40.0
-	 * @param  array<string,string> $context Raw context.
-	 * @param  array<string,string> $aliases Alias => canonical.
+	 * @param  array<string,mixed> $context Raw context.
 	 * @return array<string,string>
 	 */
-	private static function canonicalise_context( array $context, array $aliases ): array {
+	private static function stringify_context( array $context ): array {
 		$values = array();
 		foreach ( $context as $token => $value ) {
-			$canonical            = $aliases[ (string) $token ] ?? (string) $token;
-			$values[ $canonical ] = is_scalar( $value ) ? (string) $value : '';
+			$values[ (string) $token ] = is_scalar( $value ) ? (string) $value : '';
 		}
 
 		return $values;
