@@ -13,8 +13,11 @@
  *     messages to the same address are preserved.
  *   - Every message is FROZEN at enqueue time (immutable snapshot + hash), so a
  *     later template edit cannot change pending recipients.
- *   - Nothing is sent here: enqueuing only writes rows. Sending happens in the
- *     batch processor (PR-35s4) and never during an install/upgrade.
+ *   - Enqueuing never sends: it only writes rows. Sending is delegated to
+ *     ANPA_Socios_Email_Processor (this class never calls the transport) and
+ *     never happens during an install or a pending migration.
+ *   - Control operations (pause/resume/cancel/retry) go through the campaign
+ *     state machine, so an illegal transition is refused instead of forced.
  *
  * @since  1.39.0
  * @package ANPA_Socios
@@ -142,6 +145,94 @@ final class ANPA_Socios_Email_Queue {
 			'skipped'     => $skipped,
 			'created'     => ! empty( $campaign['created'] ),
 		);
+	}
+
+	/**
+	 * Processes one bounded batch. This is the cron entry point
+	 * (ANPA_Socios_Email_Cron::tick) and the "process now" admin action target.
+	 *
+	 * @since  1.39.0
+	 * @param  int $campaign_id Restrict to one campaign, or 0 for any runnable one.
+	 * @return array<string,mixed> Processor result.
+	 */
+	public static function process_due_batch( int $campaign_id = 0 ): array {
+		return ANPA_Socios_Email_Processor::run( array( 'campaign_id' => $campaign_id ) );
+	}
+
+	/**
+	 * Pauses a running campaign. Already claimed recipients finish their current
+	 * attempt (their lease is honoured); nothing new is claimed afterwards.
+	 *
+	 * @since  1.39.0
+	 * @param  int $campaign_id Campaign id.
+	 * @return array{ok:bool,code:string,changed:bool}
+	 */
+	public static function pause( int $campaign_id ): array {
+		return ANPA_Socios_Email_Queue_Repo::set_campaign_state( $campaign_id, ANPA_Socios_Email_Campaign_State::PAUSED );
+	}
+
+	/**
+	 * Resumes a paused campaign.
+	 *
+	 * @since  1.39.0
+	 * @param  int $campaign_id Campaign id.
+	 * @return array{ok:bool,code:string,changed:bool}
+	 */
+	public static function resume( int $campaign_id ): array {
+		return ANPA_Socios_Email_Queue_Repo::set_campaign_state( $campaign_id, ANPA_Socios_Email_Campaign_State::RUNNING );
+	}
+
+	/**
+	 * Cancels a campaign: every still-pending recipient is cancelled, accepted ones
+	 * are left untouched (an accepted message cannot be un-sent).
+	 *
+	 * @since  1.39.0
+	 * @param  int $campaign_id Campaign id.
+	 * @return array{ok:bool,code:string,cancelled:int}
+	 */
+	public static function cancel( int $campaign_id ): array {
+		$cancelled = ANPA_Socios_Email_Queue_Repo::cancel_pending_recipients( $campaign_id );
+		$state     = ANPA_Socios_Email_Queue_Repo::set_campaign_state( $campaign_id, ANPA_Socios_Email_Campaign_State::CANCELLED );
+		ANPA_Socios_Email_Queue_Repo::recalc_counts( $campaign_id );
+
+		return array(
+			'ok'        => ! empty( $state['ok'] ),
+			'code'      => (string) $state['code'],
+			'cancelled' => $cancelled,
+		);
+	}
+
+	/**
+	 * Requeues only the failed recipients of a campaign and reopens it so the
+	 * processor can pick them up. Accepted recipients are never touched.
+	 *
+	 * @since  1.39.0
+	 * @param  int $campaign_id Campaign id.
+	 * @return array{ok:bool,code:string,requeued:int}
+	 */
+	public static function retry_failed( int $campaign_id ): array {
+		$campaign = ANPA_Socios_Email_Queue_Repo::get_campaign( $campaign_id );
+		if ( null === $campaign ) {
+			return array( 'ok' => false, 'code' => 'not_found', 'requeued' => 0 );
+		}
+
+		// A finished or cancelled campaign is TERMINAL by design, and the processor
+		// only claims from pending/running campaigns. Requeuing here would leave
+		// rows pending in a campaign that can never run again, so the retry is
+		// refused: a deliberate resend is a NEW campaign (its own idempotency key).
+		if ( ANPA_Socios_Email_Campaign_State::terminal( (string) $campaign['state'] ) ) {
+			return array( 'ok' => false, 'code' => 'campaign_terminal', 'requeued' => 0 );
+		}
+
+		$code = 'ok';
+		if ( ANPA_Socios_Email_Campaign_State::PAUSED === (string) $campaign['state'] ) {
+			$code = (string) ANPA_Socios_Email_Queue_Repo::set_campaign_state( $campaign_id, ANPA_Socios_Email_Campaign_State::RUNNING )['code'];
+		}
+
+		$requeued = ANPA_Socios_Email_Queue_Repo::retry_failed( $campaign_id );
+		ANPA_Socios_Email_Queue_Repo::recalc_counts( $campaign_id );
+
+		return array( 'ok' => true, 'code' => $code, 'requeued' => $requeued );
 	}
 
 	/**

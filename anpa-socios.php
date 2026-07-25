@@ -113,6 +113,8 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-season-service
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-render-provider.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-queue-repo.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-queue.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-processor.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-admin-actions.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-cron.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-empresa-view.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-empresa-rest.php';
@@ -143,6 +145,9 @@ add_filter( 'cron_schedules', array( 'ANPA_Socios_Email_Cron', 'add_schedule' ) 
 add_action( ANPA_Socios_Email_Cron::HOOK, array( 'ANPA_Socios_Email_Cron', 'tick' ) );
 // Recover the schedule if the event disappears (idempotent).
 add_action( 'admin_init', array( 'ANPA_Socios_Email_Cron', 'ensure_scheduled' ) );
+// fase35: admin write actions (process now / pause / resume / cancel / retry).
+// Capability + nonce are checked inside every handler; no nopriv variants.
+ANPA_Socios_Email_Admin_Actions::register();
 
 // Run schema migrations on plugin update (activation hook does not fire on auto-update).
 add_action( 'admin_init', static function () {
