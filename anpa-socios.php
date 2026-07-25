@@ -116,6 +116,7 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-queue.ph
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-processor.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-admin-actions.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-cron.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-comunicacions-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-empresa-view.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-empresa-rest.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-page.php';

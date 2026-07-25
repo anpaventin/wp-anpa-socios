@@ -47,6 +47,7 @@ final class ANPA_Socios_Admin_Settings {
 		add_action( 'admin_post_anpa_socios_check_updates', array( __CLASS__, 'handle_check_updates' ) );
 		add_action( 'admin_post_anpa_socios_backup', array( __CLASS__, 'handle_backup' ) );
 		add_action( 'admin_post_anpa_socios_wipe', array( __CLASS__, 'handle_wipe' ) );
+		add_action( 'admin_post_anpa_socios_save_comms_retention', array( __CLASS__, 'handle_save_comms_retention' ) );
 		add_action( 'admin_post_anpa_socios_restore', array( __CLASS__, 'handle_restore' ) );
 	}
 
@@ -84,6 +85,8 @@ final class ANPA_Socios_Admin_Settings {
 			58
 		);
 		ANPA_Socios_Admin_Management_Page::register_menu( self::OVERVIEW_SLUG, self::CAP );
+		// fase35: communications queue (server rendered audit screen).
+		ANPA_Socios_Comunicacions_Page::register_menu( self::OVERVIEW_SLUG, self::CAP );
 		add_submenu_page(
 			self::OVERVIEW_SLUG,
 			esc_html__( 'Axustes', 'anpa-socios' ),
@@ -662,6 +665,7 @@ final class ANPA_Socios_Admin_Settings {
 			self::render_subsection_contrasinais( $post_url );
 			self::render_subsection_copias( $post_url );
 			self::render_subsection_ferramentas( $post_url );
+			self::render_subsection_comunicacions( $post_url );
 			return;
 		}
 
@@ -1135,6 +1139,39 @@ final class ANPA_Socios_Admin_Settings {
 		echo '<input type="hidden" name="section" value="mantemento">';
 		wp_nonce_field( 'anpa_socios_update_child_levels' );
 		submit_button( __( 'Actualizar niveis dos fillos', 'anpa-socios' ), 'secondary', 'submit', false );
+		echo '</form>';
+	}
+
+	/**
+	 * Subsection: rexistro de comunicacións (fase35).
+	 *
+	 * ONE isolated option with its own form, its own action and its own nonce, so
+	 * saving it can never clear unrelated settings. The scope is deliberately
+	 * narrow: it deletes ONLY the communications log, never the rest of the data.
+	 *
+	 * @since  1.39.0
+	 * @param  string $post_url Admin-post URL.
+	 * @return void
+	 */
+	private static function render_subsection_comunicacions( string $post_url ): void {
+		$enabled = '1' === (string) get_option( ANPA_Socios_DB::OPTION_DELETE_COMMS_ON_UNINSTALL, '0' );
+
+		echo '<hr>';
+		echo '<h2>' . esc_html__( 'Rexistro de comunicacións', 'anpa-socios' ) . '</h2>';
+		echo '<p class="description">' . esc_html__( 'O historial de campañas, destinatarios e intentos de envío consérvase ao desinstalar o plugin, para poder xustificar que se comunicou e cando. Activa esta opción só se queres que ese historial se borre na desinstalación.', 'anpa-socios' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Esta opción NON afecta a socios/as, fillos/as, actividades nin matrículas: só ao rexistro de comunicacións.', 'anpa-socios' ) . '</p>';
+
+		$confirm = __( 'Confirmas que o historial de comunicacións se borrará se algún día se desinstala o plugin?', 'anpa-socios' );
+		echo '<form method="post" action="' . $post_url . '" onsubmit="return this.delete_comms.checked ? confirm(\'' . esc_js( $confirm ) . '\') : true;">';
+		echo '<input type="hidden" name="action" value="anpa_socios_save_comms_retention">';
+		echo '<input type="hidden" name="tab" value="xeral">';
+		echo '<input type="hidden" name="section" value="mantemento">';
+		wp_nonce_field( 'anpa_socios_save_comms_retention' );
+		echo '<table class="form-table" role="presentation"><tbody><tr><th scope="row">' . esc_html__( 'Ao desinstalar', 'anpa-socios' ) . '</th><td>';
+		echo '<label><input type="checkbox" name="delete_comms" value="1"' . checked( $enabled, true, false ) . '> ' . esc_html__( 'Eliminar o rexistro de comunicacións ao desinstalar o plugin', 'anpa-socios' ) . '</label>';
+		echo '<p class="description">' . esc_html( $enabled ? __( 'Estado actual: o rexistro BORRARASE ao desinstalar.', 'anpa-socios' ) : __( 'Estado actual: o rexistro CONSÉRVASE ao desinstalar.', 'anpa-socios' ) ) . '</p>';
+		echo '</td></tr></tbody></table>';
+		submit_button( __( 'Gardar opción de comunicacións', 'anpa-socios' ), 'secondary', 'submit', false );
 		echo '</form>';
 	}
 
@@ -1848,6 +1885,26 @@ final class ANPA_Socios_Admin_Settings {
 		self::redirect_msg( 'wiped' );
 	}
 
+	/**
+	 * admin-post: saves ONLY the communications-retention flag (fase35).
+	 *
+	 * Isolated on purpose: it writes exactly one option, so submitting this
+	 * partial form can never clear unrelated settings. The stored value is
+	 * normalised to "1"/"0" so the defensive check in uninstall.php (which
+	 * requires exactly "1") behaves predictably.
+	 *
+	 * @since  1.39.0
+	 * @return void
+	 */
+	public static function handle_save_comms_retention(): void {
+		self::guard( 'anpa_socios_save_comms_retention' );
+
+		$enabled = ! empty( $_POST['delete_comms'] ) ? '1' : '0';
+		update_option( ANPA_Socios_DB::OPTION_DELETE_COMMS_ON_UNINSTALL, $enabled );
+
+		self::redirect_msg( '1' === $enabled ? 'comms_delete_on' : 'comms_delete_off' );
+	}
+
 	// ─────────────────────────────────────────────────────────────
 	// Helpers
 	// ─────────────────────────────────────────────────────────────
@@ -2137,6 +2194,8 @@ final class ANPA_Socios_Admin_Settings {
 			'wiped'          => array( 'success', __( 'Base de datos borrada. Configura de novo o plugin.', 'anpa-socios' ) ),
 			'wipe_noconfirm' => array( 'error', __( 'Debes confirmar a casa de verificación para borrar a base de datos.', 'anpa-socios' ) ),
 			'wipe_err'       => array( 'error', __( 'Non se puido completar o borrado. Revisa a base de datos antes de continuar.', 'anpa-socios' ) ),
+			'comms_delete_on'  => array( 'success', __( 'Gardado: o rexistro de comunicacións borrarase se se desinstala o plugin.', 'anpa-socios' ) ),
+			'comms_delete_off' => array( 'success', __( 'Gardado: o rexistro de comunicacións consérvase ao desinstalar o plugin.', 'anpa-socios' ) ),
 		);
 		if ( ! isset( $map[ $key ] ) ) {
 			return;

@@ -696,6 +696,121 @@ final class ANPA_Socios_Email_Queue_Repo {
 	}
 
 	/**
+	 * Lists campaigns, newest first, for the admin screen.
+	 *
+	 * @since  1.39.0
+	 * @param  int $limit  Page size (clamped to 100).
+	 * @param  int $offset Offset.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public static function list_campaigns( int $limit = 20, int $offset = 0 ): array {
+		global $wpdb;
+		$table  = ANPA_Socios_DB::tabela_email_campaigns();
+		$limit  = max( 1, min( 100, $limit ) );
+		$offset = max( 0, $offset );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared -- read-only; integers clamped.
+		$rows = $wpdb->get_results(
+			"SELECT * FROM {$table} ORDER BY id DESC LIMIT {$limit} OFFSET {$offset}",
+			ARRAY_A
+		);
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Total number of campaigns (for pagination).
+	 *
+	 * @since  1.39.0
+	 * @return int
+	 */
+	public static function count_campaigns(): int {
+		global $wpdb;
+		$table = ANPA_Socios_DB::tabela_email_campaigns();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- read-only aggregate.
+		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+	}
+
+	/**
+	 * Lists the recipients of a campaign for the detail view.
+	 *
+	 * @since  1.39.0
+	 * @param  int $campaign_id Campaign id.
+	 * @param  int $limit       Page size (clamped to 200).
+	 * @param  int $offset      Offset.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public static function list_recipients( int $campaign_id, int $limit = 50, int $offset = 0 ): array {
+		global $wpdb;
+		$table  = ANPA_Socios_DB::tabela_email_recipients();
+		$limit  = max( 1, min( 200, $limit ) );
+		$offset = max( 0, $offset );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared -- read-only; id bound, integers clamped.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, campaign_id, email, recipient_type, message_key, state, attempts,
+				        next_attempt_at_utc, last_attempt_at_utc, accepted_at_utc, last_error,
+				        subject_render, payload_hash, created_at_utc, updated_at_utc
+				   FROM {$table}
+				  WHERE campaign_id = %d
+				  ORDER BY id
+				  LIMIT {$limit} OFFSET {$offset}",
+				$campaign_id
+			),
+			ARRAY_A
+		);
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Lists the attempt history of one recipient.
+	 *
+	 * @since  1.39.0
+	 * @param  int $recipient_id Recipient id.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public static function list_attempts( int $recipient_id ): array {
+		global $wpdb;
+		$table = ANPA_Socios_DB::tabela_email_attempts();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- read-only; id bound.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare( "SELECT * FROM {$table} WHERE recipient_id = %d ORDER BY attempt_no", $recipient_id ),
+			ARRAY_A
+		);
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Whether a campaign has at least one attempt recorded as `uncertain`, i.e. a
+	 * send that may have gone out twice. Drives the duplicate warning in the UI.
+	 *
+	 * @since  1.39.0
+	 * @param  int $campaign_id Campaign id.
+	 * @return bool
+	 */
+	public static function has_uncertain_attempts( int $campaign_id ): bool {
+		global $wpdb;
+		$table = ANPA_Socios_DB::tabela_email_attempts();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- read-only aggregate; values bound.
+		$n = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$table} WHERE campaign_id = %d AND ( result = %s OR error_category = %s )",
+				$campaign_id,
+				'uncertain',
+				'uncertain'
+			)
+		);
+
+		return (int) $n > 0;
+	}
+
+	/**
 	 * Applies a validated campaign state transition (the value object decides
 	 * whether it is allowed) and stamps the matching timestamp column.
 	 *

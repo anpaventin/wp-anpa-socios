@@ -125,6 +125,11 @@ final class ANPA_Socios_Admin_Nav {
 	 */
 	private const PLUGIN_SUBMENUS = array(
 		'management'    => self::NATIVE_MANAGEMENT_PAGE,
+		'comunicacions' => array(
+			'slug'       => 'anpa-socios-comunicacions',
+			'menu_label' => 'Comunicacións',
+			'page_title' => 'Comunicacións',
+		),
 		'settings'      => array(
 			'slug'       => 'anpa-socios-settings',
 			'menu_label' => 'Axustes',
