@@ -50,6 +50,19 @@ foreach ( $forbidden as $needle ) {
 }
 
 // ── Load the WordPress test library ─────────────────────────────────────────
+// Yoast PHPUnit-Polyfills (required by the WordPress test suite). Installed by
+// the harness in the ephemeral copy; the path is passed via env.
+$polyfills = getenv( 'WP_TESTS_PHPUNIT_POLYFILLS_PATH' ) ?: '';
+if ( '' !== $polyfills && ! defined( 'WP_TESTS_PHPUNIT_POLYFILLS_PATH' ) ) {
+	define( 'WP_TESTS_PHPUNIT_POLYFILLS_PATH', $polyfills );
+}
+
+// Composer autoload of the ephemeral copy (PHPUnit + polyfills).
+$autoload = dirname( __DIR__, 2 ) . '/vendor/autoload.php';
+if ( is_readable( $autoload ) ) {
+	require_once $autoload;
+}
+
 $functions = $tests_dir . '/includes/functions.php';
 if ( ! is_readable( $functions ) ) {
 	anpa_it_abort( "WordPress test library not found at {$tests_dir} (run install-wp-tests.sh)." );

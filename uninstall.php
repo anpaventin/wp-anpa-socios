@@ -47,6 +47,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
  *
  * @return void
  */
+if ( ! function_exists( 'anpa_socios_uninstall_cleanup' ) ) :
 function anpa_socios_uninstall_cleanup() {
 	global $wpdb;
 
@@ -120,6 +121,7 @@ function anpa_socios_uninstall_cleanup() {
 	wp_cache_delete( 'alloptions', 'options' );
 	wp_cache_delete( 'notoptions', 'options' );
 }
+endif;
 
 // Multisite: clean each site; single site: clean the current one.
 if ( is_multisite() ) {
