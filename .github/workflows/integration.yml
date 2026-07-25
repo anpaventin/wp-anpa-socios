@@ -91,15 +91,21 @@ jobs:
           mysql -h 127.0.0.1 -uroot -proot_ephemeral \
             -e "SELECT VERSION(), @@global.time_zone, @@session.time_zone, NOW(), UTC_TIMESTAMP();"
 
+      - name: Ensure subversion is available
+        run: |
+          # Recent runner images do not guarantee svn, which the WordPress test
+          # library installer uses to export the test suite.
+          command -v svn >/dev/null 2>&1 || sudo apt-get update -y
+          command -v svn >/dev/null 2>&1 || sudo apt-get install -y --no-install-recommends subversion
+          svn --version --quiet
+
       - name: Install the WordPress test library
-        working-directory: plugins/anpa-socios
         run: |
           chmod +x tests/integration/install-wp-tests.sh
           tests/integration/install-wp-tests.sh \
             "$WP_TESTS_DB_NAME" "$WP_TESTS_DB_USER" "$WP_TESTS_DB_PASS" "127.0.0.1:3306" latest
 
       - name: Composer dev dependencies
-        working-directory: plugins/anpa-socios
         run: |
           # The committed lock may target a newer PHP; resolve fresh if needed.
           composer install --no-interaction --no-progress \
@@ -112,7 +118,6 @@ jobs:
           echo "WP_TESTS_PHPUNIT_POLYFILLS_PATH=$PWD/vendor/yoast/phpunit-polyfills" >> "$GITHUB_ENV"
 
       - name: Run the integration suite (skips are failures)
-        working-directory: plugins/anpa-socios
         run: |
           vendor/bin/phpunit -c phpunit-integration.xml --no-coverage 2>&1 | tee /tmp/phpunit.txt
 
