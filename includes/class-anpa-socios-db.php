@@ -26,6 +26,21 @@ class ANPA_Socios_DB {
 	const VERSION_OPTION = 'anpa_socios_db_version';
 
 	/**
+	 * Option that opts IN to deleting the communications log on uninstall
+	 * (fase35). Scope is COMMUNICATIONS ONLY, hence the name: the rest of the
+	 * plugin data follows its own rules. Absent or any value other than "1"
+	 * preserves the log.
+	 *
+	 * uninstall.php repeats this string literally on purpose: plugin classes are
+	 * not loaded during uninstall, so it cannot read this constant. A contract
+	 * test keeps both in sync.
+	 *
+	 * @since 1.39.0
+	 * @var string
+	 */
+	const OPTION_DELETE_COMMS_ON_UNINSTALL = 'anpa_socios_delete_comms_on_uninstall';
+
+	/**
 	 * Current schema version for anpa-socios-owned tables.
 	 *
 	 * 1.2.0 adds `rol` and `pendiente_alta` to wp_anpa_socios.

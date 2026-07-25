@@ -103,6 +103,50 @@ final class ANPA_Socios_Email_Cron {
 	}
 
 	/**
+	 * Reports the health of the scheduled tick so the admin screen can warn when
+	 * the queue is silently not advancing.
+	 *
+	 * Three independent problems are distinguished, because the fix differs:
+	 *   - `disabled`: DISABLE_WP_CRON is set, so WordPress will never fire the
+	 *     event by itself. A real server cron must call wp-cron.php.
+	 *   - `unscheduled`: the event is missing from the cron array.
+	 *   - `stalled`: it is scheduled but no run has been recorded for far longer
+	 *     than the interval (typically a site with no traffic, since WP-Cron only
+	 *     fires on visits).
+	 *
+	 * @since  1.39.0
+	 * @return array{ok:bool,problems:string[],last_run_utc:string,next_run_utc:string}
+	 */
+	public static function health(): array {
+		$problems = array();
+
+		if ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ) {
+			$problems[] = 'disabled';
+		}
+
+		$next = wp_next_scheduled( self::HOOK );
+		if ( false === $next ) {
+			$problems[] = 'unscheduled';
+		}
+
+		$last     = (string) get_option( ANPA_Socios_Email_Processor::LAST_RUN_OPTION, '' );
+		$tolerance = max( 3 * self::interval_seconds(), 15 * MINUTE_IN_SECONDS );
+		if ( '' !== $last ) {
+			$age = time() - (int) strtotime( $last . ' UTC' );
+			if ( $age > $tolerance ) {
+				$problems[] = 'stalled';
+			}
+		}
+
+		return array(
+			'ok'           => array() === $problems,
+			'problems'     => $problems,
+			'last_run_utc' => $last,
+			'next_run_utc' => false === $next ? '' : gmdate( 'Y-m-d H:i:s', (int) $next ),
+		);
+	}
+
+	/**
 	 * Cron callback. Guarded no-op until the queue processor exists. Never runs
 	 * during install/upgrade; never sends email by itself in this PR.
 	 *
