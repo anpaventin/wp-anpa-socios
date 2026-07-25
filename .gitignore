@@ -41,6 +41,18 @@ pub.txt
 *.bak
 *.zip
 
+# Integration harness: real credentials and captured evidence never get committed.
+# Only .env.integration.example (fictitious values) is versioned.
+/tests/integration/.env.integration
+/tests/integration/.env.integration.local
+/.integration-evidence/
+
+# CI workflows are NOT pushed to the public repo yet: the deploy token lacks the
+# GitHub `workflow` scope, so a push touching .github/workflows/ is rejected.
+# The workflow is versioned in the private monorepo meanwhile. Remove this rule
+# once a token with `workflow` scope is available.
+/.github/
+
 # OS / editor
 .DS_Store
 Thumbs.db
