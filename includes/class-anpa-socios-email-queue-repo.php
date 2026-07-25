@@ -30,8 +30,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class ANPA_Socios_Email_Queue_Repo {
 
-	/** Default lease window in seconds for a claimed batch. */
-	const LEASE_SECONDS = 120;
+	/**
+	 * Default lease window in seconds for a claimed batch.
+	 *
+	 * Deliberately LARGER than ANPA_Socios_Email_Processor::MAX_SECONDS_CEILING
+	 * (120): if the lease could expire while a run is still working through its
+	 * batch, another run would recover those rows and send them again. Keeping a
+	 * margin means only a genuinely dead worker loses its lease.
+	 */
+	const LEASE_SECONDS = 180;
 
 	/**
 	 * Current UTC timestamp in MySQL format. Single source of "now" for PHP-side

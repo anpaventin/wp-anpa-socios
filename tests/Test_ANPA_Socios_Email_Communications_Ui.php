@@ -15,7 +15,9 @@ declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
 
-final class Test_ANPA_Socios_Comunicacions_Ui extends TestCase {
+final class Test_ANPA_Socios_Email_Communications_Ui extends TestCase {
+
+	use ANPA_Socios_Inspection_Helpers;
 
 	private string $page;
 	private string $settings;
@@ -25,7 +27,7 @@ final class Test_ANPA_Socios_Comunicacions_Ui extends TestCase {
 
 	protected function setUp(): void {
 		$root            = dirname( __DIR__ );
-		$this->page      = (string) file_get_contents( $root . '/includes/class-anpa-socios-comunicacions-page.php' );
+		$this->page      = (string) file_get_contents( $root . '/includes/class-anpa-socios-email-communications-page.php' );
 		$this->settings  = (string) file_get_contents( $root . '/includes/class-anpa-socios-admin-settings.php' );
 		$this->cron      = (string) file_get_contents( $root . '/includes/class-anpa-socios-email-cron.php' );
 		$this->uninstall = (string) file_get_contents( $root . '/uninstall.php' );
@@ -33,8 +35,8 @@ final class Test_ANPA_Socios_Comunicacions_Ui extends TestCase {
 	}
 
 	public function test_the_screen_is_registered_under_the_plugin_menu(): void {
-		$this->assertStringContainsString( 'class-anpa-socios-comunicacions-page.php', $this->bootstrap );
-		$this->assertStringContainsString( 'ANPA_Socios_Comunicacions_Page::register_menu( self::OVERVIEW_SLUG, self::CAP )', $this->settings );
+		$this->assertStringContainsString( 'class-anpa-socios-email-communications-page.php', $this->bootstrap );
+		$this->assertStringContainsString( 'ANPA_Socios_Email_Communications_Page::register_menu( self::OVERVIEW_SLUG, self::CAP )', $this->settings );
 		$this->assertStringContainsString( 'add_submenu_page(', $this->page );
 	}
 
@@ -55,8 +57,8 @@ final class Test_ANPA_Socios_Comunicacions_Ui extends TestCase {
 	}
 
 	public function test_the_screen_checks_the_capability_before_rendering(): void {
-		$start = strpos( $this->page, 'public static function render_page' );
-		$body  = substr( $this->page, (int) $start, 600 );
+		$start = $this->marker( $this->page, 'public static function render_page' );
+		$body  = substr( $this->page, $start, 600 );
 		$this->assertStringContainsString( "current_user_can( self::CAP )", $body );
 		$this->assertStringContainsString( 'wp_die(', $body );
 		$this->assertStringContainsString( "const CAP = 'manage_options'", $this->page );
@@ -92,8 +94,8 @@ final class Test_ANPA_Socios_Comunicacions_Ui extends TestCase {
 	}
 
 	public function test_states_are_conveyed_with_text_not_colour_alone(): void {
-		$start = strpos( $this->page, 'private static function state_cell' );
-		$body  = substr( $this->page, (int) $start, 500 );
+		$start = $this->marker( $this->page, 'private static function state_cell' );
+		$body  = substr( $this->page, $start, 500 );
 		// The label is always rendered inside the element; the class is only a hook.
 		$this->assertStringContainsString( 'esc_html( $label )', $body );
 
@@ -122,8 +124,8 @@ final class Test_ANPA_Socios_Comunicacions_Ui extends TestCase {
 	}
 
 	public function test_only_legal_actions_are_offered_for_the_current_state(): void {
-		$start = strpos( $this->page, 'private static function render_campaign_actions' );
-		$body  = substr( $this->page, (int) $start, 2000 );
+		$start = $this->marker( $this->page, 'private static function render_campaign_actions' );
+		$body  = substr( $this->page, $start, 2000 );
 		$this->assertStringContainsString( 'ANPA_Socios_Email_Campaign_State::terminal(', $body );
 		$this->assertStringContainsString( 'ANPA_Socios_Email_Campaign_State::PAUSED === $state', $body );
 		$this->assertStringContainsString( 'ANPA_Socios_Email_Campaign_State::RUNNING === $state', $body );
@@ -132,8 +134,8 @@ final class Test_ANPA_Socios_Comunicacions_Ui extends TestCase {
 	// ── Stalled cron notice ─────────────────────────────────────────────
 
 	public function test_cron_health_distinguishes_the_three_real_problems(): void {
-		$start = strpos( $this->cron, 'public static function health' );
-		$body  = substr( $this->cron, (int) $start, 1600 );
+		$start = $this->marker( $this->cron, 'public static function health' );
+		$body  = substr( $this->cron, $start, 1600 );
 		$this->assertStringContainsString( 'DISABLE_WP_CRON', $body );
 		$this->assertStringContainsString( 'wp_next_scheduled( self::HOOK )', $body );
 		$this->assertStringContainsString( 'ANPA_Socios_Email_Processor::LAST_RUN_OPTION', $body );
@@ -143,8 +145,8 @@ final class Test_ANPA_Socios_Comunicacions_Ui extends TestCase {
 	}
 
 	public function test_the_notice_explains_the_real_server_cron_and_offers_a_manual_run(): void {
-		$start = strpos( $this->page, 'private static function render_cron_notice' );
-		$body  = substr( $this->page, (int) $start, 2600 );
+		$start = $this->marker( $this->page, 'private static function render_cron_notice' );
+		$body  = substr( $this->page, $start, 2600 );
 		$this->assertStringContainsString( 'ANPA_Socios_Email_Cron::health()', $body );
 		$this->assertStringContainsString( 'wp-cron.php', $body, 'the operator must be told what to configure' );
 		$this->assertStringContainsString( 'ACTION_PROCESS', $body );
@@ -169,9 +171,8 @@ final class Test_ANPA_Socios_Comunicacions_Ui extends TestCase {
 	}
 
 	public function test_saving_the_option_is_isolated_and_nonce_checked(): void {
-		$start = strpos( $this->settings, 'public static function handle_save_comms_retention' );
-		$this->assertIsInt( $start, 'missing handler' );
-		$body = substr( $this->settings, (int) $start, 900 );
+		$start = $this->marker( $this->settings, 'public static function handle_save_comms_retention' );
+		$body = substr( $this->settings, $start, 900 );
 
 		$this->assertStringContainsString( "self::guard( 'anpa_socios_save_comms_retention' )", $body );
 		// Exactly ONE option written, so a partial form cannot clear other settings.
@@ -185,8 +186,8 @@ final class Test_ANPA_Socios_Comunicacions_Ui extends TestCase {
 	}
 
 	public function test_the_option_form_states_the_current_effect_in_words(): void {
-		$start = strpos( $this->settings, 'private static function render_subsection_comunicacions' );
-		$body  = substr( $this->settings, (int) $start, 2600 );
+		$start = $this->marker( $this->settings, 'private static function render_subsection_comunicacions' );
+		$body  = substr( $this->settings, $start, 2600 );
 		$this->assertStringContainsString( 'Estado actual: o rexistro BORRARASE ao desinstalar.', $body );
 		$this->assertStringContainsString( 'Estado actual: o rexistro CONSÉRVASE ao desinstalar.', $body );
 		// And makes the narrow scope explicit.

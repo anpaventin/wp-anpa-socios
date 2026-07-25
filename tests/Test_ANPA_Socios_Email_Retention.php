@@ -12,6 +12,8 @@ use PHPUnit\Framework\TestCase;
 
 final class Test_ANPA_Socios_Email_Retention extends TestCase {
 
+	use ANPA_Socios_Inspection_Helpers;
+
 	private string $purge;
 	private string $cron;
 	private string $settings;
@@ -93,8 +95,8 @@ final class Test_ANPA_Socios_Email_Retention extends TestCase {
 	}
 
 	public function test_payload_is_purged_before_metadata(): void {
-		$start = strpos( $this->purge, 'public static function run' );
-		$body  = substr( $this->purge, (int) $start, 2200 );
+		$start = $this->marker( $this->purge, 'public static function run' );
+		$body  = substr( $this->purge, $start, 2200 );
 		$this->assertLessThan(
 			strpos( $body, 'purge_metadata(' ),
 			strpos( $body, 'purge_payloads(' ),
@@ -104,16 +106,16 @@ final class Test_ANPA_Socios_Email_Retention extends TestCase {
 
 	public function test_only_terminal_campaigns_are_purged(): void {
 		foreach ( array( 'purge_payloads', 'deletable_campaign_ids' ) as $method ) {
-			$start = strpos( $this->purge, 'function ' . $method );
-			$body  = substr( $this->purge, (int) $start, 2200 );
+			$start = $this->marker( $this->purge, 'function ' . $method );
+			$body  = substr( $this->purge, $start, 2200 );
 			$this->assertStringContainsString( 'ANPA_Socios_Email_Campaign_State::FINISHED', $body, "$method must restrict to terminal campaigns" );
 			$this->assertStringContainsString( 'ANPA_Socios_Email_Campaign_State::CANCELLED', $body );
 		}
 	}
 
 	public function test_the_hash_survives_the_payload_purge(): void {
-		$start = strpos( $this->purge, 'function purge_payloads' );
-		$body  = substr( $this->purge, (int) $start, 2200 );
+		$start = $this->marker( $this->purge, 'function purge_payloads' );
+		$body  = substr( $this->purge, $start, 2200 );
 		$this->assertStringContainsString( 'payload_snapshot = NULL', $body );
 		$this->assertStringContainsString( "subject_render = ''", $body );
 		$this->assertStringContainsString( "last_error = ''", $body );
@@ -124,15 +126,15 @@ final class Test_ANPA_Socios_Email_Retention extends TestCase {
 	}
 
 	public function test_a_campaign_with_unfinished_recipients_is_never_deleted(): void {
-		$start = strpos( $this->purge, 'function deletable_campaign_ids' );
-		$body  = substr( $this->purge, (int) $start, 2200 );
+		$start = $this->marker( $this->purge, 'function deletable_campaign_ids' );
+		$body  = substr( $this->purge, $start, 2200 );
 		$this->assertStringContainsString( 'NOT EXISTS', $body );
 		$this->assertStringContainsString( 'r.state NOT IN (%s, %s, %s)', $body );
 	}
 
 	public function test_children_are_deleted_before_their_campaign(): void {
-		$start = strpos( $this->purge, 'function purge_metadata' );
-		$body  = substr( $this->purge, (int) $start, 2200 );
+		$start = $this->marker( $this->purge, 'function purge_metadata' );
+		$body  = substr( $this->purge, $start, 2200 );
 		$attempts   = strpos( $body, 'tabela_email_attempts' );
 		$recipients = strpos( $body, 'tabela_email_recipients' );
 		$campaigns  = strpos( $body, 'DELETE FROM {$campaigns}' );
@@ -151,16 +153,16 @@ final class Test_ANPA_Socios_Email_Retention extends TestCase {
 		$this->assertStringContainsString( "const PURGE_HOOK = 'anpa_socios_email_purge_daily'", $this->cron );
 		$this->assertStringContainsString( "wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', self::PURGE_HOOK )", $this->cron );
 		// Deactivation removes BOTH events and deletes nothing.
-		$start = strpos( $this->cron, 'public static function unschedule' );
-		$body  = substr( $this->cron, (int) $start, 700 );
+		$start = $this->marker( $this->cron, 'public static function unschedule' );
+		$body  = substr( $this->cron, $start, 700 );
 		$this->assertStringContainsString( 'self::HOOK, self::PURGE_HOOK', $body );
 		$this->assertStringNotContainsString( 'DROP', $body );
 		$this->assertStringNotContainsString( 'delete_option', $body );
 	}
 
 	public function test_the_purge_callback_is_guarded_like_the_queue_tick(): void {
-		$start = strpos( $this->cron, 'public static function purge_tick' );
-		$body  = substr( $this->cron, (int) $start, 700 );
+		$start = $this->marker( $this->cron, 'public static function purge_tick' );
+		$body  = substr( $this->cron, $start, 700 );
 		$this->assertStringContainsString( 'wp_installing()', $body );
 		$this->assertStringContainsString( 'ANPA_Socios_Email_Purge::run()', $body );
 	}
@@ -168,9 +170,8 @@ final class Test_ANPA_Socios_Email_Retention extends TestCase {
 	// ── Settings surface ────────────────────────────────────────────────
 
 	public function test_the_periods_form_is_isolated_and_normalised(): void {
-		$start = strpos( $this->settings, 'public static function handle_save_comms_retention_periods' );
-		$this->assertIsInt( $start, 'missing handler' );
-		$body = substr( $this->settings, (int) $start, 1200 );
+		$start = $this->marker( $this->settings, 'public static function handle_save_comms_retention_periods' );
+		$body = substr( $this->settings, $start, 1200 );
 
 		$this->assertStringContainsString( "self::guard( 'anpa_socios_save_comms_retention_periods' )", $body );
 		// Exactly the two window options, nothing else.
@@ -181,8 +182,8 @@ final class Test_ANPA_Socios_Email_Retention extends TestCase {
 	}
 
 	public function test_the_form_shows_the_bounds_it_enforces(): void {
-		$start = strpos( $this->settings, 'private static function render_subsection_comunicacions_retencion' );
-		$body  = substr( $this->settings, (int) $start, 3500 );
+		$start = $this->marker( $this->settings, 'private static function render_subsection_comunicacions_retencion' );
+		$body  = substr( $this->settings, $start, 3500 );
 		$this->assertStringContainsString( 'ANPA_Socios_Email_Retention::PAYLOAD_DAYS_MIN', $body );
 		$this->assertStringContainsString( 'ANPA_Socios_Email_Retention::METADATA_DAYS_MAX', $body );
 		$this->assertStringContainsString( 'Non pode ser menor que a ventá do contido enviado.', $body );

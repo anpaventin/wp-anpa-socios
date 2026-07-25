@@ -278,7 +278,7 @@ final class Test_ANPA_Socios_Email_Purge_Integration extends TestCase {
 
 		$stamp = (string) get_option( ANPA_Socios_Email_Purge::LAST_RUN_OPTION, '' );
 		$this->assertNotEmpty( $stamp );
-		$this->assertLessThan( 120, abs( time() - (int) strtotime( $stamp . ' UTC' ) ) );
+		$this->assertLessThan( 10, abs( time() - (int) strtotime( $stamp . ' UTC' ) ) );
 	}
 
 	// ── Deactivation keeps the data ─────────────────────────────────────

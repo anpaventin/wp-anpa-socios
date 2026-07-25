@@ -16,6 +16,8 @@ use PHPUnit\Framework\TestCase;
 
 final class Test_ANPA_Socios_Email_Queue_Contracts extends TestCase {
 
+	use ANPA_Socios_Inspection_Helpers;
+
 	private string $repo;
 	private string $queue;
 	private string $render;
@@ -104,7 +106,7 @@ final class Test_ANPA_Socios_Email_Queue_Contracts extends TestCase {
 	// ── Atomic lease claiming ───────────────────────────────────────────
 
 	public function test_claim_batch_is_a_conditional_update_with_a_lease_token(): void {
-		$start = strpos( $this->repo, 'public static function claim_batch' );
+		$start = $this->marker( $this->repo, 'public static function claim_batch' );
 		$end   = strpos( $this->repo, 'public static function mark_accepted', $start );
 		$body  = substr( $this->repo, $start, $end - $start );
 
@@ -131,8 +133,7 @@ final class Test_ANPA_Socios_Email_Queue_Contracts extends TestCase {
 
 	public function test_result_writes_require_lease_ownership(): void {
 		foreach ( array( 'mark_accepted', 'mark_failed' ) as $method ) {
-			$start = strpos( $this->repo, 'public static function ' . $method );
-			$this->assertIsInt( $start, "missing $method" );
+			$start = $this->marker( $this->repo, 'public static function ' . $method );
 			$body = substr( $this->repo, $start, 2200 );
 			$this->assertStringContainsString( 'lease_token = %s', $body, "$method must check lease ownership" );
 			$this->assertStringContainsString( 'AND state = %s', $body, "$method must require the processing state" );
@@ -140,7 +141,7 @@ final class Test_ANPA_Socios_Email_Queue_Contracts extends TestCase {
 	}
 
 	public function test_orphan_recovery_releases_expired_leases_only(): void {
-		$start = strpos( $this->repo, 'public static function recover_orphans' );
+		$start = $this->marker( $this->repo, 'public static function recover_orphans' );
 		$end   = strpos( $this->repo, 'public static function get_recipient', $start );
 		$body  = substr( $this->repo, $start, $end - $start );
 		$this->assertStringContainsString( 'locked_until_utc < UTC_TIMESTAMP()', $body );
@@ -160,7 +161,7 @@ final class Test_ANPA_Socios_Email_Queue_Contracts extends TestCase {
 		$this->assertStringContainsString( 'ANPA_Socios_Email_Recipients::idempotency_key', $this->repo );
 		$this->assertMatchesRegularExpression( "/'code'\s*=>\s*'duplicate'/", $this->repo );
 		// Attempts: one row per (recipient, attempt_no).
-		$start = strpos( $this->repo, 'public static function record_attempt' );
+		$start = $this->marker( $this->repo, 'public static function record_attempt' );
 		$body  = substr( $this->repo, $start, 1600 );
 		$this->assertStringContainsString( 'INSERT IGNORE INTO', $body );
 	}
@@ -173,7 +174,7 @@ final class Test_ANPA_Socios_Email_Queue_Contracts extends TestCase {
 	}
 
 	public function test_queue_refuses_to_run_during_install_or_pending_migration(): void {
-		$start = strpos( $this->queue, 'public static function can_run' );
+		$start = $this->marker( $this->queue, 'public static function can_run' );
 		$body  = substr( $this->queue, $start, 700 );
 		$this->assertStringContainsString( 'wp_installing()', $body );
 		$this->assertStringContainsString( 'version_compare( $installed, ANPA_Socios_DB::DB_VERSION', $body );
@@ -182,7 +183,7 @@ final class Test_ANPA_Socios_Email_Queue_Contracts extends TestCase {
 	// ── Counters are a cache, not the truth ─────────────────────────────
 
 	public function test_counters_are_recomputed_from_recipients(): void {
-		$start = strpos( $this->repo, 'public static function recalc_counts' );
+		$start = $this->marker( $this->repo, 'public static function recalc_counts' );
 		$end   = strpos( $this->repo, 'public static function count_unfinished', $start );
 		$body  = substr( $this->repo, $start, $end - $start );
 		$this->assertStringContainsString( 'GROUP BY state', $body );
@@ -192,7 +193,7 @@ final class Test_ANPA_Socios_Email_Queue_Contracts extends TestCase {
 	}
 
 	public function test_completion_is_decided_by_real_state_not_counters(): void {
-		$start = strpos( $this->repo, 'public static function count_unfinished' );
+		$start = $this->marker( $this->repo, 'public static function count_unfinished' );
 		$body  = substr( $this->repo, $start, 900 );
 		$this->assertStringContainsString( 'SELECT COUNT(*)', $body );
 		$this->assertStringContainsString( 'state NOT IN (%s, %s, %s)', $body );
@@ -200,7 +201,7 @@ final class Test_ANPA_Socios_Email_Queue_Contracts extends TestCase {
 
 	public function test_cancel_and_retry_never_touch_accepted_rows(): void {
 		foreach ( array( 'cancel_pending_recipients', 'retry_failed' ) as $method ) {
-			$start = strpos( $this->repo, 'public static function ' . $method );
+			$start = $this->marker( $this->repo, 'public static function ' . $method );
 			$body  = substr( $this->repo, $start, 1400 );
 			$this->assertStringContainsString( 'state IN (%s, %s)', $body );
 			$this->assertStringNotContainsString( 'ACCEPTED', $body, "$method must not target accepted rows" );
@@ -226,7 +227,7 @@ final class Test_ANPA_Socios_Email_Queue_Contracts extends TestCase {
 	}
 
 	public function test_errors_are_redacted_and_bounded(): void {
-		$start = strpos( $this->repo, 'private static function redact_error' );
+		$start = $this->marker( $this->repo, 'private static function redact_error' );
 		$body  = substr( $this->repo, $start, 500 );
 		$this->assertStringContainsString( 'mb_substr( $error, 0, 255 )', $body );
 		$this->assertStringContainsString( "preg_replace( '/\\s+/', ' '", $body );

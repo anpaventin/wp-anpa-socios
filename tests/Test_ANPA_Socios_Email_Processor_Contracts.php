@@ -16,6 +16,8 @@ use PHPUnit\Framework\TestCase;
 
 final class Test_ANPA_Socios_Email_Processor_Contracts extends TestCase {
 
+	use ANPA_Socios_Inspection_Helpers;
+
 	private string $processor;
 	private string $actions;
 	private string $queue;
@@ -83,7 +85,7 @@ final class Test_ANPA_Socios_Email_Processor_Contracts extends TestCase {
 	// ── Guards and bounds ───────────────────────────────────────────────
 
 	public function test_a_run_is_blocked_during_install_or_pending_migration(): void {
-		$start = strpos( $this->processor, 'public static function run' );
+		$start = $this->marker( $this->processor, 'public static function run' );
 		$body  = substr( $this->processor, $start, 1200 );
 		$this->assertStringContainsString( 'ANPA_Socios_Email_Queue::can_run()', $body );
 		$this->assertStringContainsString( "'blocked'", $body );
@@ -94,7 +96,7 @@ final class Test_ANPA_Socios_Email_Processor_Contracts extends TestCase {
 		$this->assertStringContainsString( '$deadline', $this->processor );
 		$this->assertStringContainsString( "'time_budget'", $this->processor );
 		// The budget itself is clamped, so a filter cannot make a run unbounded.
-		$start = strpos( $this->processor, 'public static function max_seconds' );
+		$start = $this->marker( $this->processor, 'public static function max_seconds' );
 		$body  = substr( $this->processor, $start, 400 );
 		$this->assertStringContainsString( 'self::MAX_SECONDS_CEILING', $body );
 	}
@@ -102,15 +104,15 @@ final class Test_ANPA_Socios_Email_Processor_Contracts extends TestCase {
 	public function test_unprocessed_rows_are_given_back_instead_of_staying_leased(): void {
 		$this->assertStringContainsString( 'ANPA_Socios_Email_Queue_Repo::release_unprocessed', $this->processor );
 		$repo  = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-email-queue-repo.php' );
-		$start = strpos( $repo, 'public static function release_unprocessed' );
-		$body  = substr( $repo, (int) $start, 1200 );
+		$start = $this->marker( $repo, 'public static function release_unprocessed' );
+		$body  = substr( $repo, $start, 1200 );
 		// Only rows this lease still holds, and never a row already written.
 		$this->assertStringContainsString( 'WHERE lease_token = %s AND state = %s', $body );
 		$this->assertStringNotContainsString( 'attempts = attempts + 1', $body );
 	}
 
 	public function test_the_overlap_lock_is_acquired_atomically_and_released(): void {
-		$start = strpos( $this->processor, 'private static function acquire_lock' );
+		$start = $this->marker( $this->processor, 'private static function acquire_lock' );
 		$body  = substr( $this->processor, $start, 800 );
 		// add_option() only succeeds when the option is absent.
 		$this->assertStringContainsString( 'add_option( self::LOCK_OPTION', $body );
@@ -122,7 +124,7 @@ final class Test_ANPA_Socios_Email_Processor_Contracts extends TestCase {
 	// ── Interrupted sends ───────────────────────────────────────────────
 
 	public function test_interrupted_rows_are_recorded_as_uncertain_before_retrying(): void {
-		$start = strpos( $this->processor, 'public static function recover_interrupted' );
+		$start = $this->marker( $this->processor, 'public static function recover_interrupted' );
 		$body  = substr( $this->processor, $start, 1400 );
 		$this->assertStringContainsString( 'ANPA_Socios_Email_Queue_Repo::find_orphans', $body );
 		$this->assertStringContainsString( "'error_category' => 'uncertain'", $body );
@@ -136,14 +138,14 @@ final class Test_ANPA_Socios_Email_Processor_Contracts extends TestCase {
 	}
 
 	public function test_a_lost_lease_never_overwrites_another_owners_result(): void {
-		$start = strpos( $this->processor, 'private static function deliver_one' );
+		$start = $this->marker( $this->processor, 'private static function deliver_one' );
 		$body  = substr( $this->processor, $start, 3000 );
 		$this->assertStringContainsString( 'if ( ! $applied )', $body );
 		$this->assertStringContainsString( "'uncertain'", $body );
 	}
 
 	public function test_completion_is_decided_by_real_recipient_state(): void {
-		$start = strpos( $this->processor, 'private static function close_if_complete' );
+		$start = $this->marker( $this->processor, 'private static function close_if_complete' );
 		$body  = substr( $this->processor, $start, 900 );
 		$this->assertStringContainsString( 'ANPA_Socios_Email_Queue_Repo::count_unfinished', $body );
 		$this->assertStringContainsString( 'ANPA_Socios_Email_Campaign_State::FINISHED', $body );
@@ -173,7 +175,7 @@ final class Test_ANPA_Socios_Email_Processor_Contracts extends TestCase {
 	}
 
 	public function test_authorization_checks_capability_and_nonce_and_dies_on_failure(): void {
-		$start = strpos( $this->actions, 'private static function authorize' );
+		$start = $this->marker( $this->actions, 'private static function authorize' );
 		$body  = substr( $this->actions, $start, 1200 );
 		$this->assertStringContainsString( 'current_user_can( self::CAP )', $body );
 		$this->assertStringContainsString( 'check_admin_referer( $action )', $body );
@@ -183,8 +185,7 @@ final class Test_ANPA_Socios_Email_Processor_Contracts extends TestCase {
 
 	public function test_every_handler_authorizes_before_touching_the_queue(): void {
 		foreach ( array( 'handle_process_now', 'handle_pause', 'handle_resume', 'handle_cancel', 'handle_retry_failed' ) as $handler ) {
-			$start = strpos( $this->actions, 'public static function ' . $handler );
-			$this->assertIsInt( $start, "missing $handler" );
+			$start = $this->marker( $this->actions, 'public static function ' . $handler );
 			$body = substr( $this->actions, $start, 900 );
 			$this->assertLessThan(
 				strpos( $body, 'ANPA_Socios_Email_Queue::' ),
@@ -198,7 +199,7 @@ final class Test_ANPA_Socios_Email_Processor_Contracts extends TestCase {
 		$this->assertMatchesRegularExpression( "/do_action\(\s*'anpa_socios_email_admin_action'/", $this->actions );
 		$this->assertStringContainsString( 'wp_safe_redirect(', $this->actions );
 		// The audit trail records the actor and outcome, never addresses or payloads.
-		$start = strpos( $this->actions, 'private static function audit' );
+		$start = $this->marker( $this->actions, 'private static function audit' );
 		$body  = substr( $this->actions, $start, 900 );
 		$this->assertStringContainsString( "'actor'", $body );
 		$this->assertStringContainsString( "'outcome'", $body );

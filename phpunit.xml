@@ -100,8 +100,8 @@
       <file>tests/Test_ANPA_Socios_Email_Queue_Integration.php</file>
       <file>tests/Test_ANPA_Socios_Email_Processor_Contracts.php</file>
       <file>tests/Test_ANPA_Socios_Email_Processor_Integration.php</file>
-      <file>tests/Test_ANPA_Socios_Comunicacions_Ui.php</file>
-      <file>tests/Test_ANPA_Socios_Comunicacions_Page_Integration.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Communications_Ui.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Communications_Page_Integration.php</file>
       <file>tests/Test_ANPA_Socios_Email_Retention.php</file>
       <file>tests/Test_ANPA_Socios_Email_Purge_Integration.php</file>
     </testsuite>

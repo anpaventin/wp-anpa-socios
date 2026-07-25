@@ -1,4 +1,4 @@
-name: fase35 email-queue integration
+name: email-queue integration
 
 # Real-database integration matrix (fase35 PR-35s2) on feature branches.
 # Ephemeral, isolated service databases only. Never touches production, never

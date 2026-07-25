@@ -87,7 +87,7 @@ final class ANPA_Socios_Admin_Settings {
 		);
 		ANPA_Socios_Admin_Management_Page::register_menu( self::OVERVIEW_SLUG, self::CAP );
 		// fase35: communications queue (server rendered audit screen).
-		ANPA_Socios_Comunicacions_Page::register_menu( self::OVERVIEW_SLUG, self::CAP );
+		ANPA_Socios_Email_Communications_Page::register_menu( self::OVERVIEW_SLUG, self::CAP );
 		add_submenu_page(
 			self::OVERVIEW_SLUG,
 			esc_html__( 'Axustes', 'anpa-socios' ),
@@ -1195,7 +1195,7 @@ final class ANPA_Socios_Admin_Settings {
 		$last     = (string) get_option( ANPA_Socios_Email_Purge::LAST_RUN_OPTION, '' );
 
 		echo '<h3>' . esc_html__( 'Canto tempo se garda cada cousa', 'anpa-socios' ) . '</h3>';
-		echo '<p class="description">' . esc_html__( 'Unha tarefa diaria limpa primeiro o contido enviado (asunto, corpo e mensaxes de erro) e moito máis tarde os metadatos mínimos das campañas remataDAS ou canceladas. Consérvase sempre a pegada (hash) do contido, para poder acreditar que se enviou e que se enviou.', 'anpa-socios' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Unha tarefa diaria limpa primeiro o contido enviado (asunto, corpo e mensaxes de erro) e moito máis tarde os metadatos mínimos das campañas rematadas ou canceladas. Consérvase sempre a pegada (hash) do contido, para poder acreditar que se enviou e que se enviou.', 'anpa-socios' ) . '</p>';
 
 		echo '<form method="post" action="' . $post_url . '">';
 		echo '<input type="hidden" name="action" value="anpa_socios_save_comms_retention_periods">';

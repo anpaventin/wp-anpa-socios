@@ -325,7 +325,7 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 					'menu_label' => 'Xestión',
 					'page_title' => 'Xestión',
 				),
-				'comunicacions' => array(
+				'communications' => array(
 					'slug'       => 'anpa-socios-comunicacions',
 					'menu_label' => 'Comunicacións',
 					'page_title' => 'Comunicacións',

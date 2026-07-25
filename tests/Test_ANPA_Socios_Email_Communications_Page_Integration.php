@@ -16,7 +16,7 @@ declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
 
-final class Test_ANPA_Socios_Comunicacions_Page_Integration extends TestCase {
+final class Test_ANPA_Socios_Email_Communications_Page_Integration extends TestCase {
 
 	/** @var callable|null */
 	private $transport = null;
@@ -111,7 +111,7 @@ final class Test_ANPA_Socios_Comunicacions_Page_Integration extends TestCase {
 	 */
 	private function render(): string {
 		ob_start();
-		ANPA_Socios_Comunicacions_Page::render_page();
+		ANPA_Socios_Email_Communications_Page::render_page();
 
 		return (string) ob_get_clean();
 	}
