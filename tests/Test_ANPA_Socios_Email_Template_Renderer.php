@@ -206,41 +206,173 @@ final class Test_ANPA_Socios_Email_Template_Renderer extends TestCase {
 		$this->assertSame( array( 'inventado' ), $out['undeclared'] );
 	}
 
-	// ── Aliases ─────────────────────────────────────────────────────────
+	// ── Aliases are resolved on SAVE, never on render ───────────────────
 
-	public function test_three_spellings_resolve_to_the_same_canonical_token(): void {
-		$declared = $this->declared( array( 'nome_campana' ) );
-		$aliases  = array(
+	public function test_alternative_spellings_are_canonicalised_before_storage(): void {
+		$aliases = array(
 			'nome_campaña'   => 'nome_campana',
 			'nombre_campana' => 'nome_campana',
 		);
 
 		foreach ( array( 'nome_campana', 'nome_campaña', 'nombre_campana' ) as $spelling ) {
-			$out = ANPA_Socios_Email_Template_Renderer::render(
-				array(
-					'subject'   => 'S',
-					'body_text' => 'Campaña: {{' . $spelling . '}}',
-					'body_html' => '<p>x</p>',
-				),
-				array( 'nome_campana' => 'Comezo curso' ),
-				$declared,
-				$aliases
-			);
-
-			$this->assertTrue( $out['ok'], "spelling $spelling must be accepted" );
-			$this->assertSame( 'Campaña: Comezo curso', $out['body_text'] );
+			$stored = ANPA_Socios_Email_Template_Renderer::canonicalise( 'Campaña: {{' . $spelling . '}}', $aliases );
+			$this->assertSame( 'Campaña: {{nome_campana}}', $stored, "spelling $spelling must normalise" );
 		}
 	}
 
-	public function test_the_context_may_also_use_an_alias(): void {
-		$out = ANPA_Socios_Email_Template_Renderer::render(
-			array( 'subject' => 'S', 'body_text' => '{{nome_campana}}', 'body_html' => '<p>x</p>' ),
-			array( 'nombre_campana' => 'X' ),
-			$this->declared( array( 'nome_campana' ) ),
+	public function test_canonicalisation_also_rewrites_block_markers(): void {
+		$stored = ANPA_Socios_Email_Template_Renderer::canonicalise(
+			'{{#nombre_campana}}x{{/nombre_campana}}',
 			array( 'nombre_campana' => 'nome_campana' )
 		);
 
-		$this->assertSame( 'X', $out['body_text'] );
+		$this->assertSame( '{{#nome_campana}}x{{/nome_campana}}', $stored );
+	}
+
+	public function test_the_renderer_itself_knows_only_canonical_tokens(): void {
+		// An alias that reached render() unresolved is a bug upstream, and it must
+		// surface as an undeclared token rather than be silently accepted.
+		$out = ANPA_Socios_Email_Template_Renderer::render(
+			array( 'subject' => 'S', 'body_text' => '{{nombre_campana}}', 'body_html' => '<p>x</p>' ),
+			array( 'nome_campana' => 'X' ),
+			$this->declared( array( 'nome_campana' ) )
+		);
+
+		$this->assertFalse( $out['ok'] );
+		$this->assertSame( array( 'nombre_campana' ), $out['undeclared'] );
+	}
+
+	public function test_canonicalise_is_a_no_op_without_aliases(): void {
+		$source = 'A {{tok}} {{#tok}}x{{/}} B';
+		$this->assertSame( $source, ANPA_Socios_Email_Template_Renderer::canonicalise( $source, array() ) );
+	}
+
+	// ── Idempotence ─────────────────────────────────────────────────────
+
+	public function test_a_value_that_looks_like_a_token_is_never_interpreted(): void {
+		$out = ANPA_Socios_Email_Template_Renderer::render(
+			$this->template(),
+			array( 'nome_socio' => '{{ligazon_area_socios}}' ),
+			$this->declared( array( 'nome_socio' ) )
+		);
+
+		$this->assertTrue( $out['ok'] );
+		$this->assertStringContainsString( '{{ligazon_area_socios}}', $out['body_text'], 'inserted as text, not parsed' );
+	}
+
+	public function test_rendering_an_already_rendered_output_changes_nothing(): void {
+		$declared = $this->declared( array( 'nome_socio' ) );
+		$context  = array( 'nome_socio' => 'Fernando' );
+
+		$first = ANPA_Socios_Email_Template_Renderer::render( $this->template(), $context, $declared );
+
+		$second = ANPA_Socios_Email_Template_Renderer::render(
+			array(
+				'subject'   => $first['subject'],
+				'body_html' => $first['body_html'],
+				'body_text' => $first['body_text'],
+			),
+			$context,
+			$declared
+		);
+
+		$this->assertTrue( $second['ok'] );
+		$this->assertSame( $first['subject'], $second['subject'] );
+		$this->assertSame( $first['body_html'], $second['body_html'] );
+		$this->assertSame( $first['body_text'], $second['body_text'] );
+	}
+
+	public function test_a_value_containing_a_block_marker_cannot_create_a_block(): void {
+		$out = ANPA_Socios_Email_Template_Renderer::render(
+			$this->template( array( 'body_text' => 'A {{nome_socio}} B' ) ),
+			array( 'nome_socio' => '{{#motivo}}oculto{{/}}' ),
+			$this->declared( array( 'nome_socio' ) )
+		);
+
+		$this->assertTrue( $out['ok'] );
+		$this->assertStringContainsString( 'oculto', $out['body_text'], 'blocks are resolved before substitution' );
+	}
+
+	// ── Escaping diverges exactly where it must ─────────────────────────
+
+	public function test_html_and_text_diverge_only_on_the_five_html_characters(): void {
+		$value = '" \' < > & € ñ á';
+
+		$out = ANPA_Socios_Email_Template_Renderer::render(
+			array( 'subject' => 'S {{v}}', 'body_html' => '{{v}}', 'body_text' => '{{v}}' ),
+			array( 'v' => $value ),
+			$this->declared( array( 'v' ) )
+		);
+
+		// Text keeps every character exactly as given.
+		$this->assertSame( $value, $out['body_text'] );
+
+		// HTML escapes only the five that carry meaning in markup.
+		$this->assertSame( '&quot; &#039; &lt; &gt; &amp; € ñ á', $out['body_html'] );
+
+		// The euro sign and the accents are NOT entities: the mail is UTF-8.
+		$this->assertStringContainsString( '€', $out['body_html'] );
+		$this->assertStringContainsString( 'ñ', $out['body_html'] );
+		$this->assertStringContainsString( 'á', $out['body_html'] );
+	}
+
+	public function test_invalid_utf8_in_a_value_does_not_produce_empty_output(): void {
+		$out = ANPA_Socios_Email_Template_Renderer::render(
+			array( 'subject' => 'S', 'body_html' => 'x{{v}}', 'body_text' => 'x{{v}}' ),
+			array( 'v' => "ok\xB1bad" ),
+			$this->declared( array( 'v' ) )
+		);
+
+		$this->assertTrue( $out['ok'] );
+		$this->assertStringContainsString( 'ok', $out['body_html'], 'ENT_SUBSTITUTE must not blank the value' );
+	}
+
+	// ── Fuzz: malformed input must never explode ────────────────────────
+
+	public function test_malformed_syntax_never_throws_hangs_or_explodes(): void {
+		$pieces = array( '{', '}', '{{', '}}', '{{#', '{{/', '{{/}}', '{{tok}}', '{{#tok}}', 'texto', ' ', "\n", '{{ }}', '{{#}}' );
+		$seed   = 20260725; // Fixed seed: a failure must be reproducible.
+		mt_srand( $seed );
+
+		$declared = $this->declared( array( 'tok' ) );
+		$started  = microtime( true );
+
+		for ( $i = 0; $i < 400; $i++ ) {
+			$source = '';
+			$len    = mt_rand( 1, 25 );
+			for ( $j = 0; $j < $len; $j++ ) {
+				$source .= $pieces[ mt_rand( 0, count( $pieces ) - 1 ) ];
+			}
+
+			$out = ANPA_Socios_Email_Template_Renderer::render(
+				array( 'subject' => 'S', 'body_html' => $source, 'body_text' => $source ),
+				array( 'tok' => 'V' ),
+				$declared
+			);
+
+			// The only contract here: it always answers, and never leaks an unresolved
+			// block opener into output it declared valid.
+			$this->assertIsBool( $out['ok'] );
+			if ( $out['ok'] ) {
+				$this->assertStringNotContainsString( '{{#', $out['body_html'] );
+			}
+		}
+
+		$this->assertLessThan( 5.0, microtime( true ) - $started, 'no pathological backtracking' );
+	}
+
+	public function test_a_very_long_template_stays_bounded(): void {
+		$source = str_repeat( 'Ola {{nome_socio}}. ', 5000 );
+
+		$started = microtime( true );
+		$out     = ANPA_Socios_Email_Template_Renderer::render(
+			array( 'subject' => 'S', 'body_html' => $source, 'body_text' => $source ),
+			array( 'nome_socio' => 'Ana' ),
+			$this->declared( array( 'nome_socio' ) )
+		);
+
+		$this->assertTrue( $out['ok'] );
+		$this->assertLessThan( 2.0, microtime( true ) - $started );
 	}
 
 	// ── Subject discipline ──────────────────────────────────────────────
