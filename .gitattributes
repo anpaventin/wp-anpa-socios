@@ -7,3 +7,6 @@
 *.jpeg binary
 *.gif binary
 *.zip binary
+
+# Golden-file email oracle: compared byte for byte, so no EOL conversion ever.
+tests/golden/*.txt -text

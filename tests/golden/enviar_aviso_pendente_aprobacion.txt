@@ -1,0 +1,6 @@
+TO: xunta@example.org
+SUBJECT: Novo socio/a pendente de aprobación — ANPA Exemplo
+HEADERS: From: ANPA Exemplo <xunta@example.org> | Reply-To: ANPA Exemplo <xunta@example.org>
+---BODY---
+<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;"><h2>Novo socio/a pendente de aprobación</h2><p>Unha nova persoa solicitou darse de alta en ANPA Exemplo e precisa da túa aprobación:</p><ul><li><strong>Nome:</strong> Uxía Exemplo Ficticio</li><li><strong>Email:</strong> nai@example.com</li></ul><p>Revisa e aproba (ou rexeita) as solicitudes pendentes na sección de Xestión ANPA da área de socios, ou na páxina de Axustes do plugin:</p><p><a href="http://example.org/wp-admin/admin.php?page=anpa-socios-settings">http://example.org/wp-admin/admin.php?page=anpa-socios-settings</a></p><p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p><hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">A Xunta Directiva
+ANPA Exemplo</p></body></html>

@@ -1,0 +1,5 @@
+TO: xunta@example.org
+SUBJECT: Solicitude de baixa de socio/a — ANPA Exemplo
+HEADERS: From: ANPA Exemplo <xunta@example.org> | Reply-To: ANPA Exemplo <xunta@example.org>
+---BODY---
+<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;"><h2>Solicitude de baixa de socio/a</h2><p>Un/unha socio/a solicitou a baixa en ANPA Exemplo:</p><ul><li><strong>Nome:</strong> Uxía Exemplo Ficticio</li><li><strong>Email:</strong> nai@example.com</li></ul><p>A baixa será efectiva a fin de curso, tras a confirmación dun/dunha administrador/a no panel de Xestión ANPA.</p><p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p></body></html>
