@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-final class ANPA_Socios_Comunicacions_Page {
+final class ANPA_Socios_Email_Communications_Page {
 
 	/** Submenu slug. */
 	const SLUG = 'anpa-socios-comunicacions';

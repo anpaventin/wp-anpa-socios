@@ -34,6 +34,10 @@ final class Test_ANPA_Socios_Email_Processor_Integration extends TestCase {
 		ANPA_Socios_DB::crear_tabelas();
 		update_option( ANPA_Socios_DB::VERSION_OPTION, ANPA_Socios_DB::DB_VERSION );
 		delete_option( ANPA_Socios_Email_Processor::LOCK_OPTION );
+		// These integration classes extend plain TestCase, so WordPress does NOT
+		// reset filters between them: a render provider left behind by another
+		// class would silently change the payload asserted here.
+		remove_all_filters( 'anpa_socios_email_render_provider' );
 
 		foreach ( array(
 			ANPA_Socios_DB::tabela_email_attempts(),
@@ -59,10 +63,13 @@ final class Test_ANPA_Socios_Email_Processor_Integration extends TestCase {
 	 * @param bool   $accept  Whether the transport accepts the message.
 	 * @param string $failure Error message reported through wp_mail_failed.
 	 */
-	private function transport( bool $accept, string $failure = 'SMTP unavailable' ): void {
-		$this->transport = function ( $short_circuit, $atts ) use ( $accept, $failure ) {
+	private function transport( bool $accept, string $failure = 'SMTP unavailable', int $delay_us = 0 ): void {
+		$this->transport = function ( $short_circuit, $atts ) use ( $accept, $failure, $delay_us ) {
 			$to           = is_array( $atts['to'] ) ? (string) reset( $atts['to'] ) : (string) $atts['to'];
 			$this->sent[] = $to;
+			if ( $delay_us > 0 ) {
+				usleep( $delay_us ); // Makes the wall-clock budget deterministic.
+			}
 			if ( $accept ) {
 				return true;
 			}
@@ -392,20 +399,23 @@ final class Test_ANPA_Socios_Email_Processor_Integration extends TestCase {
 	}
 
 	public function test_the_time_budget_gives_unprocessed_rows_straight_back(): void {
-		$this->transport( true );
-		$res = $this->enqueue( 4, 'run-budget' );
+		// A deliberate 200 ms per send against a 1 s budget: the run provably stops
+		// partway through 10 recipients instead of depending on machine speed.
+		$this->transport( true, 'SMTP unavailable', 200000 );
+		$res = $this->enqueue( 10, 'run-budget' );
 
-		// A budget of 1 second is spent by the first delivery's own clock check, so
-		// the run stops early and must not keep the rest leased.
 		$out = ANPA_Socios_Email_Processor::run(
 			array(
-				'campaign_id'  => $res['campaign_id'],
-				'max_seconds'  => 1,
+				'campaign_id' => $res['campaign_id'],
+				'max_seconds' => 1,
 			)
 		);
 
 		$this->assertTrue( $out['ok'] );
+		$this->assertSame( 'time_budget', $out['code'], 'the run must stop on its budget, not on an empty queue' );
 		$this->assertGreaterThanOrEqual( 1, $out['accepted'] );
+		$this->assertLessThan( 10, $out['accepted'], 'it must NOT have processed the whole batch' );
+		$this->assertGreaterThan( 0, $out['released'], 'the untouched rows are handed back' );
 
 		foreach ( $this->recipients_of( $res['campaign_id'] ) as $row ) {
 			if ( ANPA_Socios_Email_Recipient_State::ACCEPTED === $row['state'] ) {
@@ -431,6 +441,8 @@ final class Test_ANPA_Socios_Email_Processor_Integration extends TestCase {
 
 		$stamp = (string) get_option( ANPA_Socios_Email_Processor::LAST_RUN_OPTION, '' );
 		$this->assertNotEmpty( $stamp );
-		$this->assertLessThan( 120, abs( time() - (int) strtotime( $stamp . ' UTC' ) ), 'the stamp is UTC' );
+		// Tight on purpose: a correct UTC stamp is seconds away from wall clock, so
+		// even a small timezone mistake fails instead of slipping through.
+		$this->assertLessThan( 10, abs( time() - (int) strtotime( $stamp . ' UTC' ) ), 'the stamp is UTC' );
 	}
 }

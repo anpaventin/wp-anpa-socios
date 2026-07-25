@@ -117,8 +117,10 @@ Mentres non haxa cron real, sempre se pode usar **Procesar agora** a man.
 ### Cada canto se procesa
 
 Por defecto, cada **5 minutos**. Non se cambia desde a interface a propósito (un
-intervalo demasiado curto castiga o servidor). Un/unha desenvolvedor/a pode axustalo
-entre 60 e 3600 segundos:
+intervalo demasiado curto castiga o servidor).
+
+O seguinte só se pode aplicar tocando código: pídeo a quen manteña a web. Entre 60 e
+3600 segundos:
 
 ```php
 add_filter( 'anpa_socios_email_cron_interval', fn() => 600 ); // 10 minutos

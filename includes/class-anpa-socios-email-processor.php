@@ -324,8 +324,14 @@ final class ANPA_Socios_Email_Processor {
 
 	/**
 	 * Acquires the coarse overlap lock. add_option() only succeeds when the option
-	 * does not exist, which makes acquisition atomic. A stale lock (crashed run) is
+	 * does not exist, which makes ACQUISITION atomic. A stale lock (crashed run) is
 	 * taken over after LOCK_TTL.
+	 *
+	 * The stale takeover is deliberately NOT atomic: two runs racing on an expired
+	 * lock can both take it. That is acceptable because this lock is only an
+	 * optimisation to avoid redundant work — the correctness guarantee is the
+	 * row-level lease in claim_batch(), which no two runs can hold for the same
+	 * recipient. Do not rely on this lock for mutual exclusion.
 	 *
 	 * @since  1.39.0
 	 * @return bool
