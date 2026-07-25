@@ -446,8 +446,8 @@ final class ANPA_Socios_Email_Queue_Repo {
 	}
 
 	/**
-	 * Releases recipients whose lease expired while `processing` (an interrupted
-	 * worker) back to `pending` so they can be claimed again.
+	 * Lists recipients whose lease expired while `processing` (an interrupted
+	 * worker), so the caller can audit them before they are released.
 	 *
 	 * Because wp_mail() gives no idempotent send id, a crash AFTER the transport
 	 * accepted the message but BEFORE the result was stored is indistinguishable
@@ -455,7 +455,41 @@ final class ANPA_Socios_Email_Queue_Repo {
 	 * category by the processor: the model is at-least-once, never exactly-once.
 	 *
 	 * @since  1.39.0
-	 * @return int Number of recovered rows.
+	 * @param  int $limit Maximum rows to inspect (clamped to 200).
+	 * @return array<int,array<string,mixed>>
+	 */
+	public static function find_orphans( int $limit = 100 ): array {
+		global $wpdb;
+		$table = ANPA_Socios_DB::tabela_email_recipients();
+		$limit = max( 1, min( 200, $limit ) );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared -- read-only; values bound.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$table}
+				  WHERE state = %s
+				    AND locked_until_utc IS NOT NULL
+				    AND locked_until_utc < UTC_TIMESTAMP()
+				  ORDER BY id
+				  LIMIT {$limit}",
+				ANPA_Socios_Email_Recipient_State::PROCESSING
+			),
+			ARRAY_A
+		);
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Releases recipients whose lease expired (interrupted worker) back to pending.
+	 *
+	 * The interrupted attempt is CONSUMED (attempts + 1): the transport may already
+	 * have accepted the message, so an unbounded free retry would risk an unbounded
+	 * number of duplicates. The caller records an `uncertain` attempt first (see
+	 * ANPA_Socios_Email_Processor) so the ambiguity is auditable.
+	 *
+	 * @since  1.39.0
+	 * @return int Rows recovered.
 	 */
 	public static function recover_orphans(): int {
 		global $wpdb;
@@ -466,6 +500,8 @@ final class ANPA_Socios_Email_Queue_Repo {
 			$wpdb->prepare(
 				"UPDATE {$table}
 				    SET state = %s,
+				        attempts = attempts + 1,
+				        last_attempt_at_utc = UTC_TIMESTAMP(),
 				        lease_token = '',
 				        locked_at_utc = NULL,
 				        locked_until_utc = NULL,
@@ -474,6 +510,45 @@ final class ANPA_Socios_Email_Queue_Repo {
 				    AND locked_until_utc IS NOT NULL
 				    AND locked_until_utc < UTC_TIMESTAMP()",
 				ANPA_Socios_Email_Recipient_State::PENDING,
+				ANPA_Socios_Email_Recipient_State::PROCESSING
+			)
+		);
+
+		return is_numeric( $done ) ? (int) $done : 0;
+	}
+
+	/**
+	 * Releases rows still held by this lease back to `pending` WITHOUT consuming an
+	 * attempt: they were claimed but never sent (the run ran out of time budget), so
+	 * the next run must be able to pick them up immediately.
+	 *
+	 * Only rows still `processing` under this exact lease are touched, so a result
+	 * already written by this run is never undone.
+	 *
+	 * @since  1.39.0
+	 * @param  string $lease Lease token owned by the caller.
+	 * @return int Rows released.
+	 */
+	public static function release_unprocessed( string $lease ): int {
+		global $wpdb;
+		$table = ANPA_Socios_DB::tabela_email_recipients();
+
+		if ( '' === $lease ) {
+			return 0;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- values bound.
+		$done = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$table}
+				    SET state = %s,
+				        lease_token = '',
+				        locked_at_utc = NULL,
+				        locked_until_utc = NULL,
+				        updated_at_utc = UTC_TIMESTAMP()
+				  WHERE lease_token = %s AND state = %s",
+				ANPA_Socios_Email_Recipient_State::PENDING,
+				$lease,
 				ANPA_Socios_Email_Recipient_State::PROCESSING
 			)
 		);
