@@ -110,6 +110,7 @@
       <file>tests/Test_ANPA_Socios_Email_Template_Events.php</file>
       <file>tests/Test_ANPA_Socios_Email_Template_Defaults.php</file>
       <file>tests/Test_ANPA_Socios_Email_Template_Context.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Template_Editorial.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

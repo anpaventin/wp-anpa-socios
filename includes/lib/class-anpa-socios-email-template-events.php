@@ -226,6 +226,26 @@ final class ANPA_Socios_Email_Template_Events {
 				'example'     => '15/10/2026',
 				'type'        => $date,
 			),
+			'data_limite'             => array(
+				'label'       => 'Data límite',
+				'description' => 'Data na que remata o prazo para responder ou actuar.',
+				'example'     => '20/10/2026',
+				'type'        => $date,
+			),
+
+			// ── Recordatorios e incidencias ────────────────────────────
+			'accion_pendente'         => array(
+				'label'       => 'Acción pendente',
+				'description' => 'Que ten que facer a familia, escrito polo emisor. É obrigatoria: un recordatorio que non di que se espera é un correo que se ignora.',
+				'example'     => 'Confirmar a praza de Antía Exemplo en Robótica.',
+				'type'        => $multiline,
+			),
+			'motivo_erro'             => array(
+				'label'       => 'Motivo do erro',
+				'description' => 'Descrición do fallo, redactada sen datos persoais nin credenciais.',
+				'example'     => 'O servidor de correo rexeitou o enderezo da empresa.',
+				'type'        => $multiline,
+			),
 
 			// ── Empresas ───────────────────────────────────────────────
 			'nome_empresa'            => array(
@@ -625,6 +645,24 @@ final class ANPA_Socios_Email_Template_Events {
 					'ligazon_cancelacion'  => false,
 				),
 			),
+			// Added 2026-07-26 after the I8 coverage analysis: a reminder is a SECOND send whose
+			// point is that time is running out. Reusing the offer template would send the same
+			// message twice, which is how a reminder teaches people to ignore it.
+			array(
+				'event_key'    => 'waitlist_place_offer_reminder',
+				'display_name' => 'A oferta de praza está a piques de caducar',
+				'description'  => 'Recorda que o prazo para confirmar unha praza ofrecida está a piques de rematar.',
+				'category'     => $activities,
+				'audience'     => $family,
+				'phase'        => $f39,
+				'variables'    => array(
+					'nome_alumno'          => true,
+					'nome_actividade'      => true,
+					'data_limite'          => true,
+					'ligazon_confirmacion' => false,
+					'ligazon_cancelacion'  => false,
+				),
+			),
 			array(
 				'event_key'    => 'waitlist_place_accepted',
 				'display_name' => 'Confirmaches a praza',
@@ -717,6 +755,55 @@ final class ANPA_Socios_Email_Template_Events {
 					'data_efectiva'   => false,
 				),
 			),
+			// ── Incidencias de notificación a empresas (I8) ────────────
+			// Two events, not one with a conditional: the success notice needs no action, the
+			// failure notice requires one, and a shared subject line would hide the failures
+			// among the successes in an inbox.
+			array(
+				'event_key'    => 'company_notification_succeeded',
+				'display_name' => 'Empresa notificada correctamente',
+				'description'  => 'Confirma á xunta que o aviso á empresa foi aceptado polo sistema de correo. Aceptado non significa entregado.',
+				'category'     => $companies,
+				'audience'     => $board,
+				'phase'        => $f37,
+				'variables'    => array(
+					'nome_empresa'    => true,
+					'nome_actividade' => true,
+					'nome_grupo'      => false,
+					'curso_escolar'   => false,
+				),
+			),
+			array(
+				'event_key'    => 'company_notification_failed',
+				'display_name' => 'Fallo ao notificar a empresa',
+				'description'  => 'Avisa a xunta de que o aviso á empresa non saíu e require unha acción: reintentar, revisar o enderezo ou avisar por outra vía.',
+				'category'     => $companies,
+				'audience'     => $board,
+				'phase'        => $f37,
+				'variables'    => array(
+					'nome_empresa'    => true,
+					'nome_actividade' => true,
+					'motivo_erro'     => true,
+					'ligazon_axustes' => false,
+				),
+			),
+
+			// Generic on purpose: one reminder template per flow would be a dozen near-identical
+			// templates. The declared variables force the emitter to say what is pending and by
+			// when, so "generic" does not become "vague".
+			array(
+				'event_key'    => 'pending_action_reminder',
+				'display_name' => 'Tes unha acción pendente',
+				'description'  => 'Recorda á familia que hai algo esperando pola súa resposta. Non anuncia un cambio: anuncia que non houbo ningún.',
+				'category'     => $system,
+				'audience'     => $family,
+				'phase'        => $f39,
+				'variables'    => array(
+					'accion_pendente' => true,
+					'data_limite'     => false,
+				),
+			),
+
 			array(
 				'event_key'    => 'email_campaign_summary_admin',
 				'display_name' => 'Resumo dun envío masivo',
