@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="gl">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+<h2>Rematou o envío: {{nome_campana}}</h2>
+<p>Finalizou o procesamento da campaña <strong>{{nome_campana}}</strong>.</p>
+{{#resumo_envio}}<h3>Resultado</h3><p style="white-space: pre-line">{{resumo_envio}}</p>{{/}}
+<p><strong>Como ler estas cifras:</strong> «aceptados» quere dicir que o sistema de correo local admitiu a mensaxe para envialo. Non é unha confirmación de entrega nin de lectura.</p>
+{{#ligazon_campana}}<p>Consultar os detalles:<br><a href="{{ligazon_campana}}">{{ligazon_campana}}</a></p>{{/}}
+<p>Revisa os fallos antes de iniciar outro envío: repetir unha campaña sen corrixir os enderezos que fallaron volve producir os mesmos fallos.</p>
+<p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso interno da aplicación.</p>
+{{#sinatura}}<hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">{{sinatura}}</p>{{/}}
+</body>
+</html>

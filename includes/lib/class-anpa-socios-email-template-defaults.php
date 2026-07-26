@@ -98,6 +98,13 @@ final class ANPA_Socios_Email_Template_Defaults {
 		'company_group_confirmed'             => 1,
 		'company_notification_accepted_admin_notice' => 1,
 		'company_notification_failed_admin_notice'   => 1,
+		// Trimestres e campañas.
+		'term_end_admin_notice'               => 1,
+		'next_term_enrollment_open'           => 1,
+		'extracurricular_year_thanks'         => 1,
+		// Sistema e administración.
+		'pending_action_reminder'             => 1,
+		'email_campaign_summary_admin'        => 1,
 	);
 
 	/**

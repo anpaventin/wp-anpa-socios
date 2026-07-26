@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="gl">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+<h2>Toca revisar o trimestre {{trimestre_actual}}</h2>
+<p>Chegou a data operativa configurada para o peche do trimestre <strong>{{trimestre_actual}}</strong> do curso <strong>{{curso_escolar}}</strong>.</p>
+<p>Xa se poden revisar:</p>
+<ul>
+<li>solicitudes de baixa;</li>
+<li>prazas dispoñibles;</li>
+<li>listas de agarda;</li>
+<li>novas solicitudes;</li>
+<li>grupos pendentes de decisión;</li>
+<li>comunicacións ás familias.</li>
+</ul>
+<p>O cambio de trimestre non queda finalizado ata completar ese proceso: esta data só abre a revisión, non a fai.</p>
+{{#ligazon_axustes}}<p>Abrir a xestión:<br><a href="{{ligazon_axustes}}">{{ligazon_axustes}}</a></p>{{/}}
+<p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso interno da aplicación.</p>
+{{#sinatura}}<hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">{{sinatura}}</p>{{/}}
+</body>
+</html>

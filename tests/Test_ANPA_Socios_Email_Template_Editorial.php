@@ -189,7 +189,11 @@ final class Test_ANPA_Socios_Email_Template_Editorial extends TestCase {
 			$this->assertMatchesRegularExpression( '/^[a-z0-9-]+:[0-9a-f]{64}$/', $hashes[ $channel ] );
 		}
 
-		$unshipped = ANPA_Socios_Email_Template_Defaults::part_hashes( 'pending_action_reminder' );
+		// The complementary property: no files, no hash. It used to be demonstrated with a real
+		// event that had no wording yet; every declared event now ships one, so the stand-in has to
+		// be a stem that will never exist. Asserting it with a real key would have quietly become a
+		// test of nothing the moment the catalogue was completed.
+		$unshipped = ANPA_Socios_Email_Template_Defaults::part_hashes( 'evento_que_non_existe' );
 		foreach ( ANPA_Socios_Email_Template_Editorial::channels() as $channel ) {
 			$this->assertSame( '', $unshipped[ $channel ], 'an unshipped default has no content hash' );
 		}

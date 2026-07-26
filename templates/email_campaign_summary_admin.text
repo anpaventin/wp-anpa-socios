@@ -1,0 +1,19 @@
+Rematou o envío: {{nome_campana}}
+
+Finalizou o procesamento da campaña {{nome_campana}}.
+{{#resumo_envio}}
+Resultado:
+
+{{resumo_envio}}
+{{/}}
+Como ler estas cifras: «aceptados» quere dicir que o sistema de correo local admitiu a mensaxe para envialo. Non é unha confirmación de entrega nin de lectura.
+{{#ligazon_campana}}
+Consultar os detalles:
+{{ligazon_campana}}
+{{/}}
+Revisa os fallos antes de iniciar outro envío: repetir unha campaña sen corrixir os enderezos que fallaron volve producir os mesmos fallos.
+
+Aviso interno da aplicación.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

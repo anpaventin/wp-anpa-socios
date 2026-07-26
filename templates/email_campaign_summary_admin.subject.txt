@@ -1,0 +1,1 @@
+Resumo do envío: {{nome_campana}}
