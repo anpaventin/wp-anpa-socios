@@ -131,6 +131,85 @@ final class Test_ANPA_Socios_Email_Template_Context extends TestCase {
 		$this->assertStringNotContainsString( ANPA_Socios_Email_Template_Context::FLAG, $rendered['body_html'] );
 	}
 
+	// ── Structured data: built in the context, never by an emitter ──────
+
+	public function test_the_activity_list_is_plain_text_with_one_activity_per_line(): void {
+		$list = ANPA_Socios_Email_Template_Context::activity_list(
+			array(
+				array( 'nome' => 'Robótica', 'horario' => 'martes e xoves, 16:30 a 17:30' ),
+				array( 'nome' => 'Xadrez' ),
+			)
+		);
+
+		$this->assertSame( "Robótica — martes e xoves, 16:30 a 17:30\nXadrez", $list );
+	}
+
+	public function test_the_activity_list_carries_no_markup(): void {
+		// The renderer escapes every value in the HTML channel, so a token carrying <ul> would
+		// reach the family as literal tags. That is a feature: no emitter can inject markup.
+		// Presentation lives in the template, which wraps this in white-space: pre-line.
+		$list = ANPA_Socios_Email_Template_Context::activity_list(
+			array( array( 'nome' => 'Robótica & Xadrez', 'horario' => '<b>16:30</b>' ) )
+		);
+
+		$this->assertStringNotContainsString( '<ul>', $list );
+		$this->assertStringNotContainsString( '<li>', $list );
+		// The input is passed through as data; escaping is the renderer's job, not this one's.
+		$this->assertSame( 'Robótica & Xadrez — <b>16:30</b>', $list );
+
+		$rendered = ANPA_Socios_Email_Template_Renderer::render(
+			array(
+				'subject'   => 'Actividades',
+				'body_html' => '<p style="white-space:pre-line">{{listado_actividades}}</p>',
+				'body_text' => '{{listado_actividades}}',
+			),
+			array( 'listado_actividades' => $list ),
+			array( 'listado_actividades' => array() )
+		);
+
+		$this->assertTrue( $rendered['ok'] );
+		$this->assertStringContainsString( '&lt;b&gt;16:30&lt;/b&gt;', $rendered['body_html'] );
+		$this->assertStringNotContainsString( '<b>', $rendered['body_html'] );
+	}
+
+	public function test_an_unnamed_activity_is_dropped_rather_than_rendered_as_a_gap(): void {
+		$this->assertSame(
+			'Robótica',
+			ANPA_Socios_Email_Template_Context::activity_list(
+				array( array( 'nome' => '  ' ), array( 'nome' => 'Robótica' ) )
+			)
+		);
+	}
+
+	public function test_state_labels_come_from_a_validated_identifier(): void {
+		$this->assertSame(
+			'Confirmado excepcionalmente baixo mínimo',
+			ANPA_Socios_Email_Template_Context::group_state_label( 'confirmado_baixo_minimo' )
+		);
+		$this->assertSame(
+			'Lista de espera para o seguinte trimestre',
+			ANPA_Socios_Email_Template_Context::enrollment_state_label( 'espera_seguinte_trimestre' )
+		);
+	}
+
+	public function test_a_free_text_state_is_refused(): void {
+		// In a web flow this text could come from a request. A state label reaching a family must
+		// never be arbitrary input.
+		$this->expectException( ANPA_Socios_Email_Template_Registry_Error::class );
+		$this->expectExceptionMessage( 'never be free text' );
+
+		ANPA_Socios_Email_Template_Context::group_state_label( 'Confirmado <script>alert(1)</script>' );
+	}
+
+	public function test_every_declared_state_has_a_label(): void {
+		foreach ( ANPA_Socios_Email_Template_Context::group_states() as $state ) {
+			$this->assertNotSame( '', ANPA_Socios_Email_Template_Context::group_state_label( $state ) );
+		}
+		foreach ( ANPA_Socios_Email_Template_Context::enrollment_states() as $state ) {
+			$this->assertNotSame( '', ANPA_Socios_Email_Template_Context::enrollment_state_label( $state ) );
+		}
+	}
+
 	public function test_the_context_helper_does_not_touch_wordpress(): void {
 		$src = (string) file_get_contents( dirname( __DIR__ ) . '/includes/lib/class-anpa-socios-email-template-context.php' );
 

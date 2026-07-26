@@ -305,6 +305,25 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 		);
 	}
 
+	public function test_adding_a_variable_to_an_event_moves_the_fingerprint(): void {
+		// The other half of the dictionary rule: an unused entry changes nothing, but declaring
+		// it on an event changes the observable contract and must be visible.
+		$base = $this->build()->fingerprint();
+
+		$extended = $this->build(
+			array( $this->event( array( 'variables' => array( 'nome_actividade' => true, 'ligazon_enquisa' => false ) ) ) )
+		);
+
+		$this->assertNotSame( $base, $extended->fingerprint() );
+	}
+
+	public function test_changing_whether_a_variable_is_required_moves_the_fingerprint(): void {
+		$required = $this->build( array( $this->event( array( 'variables' => array( 'nome_actividade' => true ) ) ) ) );
+		$optional = $this->build( array( $this->event( array( 'variables' => array( 'nome_actividade' => false ) ) ) ) );
+
+		$this->assertNotSame( $required->fingerprint(), $optional->fingerprint() );
+	}
+
 	public function test_reordering_the_declarations_moves_the_fingerprint(): void {
 		// Order is part of the input, not sorted away: the order events are declared in is
 		// the order the editor shows them in, so a reorder is a real change.
