@@ -34,6 +34,14 @@ final class ANPA_Socios_Email_Template_Context {
 	const FLAG = '1';
 
 	/**
+	 * Upper bound on the activity list.
+	 *
+	 * Not a style rule: past this, the caller has passed the wrong scope — every activity of
+	 * every course instead of one course — and the email would be unreadable either way.
+	 */
+	const MAX_ACTIVITY_LINES = 60;
+
+	/**
 	 * Builds the mutually exclusive members'-area pair.
 	 *
 	 * @since  1.40.0
@@ -97,23 +105,144 @@ final class ANPA_Socios_Email_Template_Context {
 	 * Built here so no emitter ever concatenates a list by hand.
 	 *
 	 * @since  1.40.0
-	 * @param  array<int,array<string,string>> $activities Each with `nome` and optionally `horario`.
-	 * @return string One line per activity, empty when there are none.
+	 * ORDER IS THE CALLER'S. The list is preserved exactly as received, because the order a
+	 * family reads is a product decision, not a side effect of a query. The emitter must supply
+	 * a deterministic order — an SQL query with no `ORDER BY` is not one.
+	 *
+	 * An EMPTY list is refused rather than rendered. An enrollment-opening email whose activity
+	 * block is blank is worse than no email: it announces an opening and then shows nothing.
+	 *
+	 * @since  1.40.0
+	 * @param  array<int,array<string,string>> $activities Each with `nome` and optionally `horario`,
+	 *                                                    in the order the reader should see.
+	 * @return string One line per activity.
+	 * @throws ANPA_Socios_Email_Template_Registry_Error When the list is empty or implausibly long.
 	 */
 	public static function activity_list( array $activities ): string {
 		$lines = array();
 
 		foreach ( $activities as $activity ) {
-			$name = trim( (string) ( $activity['nome'] ?? '' ) );
+			$name = self::single_line( (string) ( $activity['nome'] ?? '' ) );
 			if ( '' === $name ) {
 				continue; // An unnamed activity is a data bug, not a line reading "—".
 			}
 
-			$schedule = trim( (string) ( $activity['horario'] ?? '' ) );
+			$schedule = self::single_line( (string) ( $activity['horario'] ?? '' ) );
 			$lines[]  = '' === $schedule ? $name : $name . ' — ' . $schedule;
 		}
 
+		if ( array() === $lines ) {
+			throw new ANPA_Socios_Email_Template_Registry_Error(
+				'the activity list is empty; do not announce an opening with nothing to show'
+			);
+		}
+		if ( count( $lines ) > self::MAX_ACTIVITY_LINES ) {
+			// Not a style rule: a list this long means the caller passed the wrong scope, and the
+			// email would be unreadable either way.
+			throw new ANPA_Socios_Email_Template_Registry_Error(
+				sprintf( 'the activity list has %d entries, more than the %d allowed', count( $lines ), self::MAX_ACTIVITY_LINES )
+			);
+		}
+
 		return implode( "\n", $lines );
+	}
+
+	/**
+	 * Collapses any value that must occupy exactly one line of a list.
+	 *
+	 * CRLF included: a schedule pasted from a spreadsheet arrives with `\r\n`, and a stray
+	 * newline inside an entry would silently turn one activity into two.
+	 *
+	 * @since  1.40.0
+	 * @param  string $value Raw value.
+	 * @return string
+	 */
+	private static function single_line( string $value ): string {
+		$value = str_replace( array( "\r\n", "\r", "\n", "\t" ), ' ', $value );
+
+		return trim( (string) preg_replace( '/ {2,}/', ' ', $value ) );
+	}
+
+	/**
+	 * Canonical date in, human date out.
+	 *
+	 * One policy, in one place. Without it each emitter decides between `1/9/2026`,
+	 * `01-09-2026` and `1 de setembro`, and the same family gets three formats from the same
+	 * association.
+	 *
+	 *   - input: canonical `YYYY-MM-DD`, already resolved to the site's timezone by the
+	 *     integration layer. This class stays free of WordPress, so it does not resolve
+	 *     timezones itself — it refuses anything that is not already canonical.
+	 *   - output: `dd/mm/YYYY`, the form used in Galician administrative writing.
+	 *   - absent: an empty string, so the template's optional block removes the paragraph
+	 *     instead of printing a date-shaped gap.
+	 *
+	 * @since  1.40.0
+	 * @param  string $iso_date Canonical `YYYY-MM-DD`, or empty.
+	 * @return string Presentation date, or empty.
+	 * @throws ANPA_Socios_Email_Template_Registry_Error When the value is neither empty nor canonical.
+	 */
+	public static function format_date( string $iso_date ): string {
+		$iso_date = trim( $iso_date );
+		if ( '' === $iso_date ) {
+			return '';
+		}
+
+		if ( 1 !== preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $iso_date, $m ) ) {
+			throw new ANPA_Socios_Email_Template_Registry_Error(
+				"date '{$iso_date}' is not canonical YYYY-MM-DD; the emitter must not choose a format"
+			);
+		}
+
+		if ( ! checkdate( (int) $m[2], (int) $m[3], (int) $m[1] ) ) {
+			throw new ANPA_Socios_Email_Template_Registry_Error( "date '{$iso_date}' does not exist" );
+		}
+
+		return $m[3] . '/' . $m[2] . '/' . $m[1];
+	}
+
+	/**
+	 * Human description of a pending action.
+	 *
+	 * `pending_action_reminder` is generic by design, and this is what keeps generic from
+	 * becoming arbitrary: the emitter supplies one of a controlled set of action types, not a
+	 * free sentence. A reminder whose body is emitter-supplied prose is a reminder nobody can
+	 * review, translate or keep consistent.
+	 *
+	 * The set covers the actions already on the roadmap. A new flow adds an entry here
+	 * deliberately; it cannot pass a sentence through.
+	 *
+	 * @since  1.40.0
+	 * @param  string $action_type Controlled action type.
+	 * @return string Galician description.
+	 * @throws ANPA_Socios_Email_Template_Registry_Error On an unknown type.
+	 */
+	public static function pending_action_label( string $action_type ): string {
+		$labels = array(
+			'confirmar_praza'          => 'Confirmar unha praza ofrecida nunha actividade extraescolar.',
+			'responder_oferta'         => 'Responder a unha oferta de praza: aceptala ou renunciar a ela.',
+			'corrixir_solicitude_alta' => 'Corrixir ou completar os datos da solicitude de alta como socio/a.',
+			'confirmar_datos_familia'  => 'Revisar e confirmar os datos da unidade familiar.',
+			'completar_matricula'      => 'Completar os datos que faltan nunha solicitude de matrícula.',
+			'revisar_baixa'            => 'Revisar unha solicitude de baixa pendente de confirmación.',
+		);
+
+		return self::label( $labels, $action_type, 'pending action' );
+	}
+
+	/**
+	 * @since  1.40.0
+	 * @return string[] Valid pending-action types.
+	 */
+	public static function pending_action_types(): array {
+		return array(
+			'confirmar_praza',
+			'responder_oferta',
+			'corrixir_solicitude_alta',
+			'confirmar_datos_familia',
+			'completar_matricula',
+			'revisar_baixa',
+		);
 	}
 
 	/**
