@@ -23,10 +23,24 @@ declare(strict_types=1);
 
 final class ANPA_Socios_Email_Template_Set implements Countable {
 
+	/**
+	 * Identifier of the fingerprinting scheme, not just of the hash function.
+	 *
+	 * A fingerprint does not only identify the content; it also identifies HOW the
+	 * content was reduced to a digest. The day the canonical serialisation changes —
+	 * a renamed field in `to_array()`, different JSON flags, a switch to sorted keys —
+	 * every digest moves although not one declaration changed. Without this prefix that
+	 * looks like two installations running incompatible registries. With it, the mismatch
+	 * is legible at a glance: different scheme, not different templates.
+	 *
+	 * Bump this whenever the serialisation changes, never when a template changes.
+	 */
+	const FINGERPRINT_SCHEME = 'canonical-json-v1';
+
 	/** @var array<string,ANPA_Socios_Email_Template_Definition> Event key => definition. */
 	private array $definitions;
 
-	/** @var string SHA-256 over the canonical serialisation of every declaration. */
+	/** @var string Scheme-qualified fingerprint, e.g. `canonical-json-v1:ab12…`. */
 	private string $fingerprint;
 
 	/**
@@ -117,8 +131,11 @@ final class ANPA_Socios_Email_Template_Set implements Countable {
 	 * oracle and the registry describe exactly the same set of live emails, in both
 	 * directions — a far more durable claim than counting templates.
 	 *
-	 * @since  1.40.0
-	 * @return array<string,string> Legacy emitter => event key.
+	 * @internal MIGRATION-SCOPED. Exists only while the hardcoded engine and the template
+	 *           engine coexist; to be removed together with `ANPA_Socios_Email::enviar_*`
+	 *           and the `legacy_emitter` field. Not part of the permanent domain.
+	 * @since    1.40.0
+	 * @return   array<string,string> Legacy emitter => event key.
 	 */
 	public function legacy_emitters(): array {
 		$map = array();
@@ -133,11 +150,33 @@ final class ANPA_Socios_Email_Template_Set implements Countable {
 	}
 
 	/**
+	 * Scheme-qualified fingerprint of the whole declaration set.
+	 *
 	 * @since  1.40.0
-	 * @return string SHA-256 fingerprint of the whole declaration set.
+	 * @return string `<scheme>:<sha256>`.
 	 */
 	public function fingerprint(): string {
 		return $this->fingerprint;
+	}
+
+	/**
+	 * @since  1.40.0
+	 * @return string The digest alone, without the scheme prefix.
+	 */
+	public function fingerprint_digest(): string {
+		$parts = explode( ':', $this->fingerprint, 2 );
+
+		return $parts[1] ?? '';
+	}
+
+	/**
+	 * @since  1.40.0
+	 * @return string The scheme this set's fingerprint was computed with.
+	 */
+	public function fingerprint_scheme(): string {
+		$parts = explode( ':', $this->fingerprint, 2 );
+
+		return $parts[0];
 	}
 
 	/**
@@ -153,12 +192,14 @@ final class ANPA_Socios_Email_Template_Set implements Countable {
 	 * @return string
 	 */
 	private static function compute_fingerprint( array $definitions ): string {
-		$canonical = array();
+		// The scheme is hashed in as well as prefixed, so two schemes can never produce
+		// the same digest for inputs that mean different things.
+		$canonical = array( self::FINGERPRINT_SCHEME );
 		foreach ( $definitions as $key => $definition ) {
 			$canonical[] = array( (string) $key, $definition->to_array() );
 		}
 
-		return hash( 'sha256', self::encode( $canonical ) );
+		return self::FINGERPRINT_SCHEME . ':' . hash( 'sha256', self::encode( $canonical ) );
 	}
 
 	/**

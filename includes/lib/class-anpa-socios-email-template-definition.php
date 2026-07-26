@@ -70,10 +70,20 @@ final class ANPA_Socios_Email_Template_Definition {
 	private string $default_template;
 
 	/**
-	 * @var string The pre-fase36 emitter this event replaces, e.g. `enviar_aprobacion`
-	 *             or `enviar_codigo_alta`. Also the stem of its golden file, which is
-	 *             what lets a test prove the oracle and the registry describe the same
-	 *             set of live emails. Empty for events whose emitter is not live yet.
+	 * The pre-fase36 emitter this event replaces, e.g. `enviar_aprobacion` or
+	 * `enviar_codigo_alta`. Also the stem of its golden file, which is what lets a test
+	 * prove the oracle and the registry describe the same set of live emails. Empty for
+	 * events whose emitter is not live yet.
+	 *
+	 * @internal MIGRATION FIELD, NOT DOMAIN. It exists only while the hardcoded engine
+	 *           and the template engine coexist. Once every send goes through the
+	 *           registry and `ANPA_Socios_Email::enviar_*` no longer exists, this field,
+	 *           its validation, its uniqueness check and `Set::legacy_emitters()` must be
+	 *           removed in a model migration. It is recorded here so that in three years
+	 *           nobody reads it as a permanent part of the domain and starts populating
+	 *           it for events that never had a legacy emitter.
+	 *
+	 * @var string
 	 */
 	private string $legacy_emitter;
 
@@ -164,7 +174,12 @@ final class ANPA_Socios_Email_Template_Definition {
 		return $this->default_template;
 	}
 
-	/** @since 1.40.0 @return string Empty when the emitter is not live yet. */
+	/**
+	 * @internal Migration-scoped; see the property docblock. Removed once
+	 *           `ANPA_Socios_Email::enviar_*` no longer exists.
+	 * @since    1.40.0
+	 * @return   string Empty when the emitter is not live yet.
+	 */
 	public function legacy_emitter(): string {
 		return $this->legacy_emitter;
 	}

@@ -225,7 +225,21 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 
 	public function test_the_fingerprint_is_stable_for_identical_declarations(): void {
 		$this->assertSame( $this->build()->fingerprint(), $this->build()->fingerprint() );
-		$this->assertMatchesRegularExpression( '/^[0-9a-f]{64}$/', $this->build()->fingerprint() );
+		$this->assertMatchesRegularExpression( '/^[a-z0-9-]+:[0-9a-f]{64}$/', $this->build()->fingerprint() );
+	}
+
+	public function test_the_fingerprint_names_the_scheme_that_produced_it(): void {
+		// A fingerprint identifies the content AND how the content was reduced to a digest.
+		// Without the scheme, changing the canonical serialisation would move every digest
+		// and look like two installations running incompatible registries.
+		$set = $this->build();
+
+		$this->assertSame( ANPA_Socios_Email_Template_Set::FINGERPRINT_SCHEME, $set->fingerprint_scheme() );
+		$this->assertSame(
+			$set->fingerprint_scheme() . ':' . $set->fingerprint_digest(),
+			$set->fingerprint()
+		);
+		$this->assertMatchesRegularExpression( '/^[0-9a-f]{64}$/', $set->fingerprint_digest() );
 	}
 
 	public function test_any_change_to_a_declaration_moves_the_fingerprint(): void {
@@ -296,6 +310,25 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 		);
 	}
 
+	public function test_legacy_emitter_is_marked_as_a_migration_field(): void {
+		// It is a migration artefact, not domain: it exists only while the hardcoded engine
+		// and the template engine coexist. Pinning the marker keeps the note from being
+		// silently deleted, which is how a temporary field becomes permanent.
+		foreach (
+			array(
+				'class-anpa-socios-email-template-definition.php',
+				'class-anpa-socios-email-template-set.php',
+			) as $file
+		) {
+			$src = (string) file_get_contents( dirname( __DIR__ ) . '/includes/lib/' . $file );
+			$this->assertMatchesRegularExpression(
+				'/@internal\s+MIGRATION/',
+				$src,
+				"{$file} must keep the migration-scope marker on legacy_emitter"
+			);
+		}
+	}
+
 	public function test_two_events_claiming_the_same_legacy_emitter_are_rejected(): void {
 		$this->assert_rejected(
 			'is claimed by both',
@@ -333,6 +366,49 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 		$this->assertTrue(
 			ANPA_Socios_Email_Template_Phase::from( ANPA_Socios_Email_Template_Phase::LIVE )->is_live()
 		);
+	}
+
+	public function test_the_phase_order_is_the_delivery_order_not_the_numeric_one(): void {
+		// The approved sequence is 34 → 35 → 36 → 38 → 39 → 37 → 41 → 40: fase38 owns the
+		// history and export tables that fase37 and fase39 write to from day one. Comparing
+		// phase numbers, or their identifiers as strings, would give the wrong answer here,
+		// which is precisely why the order lives in the type.
+		$f37 = ANPA_Socios_Email_Template_Phase::from( ANPA_Socios_Email_Template_Phase::FASE37 );
+		$f38 = ANPA_Socios_Email_Template_Phase::from( ANPA_Socios_Email_Template_Phase::FASE38 );
+		$f39 = ANPA_Socios_Email_Template_Phase::from( ANPA_Socios_Email_Template_Phase::FASE39 );
+		$f41 = ANPA_Socios_Email_Template_Phase::from( ANPA_Socios_Email_Template_Phase::FASE41 );
+
+		$this->assertTrue( $f38->comes_before( $f37 ), 'fase38 must ship before fase37' );
+		$this->assertTrue( $f38->comes_before( $f39 ), 'fase38 must ship before fase39' );
+		$this->assertTrue( $f37->is_after( $f39 ), 'fase37 ships after fase39, despite the numbers' );
+		$this->assertGreaterThan( $f37->position(), $f41->position() );
+
+		// A naive string or numeric comparison would disagree with the real order.
+		$this->assertTrue( 'fase37' < 'fase38', 'string order really is the opposite here' );
+	}
+
+	public function test_live_ships_before_every_planned_phase(): void {
+		$live = ANPA_Socios_Email_Template_Phase::from( ANPA_Socios_Email_Template_Phase::LIVE );
+
+		foreach ( ANPA_Socios_Email_Template_Phase::known() as $id ) {
+			if ( ANPA_Socios_Email_Template_Phase::LIVE === $id ) {
+				continue;
+			}
+			$this->assertTrue(
+				$live->comes_before( ANPA_Socios_Email_Template_Phase::from( $id ) ),
+				"already-shipped code must precede {$id}"
+			);
+		}
+	}
+
+	public function test_every_known_phase_has_a_distinct_position(): void {
+		$positions = array();
+		foreach ( ANPA_Socios_Email_Template_Phase::known() as $id ) {
+			$positions[] = ANPA_Socios_Email_Template_Phase::from( $id )->position();
+		}
+
+		$this->assertSame( array_unique( $positions ), $positions );
+		$this->assertSame( range( 0, count( $positions ) - 1 ), $positions );
 	}
 
 	public function test_there_is_no_stored_emitter_status(): void {
@@ -374,9 +450,20 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 
 	public function test_an_event_cannot_be_retired_by_the_phase_that_introduced_it(): void {
 		$this->assert_rejected(
-			'retired by the same phase that introduced it',
+			'does not ship after the phase that introduced it',
 			fn() => $this->build(
 				array( $this->event( array( 'retired_in' => ANPA_Socios_Email_Template_Phase::FASE39 ) ) )
+			)
+		);
+	}
+
+	public function test_an_event_cannot_be_retired_by_a_phase_that_ships_earlier(): void {
+		// fase38 ships BEFORE fase39, so retiring a fase39 event there is incoherent even
+		// though 38 < 39 would look fine to a numeric check.
+		$this->assert_rejected(
+			'does not ship after the phase that introduced it',
+			fn() => $this->build(
+				array( $this->event( array( 'retired_in' => ANPA_Socios_Email_Template_Phase::FASE38 ) ) )
 			)
 		);
 	}
