@@ -53,6 +53,15 @@ final class ANPA_Socios_Email_Template_Repo {
 	const REASON_RESTORE_VERSION = 'restore_version';
 
 	/**
+	 * @internal TESTABILITY SEAM. When true, the write is abandoned after the archive insert so a test
+	 * can prove the transaction rolls back instead of leaving an archived version with no matching
+	 * change. Production never sets it; a contract test asserts no caller outside the test suite does.
+	 *
+	 * @var bool
+	 */
+	public static $fail_after_archive = false;
+
+	/**
 	 * Single source of "now" for PHP-side writes.
 	 *
 	 * @since  1.40.0
@@ -262,12 +271,10 @@ final class ANPA_Socios_Email_Template_Repo {
 	): string {
 		global $wpdb;
 
-		$default = ANPA_Socios_Email_Template_Defaults::load( $key );
-		$hash    = ANPA_Socios_Email_Template_Defaults::content_hash(
-			$default['subject'],
-			$default['body_html'],
-			$default['body_text']
-		);
+		// The provenance is the TYPE. This is content that came from a versioned file, loaded by an
+		// object that cannot be constructed from a body, so writing it verbatim is justified by
+		// construction rather than by a flag somebody set.
+		$packaged = ANPA_Socios_Email_Template_Packaged_Default::for_event( $key );
 
 		$wpdb->last_error = '';
 		$inserted         = $wpdb->insert(
@@ -275,14 +282,14 @@ final class ANPA_Socios_Email_Template_Repo {
 			array(
 				'template_key'    => $key,
 				'event_type'      => $key,
-				'subject'         => $default['subject'],
-				'body_html'       => $default['body_html'],
-				'body_text'       => $default['body_text'],
+				'subject'         => $packaged->subject(),
+				'body_html'       => $packaged->body_html(),
+				'body_text'       => $packaged->body_text(),
 				'is_active'       => 1,
 				'is_customised'   => 0,
-				'default_version' => ANPA_Socios_Email_Template_Defaults::version( $key ),
-				'default_hash'    => $hash,
-				'content_hash'    => $hash,
+				'default_version' => $packaged->version(),
+				'default_hash'    => $packaged->hash(),
+				'content_hash'    => $packaged->hash(),
 				'created_at_utc'  => self::now_utc(),
 				'updated_by'      => $actor,
 			)
@@ -317,29 +324,20 @@ final class ANPA_Socios_Email_Template_Repo {
 	 * @param  array<string,string> $content Submitted content.
 	 * @return array<string,string> The default when it matches, an empty array otherwise.
 	 */
-	private static function shipped_default( string $key, array $content ): array {
-		if ( ! ANPA_Socios_Email_Template_Defaults::exists( $key ) ) {
-			return array();
+	private static function shipped_default(
+		string $key,
+		ANPA_Socios_Email_Template_Stored_Custom_Template $submitted
+	): ?ANPA_Socios_Email_Template_Packaged_Default {
+		if ( ! ANPA_Socios_Email_Template_Packaged_Default::available( $key ) ) {
+			return null;
 		}
 
-		$default   = ANPA_Socios_Email_Template_Defaults::load( $key );
-		$submitted = array(
-			'subject'   => (string) ( $content['subject'] ?? '' ),
-			'body_html' => str_replace( array( "\r\n", "\r" ), "\n", (string) ( $content['body_html'] ?? '' ) ),
-			'body_text' => str_replace( array( "\r\n", "\r" ), "\n", (string) ( $content['body_text'] ?? '' ) ),
-		);
+		$packaged = ANPA_Socios_Email_Template_Packaged_Default::for_event( $key );
 
-		foreach ( array( 'subject', 'body_html', 'body_text' ) as $channel ) {
-			if ( $submitted[ $channel ] !== $default[ $channel ] ) {
-				return array();
-			}
-		}
-
-		return array(
-			'subject'   => $default['subject'],
-			'body_html' => $default['body_html'],
-			'body_text' => $default['body_text'],
-		);
+		// The comparison decides nothing about trust: the bytes that get written come from the
+		// packaged object either way. The submitted content is only ever used to answer "did anything
+		// actually change?", never as a source for the verbatim path.
+		return $packaged->matches( $submitted ) ? $packaged : null;
 	}
 
 	/**
@@ -423,16 +421,20 @@ final class ANPA_Socios_Email_Template_Repo {
 	 * @param  string               $actor   Who saved, for the audit column.
 	 * @return array{ok:bool,code:string,message:string,changed:bool,customised:bool,undeclared:string[]}
 	 */
-	public static function save( string $key, array $content, string $actor = '' ): array {
-		global $wpdb;
+	public static function save( string $key, array $content, string $actor = '', string $expected_digest = '' ): array {
+		$submitted = ANPA_Socios_Email_Template_Stored_Custom_Template::from_request( $content );
+		$packaged  = self::shipped_default( $key, $submitted );
 
-		$clean = self::shipped_default( $key, $content );
-
-		if ( array() === $clean ) {
+		if ( null !== $packaged ) {
+			// The operator saved exactly the shipped text. The bytes written come from the packaged
+			// object, not from the request, so the verbatim path is reachable only with content the
+			// package itself produced.
+			$clean = $packaged->content();
+		} else {
 			$clean = array(
-				'subject'   => ANPA_Socios_Email_Template_Sanitizer::sanitize_subject( (string) ( $content['subject'] ?? '' ) ),
-				'body_html' => ANPA_Socios_Email_Template_Sanitizer::sanitize_html( (string) ( $content['body_html'] ?? '' ) ),
-				'body_text' => ANPA_Socios_Email_Template_Sanitizer::sanitize_text( (string) ( $content['body_text'] ?? '' ) ),
+				'subject'   => ANPA_Socios_Email_Template_Sanitizer::sanitize_subject( $submitted->subject() ),
+				'body_html' => ANPA_Socios_Email_Template_Sanitizer::sanitize_html( $submitted->body_html() ),
+				'body_text' => ANPA_Socios_Email_Template_Sanitizer::sanitize_text( $submitted->body_text() ),
 			);
 		}
 
@@ -451,6 +453,23 @@ final class ANPA_Socios_Email_Template_Repo {
 		$row = self::get( $key );
 		if ( null === $row ) {
 			return self::failure( 'not_found', "no stored template for '{$key}'; seed before saving" );
+		}
+
+		// OPTIMISTIC CONCURRENCY. Two board members can have the same template open. Last-writer-wins
+		// would discard the other's work with no trace and no warning; a lock would leave a template
+		// stuck the first time somebody closes a tab. So the caller may state the digest it was editing,
+		// and a save whose base has moved is refused with a conflict instead of overwriting silently.
+		// The parameter is optional so an unattended caller (seeding, adopting a default) is unaffected,
+		// and 36s4 will always pass it.
+		if ( '' !== $expected_digest && $expected_digest !== (string) $row['content_hash'] ) {
+			return array(
+				'ok'         => false,
+				'code'       => 'conflict',
+				'message'    => 'this template changed since it was opened; reload it and reapply the edit',
+				'changed'    => false,
+				'customised' => 1 === (int) $row['is_customised'],
+				'undeclared' => array(),
+			);
 		}
 
 		$hash = ANPA_Socios_Email_Template_Defaults::content_hash(
@@ -472,12 +491,12 @@ final class ANPA_Socios_Email_Template_Repo {
 			);
 		}
 
-		self::archive( $row, self::REASON_SAVE, $actor );
-
 		$customised = $hash !== (string) $row['default_hash'];
 
-		$updated = $wpdb->update(
-			ANPA_Socios_DB::tabela_email_templates(),
+		$error = self::transactional_write(
+			$row,
+			self::REASON_SAVE,
+			$actor,
 			array(
 				'subject'        => $clean['subject'],
 				'body_html'      => $clean['body_html'],
@@ -486,12 +505,11 @@ final class ANPA_Socios_Email_Template_Repo {
 				'is_customised'  => $customised ? 1 : 0,
 				'updated_at_utc' => self::now_utc(),
 				'updated_by'     => $actor,
-			),
-			array( 'id' => (int) $row['id'] )
+			)
 		);
 
-		if ( false === $updated ) {
-			return self::failure( 'db_error', 'the template could not be stored' );
+		if ( '' !== $error ) {
+			return self::failure( 'db_error', $error );
 		}
 
 		self::prune( (int) $row['id'] );
@@ -528,33 +546,29 @@ final class ANPA_Socios_Email_Template_Repo {
 			return self::failure( 'missing_default', "no shipped default for '{$key}'" );
 		}
 
-		$default = ANPA_Socios_Email_Template_Defaults::load( $key );
-		$hash    = ANPA_Socios_Email_Template_Defaults::content_hash(
-			$default['subject'],
-			$default['body_html'],
-			$default['body_text']
-		);
+		// Provenance by type again: the restored bytes come from the package, not from anything a
+		// request could have supplied, so they are written without sanitisation by construction.
+		$packaged = ANPA_Socios_Email_Template_Packaged_Default::for_event( $key );
 
-		self::archive( $row, self::REASON_RESTORE_DEFAULT, $actor );
-
-		$updated = $wpdb->update(
-			ANPA_Socios_DB::tabela_email_templates(),
+		$error = self::transactional_write(
+			$row,
+			self::REASON_RESTORE_DEFAULT,
+			$actor,
 			array(
-				'subject'         => $default['subject'],
-				'body_html'       => $default['body_html'],
-				'body_text'       => $default['body_text'],
-				'content_hash'    => $hash,
-				'default_hash'    => $hash,
-				'default_version' => ANPA_Socios_Email_Template_Defaults::version( $key ),
+				'subject'         => $packaged->subject(),
+				'body_html'       => $packaged->body_html(),
+				'body_text'       => $packaged->body_text(),
+				'content_hash'    => $packaged->hash(),
+				'default_hash'    => $packaged->hash(),
+				'default_version' => $packaged->version(),
 				'is_customised'   => 0,
 				'updated_at_utc'  => self::now_utc(),
 				'updated_by'      => $actor,
-			),
-			array( 'id' => (int) $row['id'] )
+			)
 		);
 
-		if ( false === $updated ) {
-			return self::failure( 'db_error', 'the default could not be restored' );
+		if ( '' !== $error ) {
+			return self::failure( 'db_error', $error );
 		}
 
 		self::prune( (int) $row['id'] );
@@ -595,14 +609,18 @@ final class ANPA_Socios_Email_Template_Repo {
 			return self::failure( 'not_found', "no stored template for '{$key}'" );
 		}
 
-		$content = array(
-			'subject'   => (string) $version['subject'],
-			'body_html' => (string) $version['body_html'],
-			'body_text' => (string) $version['body_text'],
+		// AN ARCHIVED VERSION IS NOT TRUSTED CONTENT. It was stored before today's rules existed, and
+		// treating stored bytes as safe because they are stored is how an old hole survives every
+		// future hardening. So it re-enters through the untrusted type and is sanitised again.
+		$archived = ANPA_Socios_Email_Template_Stored_Custom_Template::from_archived_version( $version );
+		$content  = array(
+			'subject'   => ANPA_Socios_Email_Template_Sanitizer::sanitize_subject( $archived->subject() ),
+			'body_html' => ANPA_Socios_Email_Template_Sanitizer::sanitize_html( $archived->body_html() ),
+			'body_text' => ANPA_Socios_Email_Template_Sanitizer::sanitize_text( $archived->body_text() ),
 		);
 
-		// An archived row was valid when it was stored, but the event's vocabulary may have changed
-		// since. Restoring blindly would put an unrenderable template live.
+		// It was valid when it was stored, but the event's vocabulary may have changed since.
+		// Restoring blindly would put an unrenderable template live.
 		$check = self::validate( $key, $content );
 		if ( ! $check['ok'] ) {
 			return array(
@@ -618,10 +636,10 @@ final class ANPA_Socios_Email_Template_Repo {
 		$hash       = ANPA_Socios_Email_Template_Defaults::content_hash( $content['subject'], $content['body_html'], $content['body_text'] );
 		$customised = $hash !== (string) $row['default_hash'];
 
-		self::archive( $row, self::REASON_RESTORE_VERSION, $actor );
-
-		$updated = $wpdb->update(
-			ANPA_Socios_DB::tabela_email_templates(),
+		$error = self::transactional_write(
+			$row,
+			self::REASON_RESTORE_VERSION,
+			$actor,
 			array(
 				'subject'        => $content['subject'],
 				'body_html'      => $content['body_html'],
@@ -630,12 +648,11 @@ final class ANPA_Socios_Email_Template_Repo {
 				'is_customised'  => $customised ? 1 : 0,
 				'updated_at_utc' => self::now_utc(),
 				'updated_by'     => $actor,
-			),
-			array( 'id' => (int) $row['id'] )
+			)
 		);
 
-		if ( false === $updated ) {
-			return self::failure( 'db_error', 'the version could not be restored' );
+		if ( '' !== $error ) {
+			return self::failure( 'db_error', $error );
 		}
 
 		self::prune( (int) $row['id'] );
@@ -687,6 +704,57 @@ final class ANPA_Socios_Email_Template_Repo {
 	 *
 	 * It stores the OLD state. Storing the new one would make the history a duplicate of the live
 	 * row and leave the version somebody wants back unrecorded.
+	 *
+	 * @param  array<string,mixed> $row    Row about to be overwritten.
+	 * @param  string              $reason One of the REASON_* constants.
+	 * @param  string              $actor  Who caused the change.
+	 * @return bool
+	 */
+	private static function transactional_write( array $row, string $reason, string $actor, array $columns ): string {
+		global $wpdb;
+
+		// ARCHIVE AND WRITE ARE ONE OPERATION. Running the two queries next to each other is not
+		// atomicity: a failure between them leaves either an archived version of a change that never
+		// happened, or a change with no way back. Both tables are InnoDB, so an explicit transaction
+		// is available and is used.
+		$wpdb->last_error = '';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared -- literal.
+		$wpdb->query( 'START TRANSACTION' );
+
+		try {
+			if ( ! self::archive( $row, $reason, $actor ) ) {
+				throw new RuntimeException( 'the previous version could not be archived: ' . $wpdb->last_error );
+			}
+
+			// @internal Testability seam: proves the rollback, which is otherwise unobservable.
+			if ( self::$fail_after_archive ) {
+				throw new RuntimeException( 'simulated failure between archive and write' );
+			}
+
+			$updated = $wpdb->update(
+				ANPA_Socios_DB::tabela_email_templates(),
+				$columns,
+				array( 'id' => (int) $row['id'] )
+			);
+
+			if ( false === $updated ) {
+				throw new RuntimeException( 'the template could not be stored: ' . $wpdb->last_error );
+			}
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared -- literal.
+			$wpdb->query( 'COMMIT' );
+
+			return '';
+		} catch ( RuntimeException $e ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared -- literal.
+			$wpdb->query( 'ROLLBACK' );
+
+			return $e->getMessage();
+		}
+	}
+
+	/**
+	 * Copies the row being replaced into the history table.
 	 *
 	 * @param  array<string,mixed> $row    Row about to be overwritten.
 	 * @param  string              $reason One of the REASON_* constants.

@@ -91,16 +91,78 @@ final class Test_ANPA_Socios_Email_Template_Repo_Contracts extends TestCase {
 
 	// ── Every write archives what it replaces ───────────────────────────
 
-	public function test_all_three_write_paths_archive_before_overwriting(): void {
+	public function test_all_three_write_paths_go_through_the_transactional_writer(): void {
+		// The archive and the write now live in one place, which is the only way "archive first" can be
+		// a property of the repository rather than a habit repeated in three methods. A path that calls
+		// $wpdb->update() directly would be a path with no rollback.
 		foreach ( array( 'save', 'restore_default', 'restore_version' ) as $method ) {
-			$body    = $this->method( $method );
-			$archive = strpos( $body, 'self::archive(' );
-			$update  = strpos( $body, '$wpdb->update(' );
+			$body = $this->method( $method );
 
-			$this->assertIsInt( $archive, "{$method} does not archive" );
-			$this->assertIsInt( $update, "{$method} does not write" );
-			$this->assertLessThan( $update, $archive, "{$method} overwrites before archiving" );
+			$this->assertStringContainsString( 'self::transactional_write(', $body, "{$method} does not use the transactional writer" );
+			$this->assertStringNotContainsString( '$wpdb->update(', $body, "{$method} writes outside the transaction" );
+			$this->assertStringNotContainsString( 'self::archive(', $body, "{$method} archives outside the transaction" );
 		}
+	}
+
+	public function test_the_transactional_writer_archives_before_it_overwrites(): void {
+		$body = $this->method( 'transactional_write' );
+
+		$archive = strpos( $body, 'self::archive(' );
+		$update  = strpos( $body, '$wpdb->update(' );
+
+		$this->assertIsInt( $archive );
+		$this->assertIsInt( $update );
+		$this->assertLessThan( $update, $archive, 'the write happens before the archive' );
+	}
+
+	public function test_the_write_is_a_real_transaction_and_rolls_back(): void {
+		// Two queries next to each other are not atomicity. A failure between them would leave either
+		// an archived version of a change that never happened, or a change with no way back.
+		$body = $this->method( 'transactional_write' );
+
+		$this->assertStringContainsString( "'START TRANSACTION'", $body );
+		$this->assertStringContainsString( "'COMMIT'", $body );
+		$this->assertStringContainsString( "'ROLLBACK'", $body );
+		$this->assertLessThan(
+			strpos( $body, "'COMMIT'" ),
+			strpos( $body, "'START TRANSACTION'" ),
+			'the transaction is committed before it is started'
+		);
+	}
+
+	public function test_the_failure_seam_is_only_used_by_tests(): void {
+		// It exists because a rollback is otherwise unobservable. It must not be reachable from
+		// production code, and the default must be false.
+		$this->assertStringContainsString( 'public static $fail_after_archive = false;', $this->src );
+		$this->assertStringContainsString( '@internal TESTABILITY SEAM', $this->src );
+		$this->assertFalse( ANPA_Socios_Email_Template_Repo::$fail_after_archive );
+
+		$production = 0;
+		foreach ( glob( dirname( __DIR__ ) . '/includes/**/*.php' ) as $file ) {
+			$production += substr_count( (string) file_get_contents( (string) $file ), 'fail_after_archive' );
+		}
+		foreach ( glob( dirname( __DIR__ ) . '/includes/*.php' ) as $file ) {
+			$production += substr_count( (string) file_get_contents( (string) $file ), 'fail_after_archive' );
+		}
+
+		// Only the declaration and the single guard inside the writer.
+		$this->assertLessThanOrEqual( 3, $production, 'the failure seam is referenced from production code' );
+	}
+
+	public function test_saving_supports_optimistic_concurrency(): void {
+		// Two board members can have the same template open. Last-writer-wins discards the other's work
+		// with no trace; a lock leaves a template stuck the first time somebody closes a tab.
+		$signature = new ReflectionMethod( ANPA_Socios_Email_Template_Repo::class, 'save' );
+		$names     = array();
+		foreach ( $signature->getParameters() as $parameter ) {
+			$names[] = $parameter->getName();
+		}
+
+		$this->assertContains( 'expected_digest', $names );
+		$this->assertStringContainsString( "'code'       => 'conflict'", $this->src );
+
+		// Optional, so an unattended caller (seeding, adopting a default) is unaffected.
+		$this->assertTrue( $signature->getParameters()[3]->isOptional() );
 	}
 
 	public function test_a_restore_is_archived_with_its_own_reason(): void {
@@ -127,9 +189,9 @@ final class Test_ANPA_Socios_Email_Template_Repo_Contracts extends TestCase {
 
 		$this->assertStringContainsString( "'code'       => 'unchanged'", $body );
 		$this->assertLessThan(
-			strpos( $body, 'self::archive(' ),
+			strpos( $body, 'self::transactional_write(' ),
 			strpos( $body, "'unchanged'" ),
-			'the unchanged short-circuit must come before archiving'
+			'the unchanged short-circuit must come before anything is written'
 		);
 	}
 
