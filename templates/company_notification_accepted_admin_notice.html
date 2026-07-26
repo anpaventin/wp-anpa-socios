@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="gl">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+<h2>Aviso á empresa aceptado polo sistema de correo</h2>
+<p>O sistema de correo aceptou o envío do aviso a <strong>{{nome_empresa}}</strong> sobre a actividade <strong>{{nome_actividade}}</strong>.</p>
+<p><strong>Que significa isto exactamente:</strong> o sistema de correo local aceptou a mensaxe para envialo. Non significa que a empresa a recibise, nin que a lese. Se precisas certeza, confírmao pola vía habitual.</p>
+<h3>Datos do envío</h3>
+<ul>
+<li><strong>Empresa:</strong> {{nome_empresa}}</li>
+<li><strong>Actividade:</strong> {{nome_actividade}}</li>
+{{#nome_grupo}}<li><strong>Grupo:</strong> {{nome_grupo}}</li>{{/}}
+{{#curso_escolar}}<li><strong>Curso escolar:</strong> {{curso_escolar}}</li>{{/}}
+{{#data_intento}}<li><strong>Data do intento:</strong> {{data_intento}}</li>{{/}}
+{{#id_correlacion}}<li><strong>Identificador de correlación:</strong> {{id_correlacion}}</li>{{/}}
+</ul>
+<p>Non fai falta ningunha acción. Este aviso existe para deixar constancia do intento.</p>
+<p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso interno da aplicación.</p>
+{{#sinatura}}<hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">{{sinatura}}</p>{{/}}
+</body>
+</html>

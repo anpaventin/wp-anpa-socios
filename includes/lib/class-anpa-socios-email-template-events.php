@@ -845,15 +845,22 @@ final class ANPA_Socios_Email_Template_Events {
 			// Two events, not one with a conditional: the success notice needs no action, the
 			// failure notice requires one, and a shared subject line would hide the failures
 			// among the successes in an inbox.
-			// Renamed before freezing: `company_notification_succeeded` did not say WHO receives
-			// it, and read as if it went to the company — which would be a company being emailed
-			// to be told it was emailed. The `_admin_` infix follows the convention the rest of
-			// the board notices already use, and renaming now is far cheaper than after fase37
-			// has an emitter calling the key.
+			// Renamed twice before freezing, and the second rename is the one that matters.
+			// `company_notification_succeeded` did not say WHO receives it and read as if it went
+			// to the company — a company being emailed to be told it was emailed.
+			// `company_notification_admin_confirmation` fixed the audience but introduced a worse
+			// ambiguity: «confirmation» reads as *a confirmation made by the administrator*, when
+			// what happened is that the local mail subsystem ACCEPTED a send attempt. The final
+			// names say the fact and nothing more:
+			//   accepted → the local mail system accepted the attempt. NOT delivered, NOT
+			//              received, NOT read. `wp_mail() === true` is the whole claim.
+			//   failed   → the attempt did not leave, and somebody has to act.
+			// No legacy alias: neither earlier name ever reached production or an emitter, so an
+			// alias would be permanent maintenance for a name nobody ever used.
 			array(
-				'event_key'    => 'company_notification_admin_confirmation',
-				'display_name' => 'Aviso á xunta: empresa notificada',
-				'description'  => 'Confirma á xunta que o aviso á empresa foi aceptado polo sistema de correo. Aceptado non significa entregado.',
+				'event_key'    => 'company_notification_accepted_admin_notice',
+				'display_name' => 'Aviso á xunta: aviso á empresa aceptado polo sistema de correo',
+				'description'  => 'Informa a xunta de que o sistema de correo local aceptou o envío á empresa. Aceptado non significa entregado, nin recibido, nin lido.',
 				'category'     => $companies,
 				'audience'     => $board,
 				'phase'        => $f37,
@@ -867,7 +874,7 @@ final class ANPA_Socios_Email_Template_Events {
 				),
 			),
 			array(
-				'event_key'    => 'company_notification_admin_failure',
+				'event_key'    => 'company_notification_failed_admin_notice',
 				'display_name' => 'Aviso á xunta: fallo ao notificar a empresa',
 				'description'  => 'Avisa a xunta de que o aviso á empresa non saíu e require unha acción: reintentar, revisar o enderezo ou avisar por outra vía.',
 				'category'     => $companies,
