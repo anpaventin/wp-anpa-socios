@@ -77,6 +77,9 @@ tests_add_filter(
 	}
 );
 
+// Test-support classes that describe the oracle (not shipped plugin logic).
+require_once dirname( __DIR__ ) . '/class-anpa-socios-golden-manifest.php';
+
 // Signal to the tests that a real integration DB is available.
 if ( ! defined( 'ANPA_SOCIOS_IT_DB' ) ) {
 	define( 'ANPA_SOCIOS_IT_DB', true );
