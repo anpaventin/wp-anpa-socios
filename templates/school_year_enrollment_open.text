@@ -1,0 +1,19 @@
+Matrículas abertas para o curso {{curso_escolar}}
+
+Comeza un novo curso en {{nome_anpa}} e xa están abertas as matrículas das actividades extraescolares do curso {{curso_escolar}}.
+
+Actividades ofertadas:
+
+{{listado_actividades}}
+{{#ligazon_matriculas}}
+Podes consultar a información e presentar as solicitudes aquí:
+{{ligazon_matriculas}}
+{{/}}
+Antes de matricular un alumno ou alumna, comproba na área de socios que o seu curso e o seu grupo están actualizados para este curso escolar.
+
+As prazas, os mínimos e os máximos dependen de cada actividade. Presentar unha solicitude non confirma a praza: recibirás outro correo cando o grupo quede resolto.
+
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

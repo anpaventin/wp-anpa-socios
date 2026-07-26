@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="gl">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+<h2>A solicitude queda na lista de agarda</h2>
+<p>A solicitude de <strong>{{nome_alumno}}</strong> para <strong>{{nome_actividade}}</strong> quedou rexistrada, pero neste momento o grupo non ten prazas dispoñibles.</p>
+<p>A matrícula pasa á lista de agarda. A orde consérvase segundo os criterios definidos para a actividade.</p>
+{{#posicion_lista}}<p>Posición actual na lista de agarda: <strong>{{posicion_lista}}</strong>. A posición pode cambiar se outras familias retiran a súa solicitude.</p>{{/}}
+<p>Se queda unha praza libre, contactaremos contigo. A entrada na actividade non é automática: haberá que confirmar a praza no prazo que se indique.</p>
+{{#ligazon_area_socios}}<p>Podes consultar a matrícula desde a área de socios:<br><a href="{{ligazon_area_socios}}">{{ligazon_area_socios}}</a></p>{{/}}
+<p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p>
+{{#sinatura}}<hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">{{sinatura}}</p>{{/}}
+</body>
+</html>
