@@ -1,0 +1,23 @@
+Cambio importante en {{nome_actividade}}
+
+{{#nome_proxenitor}}Ola, {{nome_proxenitor}}:
+
+{{/}}Informámoste dun cambio na actividade {{nome_actividade}}.
+{{#nome_alumno}}
+Afecta á matrícula de {{nome_alumno}}.
+{{/}}{{#nome_grupo}}
+Grupo afectado: {{nome_grupo}}.
+{{/}}{{#motivo_cambio}}
+{{motivo_cambio}}
+{{/}}{{#data_efectiva}}
+O cambio aplícase a partir do {{data_efectiva}}.
+{{/}}{{#ligazon_area_socios}}
+Podes consultar a información actualizada na área de socios:
+{{ligazon_area_socios}}
+{{/}}{{#correo_anpa}}
+Se tes dúbidas sobre como te afecta, escríbenos a {{correo_anpa}}.
+{{/}}
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

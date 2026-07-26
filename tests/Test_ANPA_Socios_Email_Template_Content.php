@@ -232,6 +232,82 @@ final class Test_ANPA_Socios_Email_Template_Content extends TestCase {
 		}
 	}
 
+	public function test_no_new_default_nests_optional_blocks(): void {
+		// Nesting is NOT part of the syntax. The renderer resolves blocks in one non-greedy pass, so
+		// an outer opener pairs with the FIRST closer it finds: the inner block survives as text and
+		// the leftover `{{/}}` is not a token, so nothing substitutes it and it reaches the family
+		// literally. The renderer's unclosed-block check only sees orphan OPENERS, not orphan
+		// closers, so this is the one malformed shape it cannot report.
+		foreach ( $this->new_stems() as $stem ) {
+			$default = ANPA_Socios_Email_Template_Defaults::load( $stem );
+
+			foreach ( array( 'body_html', 'body_text' ) as $channel ) {
+				preg_match_all( '/\{\{\s*(#|\/)[^}]*\}\}/u', $default[ $channel ], $matches, PREG_OFFSET_CAPTURE );
+
+				$depth = 0;
+				foreach ( $matches[1] as $marker ) {
+					$depth += ( '#' === $marker[0] ) ? 1 : -1;
+
+					$this->assertLessThanOrEqual( 1, $depth, "{$stem}.{$channel}: nested optional block" );
+					$this->assertGreaterThanOrEqual( 0, $depth, "{$stem}.{$channel}: closer without opener" );
+				}
+
+				$this->assertSame( 0, $depth, "{$stem}.{$channel}: unbalanced optional blocks" );
+			}
+		}
+	}
+
+	public function test_every_new_default_renders_cleanly_with_no_optional_value(): void {
+		// The «without-*» scenario, applied to the whole set: configuration is present, every
+		// optional value is absent. This is what an installation that has filled in nothing beyond
+		// the basics receives, and it is where a removed block leaves a hole, an empty list item or
+		// a heading with nothing under it.
+		$globals = ANPA_Socios_Email_Template_Events::globals();
+
+		foreach ( $this->new_stems() as $stem ) {
+			$definition = $this->definition( $stem );
+			$sample     = $definition->sample_data();
+			$default    = ANPA_Socios_Email_Template_Defaults::load( $stem );
+
+			$context = array();
+			foreach ( $definition->required_tokens() as $token ) {
+				$context[ $token ] = $sample[ $token ] ?? 'Exemplo';
+			}
+			foreach ( $globals as $token ) {
+				if ( ANPA_Socios_Email_Template_Context::TOKEN_NO_AREA_LINK === $token ) {
+					continue; // An internal flag, not configuration.
+				}
+				if ( isset( $sample[ $token ] ) ) {
+					$context[ $token ] = $sample[ $token ];
+				}
+			}
+
+			$result = ANPA_Socios_Email_Template_Renderer::render(
+				array(
+					'subject'   => $default['subject'],
+					'body_html' => $default['body_html'],
+					'body_text' => $default['body_text'],
+				),
+				$context,
+				$definition->declared_tokens()
+			);
+
+			$this->assertTrue( $result['ok'], "{$stem}: {$result['code']}" );
+			$this->assertStringNotContainsString( '{{', $result['body_html'], "{$stem}: unresolved token" );
+			$this->assertStringNotContainsString( '{{', $result['body_text'], "{$stem}: unresolved token" );
+
+			// A hole where a paragraph used to be.
+			$this->assertDoesNotMatchRegularExpression( '/\n{3,}/', $result['body_text'], "{$stem}: gap in the text body" );
+			$this->assertStringNotContainsString( '<p></p>', $result['body_html'], "{$stem}: empty paragraph" );
+			$this->assertStringNotContainsString( '<li></li>', $result['body_html'], "{$stem}: empty list item" );
+			$this->assertDoesNotMatchRegularExpression(
+				'/<ul>\s*<\/ul>/',
+				$result['body_html'],
+				"{$stem}: a list with every item removed"
+			);
+		}
+	}
+
 	public function test_no_new_default_shows_the_internal_area_flag(): void {
 		// `sen_ligazon_area_socios` only enables a paragraph; printing it would show a bare «1».
 		foreach ( $this->new_stems() as $stem ) {
@@ -465,6 +541,56 @@ final class Test_ANPA_Socios_Email_Template_Content extends TestCase {
 				$this->assertStringNotContainsString( $forbidden, $source, "{$stem}: would expose other families" );
 			}
 		}
+	}
+
+	// ── Grupo: baixas e cambios ──────────────────────────────────────────
+
+	public function test_the_withdrawal_and_change_group_is_complete(): void {
+		foreach ( array( 'activity_cancellation_confirmed', 'activity_change_notice' ) as $stem ) {
+			$this->assertTrue( ANPA_Socios_Email_Template_Defaults::exists( $stem ), "{$stem} not shipped" );
+			$this->assertContains( $stem, $this->new_stems(), "{$stem} is not treated as new content" );
+		}
+	}
+
+	public function test_the_confirmed_withdrawal_says_attendance_continues_until_the_effective_date(): void {
+		// The question a family actually has: does my child go on Tuesday? A withdrawal notice that
+		// only says "approved" gets answered by an email to the board.
+		$default  = ANPA_Socios_Email_Template_Defaults::load( 'activity_cancellation_confirmed' );
+		$haystack = mb_strtolower( $default['body_html'] . ' ' . $default['body_text'] );
+
+		$this->assertStringContainsString( 'pode seguir asistindo', $haystack );
+	}
+
+	public function test_the_change_notice_names_the_activity_in_the_subject(): void {
+		// It lands in an inbox next to every other notice. «Cambio importante» alone tells the reader
+		// to open it to find out whether it concerns them.
+		$default = ANPA_Socios_Email_Template_Defaults::load( 'activity_change_notice' );
+
+		$this->assertStringContainsString( '{{nome_actividade}}', $default['subject'] );
+	}
+
+	public function test_the_change_notice_never_leaves_a_label_without_its_value(): void {
+		// Each optional fact carries its own sentence inside its own block, so an absent group or an
+		// absent reason removes the whole line instead of leaving «Grupo afectado:» hanging.
+		$default = ANPA_Socios_Email_Template_Defaults::load( 'activity_change_notice' );
+
+		foreach ( array( 'nome_grupo', 'motivo_cambio', 'data_efectiva', 'nome_alumno' ) as $token ) {
+			$this->assertMatchesRegularExpression(
+				'/\{\{#' . $token . '\}\}[^{]*\{\{' . $token . '\}\}/u',
+				$default['body_text'],
+				"activity_change_notice: '{$token}' is printed outside its own block"
+			);
+		}
+	}
+
+	public function test_the_change_reason_is_rendered_as_preformatted_text(): void {
+		// Multiline and board-written: without pre-line the paragraphs collapse into one.
+		$default = ANPA_Socios_Email_Template_Defaults::load( 'activity_change_notice' );
+
+		$this->assertMatchesRegularExpression(
+			'/white-space:\s*pre-line[^>]*>\{\{motivo_cambio\}\}/',
+			$default['body_html']
+		);
 	}
 
 	public function test_the_application_receipt_does_not_promise_approval(): void {
