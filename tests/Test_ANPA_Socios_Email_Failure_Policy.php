@@ -1,10 +1,11 @@
 <?php
 /**
- * Tests for the failure policy and the enviar_codigo non-enqueue guard (fase36, PR-36s3).
+ * Tests for the failure policy and the enqueue-boundary non-enqueue guard (fase36, PR-36s3).
  *
  * Item 11: a missing template or a render error refuses the send, error_logs, returns false.
- * Item 12: enviar_codigo stays a direct send; the constant guard fires if called inside
- *          the queue processing context.
+ * Item 12: auth events (those declaring the `codigo` variable) are refused at the queue
+ *          boundary. The guard lives in ANPA_Socios_Email_Queue_Repo::create_campaign and
+ *          is read from the registry, not hardcoded.
  *
  * @group unit
  * @package ANPA_Socios
@@ -16,58 +17,104 @@ use PHPUnit\Framework\TestCase;
 
 final class Test_ANPA_Socios_Email_Failure_Policy extends TestCase {
 
-	// ── Item 12: non-enqueue guard ──────────────────────────────────────
+	// ── Item 12: enqueue-boundary guard ─────────────────────────────────
 
 	/**
-	 * The guard constant is documented in the class; the test proves it is checked.
+	 * The queue repo exposes is_non_enqueueable_event() and it refuses
+	 * auth_access_code (the verification-context code).
 	 */
-	public function test_enviar_codigo_source_contains_queue_processing_guard(): void {
-		$src = (string) file_get_contents(
-			dirname( __DIR__ ) . '/includes/class-anpa-socios-email.php'
-		);
-
-		$this->assertStringContainsString(
-			'ANPA_SOCIOS_EMAIL_QUEUE_PROCESSING',
-			$src,
-			'enviar_codigo must check ANPA_SOCIOS_EMAIL_QUEUE_PROCESSING to prevent enqueue'
+	public function test_auth_access_code_is_non_enqueueable(): void {
+		$this->assertTrue(
+			ANPA_Socios_Email_Queue_Repo::is_non_enqueueable_event( 'auth_access_code' ),
+			'auth_access_code must be refused at the enqueue boundary'
 		);
 	}
 
 	/**
-	 * The guard is inside enviar_codigo specifically (not just anywhere in the class).
+	 * The queue repo refuses auth_access_code_signup (the alta-context code).
 	 */
-	public function test_the_guard_is_inside_enviar_codigo_body(): void {
+	public function test_auth_access_code_signup_is_non_enqueueable(): void {
+		$this->assertTrue(
+			ANPA_Socios_Email_Queue_Repo::is_non_enqueueable_event( 'auth_access_code_signup' ),
+			'auth_access_code_signup must be refused at the enqueue boundary'
+		);
+	}
+
+	/**
+	 * A normal campaign event (e.g. member_cancellation_admin_notice) is allowed.
+	 */
+	public function test_normal_event_is_enqueueable(): void {
+		$this->assertFalse(
+			ANPA_Socios_Email_Queue_Repo::is_non_enqueueable_event( 'member_cancellation_admin_notice' ),
+			'a normal event must not be refused at the enqueue boundary'
+		);
+	}
+
+	/**
+	 * An empty event_type is not refused (it will fail later on missing key).
+	 */
+	public function test_empty_event_type_is_not_refused(): void {
+		$this->assertFalse(
+			ANPA_Socios_Email_Queue_Repo::is_non_enqueueable_event( '' ),
+			'empty event_type should not be treated as non-enqueueable'
+		);
+	}
+
+	/**
+	 * An unknown event_type is not refused by the non-enqueue guard (it is not
+	 * the guard's job to validate unknown events; that belongs to create_campaign).
+	 */
+	public function test_unknown_event_type_is_not_refused(): void {
+		$this->assertFalse(
+			ANPA_Socios_Email_Queue_Repo::is_non_enqueueable_event( 'nonexistent_event_xyz' ),
+			'unknown event_type should not be treated as non-enqueueable'
+		);
+	}
+
+	/**
+	 * The guard identifies non-enqueueable events by reading the registry (the `codigo`
+	 * variable), not by hardcoding keys. Verify this by checking that exactly the events
+	 * declaring `codigo` are refused.
+	 */
+	public function test_non_enqueueable_events_are_exactly_those_declaring_codigo(): void {
+		$set  = ANPA_Socios_Email_Template_Events::set();
+		$keys = $set->keys();
+
+		$refused_by_guard = array();
+		$declaring_codigo = array();
+
+		foreach ( $keys as $key ) {
+			if ( ANPA_Socios_Email_Queue_Repo::is_non_enqueueable_event( $key ) ) {
+				$refused_by_guard[] = $key;
+			}
+			$definition = $set->get( $key );
+			$variables  = $definition->variables();
+			if ( isset( $variables['codigo'] ) ) {
+				$declaring_codigo[] = $key;
+			}
+		}
+
+		sort( $refused_by_guard );
+		sort( $declaring_codigo );
+
+		$this->assertSame(
+			$declaring_codigo,
+			$refused_by_guard,
+			'The set of events refused by is_non_enqueueable_event must be exactly those declaring the codigo variable'
+		);
+	}
+
+	/**
+	 * enviar_codigo no longer contains the dead ANPA_SOCIOS_EMAIL_QUEUE_PROCESSING check.
+	 * The guard is at the boundary, not inside the emitter.
+	 */
+	public function test_enviar_codigo_does_not_contain_dead_constant_check(): void {
 		$src = (string) file_get_contents(
 			dirname( __DIR__ ) . '/includes/class-anpa-socios-email.php'
 		);
 
-		// Extract the enviar_codigo method body (from its declaration to the next public/private static).
 		$start = strpos( $src, 'function enviar_codigo(' );
 		$this->assertNotFalse( $start, 'enviar_codigo not found' );
-
-		// Find the next method declaration after enviar_codigo.
-		$rest = substr( $src, $start + 30 );
-		$end  = preg_match( '/\n\t(?:public|private|protected)\s+static\s+function\s/', $rest, $m, PREG_OFFSET_CAPTURE );
-		$body = $end ? substr( $rest, 0, $m[0][1] ) : $rest;
-
-		$this->assertStringContainsString(
-			'ANPA_SOCIOS_EMAIL_QUEUE_PROCESSING',
-			$body,
-			'the non-enqueue guard must live inside the enviar_codigo method body'
-		);
-	}
-
-	/**
-	 * The code must never appear inside send_templated (the general path), only in enviar_codigo.
-	 * Otherwise every emitter would be guarded, which is not the requirement.
-	 */
-	public function test_send_templated_does_not_contain_the_queue_guard(): void {
-		$src = (string) file_get_contents(
-			dirname( __DIR__ ) . '/includes/class-anpa-socios-email.php'
-		);
-
-		$start = strpos( $src, 'function send_templated(' );
-		$this->assertNotFalse( $start, 'send_templated not found' );
 
 		$rest = substr( $src, $start + 30 );
 		$end  = preg_match( '/\n\t(?:public|private|protected)\s+static\s+function\s/', $rest, $m, PREG_OFFSET_CAPTURE );
@@ -76,7 +123,7 @@ final class Test_ANPA_Socios_Email_Failure_Policy extends TestCase {
 		$this->assertStringNotContainsString(
 			'ANPA_SOCIOS_EMAIL_QUEUE_PROCESSING',
 			$body,
-			'the non-enqueue guard belongs only in enviar_codigo, not in the general send path'
+			'The dead constant check must be removed; the guard lives at the enqueue boundary'
 		);
 	}
 
@@ -121,28 +168,26 @@ final class Test_ANPA_Socios_Email_Failure_Policy extends TestCase {
 		);
 	}
 
-	// ── Item 14: wp_mail( only inside this class ────────────────────────
+	// ── Item 14: wp_mail( only inside expected files (calls, not mentions) ──
 
 	/**
-	 * wp_mail( for transactional sends appears only inside ANPA_Socios_Email.
+	 * wp_mail( for transactional sends appears only inside the expected email infrastructure
+	 * files. This test strips comments before matching so that docblock mentions (e.g.
+	 * "wp_mail() gives no idempotent send id") do not trigger false positives.
 	 *
 	 * The queue processor (fase35) has its own wp_mail call for campaigns, which is a separate
-	 * concern. This test verifies that no OTHER includes/ file outside the known email
-	 * infrastructure calls wp_mail.
+	 * legitimate transport. No other includes/ file may call wp_mail.
 	 */
 	public function test_wp_mail_call_only_in_expected_files(): void {
 		$includes_dir = dirname( __DIR__ ) . '/includes';
 		$files        = self::php_files_recursive( $includes_dir );
-		$email_file   = realpath( $includes_dir . '/class-anpa-socios-email.php' );
 
-		// These files are part of the fase35 queue infrastructure and legitimately call wp_mail.
+		// Only files that ACTUALLY CALL wp_mail in executable code.
+		// - class-anpa-socios-email.php: transactional send via send_templated.
+		// - class-anpa-socios-email-processor.php: campaign batch transport (fase35).
 		$allowed = array(
 			'class-anpa-socios-email.php',
 			'class-anpa-socios-email-processor.php',
-			'class-anpa-socios-email-queue-repo.php',
-			'class-anpa-socios-email-communications-page.php',
-			'class-anpa-socios-email-recipient-state.php',
-			'class-anpa-socios-email-template-events.php',
 		);
 
 		$violations = array();
@@ -151,8 +196,8 @@ final class Test_ANPA_Socios_Email_Failure_Policy extends TestCase {
 			if ( in_array( $basename, $allowed, true ) ) {
 				continue;
 			}
-			$content = (string) file_get_contents( $file );
-			if ( preg_match( '/\bwp_mail\s*\(/', $content ) ) {
+			$executable = self::strip_comments( $file );
+			if ( preg_match( '/\bwp_mail\s*\(/', $executable ) ) {
 				$violations[] = $basename;
 			}
 		}
@@ -160,7 +205,7 @@ final class Test_ANPA_Socios_Email_Failure_Policy extends TestCase {
 		$this->assertSame(
 			array(),
 			$violations,
-			'wp_mail( found in unexpected file(s): ' . implode( ', ', $violations )
+			'wp_mail( call found in unexpected file(s): ' . implode( ', ', $violations )
 		);
 	}
 
@@ -187,13 +232,37 @@ final class Test_ANPA_Socios_Email_Failure_Policy extends TestCase {
 
 		$violations = array();
 		foreach ( $root_files as $file ) {
-			$content = (string) file_get_contents( (string) $file );
-			if ( preg_match( '/\bwp_mail\s*\(/', $content ) ) {
+			$executable = self::strip_comments( (string) $file );
+			if ( preg_match( '/\bwp_mail\s*\(/', $executable ) ) {
 				$violations[] = basename( (string) $file );
 			}
 		}
 
 		$this->assertSame( array(), $violations, 'root-level callers must not call wp_mail directly' );
+	}
+
+	/**
+	 * Strips T_COMMENT and T_DOC_COMMENT from a PHP file, returning only executable code.
+	 * This ensures inspection assertions count CALLS, not mentions in prose.
+	 *
+	 * @param  string $filepath Path to the PHP file.
+	 * @return string Executable code without comments.
+	 */
+	private static function strip_comments( string $filepath ): string {
+		$source = (string) file_get_contents( $filepath );
+		$tokens = token_get_all( $source );
+		$result = '';
+		foreach ( $tokens as $token ) {
+			if ( is_array( $token ) ) {
+				if ( T_COMMENT === $token[0] || T_DOC_COMMENT === $token[0] ) {
+					continue;
+				}
+				$result .= $token[1];
+			} else {
+				$result .= $token;
+			}
+		}
+		return $result;
 	}
 
 	/**

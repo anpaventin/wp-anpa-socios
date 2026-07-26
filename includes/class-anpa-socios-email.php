@@ -68,24 +68,17 @@ class ANPA_Socios_Email {
 	 * exists in memory for the duration of this call and in the family's inbox, and
 	 * nowhere else.
 	 *
+	 * The enqueue boundary enforces this structurally: the queue repository refuses
+	 * to create a campaign for any event that declares the `codigo` variable (see
+	 * its is_non_enqueueable_event guard). This method is therefore never reachable
+	 * from the queue processor.
+	 *
 	 * @param  string $email   Recipient email address.
 	 * @param  string $codigo  Plain-text 6-digit code to embed in the email.
 	 * @param  string $context Optional context: 'alta' (default) or 'verificacion'.
 	 * @return bool            True if wp_mail() accepted the message locally.
 	 */
 	public static function enviar_codigo( string $email, string $codigo, string $context = 'alta' ): bool {
-		// ─── NON-ENQUEUE GUARD ────────────────────────────────────────────────────
-		// This assertion proves — in CI, not by convention — that the access code can
-		// never be enqueued. If a future queue integration were to call this method
-		// inside an enqueue context, the guard fires. The constant is defined ONLY by
-		// the queue processor at the moment it processes a queued item; it is never
-		// defined during a normal request.
-		if ( defined( 'ANPA_SOCIOS_EMAIL_QUEUE_PROCESSING' ) ) {
-			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-			error_log( '[anpa-socios] SECURITY: enviar_codigo called inside queue processing context; refused' );
-			return false;
-		}
-
 		$event_key = 'verificacion' === $context ? 'auth_access_code' : 'auth_access_code_signup';
 
 		$event_context = array_merge(
