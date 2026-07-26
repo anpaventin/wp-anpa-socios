@@ -1,0 +1,1 @@
+Último aviso: a praza en {{nome_actividade}} caduca o {{data_limite}}

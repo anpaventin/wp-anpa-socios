@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="gl">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+<h2>A oferta de praza está a piques de caducar</h2>
+{{#nome_proxenitor}}<p>Ola, {{nome_proxenitor}}:</p>{{/}}
+<p>Aínda non recibimos resposta á praza que ofrecemos a <strong>{{nome_alumno}}</strong> en <strong>{{nome_actividade}}</strong>.</p>
+<p>O prazo para confirmala remata o <strong>{{data_limite}}</strong>.</p>
+{{#consecuencia}}<p style="white-space: pre-line">{{consecuencia}}</p>{{/}}
+{{#ligazon_confirmacion}}<p>Confirmar a praza:<br><a href="{{ligazon_confirmacion}}">{{ligazon_confirmacion}}</a></p>{{/}}
+{{#ligazon_cancelacion}}<p>Renunciar á praza:<br><a href="{{ligazon_cancelacion}}">{{ligazon_cancelacion}}</a></p>{{/}}
+{{#ligazon_area_socios}}<p>Tamén podes xestionala desde a área de socios:<br><a href="{{ligazon_area_socios}}">{{ligazon_area_socios}}</a></p>{{/}}
+<p>Se xa non vos interesa, dicídenolo igualmente: así podemos ofrecerlla á seguinte familia sen esperar a que remate o prazo.</p>
+<p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p>
+{{#sinatura}}<hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">{{sinatura}}</p>{{/}}
+</body>
+</html>

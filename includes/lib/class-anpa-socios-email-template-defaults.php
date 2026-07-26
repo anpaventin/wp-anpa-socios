@@ -89,6 +89,11 @@ final class ANPA_Socios_Email_Template_Defaults {
 		// Baixas e cambios.
 		'activity_cancellation_confirmed'     => 1,
 		'activity_change_notice'              => 1,
+		// Lista de agarda.
+		'waitlist_place_offer_reminder'       => 1,
+		'waitlist_place_accepted'             => 1,
+		'waitlist_place_declined'             => 1,
+		'waitlist_place_expired'              => 1,
 	);
 
 	/**

@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="gl">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+<h2>Caducou a oferta de praza</h2>
+<p>Rematou o prazo para confirmar a praza de <strong>{{nome_alumno}}</strong> en <strong>{{nome_actividade}}</strong> sen que recibísemos resposta.</p>
+{{#dias_prazo}}<p>O prazo era de {{dias_prazo}} días desde o aviso da oferta.</p>{{/}}
+<p>A oferta queda caducada e a praza pode ofrecerse á seguinte familia da lista de agarda.</p>
+{{#ligazon_area_socios}}<p>Se segues interesado/a, podes consultar o estado da solicitude desde a área de socios:<br><a href="{{ligazon_area_socios}}">{{ligazon_area_socios}}</a></p>{{/}}
+{{#correo_anpa}}<p>Se non recibiches o aviso anterior ou cres que hai un erro, escríbenos a <a href="mailto:{{correo_anpa}}">{{correo_anpa}}</a>.</p>{{/}}
+<p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p>
+{{#sinatura}}<hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">{{sinatura}}</p>{{/}}
+</body>
+</html>

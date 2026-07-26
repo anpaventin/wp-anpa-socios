@@ -1,0 +1,17 @@
+Caducou a oferta de praza
+
+Rematou o prazo para confirmar a praza de {{nome_alumno}} en {{nome_actividade}} sen que recibísemos resposta.
+{{#dias_prazo}}
+O prazo era de {{dias_prazo}} días desde o aviso da oferta.
+{{/}}
+A oferta queda caducada e a praza pode ofrecerse á seguinte familia da lista de agarda.
+{{#ligazon_area_socios}}
+Se segues interesado/a, podes consultar o estado da solicitude desde a área de socios:
+{{ligazon_area_socios}}
+{{/}}{{#correo_anpa}}
+Se non recibiches o aviso anterior ou cres que hai un erro, escríbenos a {{correo_anpa}}.
+{{/}}
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

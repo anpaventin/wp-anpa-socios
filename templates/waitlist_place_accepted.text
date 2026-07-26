@@ -1,0 +1,17 @@
+Praza aceptada
+
+{{#nome_proxenitor}}Ola, {{nome_proxenitor}}:
+
+{{/}}Rexistramos a aceptación da praza de {{nome_alumno}} en {{nome_actividade}}.
+{{#estado_matricula}}
+Estado actual da matrícula: {{estado_matricula}}.
+{{/}}
+Non tes que facer nada máis. Se quedan datos por completar, avisarémoste nun correo aparte.
+{{#ligazon_area_socios}}
+Podes consultar os detalles desde a área de socios:
+{{ligazon_area_socios}}
+{{/}}
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}
