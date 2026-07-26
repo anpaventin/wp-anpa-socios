@@ -216,9 +216,19 @@ final class ANPA_Socios_Email_Template_Registry {
 
 		$raw_retired = trim( (string) ( $declaration['retired_in'] ?? '' ) );
 		$retired_in  = '' === $raw_retired ? null : ANPA_Socios_Email_Template_Phase::from( $raw_retired );
-		if ( null !== $retired_in && $retired_in->equals( $phase ) ) {
+
+		// Retirement must ship strictly after introduction. Asking the phase type rather
+		// than comparing identifiers matters here: the delivery order is 34 → 35 → 36 →
+		// 38 → 39 → 37 → 41 → 40, so a numeric or string comparison would accept a
+		// retirement that actually happens first.
+		if ( null !== $retired_in && ! $retired_in->is_after( $phase ) ) {
 			throw new ANPA_Socios_Email_Template_Registry_Error(
-				"event '{$key}' claims to have been retired by the same phase that introduced it"
+				sprintf(
+					"event '%s' is retired in '%s', which does not ship after the phase that introduced it ('%s')",
+					$key,
+					$retired_in->id(),
+					$phase->id()
+				)
 			);
 		}
 

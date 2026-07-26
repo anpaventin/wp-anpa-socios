@@ -44,6 +44,9 @@ final class ANPA_Socios_Email_Template_Phase {
 	/** Dashboard, statistics, incidents. */
 	const FASE41 = 'fase41';
 
+	/** Closing phase of the plan. */
+	const FASE40 = 'fase40';
+
 	/** @var array<string,self> Interned instances, so identity comparison is safe. */
 	private static array $instances = array();
 
@@ -79,8 +82,20 @@ final class ANPA_Socios_Email_Template_Phase {
 	}
 
 	/**
+	 * Every known phase, in **delivery order** — which is deliberately NOT numeric
+	 * order.
+	 *
+	 * The approved sequence is 34 → 35 → 36 → 38 → 39 → 37 → 41 → 40 (see the plan
+	 * addendum): fase38 owns the history and export tables that fase37 and fase39 must
+	 * write to from day one, so it ships before both, and fase37 ships after fase39.
+	 * Comparing phase identifiers as strings, or assuming their numbers imply their
+	 * order, would therefore give the wrong answer — which is the whole reason this list
+	 * exists here rather than being inferred at each call site.
+	 *
+	 * If the plan reorders the phases, this array is the single place to change.
+	 *
 	 * @since  1.40.0
-	 * @return string[] Every known phase.
+	 * @return string[]
 	 */
 	public static function known(): array {
 		return array(
@@ -88,10 +103,11 @@ final class ANPA_Socios_Email_Template_Phase {
 			self::FASE34,
 			self::FASE35,
 			self::FASE36,
-			self::FASE37,
 			self::FASE38,
 			self::FASE39,
+			self::FASE37,
 			self::FASE41,
+			self::FASE40,
 		);
 	}
 
@@ -115,5 +131,37 @@ final class ANPA_Socios_Email_Template_Phase {
 	 */
 	public function equals( self $other ): bool {
 		return $this->id === $other->id;
+	}
+
+	/**
+	 * Index of this phase in the delivery order.
+	 *
+	 * Exposed so conditional logic — "has the history table shipped yet?", "is this
+	 * event's emitter already behind us?" — can ask the type instead of comparing
+	 * strings or, worse, phase numbers, which are not in delivery order.
+	 *
+	 * @since  1.40.0
+	 * @return int Zero-based position.
+	 */
+	public function position(): int {
+		return (int) array_search( $this->id, self::known(), true );
+	}
+
+	/**
+	 * @since  1.40.0
+	 * @param  self $other Phase to compare with.
+	 * @return bool Whether this phase ships strictly before the other.
+	 */
+	public function comes_before( self $other ): bool {
+		return $this->position() < $other->position();
+	}
+
+	/**
+	 * @since  1.40.0
+	 * @param  self $other Phase to compare with.
+	 * @return bool Whether this phase ships strictly after the other.
+	 */
+	public function is_after( self $other ): bool {
+		return $this->position() > $other->position();
 	}
 }
