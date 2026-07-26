@@ -345,6 +345,153 @@ final class Test_ANPA_Socios_Email_Template_Repo_Integration extends TestCase {
 		);
 	}
 
+	// ── Atomicity ───────────────────────────────────────────────────────
+
+	public function test_both_tables_are_transactional(): void {
+		// An explicit transaction is worthless on a storage engine that ignores it.
+		global $wpdb;
+
+		foreach ( array( ANPA_Socios_DB::tabela_email_templates(), ANPA_Socios_DB::tabela_email_template_versions() ) as $table ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$create = (array) $wpdb->get_row( "SHOW CREATE TABLE `{$table}`", ARRAY_N );
+			$this->assertStringContainsString( 'ENGINE=InnoDB', (string) $create[1], "{$table} is not transactional" );
+		}
+	}
+
+	public function test_a_failure_between_the_archive_and_the_write_leaves_no_partial_state(): void {
+		// THE assertion that makes "atomic" more than a word. Without the transaction this leaves an
+		// archived version of a change that never happened — a history entry for content the live row
+		// never held, which is worse than no history at all.
+		ANPA_Socios_Email_Template_Repo::seed_missing();
+		$before = ANPA_Socios_Email_Template_Repo::get( self::KEY );
+
+		ANPA_Socios_Email_Template_Repo::$fail_after_archive = true;
+		try {
+			$result = ANPA_Socios_Email_Template_Repo::save( self::KEY, $this->edited( self::KEY ), 'nai@example.com' );
+		} finally {
+			ANPA_Socios_Email_Template_Repo::$fail_after_archive = false;
+		}
+
+		$this->assertFalse( $result['ok'] );
+		$this->assertSame( 'db_error', $result['code'] );
+
+		$after = ANPA_Socios_Email_Template_Repo::get( self::KEY );
+		$this->assertSame( (string) $before['subject'], (string) $after['subject'], 'the live row changed despite the failure' );
+		$this->assertSame( (string) $before['content_hash'], (string) $after['content_hash'] );
+		$this->assertSame( array(), ANPA_Socios_Email_Template_Repo::versions( self::KEY ), 'the archive survived a rolled-back write' );
+	}
+
+	// ── Concurrency ─────────────────────────────────────────────────────
+
+	public function test_two_editors_do_not_silently_overwrite_each_other(): void {
+		// Both read the same digest, both edit, both save. The second must be refused rather than
+		// discarding the first one's work with no trace.
+		ANPA_Socios_Email_Template_Repo::seed_missing();
+
+		$openedByFirst  = (string) ANPA_Socios_Email_Template_Repo::get( self::KEY )['content_hash'];
+		$openedBySecond = $openedByFirst;
+
+		$first = ANPA_Socios_Email_Template_Repo::save(
+			self::KEY,
+			$this->edited( self::KEY, 'Primeira' ),
+			'nai@example.com',
+			$openedByFirst
+		);
+		$this->assertTrue( $first['ok'] );
+
+		$second = ANPA_Socios_Email_Template_Repo::save(
+			self::KEY,
+			$this->edited( self::KEY, 'Segunda' ),
+			'pai@example.com',
+			$openedBySecond
+		);
+
+		$this->assertFalse( $second['ok'] );
+		$this->assertSame( 'conflict', $second['code'] );
+		$this->assertStringContainsString( 'Primeira', (string) ANPA_Socios_Email_Template_Repo::get( self::KEY )['subject'] );
+	}
+
+	public function test_the_second_editor_succeeds_after_reloading(): void {
+		ANPA_Socios_Email_Template_Repo::seed_missing();
+
+		ANPA_Socios_Email_Template_Repo::save( self::KEY, $this->edited( self::KEY, 'Primeira' ), 'nai@example.com' );
+		$reloaded = (string) ANPA_Socios_Email_Template_Repo::get( self::KEY )['content_hash'];
+
+		$second = ANPA_Socios_Email_Template_Repo::save(
+			self::KEY,
+			$this->edited( self::KEY, 'Segunda' ),
+			'pai@example.com',
+			$reloaded
+		);
+
+		$this->assertTrue( $second['ok'] );
+		$this->assertStringContainsString( 'Segunda', (string) ANPA_Socios_Email_Template_Repo::get( self::KEY )['subject'] );
+	}
+
+	public function test_an_unattended_caller_may_omit_the_expected_digest(): void {
+		// Seeding and adopting a newer default have no editor and no open form; requiring a digest
+		// there would only invite passing a stale one.
+		ANPA_Socios_Email_Template_Repo::seed_missing();
+
+		$this->assertTrue( ANPA_Socios_Email_Template_Repo::save( self::KEY, $this->edited( self::KEY ), 'system' )['ok'] );
+	}
+
+	// ── Provenance ──────────────────────────────────────────────────────
+
+	public function test_saving_the_shipped_text_stores_the_packaged_bytes_verbatim(): void {
+		// kses rewrites CSS, so a sanitised default is equivalent but not identical. Pressing save on
+		// an untouched template must not move the row off the byte-exact golden pin.
+		ANPA_Socios_Email_Template_Repo::seed_missing();
+		ANPA_Socios_Email_Template_Repo::save( self::KEY, $this->edited( self::KEY ), 'nai@example.com' );
+
+		$packaged = ANPA_Socios_Email_Template_Packaged_Default::for_event( self::KEY );
+		$result   = ANPA_Socios_Email_Template_Repo::save( self::KEY, $packaged->content(), 'nai@example.com' );
+
+		$this->assertTrue( $result['ok'] );
+		$this->assertFalse( $result['customised'] );
+
+		$row = ANPA_Socios_Email_Template_Repo::get( self::KEY );
+		$this->assertSame( $packaged->body_html(), (string) $row['body_html'], 'the verbatim path did not store the packaged bytes' );
+		$this->assertSame( $packaged->hash(), (string) $row['content_hash'] );
+	}
+
+	public function test_an_edited_body_is_sanitised_even_when_only_one_character_differs(): void {
+		ANPA_Socios_Email_Template_Repo::seed_missing();
+
+		$packaged = ANPA_Socios_Email_Template_Packaged_Default::for_event( self::KEY );
+		$content  = $packaged->content();
+		$content['body_html'] = str_replace( '</body>', '<script>alert(1)</script></body>', $content['body_html'] );
+
+		$this->assertTrue( ANPA_Socios_Email_Template_Repo::save( self::KEY, $content, 'nai@example.com' )['ok'] );
+		$this->assertStringNotContainsString( '<script', (string) ANPA_Socios_Email_Template_Repo::get( self::KEY )['body_html'] );
+	}
+
+	public function test_a_restored_version_is_sanitised_again(): void {
+		// An archived row was stored before today's rules existed. Trusting it because it is stored is
+		// how an old hole survives every future hardening.
+		global $wpdb;
+
+		ANPA_Socios_Email_Template_Repo::seed_missing();
+		ANPA_Socios_Email_Template_Repo::save( self::KEY, $this->edited( self::KEY, 'Vella' ), 'nai@example.com' );
+
+		// Plant a version that could not be saved today, simulating one stored by an older release.
+		$versions = ANPA_Socios_DB::tabela_email_template_versions();
+		$version  = ANPA_Socios_Email_Template_Repo::versions( self::KEY )[0];
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wpdb->query( $wpdb->prepare(
+			"UPDATE `{$versions}` SET body_html = %s WHERE id = %d",
+			'<p>Ola</p><script>alert(1)</script>',
+			(int) $version['id']
+		) );
+
+		$result = ANPA_Socios_Email_Template_Repo::restore_version( (int) $version['id'], 'pai@example.com' );
+		$this->assertTrue( $result['ok'], $result['message'] );
+
+		$restored = (string) ANPA_Socios_Email_Template_Repo::get( self::KEY )['body_html'];
+		$this->assertStringNotContainsString( '<script', $restored );
+		$this->assertStringContainsString( 'Ola', $restored );
+	}
+
 	// ── Stored content is renderable ────────────────────────────────────
 
 	public function test_every_seeded_template_renders_from_its_own_sample_data(): void {

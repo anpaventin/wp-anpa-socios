@@ -65,6 +65,11 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-action
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-validator.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-scenarios.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-html-policy.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-stored-custom-template.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-packaged-default.php';
+// Glue, but loadable: ABSPATH is defined above and the class only reaches for $wpdb inside methods,
+// so the unit suite can assert its signatures and constants without a database.
+require_once __DIR__ . '/../includes/class-anpa-socios-email-template-repo.php';
 require_once __DIR__ . '/trait-anpa-socios-inspection.php';
 require_once __DIR__ . '/class-anpa-socios-golden-manifest.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-trimestre.php';
