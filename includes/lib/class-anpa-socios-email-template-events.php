@@ -150,6 +150,18 @@ final class ANPA_Socios_Email_Template_Events {
 				'example'     => 'Antía Exemplo',
 				'type'        => $text,
 			),
+			'nome_proxenitor'         => array(
+				'label'       => 'Nome do proxenitor/a',
+				'description' => 'Persoa á que se dirixe o correo. Non é o mesmo que o socio/a titular: nunha familia con dous contactos, cada un recibe o seu correo co seu nome.',
+				'example'     => 'Uxía Exemplo',
+				'type'        => $text,
+			),
+			'curso_alumno'            => array(
+				'label'       => 'Curso e grupo do alumno/a',
+				'description' => 'Curso académico e aula do alumno/a. Non se pode derivar de {{curso_escolar}}: ese é o ano, este é onde está o rapaz ou a rapaza.',
+				'example'     => '4º de Primaria A',
+				'type'        => $text,
+			),
 
 			// ── Actividades e grupos ───────────────────────────────────
 			'nome_actividade'         => array(
@@ -168,6 +180,24 @@ final class ANPA_Socios_Email_Template_Events {
 				'label'       => 'Horario do grupo',
 				'description' => 'Días e horas do grupo, tal e como se publican.',
 				'example'     => 'Martes e xoves, 16:30 a 17:30',
+				'type'        => $text,
+			),
+			'numero_alumnos'          => array(
+				'label'       => 'Número de alumnos/as',
+				'description' => 'Cantos alumnos/as ten o grupo. Só un número: nunca unha lista de nomes nun correo.',
+				'example'     => '14',
+				'type'        => $number,
+			),
+			'estado_grupo'            => array(
+				'label'       => 'Estado do grupo',
+				'description' => 'Etiqueta humana do estado do grupo. Constrúea ANPA_Socios_Email_Template_Context::group_state_label() a partir dun estado validado: nunca texto libre que veña dunha petición.',
+				'example'     => 'Confirmado',
+				'type'        => $text,
+			),
+			'estado_matricula'        => array(
+				'label'       => 'Estado da matrícula',
+				'description' => 'Etiqueta humana do estado da matrícula. Constrúea ANPA_Socios_Email_Template_Context::enrollment_state_label() a partir dun estado validado: nunca texto libre que veña dunha petición.',
+				'example'     => 'Activa',
 				'type'        => $text,
 			),
 			'prazas_minimas'          => array(
@@ -226,6 +256,12 @@ final class ANPA_Socios_Email_Template_Events {
 				'example'     => '15/10/2026',
 				'type'        => $date,
 			),
+			'data_inicio'             => array(
+				'label'       => 'Data de inicio',
+				'description' => 'Día no que comeza a actividade ou o grupo.',
+				'example'     => '05/10/2026',
+				'type'        => $date,
+			),
 			'data_limite'             => array(
 				'label'       => 'Data límite',
 				'description' => 'Data na que remata o prazo para responder ou actuar.',
@@ -242,9 +278,33 @@ final class ANPA_Socios_Email_Template_Events {
 			),
 			'motivo_erro'             => array(
 				'label'       => 'Motivo do erro',
-				'description' => 'Descrición do fallo, redactada sen datos persoais nin credenciais.',
+				'description' => 'Descrición do fallo en linguaxe comprensible. Nunca trazas internas, credenciais nin mensaxes técnicas do servidor.',
 				'example'     => 'O servidor de correo rexeitou o enderezo da empresa.',
 				'type'        => $multiline,
+			),
+			'accion_recomendada'      => array(
+				'label'       => 'Acción recomendada',
+				'description' => 'Que debería facer a xunta a continuación. Un aviso de fallo sen acción recomendada só transmite alarma.',
+				'example'     => 'Revisa o enderezo da empresa nos seus datos e reintenta o envío.',
+				'type'        => $multiline,
+			),
+			'consecuencia'            => array(
+				'label'       => 'Que ocorre se non se actúa',
+				'description' => 'Consecuencia de non responder a tempo. Un recordatorio sen consecuencia non explica por que urxe.',
+				'example'     => 'Se non respondes antes desa data, a praza ofrecerase á seguinte familia da lista de espera.',
+				'type'        => $multiline,
+			),
+			'data_intento'            => array(
+				'label'       => 'Data do intento',
+				'description' => 'Momento no que se intentou o envío.',
+				'example'     => '02/10/2026',
+				'type'        => $date,
+			),
+			'id_correlacion'          => array(
+				'label'       => 'Identificador de correlación',
+				'description' => 'Identificador que permite atopar todo o fluxo no historial. Non é un dato persoal.',
+				'example'     => '0192f3a4-5b6c-7d8e-9f01-234567890abc',
+				'type'        => $text,
 			),
 
 			// ── Empresas ───────────────────────────────────────────────
@@ -262,6 +322,12 @@ final class ANPA_Socios_Email_Template_Events {
 			),
 
 			// ── Ligazóns de acción e campañas ──────────────────────────
+			'listado_actividades'     => array(
+				'label'       => 'Listado de actividades',
+				'description' => 'Actividades ofertadas, unha por liña, en TEXTO PLANO. Non leva marcado: o renderer escapa todos os valores, así que a presentación vai na plantela (o HTML envólveo nun parágrafo con white-space: pre-line, igual que a sinatura). Constrúeo ANPA_Socios_Email_Template_Context::activity_list().',
+				'example'     => "Robótica — martes e xoves, 16:30 a 17:30\nXadrez — mércores, 16:30 a 17:30\nBaile — venres, 16:30 a 18:00",
+				'type'        => $multiline,
+			),
 			'ligazon_matriculas'      => array(
 				'label'       => 'Ligazón ás matrículas',
 				'description' => 'Páxina onde se fai a matrícula.',
@@ -486,8 +552,9 @@ final class ANPA_Socios_Email_Template_Events {
 				'audience'     => $family,
 				'phase'        => $f39,
 				'variables'    => array(
-					'curso_escolar'      => true,
-					'ligazon_matriculas' => false,
+					'curso_escolar'       => true,
+					'listado_actividades' => true,
+					'ligazon_matriculas'  => false,
 				),
 			),
 			array(
@@ -498,8 +565,11 @@ final class ANPA_Socios_Email_Template_Events {
 				'audience'     => $family,
 				'phase'        => $f39,
 				'variables'    => array(
-					'nome_alumno'     => true,
-					'nome_actividade' => true,
+					'nome_proxenitor'  => false,
+					'nome_alumno'      => true,
+					'nome_actividade'  => true,
+					'curso_alumno'     => false,
+					'trimestre_actual' => false,
 				),
 			),
 			array(
@@ -540,6 +610,8 @@ final class ANPA_Socios_Email_Template_Events {
 					'nome_actividade' => true,
 					'nome_grupo'      => false,
 					'horario_grupo'   => false,
+					'data_inicio'     => false,
+					'nome_empresa'    => false,
 				),
 			),
 			array(
@@ -579,6 +651,9 @@ final class ANPA_Socios_Email_Template_Events {
 					'nome_actividade' => true,
 					'nome_grupo'      => false,
 					'prazas_minimas'  => false,
+					'horario_grupo'   => false,
+					'data_inicio'     => false,
+					'nome_empresa'    => false,
 				),
 			),
 
@@ -596,6 +671,8 @@ final class ANPA_Socios_Email_Template_Events {
 					'curso_escolar'           => true,
 					'nome_grupo'              => false,
 					'horario_grupo'           => false,
+					'numero_alumnos'          => false,
+					'estado_grupo'            => false,
 					'ligazon_descarga_segura' => false,
 					'data_caducidade'         => false,
 				),
@@ -624,9 +701,11 @@ final class ANPA_Socios_Email_Template_Events {
 				'audience'     => $family,
 				'phase'        => $f39,
 				'variables'    => array(
-					'nome_alumno'     => true,
-					'nome_actividade' => true,
-					'data_efectiva'   => false,
+					'nome_proxenitor'    => false,
+					'nome_alumno'        => true,
+					'nome_actividade'    => true,
+					'data_efectiva'      => false,
+					'trimestre_seguinte' => false,
 				),
 			),
 			array(
@@ -656,9 +735,11 @@ final class ANPA_Socios_Email_Template_Events {
 				'audience'     => $family,
 				'phase'        => $f39,
 				'variables'    => array(
+					'nome_proxenitor'      => false,
 					'nome_alumno'          => true,
 					'nome_actividade'      => true,
 					'data_limite'          => true,
+					'consecuencia'         => false,
 					'ligazon_confirmacion' => false,
 					'ligazon_cancelacion'  => false,
 				),
@@ -671,8 +752,10 @@ final class ANPA_Socios_Email_Template_Events {
 				'audience'     => $family,
 				'phase'        => $f39,
 				'variables'    => array(
-					'nome_alumno'     => true,
-					'nome_actividade' => true,
+					'nome_proxenitor'  => false,
+					'nome_alumno'      => true,
+					'nome_actividade'  => true,
+					'estado_matricula' => false,
 				),
 			),
 			array(
@@ -724,6 +807,7 @@ final class ANPA_Socios_Email_Template_Events {
 				'phase'        => $f34,
 				'variables'    => array(
 					'trimestre_seguinte' => true,
+					'curso_escolar'      => false,
 					'ligazon_matriculas' => false,
 				),
 			),
@@ -749,6 +833,8 @@ final class ANPA_Socios_Email_Template_Events {
 				'audience'     => $family,
 				'phase'        => $f39,
 				'variables'    => array(
+					'nome_proxenitor' => false,
+					'nome_alumno'     => false,
 					'nome_actividade' => true,
 					'nome_grupo'      => false,
 					'motivo_cambio'   => false,
@@ -771,6 +857,8 @@ final class ANPA_Socios_Email_Template_Events {
 					'nome_actividade' => true,
 					'nome_grupo'      => false,
 					'curso_escolar'   => false,
+					'data_intento'    => false,
+					'id_correlacion'  => false,
 				),
 			),
 			array(
@@ -781,10 +869,15 @@ final class ANPA_Socios_Email_Template_Events {
 				'audience'     => $board,
 				'phase'        => $f37,
 				'variables'    => array(
-					'nome_empresa'    => true,
-					'nome_actividade' => true,
-					'motivo_erro'     => true,
-					'ligazon_axustes' => false,
+					'nome_empresa'       => true,
+					'nome_actividade'    => true,
+					'motivo_erro'        => true,
+					'accion_recomendada' => true,
+					'nome_grupo'         => false,
+					'data_intento'       => false,
+					'estado_grupo'       => false,
+					'id_correlacion'     => false,
+					'ligazon_axustes'    => false,
 				),
 			),
 
@@ -799,8 +892,10 @@ final class ANPA_Socios_Email_Template_Events {
 				'audience'     => $family,
 				'phase'        => $f39,
 				'variables'    => array(
+					'nome_proxenitor' => false,
 					'accion_pendente' => true,
 					'data_limite'     => false,
+					'consecuencia'    => false,
 				),
 			),
 
