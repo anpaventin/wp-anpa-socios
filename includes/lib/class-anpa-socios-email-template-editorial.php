@@ -42,6 +42,18 @@ final class ANPA_Socios_Email_Template_Editorial {
 	const FINGERPRINT_SCHEME = 'editorial-v1';
 
 	/**
+	 * Channels an editorial status can talk about.
+	 *
+	 * `STATUS` below is about the **subject and the HTML body**, because those are the two things
+	 * parity can prove against the golden oracle. The **plain-text body is a different matter**:
+	 * the live emails have no plain-text alternative at all, so every `.text` file in this plugin
+	 * is new content that nothing can validate automatically. Calling it approved because the
+	 * HTML beside it is approved would be the exact overclaim these constants exist to prevent.
+	 */
+	const CHANNEL_RICH  = 'subject_and_html';
+	const CHANNEL_PLAIN = 'plain_text';
+
+	/**
 	 * Event key => editorial status.
 	 *
 	 * `STATUS_APPROVED` here means one specific thing: the wording is **byte-identical to what
@@ -81,10 +93,28 @@ final class ANPA_Socios_Email_Template_Editorial {
 	/**
 	 * @since  1.40.0
 	 * @param  string $event_key Event key.
-	 * @return bool Whether the wording has been reviewed.
+	 * @return bool Whether the subject and HTML wording has been reviewed.
 	 */
 	public static function is_approved( string $event_key ): bool {
 		return self::STATUS_APPROVED === self::status( $event_key );
+	}
+
+	/**
+	 * Editorial status of the plain-text body.
+	 *
+	 * Always pending, for every event, and that is not an oversight. Production sends HTML only,
+	 * so there is no plain-text output to compare against: the `.text` files are new writing, and
+	 * the only thing that can approve them is somebody reading them. This method exists so the
+	 * claim is explicit rather than implied by the absence of a field.
+	 *
+	 * @since  1.40.0
+	 * @param  string $event_key Event key.
+	 * @return string Always STATUS_PENDING_REVIEW.
+	 */
+	public static function plain_text_status( string $event_key ): string {
+		unset( $event_key );
+
+		return self::STATUS_PENDING_REVIEW;
 	}
 
 	/**

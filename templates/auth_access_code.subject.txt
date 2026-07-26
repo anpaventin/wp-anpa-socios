@@ -1,0 +1,1 @@
+O teu código de verificación — {{nome_anpa}}

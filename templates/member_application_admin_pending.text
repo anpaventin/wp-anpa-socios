@@ -1,0 +1,15 @@
+Novo socio/a pendente de aprobación
+
+Unha nova persoa solicitou darse de alta en {{nome_anpa}} e precisa da túa aprobación:
+
+Nome: {{nome_solicitante}}
+Email: {{correo_solicitante}}
+
+Revisa e aproba (ou rexeita) as solicitudes pendentes na sección de Xestión ANPA da área de socios, ou na páxina de Axustes do plugin:
+{{#ligazon_axustes}}
+{{ligazon_axustes}}
+{{/}}
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

@@ -54,7 +54,20 @@ final class ANPA_Socios_Email_Template_Defaults {
 	 *
 	 * @var array<string,int>
 	 */
-	const VERSIONS = array();
+	const VERSIONS = array(
+		// The ten transcribed from the golden oracle. Version 1 is the wording production
+		// already sends; a bump here would mean deciding to change what families read.
+		'auth_access_code'                    => 1,
+		'auth_access_code_signup'             => 1,
+		'member_application_admin_pending'    => 1,
+		'member_application_approved'         => 1,
+		'member_application_completed'        => 1,
+		'member_application_changes_required' => 1,
+		'member_cancellation_admin_notice'    => 1,
+		'member_reactivation_admin_notice'    => 1,
+		'activity_cancellation_admin_notice'  => 1,
+		'waitlist_place_offer'                => 1,
+	);
 
 	/**
 	 * @since  1.40.0
