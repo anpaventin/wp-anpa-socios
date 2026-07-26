@@ -253,6 +253,58 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 		$this->assertNotSame( $base, $this->build( null, $dictionary )->fingerprint(), 'a relabelled variable must be visible' );
 	}
 
+	public function test_reordering_the_variables_of_an_event_moves_the_fingerprint(): void {
+		// Same rule as the event order, same reason: the variable panel lists tokens in
+		// declaration order, so moving one changes the contract the board sees even though
+		// rendering is unaffected.
+		$a = $this->event(
+			array( 'variables' => array( 'nome_actividade' => true, 'ligazon_enquisa' => false ) )
+		);
+		$b = $this->event(
+			array( 'variables' => array( 'ligazon_enquisa' => false, 'nome_actividade' => true ) )
+		);
+
+		$this->assertNotSame(
+			$this->build( array( $a ) )->fingerprint(),
+			$this->build( array( $b ) )->fingerprint()
+		);
+	}
+
+	public function test_reordering_the_alias_spellings_does_not_move_the_fingerprint(): void {
+		// Aliases never appear in the editor; they are looked up by name when a template is
+		// saved. Leaving their order in the digest would make the fingerprint move for a
+		// change nobody can observe, which is how a compatibility contract loses its meaning.
+		$forwards                            = $this->dictionary();
+		$forwards['nome_campana']['aliases'] = array( 'nome_campaña', 'nombre_campana' );
+
+		$backwards                            = $this->dictionary();
+		$backwards['nome_campana']['aliases'] = array( 'nombre_campana', 'nome_campaña' );
+
+		$events = array( $this->event( array( 'variables' => array( 'nome_campana' => true ) ) ) );
+
+		$this->assertSame(
+			$this->build( $events, $forwards )->fingerprint(),
+			$this->build( $events, $backwards )->fingerprint()
+		);
+	}
+
+	public function test_a_dictionary_entry_no_event_declares_cannot_move_the_fingerprint(): void {
+		// Only the variables an event actually declares participate. An unused dictionary
+		// entry changes nothing anybody can see, so it must change nothing in the digest.
+		$extended                = $this->dictionary();
+		$extended['nome_alumno'] = array(
+			'label'       => 'Nome do alumno/a',
+			'description' => 'Alumno/a ao que se refire o correo.',
+			'example'     => 'Antía Exemplo',
+			'type'        => ANPA_Socios_Email_Template_Variable::TYPE_TEXT,
+		);
+
+		$this->assertSame(
+			$this->build()->fingerprint(),
+			$this->build( null, $extended )->fingerprint()
+		);
+	}
+
 	public function test_reordering_the_declarations_moves_the_fingerprint(): void {
 		// Order is part of the input, not sorted away: the order events are declared in is
 		// the order the editor shows them in, so a reorder is a real change.
@@ -325,6 +377,47 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 				'/@internal\s+MIGRATION/',
 				$src,
 				"{$file} must keep the migration-scope marker on legacy_emitter"
+			);
+		}
+	}
+
+	/**
+	 * Self-activating migration guard.
+	 *
+	 * While `ANPA_Socios_Email::enviar_*` still exists, the field is justified and this
+	 * test only records why. The moment the last legacy method disappears, the same test
+	 * starts demanding that every trace of `legacy_emitter` be deleted. Nobody has to
+	 * remember: the deletion of the old engine is what triggers the requirement.
+	 */
+	public function test_legacy_emitter_must_disappear_with_the_engine_it_bridges(): void {
+		$email_class    = dirname( __DIR__ ) . '/includes/class-anpa-socios-email.php';
+		$legacy_methods = 0;
+
+		if ( is_readable( $email_class ) ) {
+			preg_match_all(
+				'/public static function enviar_[a-z_]+\s*\(/',
+				(string) file_get_contents( $email_class ),
+				$matches
+			);
+			$legacy_methods = count( $matches[0] );
+		}
+
+		if ( $legacy_methods > 0 ) {
+			// Still coexisting. The bridge is load-bearing, so it stays.
+			$this->assertNotSame(
+				array(),
+				$this->build( array( $this->live_event() ) )->legacy_emitters(),
+				'while the old engine exists, live events must still name their emitter'
+			);
+			return;
+		}
+
+		// The old engine is gone. The bridge is now dead weight in a permanent model.
+		foreach ( (array) glob( dirname( __DIR__ ) . '/includes/lib/class-anpa-socios-email-template-*.php' ) as $file ) {
+			$this->assertStringNotContainsString(
+				'legacy_emitter',
+				(string) file_get_contents( (string) $file ),
+				basename( (string) $file ) . ': ANPA_Socios_Email is gone, so the migration field must be removed'
 			);
 		}
 	}

@@ -182,10 +182,10 @@ final class ANPA_Socios_Email_Template_Set implements Countable {
 	/**
 	 * Hashes the canonical serialisation of every declaration.
 	 *
-	 * Declaration ORDER is part of the input, not sorted away: the order events and
-	 * variables are declared in is the order the editor displays them in, so reordering
-	 * is a real change and must move the fingerprint. Sorting first would hide exactly
-	 * the kind of edit this is meant to reveal.
+	 * Event and variable ORDER are part of the input, not sorted away: they are the order
+	 * the editor displays, so reordering is a real change and must move the fingerprint.
+	 * Alias order is normalised instead, because it is invisible. See
+	 * `canonical_declaration()` and `docs/internal/template-registry-fingerprint.md`.
 	 *
 	 * @since  1.40.0
 	 * @param  array<string,ANPA_Socios_Email_Template_Definition> $definitions Definitions.
@@ -196,10 +196,38 @@ final class ANPA_Socios_Email_Template_Set implements Countable {
 		// the same digest for inputs that mean different things.
 		$canonical = array( self::FINGERPRINT_SCHEME );
 		foreach ( $definitions as $key => $definition ) {
-			$canonical[] = array( (string) $key, $definition->to_array() );
+			$canonical[] = array( (string) $key, self::canonical_declaration( $definition ) );
 		}
 
 		return self::FINGERPRINT_SCHEME . ':' . hash( 'sha256', self::encode( $canonical ) );
+	}
+
+	/**
+	 * Normalises one declaration for hashing.
+	 *
+	 * Two orders, two different answers, and the rule is the same in both cases: does the
+	 * order affect what a human sees?
+	 *
+	 *   - Event order and **variable order are significant** and preserved. The variable
+	 *     panel lists tokens in declaration order, so moving `{{nome_socio}}` to the end
+	 *     changes the visible contract even though rendering is unaffected.
+	 *   - **Alias order is not significant** and is sorted. Aliases never appear in the
+	 *     editor; they are looked up by name when a template is saved. Leaving their order
+	 *     in the digest would make the fingerprint move when someone reorders two spellings
+	 *     in the dictionary, which is a change nobody can observe.
+	 *
+	 * @since  1.40.0
+	 * @param  ANPA_Socios_Email_Template_Definition $definition Definition to normalise.
+	 * @return array<string,mixed>
+	 */
+	private static function canonical_declaration( ANPA_Socios_Email_Template_Definition $definition ): array {
+		$declaration = $definition->to_array();
+
+		$aliases = $declaration['aliases'];
+		ksort( $aliases, SORT_STRING );
+		$declaration['aliases'] = $aliases;
+
+		return $declaration;
 	}
 
 	/**
