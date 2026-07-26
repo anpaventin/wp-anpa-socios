@@ -1,0 +1,15 @@
+Non foi posible crear o grupo
+
+Lamentamos informarte de que non foi posible crear o grupo de {{nome_actividade}}, porque non se acadou o número mínimo de participantes necesario para poñelo en marcha.
+
+A solicitude de {{nome_alumno}} queda pechada sen matrícula efectiva nesta actividade.
+{{#ligazon_area_socios}}
+Podes consultar as actividades que seguen dispoñibles desde a área de socios:
+{{ligazon_area_socios}}
+{{/}}
+Grazas polo interese e desculpa as molestias.
+
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

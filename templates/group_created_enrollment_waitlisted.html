@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="gl">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+<h2>O grupo creouse, pero non houbo praza</h2>
+<p>O grupo de <strong>{{nome_actividade}}</strong> quedou creado, pero non foi posible incluír a <strong>{{nome_alumno}}</strong> por falta de prazas.</p>
+<p>A solicitude permanece na lista de agarda. Se se libera unha praza, contactaremos contigo para ofrecerlla.</p>
+{{#posicion_lista}}<p>Posición actual na lista de agarda: <strong>{{posicion_lista}}</strong>.</p>{{/}}
+{{#ligazon_area_socios}}<p>Se prefires retirar a solicitude da lista de agarda, podes facelo desde a área de socios:<br><a href="{{ligazon_area_socios}}">{{ligazon_area_socios}}</a></p>{{/}}
+<p>Sentímolo moito. Avisarémoste en canto haxa novidades.</p>
+<p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p>
+{{#sinatura}}<hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">{{sinatura}}</p>{{/}}
+</body>
+</html>

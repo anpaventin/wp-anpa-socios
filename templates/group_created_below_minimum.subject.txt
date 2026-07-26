@@ -1,0 +1,1 @@
+Praza confirmada en {{nome_actividade}}

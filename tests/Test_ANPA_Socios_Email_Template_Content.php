@@ -391,6 +391,82 @@ final class Test_ANPA_Socios_Email_Template_Content extends TestCase {
 		$this->assertStringContainsString( 'non tes que volver presentala', $haystack );
 	}
 
+	// ── Grupo: grupos ────────────────────────────────────────────────────
+
+	public function test_the_group_resolution_group_is_complete(): void {
+		foreach (
+			array(
+				'group_created_enrollment_confirmed',
+				'group_created_enrollment_waitlisted',
+				'group_not_created',
+				'group_created_below_minimum',
+			) as $stem
+		) {
+			$this->assertTrue( ANPA_Socios_Email_Template_Defaults::exists( $stem ), "{$stem} not shipped" );
+			$this->assertContains( $stem, $this->new_stems(), "{$stem} is not treated as new content" );
+		}
+	}
+
+	public function test_the_failed_group_email_makes_no_claim_about_charges(): void {
+		// The §15 brief contained a sentence about no charge being made. The plugin does not handle
+		// charges, so it cannot promise anything about one — not even good news. The recorded
+		// correction replaces it with what the plugin does know: the request is closed.
+		$default  = ANPA_Socios_Email_Template_Defaults::load( 'group_not_created' );
+		$haystack = mb_strtolower( $default['subject'] . ' ' . $default['body_html'] . ' ' . $default['body_text'] );
+
+		$this->assertStringContainsString( 'queda pechada sen matrícula efectiva', $haystack );
+
+		foreach ( array( 'cobro', 'cobrar', 'cargo', 'ningún importe', 'gratuíto' ) as $forbidden ) {
+			$this->assertStringNotContainsString( $forbidden, $haystack, "group_not_created: mentions '{$forbidden}'" );
+		}
+	}
+
+	public function test_the_two_confirmation_emails_are_distinguishable_in_their_bodies(): void {
+		// Same subject on purpose — from the family's point of view the outcome is identical — but
+		// the below-minimum body has to explain why the group runs anyway, or the exception looks
+		// like an error the next time the minimum is enforced.
+		$normal    = ANPA_Socios_Email_Template_Defaults::load( 'group_created_enrollment_confirmed' );
+		$exception = ANPA_Socios_Email_Template_Defaults::load( 'group_created_below_minimum' );
+
+		$this->assertSame( $normal['subject'], $exception['subject'], 'the outcome is the same for the reader' );
+		$this->assertNotSame( $normal['body_html'], $exception['body_html'] );
+
+		$haystack = mb_strtolower( $exception['body_html'] . ' ' . $exception['body_text'] );
+		$this->assertStringContainsString( 'non se acadou o número mínimo', $haystack );
+		$this->assertStringContainsString( 'empresa responsable', $haystack );
+	}
+
+	public function test_the_confirmation_emails_invite_a_correction(): void {
+		// The board finds out about a wrong schedule when a family says so. An email that does not
+		// ask is an email that gets no answer.
+		foreach ( array( 'group_created_enrollment_confirmed', 'group_created_below_minimum' ) as $stem ) {
+			$default  = ANPA_Socios_Email_Template_Defaults::load( $stem );
+			$haystack = mb_strtolower( $default['body_html'] . ' ' . $default['body_text'] );
+
+			$this->assertStringContainsString( 'non é correcto', $haystack, "{$stem}: no correction path" );
+		}
+	}
+
+	public function test_the_group_emails_never_name_another_family(): void {
+		// One student per email. A group notice that listed classmates would be a data breach with
+		// a friendly tone.
+		foreach (
+			array(
+				'group_created_enrollment_confirmed',
+				'group_created_enrollment_waitlisted',
+				'group_not_created',
+				'group_created_below_minimum',
+			) as $stem
+		) {
+			$default = ANPA_Socios_Email_Template_Defaults::load( $stem );
+			$source  = $default['subject'] . "\n" . $default['body_html'] . "\n" . $default['body_text'];
+
+			foreach ( array( 'listado_participantes', 'listado_alumnos', 'nomes dos alumnos' ) as $forbidden ) {
+				$this->assertStringNotContainsString( $forbidden, $source, "{$stem}: would expose other families" );
+			}
+		}
+	}
+
 	public function test_the_application_receipt_does_not_promise_approval(): void {
 		// It confirms arrival, not acceptance. «Pendente de revisión» is the whole message.
 		$default  = ANPA_Socios_Email_Template_Defaults::load( 'member_application_received' );

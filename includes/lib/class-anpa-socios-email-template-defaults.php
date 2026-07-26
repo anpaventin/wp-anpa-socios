@@ -81,6 +81,11 @@ final class ANPA_Socios_Email_Template_Defaults {
 		'enrollment_received_pending_group'   => 1,
 		'enrollment_waitlist_capacity'        => 1,
 		'enrollment_waitlist_next_term'       => 1,
+		// Grupos.
+		'group_created_enrollment_confirmed'  => 1,
+		'group_created_enrollment_waitlisted' => 1,
+		'group_not_created'                   => 1,
+		'group_created_below_minimum'         => 1,
 	);
 
 	/**

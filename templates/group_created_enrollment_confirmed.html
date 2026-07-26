@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="gl">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+<h2>Praza confirmada</h2>
+<p>O grupo de <strong>{{nome_actividade}}</strong> queda creado e <strong>{{nome_alumno}}</strong> está incluído/a na actividade.</p>
+<h3>Datos da actividade</h3>
+<ul>
+<li><strong>Actividade:</strong> {{nome_actividade}}</li>
+{{#nome_grupo}}<li><strong>Grupo:</strong> {{nome_grupo}}</li>{{/}}
+{{#horario_grupo}}<li><strong>Día e horario:</strong> {{horario_grupo}}</li>{{/}}
+{{#data_inicio}}<li><strong>Inicio:</strong> {{data_inicio}}</li>{{/}}
+{{#nome_empresa}}<li><strong>Empresa responsable:</strong> {{nome_empresa}}</li>{{/}}
+</ul>
+{{#ligazon_area_socios}}<p>Podes consultar a matrícula desde a área de socios:<br><a href="{{ligazon_area_socios}}">{{ligazon_area_socios}}</a></p>{{/}}
+{{#correo_anpa}}<p>Se algún destes datos non é correcto, avísanos canto antes en <a href="mailto:{{correo_anpa}}">{{correo_anpa}}</a>.</p>{{/}}
+<p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p>
+{{#sinatura}}<hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">{{sinatura}}</p>{{/}}
+</body>
+</html>
