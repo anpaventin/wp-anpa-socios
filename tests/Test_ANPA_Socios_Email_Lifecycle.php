@@ -86,4 +86,19 @@ final class Test_ANPA_Socios_Email_Lifecycle extends TestCase {
 		// Documented multisite policy (per-site).
 		$this->assertStringContainsString( 'MULTISITE', $this->uninstall );
 	}
+
+	public function test_uninstall_does_not_preserve_the_template_tables(): void {
+		// A deliberate asymmetry, so it is asserted rather than assumed. Communications records are
+		// EVIDENCE of what was sent and cannot be reconstructed; a template is configuration and
+		// re-seeds from the shipped defaults. The preserve list must therefore stay
+		// communications-only, and the warning must name the customised wording it removes.
+		$start    = strpos( $this->uninstall, '$preserve     = $delete_comms' );
+		$this->assertIsInt( $start, 'the preserve list is no longer where the test expects it' );
+		$preserve = substr( $this->uninstall, (int) $start, 400 );
+
+		$this->assertStringNotContainsString( 'anpa_email_templates', $preserve );
+		$this->assertStringNotContainsString( 'anpa_email_template_versions', $preserve );
+		$this->assertStringContainsString( 'TEMPLATES ARE NOT AN EXCEPTION', $this->uninstall );
+		$this->assertStringContainsString( 'customised email wording are removed', $this->uninstall );
+	}
 }

@@ -55,7 +55,7 @@ final class Test_ANPA_Socios_Email_Migration_Integration extends TestCase {
 		foreach ( $this->tables() as $t ) {
 			$this->assertTrue( $this->table_exists( $t ), "Missing table $t after clean install" );
 		}
-		$this->assertSame( '1.39.0', get_option( ANPA_Socios_DB::VERSION_OPTION ) );
+		$this->assertSame( ANPA_Socios_DB::DB_VERSION, get_option( ANPA_Socios_DB::VERSION_OPTION ) );
 	}
 
 	public function test_upgrade_from_1_38_1_reaches_same_schema(): void {
@@ -70,7 +70,7 @@ final class Test_ANPA_Socios_Email_Migration_Integration extends TestCase {
 		foreach ( $this->tables() as $t ) {
 			$this->assertTrue( $this->table_exists( $t ) );
 		}
-		$this->assertSame( '1.39.0', get_option( ANPA_Socios_DB::VERSION_OPTION ) );
+		$this->assertSame( ANPA_Socios_DB::DB_VERSION, get_option( ANPA_Socios_DB::VERSION_OPTION ) );
 	}
 
 	public function test_second_run_is_idempotent(): void {

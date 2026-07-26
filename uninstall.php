@@ -30,9 +30,19 @@
  * site's own context. It performs no cross-site/network-wide deletion beyond the
  * standard per-site uninstall that WordPress itself drives.
  *
+ * TEMPLATES ARE NOT AN EXCEPTION (fase36): wp_anpa_email_templates and its
+ * version history follow the destructive-by-default rule. This is deliberate,
+ * not an oversight. The communications tables are preserved because they are
+ * EVIDENCE of what was sent, which cannot be reconstructed; a template is
+ * configuration, and every one of them can be re-seeded from the shipped
+ * defaults on reinstall. What is genuinely lost is a board's *customised*
+ * wording, which is why the warning below names it explicitly instead of hiding
+ * it behind "plugin data".
+ *
  * WARNING: this is destructive by design (except the communications tables noted
- * above). Socios, fillos, matrículas, banking data, activities, groups and
- * school structure are removed. Take a backup (Axustes → Copias) first.
+ * above). Socios, fillos, matrículas, banking data, activities, groups, school
+ * structure and any customised email wording are removed. Take a backup
+ * (Axustes → Copias) first.
  *
  * @package ANPA_Socios
  */

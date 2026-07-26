@@ -116,6 +116,7 @@
       <file>tests/Test_ANPA_Socios_Email_Template_Content.php</file>
       <file>tests/Test_ANPA_Socios_Email_Template_Scenarios.php</file>
       <file>tests/Test_ANPA_Socios_Email_Template_Validator.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Template_Migration_Integration.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

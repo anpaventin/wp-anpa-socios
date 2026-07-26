@@ -24,14 +24,27 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		$this->plugin_file = dirname( __DIR__ ) . '/anpa-socios.php';
 	}
 
-	public function test_db_version_constant_is_1_39_0(): void {
-		$this->assertSame( '1.39.0', ANPA_Socios_DB::DB_VERSION );
+	public function test_db_version_constant_is_1_40_0(): void {
+		$this->assertSame( '1.40.0', ANPA_Socios_DB::DB_VERSION );
 	}
 
-	public function test_anpa_socios_db_version_is_1_39_0(): void {
+	public function test_anpa_socios_db_version_is_1_40_0(): void {
 		$source = file_get_contents( $this->plugin_file );
 		$this->assertIsString( $source );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.39.0' )", $source );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.40.0' )", $source );
+	}
+
+	/**
+	 * The two constants must never disagree. They are written in different files, and a bump that
+	 * updates one and forgets the other produces a plugin that believes it migrated.
+	 */
+	public function test_the_two_version_declarations_agree(): void {
+		$source = (string) file_get_contents( $this->plugin_file );
+
+		$this->assertStringContainsString(
+			"define( 'ANPA_SOCIOS_DB_VERSION', '" . ANPA_Socios_DB::DB_VERSION . "' )",
+			$source
+		);
 	}
 
 	public function test_migrate_to_1_37_0_drops_legacy_comedor_columns_guarded(): void {
@@ -356,7 +369,7 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 
 	public function test_migrate_to_1_34_0_drops_activity_course_offers_only_after_group_equivalence_preflight(): void {
 		$source = file_get_contents( $this->db_file );
-		$this->assertStringContainsString( "const DB_VERSION = '1.39.0'", $source );
+		$this->assertStringContainsString( "const DB_VERSION = '" . ANPA_Socios_DB::DB_VERSION . "'", $source );
 		$this->assertStringContainsString( 'private static function migrate_to_1_34_0(): bool', $source );
 		$this->assertStringContainsString( 'SHOW TABLES LIKE %s', $source );
 		$this->assertStringContainsString( "'' !== (string) \$wpdb->last_error", $source );
@@ -469,5 +482,95 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		$this->assertStringNotContainsString( 'wp_schedule_event', $body );
 		$this->assertStringNotContainsString( 'wp_mail', $body );
 		$this->assertStringNotContainsString( 'INSERT INTO', $body );
+	}
+
+	// ── fase36: email template tables migration (1.40.0) ─────────────
+
+	/**
+	 * The body of migrate_to_1_40_0, sliced from the source.
+	 *
+	 * @return string
+	 */
+	private function migration_1_40_0_body(): string {
+		$source = (string) file_get_contents( $this->db_file );
+		$start  = strpos( $source, 'private static function migrate_to_1_40_0' );
+		$end    = strpos( $source, 'Migration 1.39.0 (fase35)', (int) $start );
+
+		$this->assertIsInt( $start, 'migrate_to_1_40_0 is not declared' );
+		$this->assertIsInt( $end, 'the 1.39.0 doc block no longer follows 1.40.0; the slice is stale' );
+
+		return substr( $source, (int) $start, (int) $end - (int) $start );
+	}
+
+	public function test_migrate_to_1_40_0_creates_the_template_tables_gated_and_additive(): void {
+		$source = (string) file_get_contents( $this->db_file );
+
+		// Gated in the runner and halts without advancing the version on error.
+		$this->assertStringContainsString( "version_compare( \$installed_version, '1.40.0', '<' ) && ! self::migrate_to_1_40_0()", $source );
+		$this->assertStringContainsString( 'Migration halted at step 1.40.0', $source );
+		$this->assertStringContainsString( 'private static function migrate_to_1_40_0(): bool', $source );
+
+		// Table-name helpers (approved English names).
+		$this->assertStringContainsString( 'public static function tabela_email_templates', $source );
+		$this->assertStringContainsString( 'public static function tabela_email_template_versions', $source );
+		$this->assertStringContainsString( 'anpa_email_templates', $source );
+		$this->assertStringContainsString( 'anpa_email_template_versions', $source );
+
+		$body = $this->migration_1_40_0_body();
+
+		// One row per event, keyed by the stable English key.
+		$this->assertStringContainsString( 'template_key varchar(64) NOT NULL', $body );
+		$this->assertStringContainsString( 'UNIQUE KEY template_key (template_key)', $body );
+
+		// What protects a site's wording from an update.
+		$this->assertStringContainsString( 'is_customised tinyint(1) unsigned NOT NULL DEFAULT 0', $body );
+		$this->assertStringContainsString( 'default_version smallint(5) unsigned NOT NULL DEFAULT 1', $body );
+
+		// History indexed for "the last N versions of this template".
+		$this->assertStringContainsString( 'KEY template_history (template_id, id)', $body );
+		$this->assertStringContainsString( 'was_customised tinyint(1)', $body );
+		$this->assertStringContainsString( 'archived_reason varchar(20)', $body );
+
+		// UTC convention: no session-tz defaults, explicit _utc columns.
+		$this->assertStringNotContainsString( 'DEFAULT CURRENT_TIMESTAMP', $body );
+		$this->assertStringContainsString( 'created_at_utc datetime NOT NULL', $body );
+		$this->assertStringContainsString( 'archived_at_utc datetime NOT NULL', $body );
+	}
+
+	public function test_migration_1_40_0_is_additive_and_checks_its_postcondition(): void {
+		$body = $this->migration_1_40_0_body();
+
+		$this->assertStringNotContainsString( 'DROP TABLE', $body );
+		$this->assertStringNotContainsString( 'DROP COLUMN', $body );
+		$this->assertStringNotContainsString( 'TRUNCATE', $body );
+		$this->assertStringContainsString( '1.40.0 email template table creation postcondition failed', $body );
+	}
+
+	public function test_migration_1_40_0_seeds_nothing_and_sends_nothing(): void {
+		// Schema and content are separate steps on purpose: a schema step that failed halfway must
+		// never leave half a catalogue of templates behind, and a migration has no business
+		// sending mail.
+		$body = $this->migration_1_40_0_body();
+
+		$this->assertStringNotContainsString( 'INSERT INTO', $body );
+		$this->assertStringNotContainsString( 'wp_mail', $body );
+		$this->assertStringNotContainsString( 'wp_schedule_event', $body );
+		$this->assertStringNotContainsString( 'Defaults::', $body );
+	}
+
+	public function test_the_history_table_declares_no_foreign_key(): void {
+		// Deliberate: history must stay readable after a live row is gone, so it carries its own
+		// denormalised template_key instead of depending on a join.
+		$body = $this->migration_1_40_0_body();
+
+		$this->assertStringNotContainsString( 'FOREIGN KEY', $body );
+		$this->assertStringNotContainsString( 'REFERENCES', $body );
+
+		$versions_start = strpos( $body, "CREATE TABLE {\$versions}" );
+		$this->assertIsInt( $versions_start, 'the version table is not created in this migration' );
+		$this->assertStringContainsString(
+			'template_key varchar(64) NOT NULL',
+			substr( $body, (int) $versions_start )
+		);
 	}
 }

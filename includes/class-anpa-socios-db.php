@@ -120,7 +120,7 @@ class ANPA_Socios_DB {
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.39.0';
+	const DB_VERSION = '1.40.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -356,6 +356,14 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.39.0', '<' ) && ! self::migrate_to_1_39_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.39.0 (migrate_to_1_39_0): ' . $wpdb->last_error );
+			return;
+		}
+
+		// 1.40.0: email template tables (templates + version history). Additive.
+		$wpdb->last_error = '';
+		if ( version_compare( $installed_version, '1.40.0', '<' ) && ! self::migrate_to_1_40_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.40.0 (migrate_to_1_40_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -763,6 +771,30 @@ class ANPA_Socios_DB {
 		global $wpdb;
 
 		return $wpdb->prefix . 'anpa_email_attempts';
+	}
+
+	/**
+	 * Returns the full wp_anpa_email_templates table name (fase36).
+	 *
+	 * @since  1.40.0
+	 * @return string
+	 */
+	public static function tabela_email_templates(): string {
+		global $wpdb;
+
+		return $wpdb->prefix . 'anpa_email_templates';
+	}
+
+	/**
+	 * Returns the full wp_anpa_email_template_versions table name (fase36).
+	 *
+	 * @since  1.40.0
+	 * @return string
+	 */
+	public static function tabela_email_template_versions(): string {
+		global $wpdb;
+
+		return $wpdb->prefix . 'anpa_email_template_versions';
 	}
 
 	/**
@@ -3911,6 +3943,96 @@ class ANPA_Socios_DB {
 		// Postcondition: both columns present.
 		if ( ! self::tem_columna( $tr, 'correlacion' ) || ! self::tem_columna( $tr, 'motivo' ) ) {
 			$wpdb->last_error = '1.38.1 transicions audit columns postcondition failed';
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Migration 1.40.0 (fase36): create the email template tables — the live
+	 * templates and their version history.
+	 *
+	 * Additive and idempotent (dbDelta creates when missing, no-ops otherwise).
+	 * Never drops anything. Creates NO row: seeding the shipped defaults is the
+	 * repository's job and runs after migration, so a schema step that fails
+	 * halfway never leaves half a catalogue behind. Sends no email.
+	 *
+	 * The history table deliberately keeps `template_key` denormalised and
+	 * declares no foreign key: history has to stay readable after a live row is
+	 * gone, and "which template was this?" must not depend on a join to a row a
+	 * later migration may legitimately delete.
+	 *
+	 * @since  1.40.0
+	 * @return bool
+	 */
+	private static function migrate_to_1_40_0(): bool {
+		global $wpdb;
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		$charset_collate = $wpdb->get_charset_collate();
+
+		$templates = self::tabela_email_templates();
+		$versions  = self::tabela_email_template_versions();
+
+		// Same UTC convention as 1.39.0: every datetime stores UTC, written by
+		// the app with gmdate(). NO CURRENT_TIMESTAMP defaults, whose value
+		// depends on the MySQL session time zone.
+		//
+		// 1. The live templates. One row per registered event, keyed by the
+		//    stable English template_key. `is_customised` is what protects a
+		//    site's wording: an update shipping a newer default_version informs,
+		//    it never overwrites.
+		dbDelta(
+			"CREATE TABLE {$templates} (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				template_key varchar(64) NOT NULL,
+				event_type varchar(40) NOT NULL DEFAULT '',
+				subject varchar(255) NOT NULL DEFAULT '',
+				body_html longtext NULL,
+				body_text longtext NULL,
+				is_active tinyint(1) unsigned NOT NULL DEFAULT 1,
+				is_customised tinyint(1) unsigned NOT NULL DEFAULT 0,
+				default_version smallint(5) unsigned NOT NULL DEFAULT 1,
+				default_sha256 char(64) NOT NULL DEFAULT '',
+				content_sha256 char(64) NOT NULL DEFAULT '',
+				created_at_utc datetime NOT NULL,
+				updated_at_utc datetime NULL,
+				updated_by varchar(100) NOT NULL DEFAULT '',
+				PRIMARY KEY  (id),
+				UNIQUE KEY template_key (template_key),
+				KEY event_type (event_type)
+			) {$charset_collate};"
+		);
+
+		// 2. The version history. It stores the state being REPLACED, not the
+		//    state being written: every save archives the current row first and
+		//    only then overwrites it. Storing the new state instead would make
+		//    this a duplicate of the live row and leave the version somebody
+		//    actually wants back unrecorded.
+		dbDelta(
+			"CREATE TABLE {$versions} (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				template_id bigint(20) unsigned NOT NULL,
+				template_key varchar(64) NOT NULL,
+				subject varchar(255) NOT NULL DEFAULT '',
+				body_html longtext NULL,
+				body_text longtext NULL,
+				content_sha256 char(64) NOT NULL DEFAULT '',
+				default_version smallint(5) unsigned NOT NULL DEFAULT 1,
+				was_customised tinyint(1) unsigned NOT NULL DEFAULT 0,
+				archived_at_utc datetime NOT NULL,
+				archived_by varchar(100) NOT NULL DEFAULT '',
+				archived_reason varchar(20) NOT NULL DEFAULT 'save',
+				PRIMARY KEY  (id),
+				KEY template_history (template_id, id),
+				KEY template_key (template_key)
+			) {$charset_collate};"
+		);
+
+		// Postcondition: both tables exist.
+		if ( self::table_missing( $templates ) || self::table_missing( $versions ) ) {
+			$wpdb->last_error = '1.40.0 email template table creation postcondition failed';
 			return false;
 		}
 

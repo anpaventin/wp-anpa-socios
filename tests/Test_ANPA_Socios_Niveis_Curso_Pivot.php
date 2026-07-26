@@ -45,7 +45,10 @@ final class Test_ANPA_Socios_Niveis_Curso_Pivot extends TestCase {
 
 	public function test_db_version_bumped_and_1_36_0_wired_in_chain(): void {
 		$source = file_get_contents( $this->db_file );
-		$this->assertStringContainsString( "const DB_VERSION = '1.39.0';", $source );
+		// Read from the constant, not a literal: this test cares that the chain is wired, not which
+		// version happens to be current, and a hardcoded literal made every schema bump edit tests
+		// that have nothing to do with the change.
+		$this->assertStringContainsString( "const DB_VERSION = '" . ANPA_Socios_DB::DB_VERSION . "';", $source );
 		$this->assertStringContainsString( "version_compare( \$installed_version, '1.36.0', '<' ) && ! self::migrate_to_1_36_0()", $source );
 	}
 
