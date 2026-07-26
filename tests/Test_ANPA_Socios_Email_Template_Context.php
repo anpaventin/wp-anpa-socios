@@ -329,20 +329,91 @@ final class Test_ANPA_Socios_Email_Template_Context extends TestCase {
 		);
 	}
 
-	public function test_plain_http_is_refused_except_for_development_hosts(): void {
-		// http in an email a family clicks is a downgrade nobody chose.
+	public function test_the_http_exception_depends_on_the_policy_not_on_the_domain_name(): void {
+		// THE SAME URL under the three policies. A reserved-looking domain is not a policy: a real
+		// installation can hold a fictitious URL, and "it looked like a test domain" is not a
+		// security argument.
+		$url = 'http://example.org/area/';
+
 		$this->assertSame(
-			'http://example.org/area/',
-			ANPA_Socios_Email_Template_Context::format_url( 'http://example.org/area/' )
-		);
-		$this->assertSame(
-			'http://localhost:8080/area/',
-			ANPA_Socios_Email_Template_Context::format_url( 'http://localhost:8080/area/' )
+			$url,
+			ANPA_Socios_Email_Template_Context::format_url(
+				$url,
+				'ligazon',
+				false,
+				ANPA_Socios_Email_Template_Context::POLICY_PREVIEW
+			),
+			'preview may show a reserved http host: it cannot be a real recipient'
 		);
 
+		foreach (
+			array(
+				ANPA_Socios_Email_Template_Context::POLICY_PRODUCTION,
+				ANPA_Socios_Email_Template_Context::POLICY_INTEGRATION,
+			) as $policy
+		) {
+			try {
+				ANPA_Socios_Email_Template_Context::format_url( $url, 'ligazon', false, $policy );
+				$this->fail( "expected http to be refused under '{$policy}'" );
+			} catch ( ANPA_Socios_Email_Template_Registry_Error $e ) {
+				$this->assertStringContainsString( 'must use https', $e->getMessage() );
+			}
+		}
+	}
+
+	public function test_the_default_policy_is_production(): void {
+		// Forgetting to state a policy must be safe, not permissive.
 		$this->expectException( ANPA_Socios_Email_Template_Registry_Error::class );
-		$this->expectExceptionMessage( 'must use https' );
-		ANPA_Socios_Email_Template_Context::format_url( 'http://anpa-real.example-not-reserved.gal/area/' );
+		$this->expectExceptionMessage( "'production'" );
+
+		ANPA_Socios_Email_Template_Context::format_url( 'http://example.org/area/' );
+	}
+
+	public function test_loopback_http_is_tolerated_from_integration_onwards(): void {
+		// There is no network to downgrade on loopback, and the integration suite has to be able
+		// to render a link.
+		foreach (
+			array(
+				ANPA_Socios_Email_Template_Context::POLICY_INTEGRATION,
+				ANPA_Socios_Email_Template_Context::POLICY_PREVIEW,
+			) as $policy
+		) {
+			$this->assertSame(
+				'http://localhost:8080/area/',
+				ANPA_Socios_Email_Template_Context::format_url( 'http://localhost:8080/area/', 'ligazon', false, $policy )
+			);
+		}
+
+		$this->expectException( ANPA_Socios_Email_Template_Registry_Error::class );
+		ANPA_Socios_Email_Template_Context::format_url(
+			'http://localhost:8080/area/',
+			'ligazon',
+			false,
+			ANPA_Socios_Email_Template_Context::POLICY_PRODUCTION
+		);
+	}
+
+	public function test_a_real_host_is_never_tolerated_over_http_under_any_policy(): void {
+		foreach ( ANPA_Socios_Email_Template_Context::url_policies() as $policy ) {
+			try {
+				ANPA_Socios_Email_Template_Context::format_url(
+					'http://anpa-real.example-not-reserved.gal/area/',
+					'ligazon',
+					false,
+					$policy
+				);
+				$this->fail( "expected a real http host to be refused under '{$policy}'" );
+			} catch ( ANPA_Socios_Email_Template_Registry_Error $e ) {
+				$this->assertStringContainsString( 'must use https', $e->getMessage() );
+			}
+		}
+	}
+
+	public function test_an_unknown_policy_is_refused(): void {
+		$this->expectException( ANPA_Socios_Email_Template_Registry_Error::class );
+		$this->expectExceptionMessage( 'unknown URL policy' );
+
+		ANPA_Socios_Email_Template_Context::format_url( 'https://example.org/', 'ligazon', false, 'staging' );
 	}
 
 	public function test_a_url_with_a_line_break_is_refused(): void {
@@ -481,8 +552,18 @@ final class Test_ANPA_Socios_Email_Template_Context extends TestCase {
 			ANPA_Socios_Email_Template_Context::group_state_label( 'confirmado_baixo_minimo' )
 		);
 		$this->assertSame(
-			'Lista de espera para o seguinte trimestre',
+			'Na lista de agarda para o seguinte trimestre',
 			ANPA_Socios_Email_Template_Context::enrollment_state_label( 'espera_seguinte_trimestre' )
+		);
+	}
+
+	public function test_the_stored_identifier_keeps_its_historical_spelling(): void {
+		// The visible wording is normalised to «lista de agarda»; the identifier is not, because
+		// renaming a stored state is a migration, not a wording decision.
+		$this->assertContains( 'espera_capacidade', ANPA_Socios_Email_Template_Context::supported_enrollment_states() );
+		$this->assertStringContainsString(
+			'lista de agarda',
+			ANPA_Socios_Email_Template_Context::enrollment_state_label( 'espera_capacidade' )
 		);
 	}
 
@@ -495,13 +576,41 @@ final class Test_ANPA_Socios_Email_Template_Context extends TestCase {
 		ANPA_Socios_Email_Template_Context::group_state_label( 'Confirmado <script>alert(1)</script>' );
 	}
 
-	public function test_every_declared_state_has_a_label(): void {
-		foreach ( ANPA_Socios_Email_Template_Context::group_states() as $state ) {
+	public function test_every_supported_state_has_a_label(): void {
+		// Bijection, not a count: the inspector and the labels are two views of one map, so every
+		// listed identifier must label and nothing may be listed that cannot.
+		foreach ( ANPA_Socios_Email_Template_Context::supported_group_states() as $state ) {
 			$this->assertNotSame( '', ANPA_Socios_Email_Template_Context::group_state_label( $state ) );
 		}
-		foreach ( ANPA_Socios_Email_Template_Context::enrollment_states() as $state ) {
+		foreach ( ANPA_Socios_Email_Template_Context::supported_enrollment_states() as $state ) {
 			$this->assertNotSame( '', ANPA_Socios_Email_Template_Context::enrollment_state_label( $state ) );
 		}
+	}
+
+	public function test_the_state_inspectors_return_a_safe_copy(): void {
+		// Fase39 will iterate, sort and filter these. Mutating the returned array must not change
+		// what the class accepts, or a caller could quietly widen the domain.
+		$states = ANPA_Socios_Email_Template_Context::supported_group_states();
+		$states[] = 'inventado';
+		sort( $states );
+
+		$this->assertNotContains( 'inventado', ANPA_Socios_Email_Template_Context::supported_group_states() );
+		$this->assertFalse( in_array( 'inventado', ANPA_Socios_Email_Template_Context::supported_group_states(), true ) );
+
+		$this->expectException( ANPA_Socios_Email_Template_Registry_Error::class );
+		ANPA_Socios_Email_Template_Context::group_state_label( 'inventado' );
+	}
+
+	public function test_the_two_state_domains_do_not_overlap(): void {
+		// A group state used where an enrollment state belongs would label successfully and say
+		// the wrong thing, which is worse than failing.
+		$this->assertSame(
+			array(),
+			array_intersect(
+				ANPA_Socios_Email_Template_Context::supported_group_states(),
+				ANPA_Socios_Email_Template_Context::supported_enrollment_states()
+			)
+		);
 	}
 
 	public function test_the_context_helper_does_not_touch_wordpress(): void {

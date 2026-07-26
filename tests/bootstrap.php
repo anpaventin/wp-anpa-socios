@@ -62,6 +62,7 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-defaul
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-context.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-editorial.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-actions.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-validator.php';
 require_once __DIR__ . '/trait-anpa-socios-inspection.php';
 require_once __DIR__ . '/class-anpa-socios-golden-manifest.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-trimestre.php';
