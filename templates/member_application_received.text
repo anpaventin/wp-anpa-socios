@@ -1,0 +1,17 @@
+Recibimos a túa solicitude de alta
+
+{{#nome_solicitante}}Ola, {{nome_solicitante}}:
+
+{{/}}Recibimos correctamente a túa solicitude de alta como socio/a de {{nome_anpa}}.
+
+A solicitude queda pendente de revisión pola administración. Avisarémoste por correo cando sexa aprobada ou se precisamos que corrixas algún dato.
+{{#ligazon_area_socios}}
+Podes consultar o estado desde a área de socios:
+{{ligazon_area_socios}}
+{{/}}{{#correo_anpa}}
+Se detectas algún erro nos datos que enviaches, escríbenos a {{correo_anpa}}.
+{{/}}
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}
