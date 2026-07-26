@@ -1,0 +1,25 @@
+A oferta de praza está a piques de caducar
+
+{{#nome_proxenitor}}Ola, {{nome_proxenitor}}:
+
+{{/}}Aínda non recibimos resposta á praza que ofrecemos a {{nome_alumno}} en {{nome_actividade}}.
+
+O prazo para confirmala remata o {{data_limite}}.
+{{#consecuencia}}
+{{consecuencia}}
+{{/}}{{#ligazon_confirmacion}}
+Confirmar a praza:
+{{ligazon_confirmacion}}
+{{/}}{{#ligazon_cancelacion}}
+Renunciar á praza:
+{{ligazon_cancelacion}}
+{{/}}{{#ligazon_area_socios}}
+Tamén podes xestionala desde a área de socios:
+{{ligazon_area_socios}}
+{{/}}
+Se xa non vos interesa, dicídenolo igualmente: así podemos ofrecerlla á seguinte familia sen esperar a que remate o prazo.
+
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

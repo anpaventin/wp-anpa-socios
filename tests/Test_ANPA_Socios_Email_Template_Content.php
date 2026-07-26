@@ -593,6 +593,103 @@ final class Test_ANPA_Socios_Email_Template_Content extends TestCase {
 		);
 	}
 
+	// ── Grupo: lista de agarda ───────────────────────────────────────────
+
+	public function test_the_waitlist_group_is_complete(): void {
+		foreach (
+			array(
+				'waitlist_place_offer_reminder',
+				'waitlist_place_accepted',
+				'waitlist_place_declined',
+				'waitlist_place_expired',
+			) as $stem
+		) {
+			$this->assertTrue( ANPA_Socios_Email_Template_Defaults::exists( $stem ), "{$stem} not shipped" );
+			$this->assertContains( $stem, $this->new_stems(), "{$stem} is not treated as new content" );
+		}
+	}
+
+	public function test_the_reminder_cannot_exist_without_a_deadline(): void {
+		// An offer described as «a piques de caducar» with no expiry date is not a reminder, it is an
+		// alarm. The declaration makes the date required and the general invariants already forbid
+		// wrapping a required token in a block; this pins the specific decision so a later edit
+		// cannot quietly relax it.
+		$definition = $this->definition( 'waitlist_place_offer_reminder' );
+
+		$this->assertContains( 'data_limite', $definition->required_tokens() );
+
+		$default = ANPA_Socios_Email_Template_Defaults::load( 'waitlist_place_offer_reminder' );
+		$this->assertStringContainsString( '{{data_limite}}', $default['subject'] );
+		$this->assertStringContainsString( '{{data_limite}}', $default['body_html'] );
+		$this->assertStringContainsString( '{{data_limite}}', $default['body_text'] );
+	}
+
+	public function test_the_reminder_is_not_a_copy_of_the_offer(): void {
+		// A reminder that reads like the first email teaches people to ignore both. Its subject has
+		// to say time is running out.
+		$offer    = ANPA_Socios_Email_Template_Defaults::load( 'waitlist_place_offer' );
+		$reminder = ANPA_Socios_Email_Template_Defaults::load( 'waitlist_place_offer_reminder' );
+
+		$this->assertNotSame( $offer['subject'], $reminder['subject'] );
+		$this->assertNotSame( $offer['body_html'], $reminder['body_html'] );
+		$this->assertStringContainsString( 'caduca', mb_strtolower( $reminder['subject'] ) );
+	}
+
+	public function test_the_reminder_offers_a_way_to_say_no(): void {
+		// Declining early frees the place for the next family without waiting out the deadline,
+		// which is the only outcome that helps everybody.
+		$default  = ANPA_Socios_Email_Template_Defaults::load( 'waitlist_place_offer_reminder' );
+		$haystack = mb_strtolower( $default['body_html'] . ' ' . $default['body_text'] );
+
+		$this->assertStringContainsString( 'seguinte familia', $haystack );
+	}
+
+	public function test_the_waitlist_outcome_emails_are_distinguishable_at_a_glance(): void {
+		// Four emails about the same place. If two of them shared a subject, a family could not tell
+		// from the inbox whether it still had a decision to make.
+		$subjects = array();
+		foreach (
+			array(
+				'waitlist_place_offer',
+				'waitlist_place_offer_reminder',
+				'waitlist_place_accepted',
+				'waitlist_place_declined',
+				'waitlist_place_expired',
+			) as $stem
+		) {
+			$subjects[ $stem ] = ANPA_Socios_Email_Template_Defaults::load( $stem )['subject'];
+		}
+
+		$this->assertSame(
+			count( $subjects ),
+			count( array_unique( array_values( $subjects ) ) ),
+			'two waitlist emails share a subject'
+		);
+	}
+
+	public function test_the_expired_offer_email_does_not_blame_the_family(): void {
+		// The most likely reason for silence is that the first email was never seen. An accusatory
+		// notice about a missed deadline is how a volunteer board loses a family.
+		$default  = ANPA_Socios_Email_Template_Defaults::load( 'waitlist_place_expired' );
+		$haystack = mb_strtolower( $default['body_html'] . ' ' . $default['body_text'] );
+
+		$this->assertStringContainsString( 'non recibiches o aviso anterior', $haystack );
+
+		foreach ( array( 'non respondiches', 'ignoraches', 'por non responder' ) as $blame ) {
+			$this->assertStringNotContainsString( $blame, $haystack, "blames the family: '{$blame}'" );
+		}
+	}
+
+	public function test_the_accepted_place_email_claims_no_more_than_a_registration(): void {
+		// Accepting the offer records an acceptance. Whether the enrollment is complete is a separate
+		// question owned by the state machine, and this email must not answer it.
+		$default  = ANPA_Socios_Email_Template_Defaults::load( 'waitlist_place_accepted' );
+		$haystack = mb_strtolower( $default['body_html'] . ' ' . $default['body_text'] );
+
+		$this->assertStringContainsString( 'rexistramos a aceptación', $haystack );
+		$this->assertStringNotContainsString( 'matrícula completa', $haystack );
+	}
+
 	public function test_the_application_receipt_does_not_promise_approval(): void {
 		// It confirms arrival, not acceptance. «Pendente de revisión» is the whole message.
 		$default  = ANPA_Socios_Email_Template_Defaults::load( 'member_application_received' );
