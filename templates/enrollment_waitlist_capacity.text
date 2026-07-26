@@ -1,0 +1,17 @@
+A solicitude queda na lista de agarda
+
+A solicitude de {{nome_alumno}} para {{nome_actividade}} quedou rexistrada, pero neste momento o grupo non ten prazas dispoñibles.
+
+A matrícula pasa á lista de agarda. A orde consérvase segundo os criterios definidos para a actividade.
+{{#posicion_lista}}
+Posición actual na lista de agarda: {{posicion_lista}}. A posición pode cambiar se outras familias retiran a súa solicitude.
+{{/}}
+Se queda unha praza libre, contactaremos contigo. A entrada na actividade non é automática: haberá que confirmar a praza no prazo que se indique.
+{{#ligazon_area_socios}}
+Podes consultar a matrícula desde a área de socios:
+{{ligazon_area_socios}}
+{{/}}
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

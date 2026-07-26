@@ -1,0 +1,15 @@
+Solicitude pendente para o seguinte trimestre
+
+Recibimos a solicitude de {{nome_alumno}} para {{nome_actividade}}.
+
+O trimestre en curso xa está en marcha ou a súa ventá ordinaria está pechada, así que a solicitude queda pendente de revisión para o trimestre{{#trimestre_seguinte}} {{trimestre_seguinte}}{{/}} seguinte.
+
+Antes de que comece ese trimestre revisaremos as baixas, as prazas dispoñibles e a orde das solicitudes. Non tes que volver presentala.
+{{#ligazon_area_socios}}
+Podes consultar o estado desde a área de socios:
+{{ligazon_area_socios}}
+{{/}}
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

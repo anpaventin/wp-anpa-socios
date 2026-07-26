@@ -76,6 +76,11 @@ final class ANPA_Socios_Email_Template_Defaults {
 		'member_application_received'         => 1,
 		'member_cancellation_requested'       => 1,
 		'member_cancellation_end_of_year'     => 1,
+		// Matrículas.
+		'school_year_enrollment_open'         => 1,
+		'enrollment_received_pending_group'   => 1,
+		'enrollment_waitlist_capacity'        => 1,
+		'enrollment_waitlist_next_term'       => 1,
 	);
 
 	/**

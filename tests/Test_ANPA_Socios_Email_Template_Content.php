@@ -285,6 +285,112 @@ final class Test_ANPA_Socios_Email_Template_Content extends TestCase {
 		}
 	}
 
+	// ── Grupo: matrículas ────────────────────────────────────────────────
+
+	public function test_the_enrollment_group_is_complete(): void {
+		foreach (
+			array(
+				'school_year_enrollment_open',
+				'enrollment_received_pending_group',
+				'enrollment_waitlist_capacity',
+				'enrollment_waitlist_next_term',
+			) as $stem
+		) {
+			$this->assertTrue( ANPA_Socios_Email_Template_Defaults::exists( $stem ), "{$stem} not shipped" );
+			$this->assertContains( $stem, $this->new_stems(), "{$stem} is not treated as new content" );
+		}
+	}
+
+	public function test_no_enrollment_email_confirms_a_place_it_has_not_got(): void {
+		// The single most expensive mistake this group can make: a family that reads "matriculado"
+		// in a receipt stops watching for the real confirmation, and finds out in October.
+		foreach (
+			array(
+				'school_year_enrollment_open',
+				'enrollment_received_pending_group',
+				'enrollment_waitlist_capacity',
+				'enrollment_waitlist_next_term',
+			) as $stem
+		) {
+			$default  = ANPA_Socios_Email_Template_Defaults::load( $stem );
+			$haystack = mb_strtolower( $default['subject'] . ' ' . $default['body_html'] . ' ' . $default['body_text'] );
+
+			foreach ( array( 'praza confirmada', 'matrícula confirmada', 'queda matriculado', 'xa está matriculado' ) as $claim ) {
+				$this->assertStringNotContainsString( $claim, $haystack, "{$stem}: claims '{$claim}'" );
+			}
+		}
+	}
+
+	public function test_the_pending_enrollment_emails_say_the_request_is_not_a_place_yet(): void {
+		// Stated as a property over accepted wordings rather than one exact sentence: the point is
+		// that the disclaimer EXISTS in both channels, not that both emails phrase it identically.
+		$accepted = array(
+			'non confirma a praza',
+			'non supón a confirmación da praza',
+			'non supón a confirmación definitiva da praza',
+		);
+
+		foreach ( array( 'school_year_enrollment_open', 'enrollment_received_pending_group' ) as $stem ) {
+			$default = ANPA_Socios_Email_Template_Defaults::load( $stem );
+
+			foreach ( array( 'body_html', 'body_text' ) as $channel ) {
+				$haystack = mb_strtolower( $default[ $channel ] );
+				$found    = false;
+
+				foreach ( $accepted as $phrase ) {
+					if ( false !== mb_strpos( $haystack, $phrase ) ) {
+						$found = true;
+						break;
+					}
+				}
+
+				$this->assertTrue( $found, "{$stem}.{$channel}: no sentence says a request is not yet a place" );
+			}
+		}
+	}
+
+	public function test_the_waitlist_emails_use_the_normalised_term(): void {
+		// «lista de agarda» is the project's term for new content. «lista de espera» survives only
+		// in the historical parity text and in stored state identifiers, never in new wording.
+		foreach ( array( 'enrollment_waitlist_capacity', 'enrollment_waitlist_next_term' ) as $stem ) {
+			$default  = ANPA_Socios_Email_Template_Defaults::load( $stem );
+			$haystack = mb_strtolower( $default['subject'] . ' ' . $default['body_html'] . ' ' . $default['body_text'] );
+
+			$this->assertStringNotContainsString( 'lista de espera', $haystack, "{$stem}: uses the old term" );
+		}
+	}
+
+	public function test_the_capacity_waitlist_email_does_not_promise_automatic_entry(): void {
+		$default  = ANPA_Socios_Email_Template_Defaults::load( 'enrollment_waitlist_capacity' );
+		$haystack = mb_strtolower( $default['body_html'] . ' ' . $default['body_text'] );
+
+		$this->assertStringContainsString( 'non é automática', $haystack );
+		$this->assertStringContainsString( 'lista de agarda', $haystack );
+	}
+
+	public function test_the_activity_list_is_rendered_as_preformatted_text(): void {
+		// The renderer escapes every value, so the list arrives as plain lines. Without
+		// `white-space: pre-line` in the template, the HTML channel would run them together into
+		// one paragraph and the reader would see a single sentence of activity names.
+		$default = ANPA_Socios_Email_Template_Defaults::load( 'school_year_enrollment_open' );
+
+		$this->assertMatchesRegularExpression(
+			'/white-space:\s*pre-line[^>]*>\{\{listado_actividades\}\}/',
+			$default['body_html'],
+			'the activity list is not wrapped in a pre-line block'
+		);
+		$this->assertStringNotContainsString( '<ul>{{listado_actividades}}', $default['body_html'] );
+	}
+
+	public function test_the_next_term_email_does_not_ask_the_family_to_apply_again(): void {
+		// A pending request that looks lost gets resubmitted, and a duplicate request is a real
+		// administrative cost for the board.
+		$default  = ANPA_Socios_Email_Template_Defaults::load( 'enrollment_waitlist_next_term' );
+		$haystack = mb_strtolower( $default['body_html'] . ' ' . $default['body_text'] );
+
+		$this->assertStringContainsString( 'non tes que volver presentala', $haystack );
+	}
+
 	public function test_the_application_receipt_does_not_promise_approval(): void {
 		// It confirms arrival, not acceptance. «Pendente de revisión» is the whole message.
 		$default  = ANPA_Socios_Email_Template_Defaults::load( 'member_application_received' );

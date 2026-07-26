@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="gl">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+<h2>Recibimos a solicitude de matrícula</h2>
+{{#nome_proxenitor}}<p>Ola, {{nome_proxenitor}}:</p>{{/}}
+<p>Recibimos a solicitude de matrícula de <strong>{{nome_alumno}}</strong> na actividade <strong>{{nome_actividade}}</strong>.</p>
+<p>A solicitude está pendente da revisión e do peche do grupo, así que aínda non supón a confirmación da praza.</p>
+<h3>Datos da solicitude</h3>
+<ul>
+<li><strong>Actividade:</strong> {{nome_actividade}}</li>
+<li><strong>Alumno/a:</strong> {{nome_alumno}}</li>
+{{#curso_alumno}}<li><strong>Curso e grupo:</strong> {{curso_alumno}}</li>{{/}}
+{{#trimestre_actual}}<li><strong>Trimestre:</strong> {{trimestre_actual}}</li>{{/}}
+</ul>
+{{#ligazon_area_socios}}<p>Podes consultar o estado desde a área de socios:<br><a href="{{ligazon_area_socios}}">{{ligazon_area_socios}}</a></p>{{/}}
+<p>Avisarémoste por correo cando o grupo quede resolto.</p>
+<p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p>
+{{#sinatura}}<hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">{{sinatura}}</p>{{/}}
+</body>
+</html>

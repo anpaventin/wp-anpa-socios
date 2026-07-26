@@ -1,0 +1,24 @@
+Recibimos a solicitude de matrícula
+
+{{#nome_proxenitor}}Ola, {{nome_proxenitor}}:
+
+{{/}}Recibimos a solicitude de matrícula de {{nome_alumno}} na actividade {{nome_actividade}}.
+
+A solicitude está pendente da revisión e do peche do grupo, así que aínda non supón a confirmación da praza.
+
+Datos da solicitude:
+
+Actividade: {{nome_actividade}}
+Alumno/a: {{nome_alumno}}
+{{#curso_alumno}}Curso e grupo: {{curso_alumno}}
+{{/}}{{#trimestre_actual}}Trimestre: {{trimestre_actual}}
+{{/}}{{#ligazon_area_socios}}
+Podes consultar o estado desde a área de socios:
+{{ligazon_area_socios}}
+{{/}}
+Avisarémoste por correo cando o grupo quede resolto.
+
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

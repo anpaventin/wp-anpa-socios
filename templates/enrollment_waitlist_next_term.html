@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="gl">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+<h2>Solicitude pendente para o seguinte trimestre</h2>
+<p>Recibimos a solicitude de <strong>{{nome_alumno}}</strong> para <strong>{{nome_actividade}}</strong>.</p>
+<p>O trimestre en curso xa está en marcha ou a súa ventá ordinaria está pechada, así que a solicitude queda pendente de revisión para o trimestre{{#trimestre_seguinte}} <strong>{{trimestre_seguinte}}</strong>{{/}} seguinte.</p>
+<p>Antes de que comece ese trimestre revisaremos as baixas, as prazas dispoñibles e a orde das solicitudes. Non tes que volver presentala.</p>
+{{#ligazon_area_socios}}<p>Podes consultar o estado desde a área de socios:<br><a href="{{ligazon_area_socios}}">{{ligazon_area_socios}}</a></p>{{/}}
+<p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p>
+{{#sinatura}}<hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">{{sinatura}}</p>{{/}}
+</body>
+</html>
