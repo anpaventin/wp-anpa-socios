@@ -45,6 +45,17 @@ final class ANPA_Socios_Email_Template_Context {
 	const MAX_URL_LENGTH = 2000;
 
 	/**
+	 * URL policies.
+	 *
+	 * The default everywhere is PRODUCTION, so forgetting to state a policy is safe rather than
+	 * permissive. A reserved-looking domain is not a policy: a real installation can hold a
+	 * fictitious URL, and "it looked like a test domain" is not a security argument.
+	 */
+	const POLICY_PRODUCTION  = 'production';
+	const POLICY_INTEGRATION = 'integration';
+	const POLICY_PREVIEW     = 'preview';
+
+	/**
 	 * Builds the mutually exclusive members'-area pair.
 	 *
 	 * @since  1.40.0
@@ -290,14 +301,30 @@ final class ANPA_Socios_Email_Template_Context {
 	 * Fase36 never GENERATES an action URL. The single-use tokens belong to fase39; here the URL
 	 * is received and checked, never built, and no parameter is concatenated inside a template.
 	 *
+	 * THE HTTP EXCEPTION DEPENDS ON THE POLICY, NOT ON THE DOMAIN NAME. `http://example.org` is
+	 * not acceptable in production merely because the domain is reserved: a real installation can
+	 * hold a fictitious-looking URL, and "it looked like a test domain" is not a security
+	 * argument. The caller states the policy; the default is production, so forgetting to state
+	 * it is safe rather than permissive.
+	 *
 	 * @since  1.40.0
 	 * @param  string $url      Candidate URL, may be empty when the variable is optional.
 	 * @param  string $token    Token name, for the error message.
 	 * @param  bool   $required Whether an empty value is an error.
+	 * @param  string $policy   One of the POLICY_* constants; production by default.
 	 * @return string The URL, or empty when optional and absent.
-	 * @throws ANPA_Socios_Email_Template_Registry_Error On an unusable URL.
+	 * @throws ANPA_Socios_Email_Template_Registry_Error On an unusable URL or an unknown policy.
 	 */
-	public static function format_url( string $url, string $token = 'ligazon', bool $required = false ): string {
+	public static function format_url(
+		string $url,
+		string $token = 'ligazon',
+		bool $required = false,
+		string $policy = self::POLICY_PRODUCTION
+	): string {
+		if ( ! in_array( $policy, self::url_policies(), true ) ) {
+			throw new ANPA_Socios_Email_Template_Registry_Error( "unknown URL policy '{$policy}'" );
+		}
+
 		$url = trim( $url );
 
 		if ( '' === $url ) {
@@ -325,25 +352,49 @@ final class ANPA_Socios_Email_Template_Context {
 		if ( 'https' === $scheme ) {
 			return $url;
 		}
-		if ( 'http' === $scheme && self::is_development_host( $host ) ) {
+
+		if ( 'http' === $scheme && self::http_allowed( $host, $policy ) ) {
 			return $url;
 		}
 
 		throw new ANPA_Socios_Email_Template_Registry_Error(
-			"'{$token}' must use https (http is allowed only for localhost and the reserved example domains)"
+			"'{$token}' must use https under the '{$policy}' policy"
 		);
 	}
 
 	/**
-	 * @param  string $host Lowercased host.
-	 * @return bool Whether plain http is tolerated for it.
+	 * @since  1.40.0
+	 * @return string[] Valid URL policies.
 	 */
-	private static function is_development_host( string $host ): bool {
-		if ( 'localhost' === $host || '127.0.0.1' === $host ) {
+	public static function url_policies(): array {
+		return array( self::POLICY_PRODUCTION, self::POLICY_INTEGRATION, self::POLICY_PREVIEW );
+	}
+
+	/**
+	 * Whether plain http is tolerated for this host under this policy.
+	 *
+	 *   - production:  never.
+	 *   - integration: only loopback, where there is no network to downgrade.
+	 *   - preview:     loopback and the RFC 2606 reserved names, which cannot be a real
+	 *                  recipient by definition.
+	 *
+	 * @param  string $host   Lowercased host.
+	 * @param  string $policy Execution policy.
+	 * @return bool
+	 */
+	private static function http_allowed( string $host, string $policy ): bool {
+		if ( self::POLICY_PRODUCTION === $policy ) {
+			return false;
+		}
+
+		if ( 'localhost' === $host || '127.0.0.1' === $host || '[::1]' === $host || '::1' === $host ) {
 			return true;
 		}
 
-		// RFC 2606 reserved names: safe in previews and documentation, never a real recipient.
+		if ( self::POLICY_PREVIEW !== $policy ) {
+			return false;
+		}
+
 		foreach ( array( 'example.org', 'example.com', 'example.net' ) as $reserved ) {
 			if ( $host === $reserved || self::ends_with( $host, '.' . $reserved ) ) {
 				return true;
@@ -407,7 +458,12 @@ final class ANPA_Socios_Email_Template_Context {
 	 * @return array<string,string> Tokens for `pending_action_reminder`.
 	 * @throws ANPA_Socios_Email_Template_Registry_Error On an unknown type or a missing requirement.
 	 */
-	public static function pending_action( string $action_type, string $iso_deadline = '', string $url = '' ): array {
+	public static function pending_action(
+		string $action_type,
+		string $iso_deadline = '',
+		string $url = '',
+		string $policy = self::POLICY_PRODUCTION
+	): array {
 		$declaration = ANPA_Socios_Email_Template_Actions::declaration( $action_type );
 
 		$deadline = ANPA_Socios_Email_Template_Actions::requires_deadline( $action_type )
@@ -417,7 +473,8 @@ final class ANPA_Socios_Email_Template_Context {
 		$link = self::format_url(
 			$url,
 			'ligazon_confirmacion',
-			ANPA_Socios_Email_Template_Actions::requires_link( $action_type )
+			ANPA_Socios_Email_Template_Actions::requires_link( $action_type ),
+			$policy
 		);
 
 		return array(
@@ -442,19 +499,31 @@ final class ANPA_Socios_Email_Template_Context {
 	 * @throws ANPA_Socios_Email_Template_Registry_Error On an unknown state.
 	 */
 	public static function group_state_label( string $state ): string {
-		$labels = array(
-			'borrador'                 => 'Borrador',
-			'matricula_aberta'         => 'Matrícula aberta',
-			'en_revision'              => 'En revisión',
-			'confirmado'               => 'Confirmado',
-			'confirmado_baixo_minimo'  => 'Confirmado excepcionalmente baixo mínimo',
-			'non_creado'               => 'Non creado',
-			'pechado'                  => 'Pechado',
-			'reaberto'                 => 'Reaberto',
-			'cancelado'                => 'Cancelado',
-		);
+		return self::label( self::group_state_labels(), $state, 'group' );
+	}
 
-		return self::label( $labels, $state, 'group' );
+	/**
+	 * The ONE map of group states.
+	 *
+	 * Single source of truth on purpose. Keeping a separate hardcoded list of identifiers next to
+	 * the label map is how a state ends up labelled but not listed — or listed but unlabelled —
+	 * and then a compatibility test passes while an email prints nothing. The public list is
+	 * derived from these keys, so the two cannot drift.
+	 *
+	 * @return array<string,string> Identifier => Galician label.
+	 */
+	private static function group_state_labels(): array {
+		return array(
+			'borrador'                => 'Borrador',
+			'matricula_aberta'        => 'Matrícula aberta',
+			'en_revision'             => 'En revisión',
+			'confirmado'              => 'Confirmado',
+			'confirmado_baixo_minimo' => 'Confirmado excepcionalmente baixo mínimo',
+			'non_creado'              => 'Non creado',
+			'pechado'                 => 'Pechado',
+			'reaberto'                => 'Reaberto',
+			'cancelado'               => 'Cancelado',
+		);
 	}
 
 	/**
@@ -466,65 +535,63 @@ final class ANPA_Socios_Email_Template_Context {
 	 * @throws ANPA_Socios_Email_Template_Registry_Error On an unknown state.
 	 */
 	public static function enrollment_state_label( string $state ): string {
-		$labels = array(
-			'solicitude_recibida'         => 'Solicitude recibida',
-			'pendente_grupo'              => 'Pendente de formación do grupo',
-			'espera_capacidade'           => 'Lista de espera por falta de prazas',
-			'espera_seguinte_trimestre'   => 'Lista de espera para o seguinte trimestre',
-			'pendente_confirmacion'       => 'Pendente de confirmación familiar',
-			'confirmada'                  => 'Confirmada',
-			'activa'                      => 'Activa',
-			'baixa_solicitada'            => 'Baixa solicitada',
-			'baixa_aprobada'              => 'Baixa aprobada, pendente de ser efectiva',
-			'baixa_efectiva'              => 'Baixa efectiva',
-			'cancelada_familia'           => 'Cancelada pola familia',
-			'rexeitada'                   => 'Rexeitada',
-			'grupo_non_creado'            => 'Grupo non creado',
-			'finalizada'                  => 'Finalizada',
-		);
-
-		return self::label( $labels, $state, 'enrollment' );
+		return self::label( self::enrollment_state_labels(), $state, 'enrollment' );
 	}
 
 	/**
+	 * The ONE map of enrollment states. Same reasoning as the group states.
+	 *
+	 * `lista de agarda` is the project's normalised term; the identifiers keep the historical
+	 * `espera_*` spelling because renaming a stored state is a migration, not a wording decision.
+	 *
+	 * @return array<string,string> Identifier => Galician label.
+	 */
+	private static function enrollment_state_labels(): array {
+		return array(
+			'solicitude_recibida'       => 'Solicitude recibida',
+			'pendente_grupo'            => 'Pendente de formación do grupo',
+			'espera_capacidade'         => 'Na lista de agarda por falta de prazas',
+			'espera_seguinte_trimestre' => 'Na lista de agarda para o seguinte trimestre',
+			'pendente_confirmacion'     => 'Pendente de confirmación familiar',
+			'confirmada'                => 'Confirmada',
+			'activa'                    => 'Activa',
+			'baixa_solicitada'          => 'Baixa solicitada',
+			'baixa_aprobada'            => 'Baixa aprobada, pendente de ser efectiva',
+			'baixa_efectiva'            => 'Baixa efectiva',
+			'cancelada_familia'         => 'Cancelada pola familia',
+			'rexeitada'                 => 'Rexeitada',
+			'grupo_non_creado'          => 'Grupo non creado',
+			'finalizada'                => 'Finalizada',
+		);
+	}
+
+	/**
+	 * Identifiers this class can label, without exposing the map.
+	 *
+	 * EXECUTABLE DEPENDENCY OF FASE39. Fase39 owns the group state machine; this class only knows
+	 * how to say each state in Galician. The inspector exists so fase39 can assert that its
+	 * canonical states are exactly the ones with a label here, without reflection and without
+	 * reaching into private detail. A new state then fails a test until somebody writes its
+	 * label deliberately, instead of reaching a family as an untranslated identifier.
+	 *
+	 * Derived from the label map, so the two cannot diverge. Returns a copy: the caller may sort
+	 * or filter it without altering what the class will accept.
+	 *
 	 * @since  1.40.0
 	 * @return string[] Valid group state identifiers.
 	 */
-	public static function group_states(): array {
-		return array(
-			'borrador',
-			'matricula_aberta',
-			'en_revision',
-			'confirmado',
-			'confirmado_baixo_minimo',
-			'non_creado',
-			'pechado',
-			'reaberto',
-			'cancelado',
-		);
+	public static function supported_group_states(): array {
+		return array_keys( self::group_state_labels() );
 	}
 
 	/**
+	 * Same contract for enrollment states.
+	 *
 	 * @since  1.40.0
 	 * @return string[] Valid enrollment state identifiers.
 	 */
-	public static function enrollment_states(): array {
-		return array(
-			'solicitude_recibida',
-			'pendente_grupo',
-			'espera_capacidade',
-			'espera_seguinte_trimestre',
-			'pendente_confirmacion',
-			'confirmada',
-			'activa',
-			'baixa_solicitada',
-			'baixa_aprobada',
-			'baixa_efectiva',
-			'cancelada_familia',
-			'rexeitada',
-			'grupo_non_creado',
-			'finalizada',
-		);
+	public static function supported_enrollment_states(): array {
+		return array_keys( self::enrollment_state_labels() );
 	}
 
 	/**
