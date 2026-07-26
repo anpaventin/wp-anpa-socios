@@ -3,9 +3,13 @@
  * Tests for the template registry engine (fase36, PR-36s1b1).
  *
  * The engine is exercised against deliberately broken fixtures, not against the real
- * 28 events. That is the only way the error paths get covered: a registry that is
+ * catalogue. That is the only way the error paths get covered: a registry that is
  * correct today would leave every validation branch untested, and an unexercised
  * validation is indistinguishable from a missing one.
+ *
+ * No test here asserts how many templates exist. A count assertion breaks the day a
+ * legitimate template is added, which trains people to update the number instead of
+ * reading the failure. The properties are asserted instead.
  *
  * @package ANPA_Socios
  */
@@ -23,32 +27,32 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 	 */
 	private function dictionary(): array {
 		return array(
-			'nome_anpa'         => array(
+			'nome_anpa'       => array(
 				'label'       => 'Nome da ANPA',
 				'description' => 'Nome da asociación, tomado dos axustes.',
 				'example'     => 'ANPA Exemplo',
 				'type'        => ANPA_Socios_Email_Template_Variable::TYPE_TEXT,
 			),
-			'sinatura'          => array(
+			'sinatura'        => array(
 				'label'       => 'Sinatura',
 				'description' => 'Sinatura configurada para os correos.',
 				'example'     => 'A Xunta Directiva',
 				'type'        => ANPA_Socios_Email_Template_Variable::TYPE_MULTILINE,
 			),
-			'nome_actividade'   => array(
+			'nome_actividade' => array(
 				'label'       => 'Nome da actividade',
 				'description' => 'Actividade extraescolar á que se refire o correo.',
 				'example'     => 'Robótica',
 				'type'        => ANPA_Socios_Email_Template_Variable::TYPE_TEXT,
 			),
-			'nome_campana'      => array(
+			'nome_campana'    => array(
 				'label'       => 'Nome da campaña',
 				'description' => 'Nome interno do envío masivo.',
 				'example'     => 'Matrículas de outono',
 				'type'        => ANPA_Socios_Email_Template_Variable::TYPE_TEXT,
 				'aliases'     => array( 'nome_campaña', 'nombre_campana' ),
 			),
-			'ligazon_enquisa'   => array(
+			'ligazon_enquisa' => array(
 				'label'       => 'Ligazón á enquisa',
 				'description' => 'Enderezo da enquisa; se está baleiro non se amosa o parágrafo.',
 				'example'     => 'https://example.org/enquisa',
@@ -71,26 +75,44 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 	private function event( array $overrides = array() ): array {
 		return array_merge(
 			array(
-				'event_key'      => 'activity_change_notice',
-				'display_name'   => 'Cambio nunha actividade',
-				'description'    => 'Avisa as familias dun cambio relevante nunha actividade.',
-				'category'       => ANPA_Socios_Email_Template_Definition::CATEGORY_ACTIVITIES,
-				'audience'       => ANPA_Socios_Email_Template_Definition::AUDIENCE_FAMILY,
-				'emitter_status' => ANPA_Socios_Email_Template_Definition::EMITTER_PLANNED,
-				'introduced_in'  => 'fase39',
-				'variables'      => array( 'nome_actividade' => true ),
+				'event_key'    => 'activity_change_notice',
+				'display_name' => 'Cambio nunha actividade',
+				'description'  => 'Avisa as familias dun cambio relevante nunha actividade.',
+				'category'     => ANPA_Socios_Email_Template_Definition::CATEGORY_ACTIVITIES,
+				'audience'     => ANPA_Socios_Email_Template_Definition::AUDIENCE_FAMILY,
+				'phase'        => ANPA_Socios_Email_Template_Phase::FASE39,
+				'variables'    => array( 'nome_actividade' => true ),
 			),
 			$overrides
 		);
 	}
 
 	/**
-	 * @param  array<int,array<string,mixed>>|null   $events     Event list.
+	 * A valid LIVE event, which must also name the emitter it replaces.
+	 *
+	 * @param  array<string,mixed> $overrides Fields to replace.
+	 * @return array<string,mixed>
+	 */
+	private function live_event( array $overrides = array() ): array {
+		return $this->event(
+			array_merge(
+				array(
+					'event_key'      => 'waitlist_place_offer',
+					'phase'          => ANPA_Socios_Email_Template_Phase::LIVE,
+					'legacy_emitter' => 'enviar_oferta_extraescolar',
+				),
+				$overrides
+			)
+		);
+	}
+
+	/**
+	 * @param  array<int,array<string,mixed>>|null    $events     Event list.
 	 * @param  array<string,array<string,mixed>>|null $dictionary Dictionary.
 	 * @param  string[]|null                          $globals    Globals.
-	 * @return array<string,ANPA_Socios_Email_Template_Definition>
+	 * @return ANPA_Socios_Email_Template_Set
 	 */
-	private function build( ?array $events = null, ?array $dictionary = null, ?array $globals = null ): array {
+	private function build( ?array $events = null, ?array $dictionary = null, ?array $globals = null ): ANPA_Socios_Email_Template_Set {
 		return ANPA_Socios_Email_Template_Registry::build(
 			null === $dictionary ? $this->dictionary() : $dictionary,
 			null === $globals ? $this->globals() : $globals,
@@ -116,24 +138,22 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 	// ── The happy path ──────────────────────────────────────────────────
 
 	public function test_a_valid_registry_builds_typed_definitions(): void {
-		$registry = $this->build();
+		$set = $this->build();
 
-		$this->assertArrayHasKey( 'activity_change_notice', $registry );
-		$definition = $registry['activity_change_notice'];
+		$this->assertTrue( $set->has( 'activity_change_notice' ) );
+		$definition = $set->get( 'activity_change_notice' );
 		$this->assertInstanceOf( ANPA_Socios_Email_Template_Definition::class, $definition );
 		$this->assertSame( 'activity_change_notice', $definition->event_key() );
-		$this->assertSame( 'fase39', $definition->introduced_in() );
-		$this->assertSame( '', $definition->deprecated_in() );
+		$this->assertSame( ANPA_Socios_Email_Template_Phase::FASE39, $definition->phase()->id() );
+		$this->assertNull( $definition->retired_in() );
 		$this->assertFalse( $definition->is_live() );
 		$this->assertTrue( $definition->is_emittable() );
 	}
 
 	public function test_globals_are_merged_into_every_event_and_are_optional(): void {
-		$definition = $this->build()['activity_change_notice'];
+		$definition = $this->build()->get( 'activity_change_notice' );
 		$variables  = $definition->variables();
 
-		$this->assertArrayHasKey( 'nome_anpa', $variables );
-		$this->assertArrayHasKey( 'sinatura', $variables );
 		$this->assertTrue( $variables['nome_anpa']->is_global() );
 		$this->assertFalse( $variables['nome_anpa']->is_required() );
 		$this->assertFalse( $variables['nome_actividade']->is_global() );
@@ -144,21 +164,15 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 	public function test_default_template_falls_back_to_the_event_key(): void {
 		$this->assertSame(
 			'activity_change_notice',
-			$this->build()['activity_change_notice']->default_template()
+			$this->build()->get( 'activity_change_notice' )->default_template()
 		);
 	}
 
 	public function test_declared_tokens_match_what_the_renderer_expects(): void {
-		$definition = $this->build()['activity_change_notice'];
+		$definition = $this->build()->get( 'activity_change_notice' );
 		$declared   = $definition->declared_tokens();
 
-		// The renderer only asks "is this token declared?", so the map must be keyed
-		// by token and carry a descriptor array.
-		$this->assertSame(
-			array( 'nome_anpa', 'sinatura', 'nome_actividade' ),
-			array_keys( $declared )
-		);
-		$this->assertIsArray( $declared['nome_actividade'] );
+		$this->assertSame( array( 'nome_anpa', 'sinatura', 'nome_actividade' ), array_keys( $declared ) );
 		$this->assertSame( 'Robótica', $declared['nome_actividade']['example'] );
 
 		$rendered = ANPA_Socios_Email_Template_Renderer::render(
@@ -175,7 +189,7 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 	}
 
 	public function test_sample_data_is_derived_from_the_declared_examples(): void {
-		$definition = $this->build()['activity_change_notice'];
+		$definition = $this->build()->get( 'activity_change_notice' );
 
 		// Derived, not a second hand-maintained list: the preview can never show a value
 		// the editor's variable panel does not promise.
@@ -185,16 +199,202 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 		}
 	}
 
-	public function test_aliases_are_derived_from_the_variables_the_event_declares(): void {
-		$with_campaign = $this->event(
+	// ── The set is immutable and fingerprinted ──────────────────────────
+
+	public function test_the_set_never_hands_out_its_backing_array(): void {
+		$set = $this->build();
+
+		// keys() returns scalars, so writing to the copy cannot reach the set.
+		$keys   = $set->keys();
+		$keys[] = 'injected';
+		$this->assertNotContains( 'injected', $set->keys() );
+		$this->assertFalse( $set->has( 'injected' ) );
+
+		// all() is a generator, so there is no array for a caller to mutate, and each
+		// call is independently traversable.
+		$first  = iterator_to_array( $set->all() );
+		$second = iterator_to_array( $set->all() );
+		$this->assertSame( array_keys( $first ), array_keys( $second ) );
+	}
+
+	public function test_asking_for_an_unknown_event_throws_instead_of_returning_null(): void {
+		// Returning null would push the failure to whatever tries to render the missing
+		// template, which is much further from the mistake.
+		$this->assert_rejected( "unknown template event 'nope'", fn() => $this->build()->get( 'nope' ) );
+	}
+
+	public function test_the_fingerprint_is_stable_for_identical_declarations(): void {
+		$this->assertSame( $this->build()->fingerprint(), $this->build()->fingerprint() );
+		$this->assertMatchesRegularExpression( '/^[0-9a-f]{64}$/', $this->build()->fingerprint() );
+	}
+
+	public function test_any_change_to_a_declaration_moves_the_fingerprint(): void {
+		$base = $this->build()->fingerprint();
+
+		$reworded = $this->build( array( $this->event( array( 'description' => 'Outra descrición.' ) ) ) );
+		$this->assertNotSame( $base, $reworded->fingerprint(), 'a reworded description must be visible' );
+
+		$dictionary                            = $this->dictionary();
+		$dictionary['nome_actividade']['label'] = 'Actividade';
+		$this->assertNotSame( $base, $this->build( null, $dictionary )->fingerprint(), 'a relabelled variable must be visible' );
+	}
+
+	public function test_reordering_the_declarations_moves_the_fingerprint(): void {
+		// Order is part of the input, not sorted away: the order events are declared in is
+		// the order the editor shows them in, so a reorder is a real change.
+		$a = $this->event( array( 'event_key' => 'first_event' ) );
+		$b = $this->event( array( 'event_key' => 'second_event' ) );
+
+		$this->assertNotSame(
+			$this->build( array( $a, $b ) )->fingerprint(),
+			$this->build( array( $b, $a ) )->fingerprint()
+		);
+	}
+
+	public function test_the_key_order_is_the_declaration_order_and_is_deterministic(): void {
+		$events = array(
+			$this->event( array( 'event_key' => 'zulu_event' ) ),
+			$this->event( array( 'event_key' => 'alpha_event' ) ),
+		);
+
+		$this->assertSame( array( 'zulu_event', 'alpha_event' ), $this->build( $events )->keys() );
+		$this->assertSame( $this->build( $events )->keys(), $this->build( $events )->keys() );
+	}
+
+	// ── Live events and the join with the golden oracle ─────────────────
+
+	public function test_a_live_event_names_the_emitter_it_replaces(): void {
+		$set = $this->build( array( $this->live_event() ) );
+
+		$this->assertSame( array( 'waitlist_place_offer' ), $set->live_keys() );
+		$this->assertSame(
+			array( 'enviar_oferta_extraescolar' => 'waitlist_place_offer' ),
+			$set->legacy_emitters()
+		);
+	}
+
+	public function test_a_live_event_without_a_legacy_emitter_is_rejected(): void {
+		// Without it, a live email could exist with no counterpart in the golden oracle
+		// and the bidirectional check would pass straight over it.
+		$this->assert_rejected(
+			'does not name the emitter it replaces',
+			fn() => $this->build( array( $this->live_event( array( 'legacy_emitter' => '' ) ) ) )
+		);
+	}
+
+	public function test_a_not_yet_live_event_may_not_name_a_legacy_emitter(): void {
+		$this->assert_rejected(
+			'is not live but names legacy emitter',
+			fn() => $this->build( array( $this->event( array( 'legacy_emitter' => 'enviar_algo' ) ) ) )
+		);
+	}
+
+	public function test_a_malformed_legacy_emitter_is_rejected(): void {
+		$this->assert_rejected(
+			'invalid legacy emitter',
+			fn() => $this->build( array( $this->live_event( array( 'legacy_emitter' => 'sendSomething' ) ) ) )
+		);
+	}
+
+	public function test_two_events_claiming_the_same_legacy_emitter_are_rejected(): void {
+		$this->assert_rejected(
+			'is claimed by both',
+			fn() => $this->build(
+				array(
+					$this->live_event( array( 'event_key' => 'first_live' ) ),
+					$this->live_event( array( 'event_key' => 'second_live' ) ),
+				)
+			)
+		);
+	}
+
+	// ── Phases ──────────────────────────────────────────────────────────
+
+	public function test_an_unknown_phase_is_rejected(): void {
+		// A typed phase, so an invented phase name cannot exist at all.
+		$this->assert_rejected(
+			"unknown delivery phase 'fase99'",
+			fn() => $this->build( array( $this->event( array( 'phase' => 'fase99' ) ) ) )
+		);
+	}
+
+	public function test_an_event_without_a_phase_is_rejected(): void {
+		$this->assert_rejected(
+			'does not say which phase owns its emitter',
+			fn() => $this->build( array( $this->event( array( 'phase' => '' ) ) ) )
+		);
+	}
+
+	public function test_phases_are_interned_so_identity_comparison_is_safe(): void {
+		$this->assertSame(
+			ANPA_Socios_Email_Template_Phase::from( ANPA_Socios_Email_Template_Phase::FASE39 ),
+			ANPA_Socios_Email_Template_Phase::from( ANPA_Socios_Email_Template_Phase::FASE39 )
+		);
+		$this->assertTrue(
+			ANPA_Socios_Email_Template_Phase::from( ANPA_Socios_Email_Template_Phase::LIVE )->is_live()
+		);
+	}
+
+	public function test_there_is_no_stored_emitter_status(): void {
+		// It was declared once and removed as redundant: implemented/planned is "is the
+		// owning phase live", deprecated is "a retirement phase is set", and internal was
+		// already category=system plus audience=board. A stored copy of a derivable fact
+		// is a copy that eventually disagrees with the fact.
+		$this->assertFalse(
+			method_exists( ANPA_Socios_Email_Template_Definition::class, 'emitter_statuses' ),
+			'emitter_status must stay derived, not stored'
+		);
+		$this->assertArrayNotHasKey(
+			'emitter_status',
+			$this->build()->get( 'activity_change_notice' )->to_array()
+		);
+	}
+
+	// ── Retirement ──────────────────────────────────────────────────────
+
+	public function test_a_retired_event_is_neither_live_nor_emittable(): void {
+		$set = $this->build(
 			array(
-				'event_key' => 'email_campaign_summary_admin',
-				'variables' => array( 'nome_campana' => true ),
+				$this->event(
+					array(
+						'phase'      => ANPA_Socios_Email_Template_Phase::LIVE,
+						'retired_in' => ANPA_Socios_Email_Template_Phase::FASE41,
+					)
+				),
 			)
 		);
 
-		$registry = $this->build( array( $with_campaign ) );
-		$aliases  = $registry['email_campaign_summary_admin']->aliases();
+		$definition = $set->get( 'activity_change_notice' );
+		$this->assertFalse( $definition->is_live() );
+		$this->assertFalse( $definition->is_emittable() );
+		$this->assertTrue( $definition->is_retired() );
+		$this->assertSame( ANPA_Socios_Email_Template_Phase::FASE41, $definition->retired_in()->id() );
+		$this->assertSame( array(), $set->live_keys() );
+	}
+
+	public function test_an_event_cannot_be_retired_by_the_phase_that_introduced_it(): void {
+		$this->assert_rejected(
+			'retired by the same phase that introduced it',
+			fn() => $this->build(
+				array( $this->event( array( 'retired_in' => ANPA_Socios_Email_Template_Phase::FASE39 ) ) )
+			)
+		);
+	}
+
+	public function test_an_unknown_retirement_phase_is_rejected(): void {
+		$this->assert_rejected(
+			"unknown delivery phase 'someday'",
+			fn() => $this->build( array( $this->event( array( 'retired_in' => 'someday' ) ) ) )
+		);
+	}
+
+	// ── Aliases ─────────────────────────────────────────────────────────
+
+	public function test_aliases_are_derived_from_the_variables_the_event_declares(): void {
+		$set     = $this->build(
+			array( $this->event( array( 'variables' => array( 'nome_campana' => true ) ) ) )
+		);
+		$aliases = $set->get( 'activity_change_notice' )->aliases();
 
 		$this->assertSame(
 			array(
@@ -203,8 +403,6 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 			),
 			$aliases
 		);
-
-		// And they are usable by the renderer's save-time canonicalisation.
 		$this->assertSame(
 			'{{nome_campana}} {{nome_campana}}',
 			ANPA_Socios_Email_Template_Renderer::canonicalise( '{{nome_campaña}} {{nombre_campana}}', $aliases )
@@ -212,16 +410,14 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 	}
 
 	public function test_an_event_without_the_alias_owner_does_not_carry_the_alias(): void {
-		// The activity event does not declare nome_campana, so its alias must not leak
-		// into it: a template could otherwise canonicalise to a token it cannot use.
-		$this->assertSame( array(), $this->build()['activity_change_notice']->aliases() );
+		$this->assertSame( array(), $this->build()->get( 'activity_change_notice' )->aliases() );
 	}
 
 	public function test_the_same_alias_is_shared_by_every_event_that_uses_its_variable(): void {
 		// This is why aliases live on the variable and not on the event: campaign tokens
 		// are needed by several events at once, so per-event alias tables would make
 		// global uniqueness and reuse mutually exclusive.
-		$registry = $this->build(
+		$set = $this->build(
 			array(
 				$this->event( array( 'event_key' => 'first_campaign', 'variables' => array( 'nome_campana' => true ) ) ),
 				$this->event( array( 'event_key' => 'second_campaign', 'variables' => array( 'nome_campana' => true ) ) ),
@@ -229,12 +425,79 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 		);
 
 		$this->assertSame(
-			$registry['first_campaign']->aliases(),
-			$registry['second_campaign']->aliases()
+			$set->get( 'first_campaign' )->aliases(),
+			$set->get( 'second_campaign' )->aliases()
 		);
 	}
 
-	// ── Rejections: the registry itself ─────────────────────────────────
+	public function test_resolving_an_alias_never_lands_on_another_alias(): void {
+		// One hop, always. Structural today, but the invariant is what matters: an alias
+		// chain would make "which variable did the operator mean" depend on iteration
+		// order.
+		$set = $this->build(
+			array( $this->event( array( 'variables' => array( 'nome_campana' => true, 'ligazon_enquisa' => false ) ) ) )
+		);
+
+		$definition = $set->get( 'activity_change_notice' );
+		$aliases    = $definition->aliases();
+		$canonical  = array_keys( $definition->variables() );
+
+		foreach ( $aliases as $alias => $target ) {
+			$this->assertContains( $target, $canonical, "alias '{$alias}' must resolve to a declared variable" );
+			$this->assertArrayNotHasKey( $target, $aliases, "alias '{$alias}' resolves to another alias" );
+		}
+	}
+
+	public function test_canonicalisation_is_idempotent(): void {
+		$definition = $this->build(
+			array( $this->event( array( 'variables' => array( 'nome_campana' => true ) ) ) )
+		)->get( 'activity_change_notice' );
+
+		$once  = ANPA_Socios_Email_Template_Renderer::canonicalise(
+			'{{nome_campaña}} {{#nombre_campana}}x{{/}}',
+			$definition->aliases()
+		);
+		$twice = ANPA_Socios_Email_Template_Renderer::canonicalise( $once, $definition->aliases() );
+
+		$this->assertSame( $once, $twice );
+	}
+
+	public function test_two_variables_claiming_the_same_alias_are_rejected(): void {
+		$dictionary                               = $this->dictionary();
+		$dictionary['nome_actividade']['aliases'] = array( 'nome_campaña' );
+
+		$this->assert_rejected( 'is claimed by both', fn() => $this->build( null, $dictionary ) );
+	}
+
+	public function test_an_alias_shadowing_a_canonical_variable_is_rejected(): void {
+		$dictionary                               = $this->dictionary();
+		$dictionary['nome_actividade']['aliases'] = array( 'nome_anpa' );
+
+		$this->assert_rejected( 'shadows the canonical variable', fn() => $this->build( null, $dictionary ) );
+	}
+
+	public function test_a_variable_aliasing_itself_is_rejected(): void {
+		$dictionary                               = $this->dictionary();
+		$dictionary['nome_actividade']['aliases'] = array( 'nome_actividade' );
+
+		$this->assert_rejected( 'lists itself as an alias', fn() => $this->build( null, $dictionary ) );
+	}
+
+	public function test_a_repeated_alias_on_one_variable_is_rejected(): void {
+		$dictionary                               = $this->dictionary();
+		$dictionary['nome_actividade']['aliases'] = array( 'actividade', 'actividade' );
+
+		$this->assert_rejected( "repeats the alias 'actividade'", fn() => $this->build( null, $dictionary ) );
+	}
+
+	public function test_a_malformed_alias_is_rejected(): void {
+		$dictionary                               = $this->dictionary();
+		$dictionary['nome_actividade']['aliases'] = array( 'nome actividade' );
+
+		$this->assert_rejected( "invalid alias 'nome actividade'", fn() => $this->build( null, $dictionary ) );
+	}
+
+	// ── Rejections: structure ───────────────────────────────────────────
 
 	public function test_duplicate_event_keys_are_rejected(): void {
 		$this->assert_rejected(
@@ -258,38 +521,45 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 		);
 	}
 
+	public function test_an_invalid_default_template_stem_is_rejected(): void {
+		$this->assert_rejected(
+			'invalid default template stem',
+			fn() => $this->build( array( $this->event( array( 'default_template' => '../etc/passwd' ) ) ) )
+		);
+	}
+
 	// ── Rejections: variables ───────────────────────────────────────────
 
 	public function test_a_variable_without_an_example_is_rejected(): void {
-		$dictionary                       = $this->dictionary();
+		$dictionary                               = $this->dictionary();
 		$dictionary['nome_actividade']['example'] = '';
 
 		$this->assert_rejected( 'has no example', fn() => $this->build( null, $dictionary ) );
 	}
 
 	public function test_a_variable_without_a_description_is_rejected(): void {
-		$dictionary                           = $this->dictionary();
+		$dictionary                                   = $this->dictionary();
 		$dictionary['nome_actividade']['description'] = '';
 
 		$this->assert_rejected( "variable 'nome_actividade' has no description", fn() => $this->build( null, $dictionary ) );
 	}
 
 	public function test_a_variable_without_a_label_is_rejected(): void {
-		$dictionary                     = $this->dictionary();
+		$dictionary                             = $this->dictionary();
 		$dictionary['nome_actividade']['label'] = '';
 
 		$this->assert_rejected( 'has no label', fn() => $this->build( null, $dictionary ) );
 	}
 
 	public function test_an_unknown_variable_type_is_rejected(): void {
-		$dictionary                    = $this->dictionary();
+		$dictionary                            = $this->dictionary();
 		$dictionary['nome_actividade']['type'] = 'markdown';
 
 		$this->assert_rejected( "unknown type 'markdown'", fn() => $this->build( null, $dictionary ) );
 	}
 
 	public function test_an_accented_canonical_variable_key_is_rejected(): void {
-		$dictionary = $this->dictionary();
+		$dictionary                 = $this->dictionary();
 		$dictionary['nome_campaña'] = $dictionary['nome_campana'];
 		unset( $dictionary['nome_campana'] );
 
@@ -318,41 +588,11 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 		);
 	}
 
-	// ── Rejections: aliases ─────────────────────────────────────────────
-
-	public function test_two_variables_claiming_the_same_alias_are_rejected(): void {
-		$dictionary                          = $this->dictionary();
-		$dictionary['nome_actividade']['aliases'] = array( 'nome_campaña' );
-
-		$this->assert_rejected( "is claimed by both", fn() => $this->build( null, $dictionary ) );
-	}
-
-	public function test_an_alias_shadowing_a_canonical_variable_is_rejected(): void {
-		$dictionary                          = $this->dictionary();
-		$dictionary['nome_actividade']['aliases'] = array( 'nome_anpa' );
-
-		$this->assert_rejected( 'shadows the canonical variable', fn() => $this->build( null, $dictionary ) );
-	}
-
-	public function test_a_variable_aliasing_itself_is_rejected(): void {
-		$dictionary                          = $this->dictionary();
-		$dictionary['nome_actividade']['aliases'] = array( 'nome_actividade' );
-
-		$this->assert_rejected( 'lists itself as an alias', fn() => $this->build( null, $dictionary ) );
-	}
-
-	public function test_a_repeated_alias_on_one_variable_is_rejected(): void {
-		$dictionary                          = $this->dictionary();
-		$dictionary['nome_actividade']['aliases'] = array( 'actividade', 'actividade' );
-
-		$this->assert_rejected( "repeats the alias 'actividade'", fn() => $this->build( null, $dictionary ) );
-	}
-
-	public function test_a_malformed_alias_is_rejected(): void {
-		$dictionary                          = $this->dictionary();
-		$dictionary['nome_actividade']['aliases'] = array( 'nome actividade' );
-
-		$this->assert_rejected( "invalid alias 'nome actividade'", fn() => $this->build( null, $dictionary ) );
+	public function test_an_event_with_no_variables_at_all_is_rejected(): void {
+		$this->assert_rejected(
+			'declares no variables',
+			fn() => $this->build( array( $this->event( array( 'variables' => array() ) ) ), null, array() )
+		);
 	}
 
 	// ── Rejections: descriptive metadata ────────────────────────────────
@@ -393,74 +633,6 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 		);
 	}
 
-	public function test_an_unknown_emitter_status_is_rejected(): void {
-		// An enum, not a boolean: "does an emitter exist" and "should anything emit it"
-		// are different questions, and a boolean can only answer one.
-		$this->assert_rejected(
-			"unknown emitter status 'live'",
-			fn() => $this->build( array( $this->event( array( 'emitter_status' => 'live' ) ) ) )
-		);
-	}
-
-	public function test_an_event_without_an_introducing_phase_is_rejected(): void {
-		$this->assert_rejected(
-			'does not say which phase owns its emitter',
-			fn() => $this->build( array( $this->event( array( 'introduced_in' => '' ) ) ) )
-		);
-	}
-
-	public function test_a_deprecated_event_must_say_when_it_was_retired(): void {
-		$this->assert_rejected(
-			'does not say when it was retired',
-			fn() => $this->build(
-				array(
-					$this->event(
-						array( 'emitter_status' => ANPA_Socios_Email_Template_Definition::EMITTER_DEPRECATED )
-					),
-				)
-			)
-		);
-	}
-
-	public function test_a_live_event_may_not_declare_a_retirement_phase(): void {
-		$this->assert_rejected(
-			'is not deprecated but declares deprecated_in',
-			fn() => $this->build( array( $this->event( array( 'deprecated_in' => 'fase40' ) ) ) )
-		);
-	}
-
-	public function test_a_deprecated_event_is_not_emittable(): void {
-		$registry = $this->build(
-			array(
-				$this->event(
-					array(
-						'emitter_status' => ANPA_Socios_Email_Template_Definition::EMITTER_DEPRECATED,
-						'deprecated_in'  => 'fase40',
-					)
-				),
-			)
-		);
-
-		$definition = $registry['activity_change_notice'];
-		$this->assertFalse( $definition->is_emittable() );
-		$this->assertFalse( $definition->is_live() );
-		$this->assertSame( 'fase40', $definition->deprecated_in() );
-	}
-
-	public function test_an_invalid_default_template_stem_is_rejected(): void {
-		$this->assert_rejected(
-			'invalid default template stem',
-			fn() => $this->build( array( $this->event( array( 'default_template' => '../etc/passwd' ) ) ) )
-		);
-	}
-
-	public function test_an_event_with_no_variables_at_all_is_rejected(): void {
-		$this->assert_rejected(
-			'declares no variables',
-			fn() => $this->build( array( $this->event( array( 'variables' => array() ) ) ), null, array() )
-		);
-	}
-
 	// ── The engine stays pure ───────────────────────────────────────────
 
 	public function test_the_registry_classes_do_not_touch_wordpress(): void {
@@ -468,6 +640,8 @@ final class Test_ANPA_Socios_Email_Template_Registry extends TestCase {
 			'class-anpa-socios-email-template-registry.php',
 			'class-anpa-socios-email-template-definition.php',
 			'class-anpa-socios-email-template-variable.php',
+			'class-anpa-socios-email-template-set.php',
+			'class-anpa-socios-email-template-phase.php',
 		);
 
 		foreach ( $files as $file ) {

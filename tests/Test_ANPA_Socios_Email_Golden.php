@@ -234,6 +234,32 @@ final class Test_ANPA_Socios_Email_Golden extends TestCase {
 	}
 
 	/**
+	 * The oracle is read as a diff far more often than it is read as data, so the file
+	 * listing must be in a stable, sorted order. `glob()` sorts by default, but that is
+	 * a default worth pinning rather than assuming: an unstable listing turns a
+	 * one-line wording change into an unreadable reordered diff.
+	 */
+	public function test_the_golden_files_are_listed_in_a_stable_sorted_order(): void {
+		$files = (array) glob( $this->golden_dir() . '/*.txt' );
+		if ( array() === $files ) {
+			$this->markTestSkipped( 'golden files not captured yet (ANPA_GOLDEN_CAPTURE=1).' );
+		}
+
+		$stems = array_map(
+			static function ( $file ): string {
+				return basename( (string) $file, '.txt' );
+			},
+			$files
+		);
+
+		$sorted = $stems;
+		sort( $sorted, SORT_STRING );
+
+		$this->assertSame( $sorted, $stems, 'the golden listing must be sorted so diffs stay readable' );
+		$this->assertSame( array_unique( $stems ), $stems, 'two golden files cannot share a stem' );
+	}
+
+	/**
 	 * The golden files live in a public repository, so they must never contain
 	 * a real address, a real family name or the deploying association's name.
 	 */
