@@ -2,10 +2,16 @@
 /**
  * One template event, as a typed contract (fase36, PR-36s1b).
  *
- * The registry is a public contract, not a loose array of 28 rows: the admin screen,
- * the preview, the validator, the queue provider and the later phases that emit these
- * events all read it. A typed object is what lets a change to the shape fail in CI
- * instead of producing a subtly wrong editor three phases later.
+ * The registry is a public contract, not a loose array of rows: the admin screen, the
+ * preview, the validator, the queue provider and every later phase that emits an event
+ * all read it. A typed object is what lets a change to the shape fail in CI instead of
+ * producing a subtly wrong editor three phases later.
+ *
+ * THERE IS NO `emitter_status` FIELD. It was declared once and has been removed as
+ * redundant: `implemented` versus `planned` is exactly "is the owning phase live",
+ * `deprecated` is exactly "a retirement phase is set", and `internal` was already
+ * fully expressed by `category = system` plus `audience = board`. A stored copy of a
+ * derivable fact is a copy that will eventually disagree with the fact.
  *
  * Pure: no WordPress, no database, no clock. Immutable once built.
  *
@@ -20,8 +26,8 @@ final class ANPA_Socios_Email_Template_Definition {
 	/**
 	 * Categories, used to group the editor's list.
 	 *
-	 * There is deliberately NO payments category. This plugin handles no charges and
-	 * no shipped template may claim anything about one, so a category that nothing may
+	 * There is deliberately NO payments category. This plugin handles no charges and no
+	 * shipped template may claim anything about one, so a category that nothing may
 	 * legitimately use would only be an invitation to write such a template later.
 	 */
 	const CATEGORY_MEMBERSHIP     = 'membership';
@@ -31,23 +37,7 @@ final class ANPA_Socios_Email_Template_Definition {
 	const CATEGORY_SYSTEM         = 'system';
 
 	/**
-	 * Emitter lifecycle.
-	 *
-	 * `implemented` — shipped code sends it today.
-	 * `planned`     — no emitter yet; `introduced_in` names the phase that adds one.
-	 *                 Seeded and editable so the board can review the wording early.
-	 * `deprecated`  — an emitter existed and no longer should; kept so stored history
-	 *                 and any customised wording survive. `deprecated_in` says when.
-	 * `internal`    — the plugin reporting on its own operation, never about
-	 *                 association business. Never enqueued to families.
-	 */
-	const EMITTER_IMPLEMENTED = 'implemented';
-	const EMITTER_PLANNED     = 'planned';
-	const EMITTER_DEPRECATED  = 'deprecated';
-	const EMITTER_INTERNAL    = 'internal';
-
-	/**
-	 * Who receives it. Kept separate from the emitter lifecycle on purpose: they are
+	 * Who receives it. Kept separate from the owning phase on purpose: they are
 	 * orthogonal, and conflating them is how a board-only notice ends up in a family's
 	 * inbox.
 	 */
@@ -70,17 +60,22 @@ final class ANPA_Socios_Email_Template_Definition {
 	/** @var string One of the AUDIENCE_* constants. */
 	private string $audience;
 
-	/** @var string One of the EMITTER_* constants. */
-	private string $emitter_status;
+	/** @var ANPA_Socios_Email_Template_Phase Phase that owns the emitter. */
+	private ANPA_Socios_Email_Template_Phase $phase;
 
-	/** @var string Phase that owns the emitter, e.g. `live`, `fase37`, `fase39`. */
-	private string $introduced_in;
-
-	/** @var string Phase that retired it; empty unless deprecated. */
-	private string $deprecated_in;
+	/** @var ANPA_Socios_Email_Template_Phase|null Phase that retired it, if any. */
+	private ?ANPA_Socios_Email_Template_Phase $retired_in;
 
 	/** @var string Stem of the default template files shipped for this event. */
 	private string $default_template;
+
+	/**
+	 * @var string The pre-fase36 emitter this event replaces, e.g. `enviar_aprobacion`
+	 *             or `enviar_codigo_alta`. Also the stem of its golden file, which is
+	 *             what lets a test prove the oracle and the registry describe the same
+	 *             set of live emails. Empty for events whose emitter is not live yet.
+	 */
+	private string $legacy_emitter;
 
 	/** @var array<string,ANPA_Socios_Email_Template_Variable> Canonical token => variable. */
 	private array $variables;
@@ -91,9 +86,9 @@ final class ANPA_Socios_Email_Template_Definition {
 	/**
 	 * Built exclusively by the registry, which is what validates the whole set.
 	 *
-	 * @param array<string,mixed>                                 $fields    Scalar fields.
-	 * @param array<string,ANPA_Socios_Email_Template_Variable>   $variables Canonical token => variable.
-	 * @param array<string,string>                                $aliases   Alias => canonical token.
+	 * @param array<string,mixed>                               $fields    Scalar fields.
+	 * @param array<string,ANPA_Socios_Email_Template_Variable> $variables Canonical token => variable.
+	 * @param array<string,string>                              $aliases   Alias => canonical token.
 	 */
 	public function __construct( array $fields, array $variables, array $aliases ) {
 		$this->event_key        = (string) $fields['event_key'];
@@ -101,10 +96,10 @@ final class ANPA_Socios_Email_Template_Definition {
 		$this->description      = (string) $fields['description'];
 		$this->category         = (string) $fields['category'];
 		$this->audience         = (string) $fields['audience'];
-		$this->emitter_status   = (string) $fields['emitter_status'];
-		$this->introduced_in    = (string) $fields['introduced_in'];
-		$this->deprecated_in    = (string) $fields['deprecated_in'];
+		$this->phase            = $fields['phase'];
+		$this->retired_in       = $fields['retired_in'];
 		$this->default_template = (string) $fields['default_template'];
+		$this->legacy_emitter   = (string) $fields['legacy_emitter'];
 		$this->variables        = $variables;
 		$this->aliases          = $aliases;
 	}
@@ -117,16 +112,6 @@ final class ANPA_Socios_Email_Template_Definition {
 			self::CATEGORY_COMPANIES,
 			self::CATEGORY_COMMUNICATIONS,
 			self::CATEGORY_SYSTEM,
-		);
-	}
-
-	/** @since 1.40.0 @return string[] Every valid emitter status. */
-	public static function emitter_statuses(): array {
-		return array(
-			self::EMITTER_IMPLEMENTED,
-			self::EMITTER_PLANNED,
-			self::EMITTER_DEPRECATED,
-			self::EMITTER_INTERNAL,
 		);
 	}
 
@@ -164,24 +149,24 @@ final class ANPA_Socios_Email_Template_Definition {
 		return $this->audience;
 	}
 
-	/** @since 1.40.0 @return string */
-	public function emitter_status(): string {
-		return $this->emitter_status;
+	/** @since 1.40.0 @return ANPA_Socios_Email_Template_Phase */
+	public function phase(): ANPA_Socios_Email_Template_Phase {
+		return $this->phase;
 	}
 
-	/** @since 1.40.0 @return string */
-	public function introduced_in(): string {
-		return $this->introduced_in;
-	}
-
-	/** @since 1.40.0 @return string */
-	public function deprecated_in(): string {
-		return $this->deprecated_in;
+	/** @since 1.40.0 @return ANPA_Socios_Email_Template_Phase|null */
+	public function retired_in(): ?ANPA_Socios_Email_Template_Phase {
+		return $this->retired_in;
 	}
 
 	/** @since 1.40.0 @return string */
 	public function default_template(): string {
 		return $this->default_template;
+	}
+
+	/** @since 1.40.0 @return string Empty when the emitter is not live yet. */
+	public function legacy_emitter(): string {
+		return $this->legacy_emitter;
 	}
 
 	/**
@@ -254,7 +239,15 @@ final class ANPA_Socios_Email_Template_Definition {
 	 * @return bool Whether shipped code emits this event today.
 	 */
 	public function is_live(): bool {
-		return self::EMITTER_IMPLEMENTED === $this->emitter_status;
+		return $this->phase->is_live() && ! $this->is_retired();
+	}
+
+	/**
+	 * @since  1.40.0
+	 * @return bool Whether it has been retired.
+	 */
+	public function is_retired(): bool {
+		return null !== $this->retired_in;
 	}
 
 	/**
@@ -262,11 +255,13 @@ final class ANPA_Socios_Email_Template_Definition {
 	 * @return bool Whether anything may emit it at all.
 	 */
 	public function is_emittable(): bool {
-		return self::EMITTER_DEPRECATED !== $this->emitter_status;
+		return ! $this->is_retired();
 	}
 
 	/**
-	 * Flat representation for the admin screen and for assertions.
+	 * Flat representation for the admin screen, for assertions and for the registry
+	 * fingerprint. Declaration order is preserved, because the order the variables are
+	 * declared in is the order the editor shows them in.
 	 *
 	 * @since  1.40.0
 	 * @return array<string,mixed>
@@ -278,10 +273,10 @@ final class ANPA_Socios_Email_Template_Definition {
 			'description'      => $this->description,
 			'category'         => $this->category,
 			'audience'         => $this->audience,
-			'emitter_status'   => $this->emitter_status,
-			'introduced_in'    => $this->introduced_in,
-			'deprecated_in'    => $this->deprecated_in,
+			'phase'            => $this->phase->id(),
+			'retired_in'       => null === $this->retired_in ? '' : $this->retired_in->id(),
 			'default_template' => $this->default_template,
+			'legacy_emitter'   => $this->legacy_emitter,
 			'variables'        => $this->declared_tokens(),
 			'aliases'          => $this->aliases,
 		);

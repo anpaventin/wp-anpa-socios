@@ -52,8 +52,10 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-batch-planner.p
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-retention.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-renderer.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-registry-error.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-phase.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-variable.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-definition.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-set.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-registry.php';
 require_once __DIR__ . '/trait-anpa-socios-inspection.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-trimestre.php';

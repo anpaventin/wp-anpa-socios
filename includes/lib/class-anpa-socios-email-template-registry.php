@@ -36,6 +36,9 @@ final class ANPA_Socios_Email_Template_Registry {
 	/** Alias spellings may carry accents, because operators type them. */
 	const ALIAS_PATTERN = '/^[\p{L}0-9_]+$/u';
 
+	/** The pre-fase36 emitters are the `enviar_*` methods of ANPA_Socios_Email. */
+	const LEGACY_PATTERN = '/^enviar_[a-z_]+$/';
+
 	/**
 	 * Builds and fully validates a registry.
 	 *
@@ -48,15 +51,16 @@ final class ANPA_Socios_Email_Template_Registry {
 	 *                                                       not a map, so a duplicated event key
 	 *                                                       is detectable instead of silently
 	 *                                                       overwriting its twin.
-	 * @return array<string,ANPA_Socios_Email_Template_Definition> Event key => definition.
+	 * @return ANPA_Socios_Email_Template_Set Immutable, fingerprinted set.
 	 * @throws ANPA_Socios_Email_Template_Registry_Error On any inconsistency.
 	 */
-	public static function build( array $dictionary, array $globals, array $events ): array {
+	public static function build( array $dictionary, array $globals, array $events ): ANPA_Socios_Email_Template_Set {
 		$specs = self::validate_dictionary( $dictionary );
 		self::validate_globals( $globals, $specs );
 
 		$definitions = array();
 		$seen_keys   = array();
+		$seen_legacy = array();
 
 		foreach ( $events as $index => $declaration ) {
 			if ( ! is_array( $declaration ) ) {
@@ -76,14 +80,27 @@ final class ANPA_Socios_Email_Template_Registry {
 			}
 			$seen_keys[ $key ] = $index;
 
-			$definitions[ $key ] = self::build_one( $key, $declaration, $specs, $globals, $dictionary );
+			$definition          = self::build_one( $key, $declaration, $specs, $globals, $dictionary );
+			$definitions[ $key ] = $definition;
+
+			// One legacy emitter maps to exactly one event, or the golden oracle and the
+			// registry could both look complete while disagreeing about which is which.
+			$legacy = $definition->legacy_emitter();
+			if ( '' !== $legacy ) {
+				if ( isset( $seen_legacy[ $legacy ] ) ) {
+					throw new ANPA_Socios_Email_Template_Registry_Error(
+						"legacy emitter '{$legacy}' is claimed by both '{$seen_legacy[$legacy]}' and '{$key}'"
+					);
+				}
+				$seen_legacy[ $legacy ] = $key;
+			}
 		}
 
 		if ( array() === $definitions ) {
 			throw new ANPA_Socios_Email_Template_Registry_Error( 'the registry declares no events' );
 		}
 
-		return $definitions;
+		return new ANPA_Socios_Email_Template_Set( $definitions );
 	}
 
 	/**
@@ -187,28 +204,25 @@ final class ANPA_Socios_Email_Template_Registry {
 			throw new ANPA_Socios_Email_Template_Registry_Error( "event '{$key}' has unknown audience '{$audience}'" );
 		}
 
-		$status = (string) ( $declaration['emitter_status'] ?? '' );
-		if ( ! in_array( $status, ANPA_Socios_Email_Template_Definition::emitter_statuses(), true ) ) {
+		// A typed phase, so a renamed phase is one constant rather than dozens of literals,
+		// and an invented phase name cannot exist at all.
+		$raw_phase = trim( (string) ( $declaration['phase'] ?? '' ) );
+		if ( '' === $raw_phase ) {
 			throw new ANPA_Socios_Email_Template_Registry_Error(
-				"event '{$key}' has unknown emitter status '{$status}'"
+				"event '{$key}' does not say which phase owns its emitter"
+			);
+		}
+		$phase = ANPA_Socios_Email_Template_Phase::from( $raw_phase );
+
+		$raw_retired = trim( (string) ( $declaration['retired_in'] ?? '' ) );
+		$retired_in  = '' === $raw_retired ? null : ANPA_Socios_Email_Template_Phase::from( $raw_retired );
+		if ( null !== $retired_in && $retired_in->equals( $phase ) ) {
+			throw new ANPA_Socios_Email_Template_Registry_Error(
+				"event '{$key}' claims to have been retired by the same phase that introduced it"
 			);
 		}
 
-		$introduced_in = trim( (string) ( $declaration['introduced_in'] ?? '' ) );
-		if ( '' === $introduced_in ) {
-			throw new ANPA_Socios_Email_Template_Registry_Error( "event '{$key}' does not say which phase owns its emitter" );
-		}
-
-		$deprecated_in = trim( (string) ( $declaration['deprecated_in'] ?? '' ) );
-		$is_deprecated = ANPA_Socios_Email_Template_Definition::EMITTER_DEPRECATED === $status;
-		if ( $is_deprecated && '' === $deprecated_in ) {
-			throw new ANPA_Socios_Email_Template_Registry_Error( "deprecated event '{$key}' does not say when it was retired" );
-		}
-		if ( ! $is_deprecated && '' !== $deprecated_in ) {
-			throw new ANPA_Socios_Email_Template_Registry_Error(
-				"event '{$key}' is not deprecated but declares deprecated_in '{$deprecated_in}'"
-			);
-		}
+		$legacy_emitter = self::validate_legacy_emitter( $key, $declaration, $phase, null !== $retired_in );
 
 		$default_template = trim( (string) ( $declaration['default_template'] ?? $key ) );
 		if ( 1 !== preg_match( self::KEY_PATTERN, $default_template ) ) {
@@ -227,14 +241,58 @@ final class ANPA_Socios_Email_Template_Registry {
 				'description'      => $description,
 				'category'         => $category,
 				'audience'         => $audience,
-				'emitter_status'   => $status,
-				'introduced_in'    => $introduced_in,
-				'deprecated_in'    => $deprecated_in,
+				'phase'            => $phase,
+				'retired_in'       => $retired_in,
 				'default_template' => $default_template,
+				'legacy_emitter'   => $legacy_emitter,
 			),
 			$variables,
 			$aliases
 		);
+	}
+
+	/**
+	 * Validates the pre-fase36 emitter an event replaces.
+	 *
+	 * A live event MUST name it and a not-yet-live one MUST NOT, because this field is
+	 * the join between the registry and the golden-file oracle. If it were optional, a
+	 * live email could be declared with no counterpart in the oracle and the bidirectional
+	 * check would silently pass over it.
+	 *
+	 * @since  1.40.0
+	 * @param  string                            $key         Event key.
+	 * @param  array<string,mixed>               $declaration Raw declaration.
+	 * @param  ANPA_Socios_Email_Template_Phase  $phase       Owning phase.
+	 * @param  bool                              $retired     Whether it has been retired.
+	 * @return string
+	 * @throws ANPA_Socios_Email_Template_Registry_Error On a missing, spurious or malformed value.
+	 */
+	private static function validate_legacy_emitter(
+		string $key,
+		array $declaration,
+		ANPA_Socios_Email_Template_Phase $phase,
+		bool $retired
+	): string {
+		$legacy = trim( (string) ( $declaration['legacy_emitter'] ?? '' ) );
+		$live   = $phase->is_live() && ! $retired;
+
+		if ( $live && '' === $legacy ) {
+			throw new ANPA_Socios_Email_Template_Registry_Error(
+				"live event '{$key}' does not name the emitter it replaces, so it cannot be matched to a golden file"
+			);
+		}
+		if ( ! $live && '' !== $legacy ) {
+			throw new ANPA_Socios_Email_Template_Registry_Error(
+				"event '{$key}' is not live but names legacy emitter '{$legacy}'"
+			);
+		}
+		if ( '' !== $legacy && 1 !== preg_match( self::LEGACY_PATTERN, $legacy ) ) {
+			throw new ANPA_Socios_Email_Template_Registry_Error(
+				"event '{$key}' has an invalid legacy emitter '{$legacy}'"
+			);
+		}
+
+		return $legacy;
 	}
 
 	/**
