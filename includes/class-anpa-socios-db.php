@@ -3979,23 +3979,42 @@ class ANPA_Socios_DB {
 		// the app with gmdate(). NO CURRENT_TIMESTAMP defaults, whose value
 		// depends on the MySQL session time zone.
 		//
+		// The hash columns are varchar(128), not char(64): every digest in fase36
+		// is SCHEME-QUALIFIED (`<scheme>:<sha256>`), because a bare hex string
+		// cannot say how it was computed and a future change of canonicalisation
+		// would be indistinguishable from a change of content.
+		//
+		// The width is not a round number picked by eye. `template-sha256-v1:` plus
+		// 64 hex characters is 83, and a first attempt at varchar(80) refused every
+		// insert with "the supplied values may be too long" — a failure that only a
+		// real engine reports. 128 leaves room for a longer scheme name, and a unit
+		// test derives the actual digest length from the constant and fails if it
+		// ever stops fitting.
+		//
 		// 1. The live templates. One row per registered event, keyed by the
 		//    stable English template_key. `is_customised` is what protects a
 		//    site's wording: an update shipping a newer default_version informs,
 		//    it never overwrites.
+		//
+		//    `event_type` is varchar(64), NOT varchar(40) like the queue column it
+		//    mirrors: the longest declared event key is 42 characters
+		//    (`company_notification_accepted_admin_notice`), so 40 refuses the
+		//    insert outright under strict mode. The queue's own column is still
+		//    varchar(40) and is recorded in the SDD as a mismatch to resolve
+		//    before the queue provider lands.
 		dbDelta(
 			"CREATE TABLE {$templates} (
 				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 				template_key varchar(64) NOT NULL,
-				event_type varchar(40) NOT NULL DEFAULT '',
+				event_type varchar(64) NOT NULL DEFAULT '',
 				subject varchar(255) NOT NULL DEFAULT '',
 				body_html longtext NULL,
 				body_text longtext NULL,
 				is_active tinyint(1) unsigned NOT NULL DEFAULT 1,
 				is_customised tinyint(1) unsigned NOT NULL DEFAULT 0,
 				default_version smallint(5) unsigned NOT NULL DEFAULT 1,
-				default_sha256 char(64) NOT NULL DEFAULT '',
-				content_sha256 char(64) NOT NULL DEFAULT '',
+				default_hash varchar(128) NOT NULL DEFAULT '',
+				content_hash varchar(128) NOT NULL DEFAULT '',
 				created_at_utc datetime NOT NULL,
 				updated_at_utc datetime NULL,
 				updated_by varchar(100) NOT NULL DEFAULT '',
@@ -4018,7 +4037,7 @@ class ANPA_Socios_DB {
 				subject varchar(255) NOT NULL DEFAULT '',
 				body_html longtext NULL,
 				body_text longtext NULL,
-				content_sha256 char(64) NOT NULL DEFAULT '',
+				content_hash varchar(128) NOT NULL DEFAULT '',
 				default_version smallint(5) unsigned NOT NULL DEFAULT 1,
 				was_customised tinyint(1) unsigned NOT NULL DEFAULT 0,
 				archived_at_utc datetime NOT NULL,

@@ -127,6 +127,7 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-extraescolares
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-extraescolar-offers.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-season-service.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-template-sanitizer.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-template-repo.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-render-provider.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-queue-repo.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-queue.php';
@@ -177,6 +178,35 @@ add_action( 'admin_init', static function () {
 		ANPA_Socios_DB::crear_tabelas();
 	}
 } );
+
+// fase36: seed any missing email template from its shipped default. SEPARATE from the migration on
+// purpose — a schema step that failed halfway must never leave half a catalogue behind — and
+// idempotent: it only ever writes rows that do not exist, so a board's customised wording is never
+// overwritten by an update.
+//
+// Gated on the plugin version rather than run on every request. New events only arrive with a new
+// version, so the common case costs one option read instead of a table scan on every admin page.
+add_action( 'admin_init', static function () {
+	if ( ! class_exists( 'ANPA_Socios_Email_Template_Repo' ) ) {
+		return;
+	}
+
+	$option = 'anpa_socios_email_templates_seeded';
+	if ( ANPA_SOCIOS_VERSION === (string) get_option( $option, '' ) ) {
+		return;
+	}
+
+	$result = ANPA_Socios_Email_Template_Repo::seed_missing( 'system' );
+	if ( $result['ok'] ) {
+		update_option( $option, ANPA_SOCIOS_VERSION, false );
+		return;
+	}
+
+	// A declared event with no shipped default is a packaging bug. Do NOT record the version, so the
+	// next request tries again and the problem stays visible instead of being marked done.
+	// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+	error_log( '[anpa-socios] Email templates missing shipped defaults: ' . implode( ', ', $result['missing_defaults'] ) );
+}, 20 );
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_DB', 'desprogramar_limpeza_sesions' ) );
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Extraescolar_Offers', 'desprogramar' ) );
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Season_Service', 'desprogramar' ) );

@@ -537,6 +537,41 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		$this->assertStringContainsString( 'archived_at_utc datetime NOT NULL', $body );
 	}
 
+	public function test_the_hash_columns_fit_a_real_scheme_qualified_digest(): void {
+		// Derived from the actual digest, not from a round number picked by eye. A first attempt at
+		// varchar(80) was three characters too narrow for `template-sha256-v1:` plus 64 hex, and the
+		// only symptom was every insert being refused on a real engine — the unit suite could not see
+		// it. This makes the column width answerable from the code.
+		$digest = ANPA_Socios_Email_Template_Defaults::content_hash( 'Asunto', '<p>html</p>', 'texto' );
+		$body   = $this->migration_1_40_0_body();
+
+		preg_match_all( '/(?:default|content)_hash varchar\((\d+)\)/', $body, $widths );
+		$this->assertNotEmpty( $widths[1], 'the hash columns are not declared as varchar' );
+
+		foreach ( $widths[1] as $width ) {
+			$this->assertGreaterThanOrEqual(
+				strlen( $digest ),
+				(int) $width,
+				"a {$width}-character column cannot hold a " . strlen( $digest ) . '-character digest'
+			);
+		}
+	}
+
+	public function test_the_event_type_column_fits_the_longest_declared_event_key(): void {
+		// The queue's own event_type is varchar(40) and the longest template key is 42 characters, so
+		// copying that width would have refused two inserts outright.
+		$longest = 0;
+		foreach ( ANPA_Socios_Email_Template_Events::set()->keys() as $key ) {
+			$longest = max( $longest, strlen( $key ) );
+		}
+
+		$body = $this->migration_1_40_0_body();
+		preg_match( '/event_type varchar\((\d+)\)/', $body, $width );
+
+		$this->assertNotEmpty( $width, 'event_type is not declared as varchar' );
+		$this->assertGreaterThanOrEqual( $longest, (int) $width[1] );
+	}
+
 	public function test_migration_1_40_0_is_additive_and_checks_its_postcondition(): void {
 		$body = $this->migration_1_40_0_body();
 

@@ -211,7 +211,8 @@ fi
 # ── Evidence: schema ───────────────────────────────────────────────────────
 echo "== collecting schema evidence =="
 : > "$EV/show-create-table.txt"; : > "$EV/show-index.txt"
-for t in wpint_anpa_email_campaigns wpint_anpa_email_recipients wpint_anpa_email_attempts; do
+for t in wpint_anpa_email_campaigns wpint_anpa_email_recipients wpint_anpa_email_attempts \
+         wpint_anpa_email_templates wpint_anpa_email_template_versions; do
   "$CLIENT_BIN" --no-defaults --socket="$SOCKET" -uroot "$DB_NAME" -e "SHOW CREATE TABLE \`$t\`\G" >> "$EV/show-create-table.txt" 2>&1 || true
   "$CLIENT_BIN" --no-defaults --socket="$SOCKET" -uroot "$DB_NAME" -e "SHOW INDEX FROM \`$t\`\G"  >> "$EV/show-index.txt" 2>&1 || true
 done

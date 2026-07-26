@@ -6,10 +6,13 @@
  * WordPress test suite and self-skip locally. They carry the two assertions that matter:
  *
  *   1. Every dangerous construct in the declared catalogue is gone.
- *   2. Every one of the shipped defaults survives BYTE-IDENTICALLY. That is the expensive one: the
- *      ten live templates are pinned byte-exact against the golden oracle, and a sanitiser that
- *      reformatted a default would break the "nothing changed for families" proof at the storage
- *      layer, where nobody would look for it.
+ *   2. Sanitisation is idempotent and loses no legitimate structure.
+ *
+ * It deliberately does NOT assert that a shipped default survives byte-identically: this suite is
+ * what proved it cannot. `wp_kses` rewrites `style` attributes (no trailing semicolon, no spaces
+ * after separators), so the guarantee had to move from "the sanitiser is lossless" to "the repository
+ * stores a shipped default verbatim and sanitises only what an operator submits". The byte-exact
+ * property is asserted where it belongs, on storage.
  *
  * @group integration
  * @package ANPA_Socios
@@ -27,17 +30,13 @@ final class Test_ANPA_Socios_Email_Template_Sanitizer_Integration extends TestCa
 		}
 	}
 
-	// ── The property that is easy to lose ───────────────────────────────
+	// ── What sanitisation preserves, and what it only normalises ─────────
 
-	public function test_every_shipped_default_survives_sanitisation_byte_for_byte(): void {
-		foreach ( ANPA_Socios_Email_Template_Events::set()->all() as $key => $definition ) {
-			$default = ANPA_Socios_Email_Template_Defaults::load( (string) $key );
+	public function test_the_subject_and_text_channels_of_a_shipped_default_are_untouched(): void {
+		// Only the HTML channel goes through kses, so these two must round-trip exactly.
+		foreach ( ANPA_Socios_Email_Template_Events::set()->keys() as $key ) {
+			$default = ANPA_Socios_Email_Template_Defaults::load( $key );
 
-			$this->assertSame(
-				$default['body_html'],
-				ANPA_Socios_Email_Template_Sanitizer::sanitize_html( $default['body_html'] ),
-				"{$key}: the sanitiser modified a shipped default; the golden parity proof would silently stop holding"
-			);
 			$this->assertSame(
 				$default['subject'],
 				ANPA_Socios_Email_Template_Sanitizer::sanitize_subject( $default['subject'] ),
@@ -51,12 +50,29 @@ final class Test_ANPA_Socios_Email_Template_Sanitizer_Integration extends TestCa
 		}
 	}
 
+	public function test_sanitising_a_shipped_default_changes_only_css_formatting(): void {
+		// The honest statement of what kses does. Every tag, every attribute and every visible
+		// character survives; only the punctuation inside style attributes is normalised. If this
+		// ever starts losing an element, the assertion below fails instead of an email losing a
+		// paragraph in production.
+		foreach ( ANPA_Socios_Email_Template_Events::set()->keys() as $key ) {
+			$html  = ANPA_Socios_Email_Template_Defaults::load( $key )['body_html'];
+			$clean = ANPA_Socios_Email_Template_Sanitizer::sanitize_html( $html );
+
+			$strip = static function ( string $value ): string {
+				return (string) preg_replace( '/style="[^"]*"/', 'style=""', $value );
+			};
+
+			$this->assertSame( $strip( $html ), $strip( $clean ), "{$key}: sanitisation changed more than CSS formatting" );
+		}
+	}
+
 	public function test_sanitisation_is_idempotent(): void {
 		// Storage will sanitise on every save, including a save of already-stored content. If the
 		// operation were not idempotent, the content hash would drift and "has this been modified?"
 		// would answer yes forever.
-		foreach ( ANPA_Socios_Email_Template_Events::set()->all() as $key => $definition ) {
-			$html  = ANPA_Socios_Email_Template_Defaults::load( (string) $key )['body_html'];
+		foreach ( ANPA_Socios_Email_Template_Events::set()->keys() as $key ) {
+			$html  = ANPA_Socios_Email_Template_Defaults::load( $key )['body_html'];
 			$once  = ANPA_Socios_Email_Template_Sanitizer::sanitize_html( $html );
 			$twice = ANPA_Socios_Email_Template_Sanitizer::sanitize_html( $once );
 
