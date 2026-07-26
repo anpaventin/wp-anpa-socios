@@ -1,0 +1,21 @@
+Baixa confirmada
+
+{{#nome_proxenitor}}Ola, {{nome_proxenitor}}:
+
+{{/}}Aprobamos a baixa de {{nome_alumno}} na actividade {{nome_actividade}}.
+{{#data_efectiva}}
+A baixa será efectiva o {{data_efectiva}}.
+{{/}}{{#trimestre_seguinte}}
+A praza queda libre a partir do trimestre {{trimestre_seguinte}}.
+{{/}}
+Ata esa data a matrícula mantén o estado que podes ver na área de socios, e o alumno ou a alumna pode seguir asistindo á actividade.
+{{#ligazon_area_socios}}
+Podes consultar a matrícula desde a área de socios:
+{{ligazon_area_socios}}
+{{/}}{{#correo_anpa}}
+Se isto non é o que solicitaches, escríbenos a {{correo_anpa}}.
+{{/}}
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

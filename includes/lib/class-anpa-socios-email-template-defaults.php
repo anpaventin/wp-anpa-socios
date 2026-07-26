@@ -86,6 +86,9 @@ final class ANPA_Socios_Email_Template_Defaults {
 		'group_created_enrollment_waitlisted' => 1,
 		'group_not_created'                   => 1,
 		'group_created_below_minimum'         => 1,
+		// Baixas e cambios.
+		'activity_cancellation_confirmed'     => 1,
+		'activity_change_notice'              => 1,
 	);
 
 	/**
