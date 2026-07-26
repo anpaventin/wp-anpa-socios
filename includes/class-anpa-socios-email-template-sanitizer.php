@@ -10,11 +10,19 @@
  * checked and every consumer has to remember to clean it; sanitising on write means a stored row is
  * already safe, and the renderer — which is frozen — needs to know nothing about this.
  *
- * The one property that is easy to overlook and expensive to lose: **sanitising a shipped default
- * must return it byte-identically.** The ten live templates are pinned byte-exact against the golden
- * oracle, which is the only evidence that moving to templates changed nothing for families. If this
- * class reformatted a default, that evidence would quietly stop being true at the storage layer.
- * An integration test asserts the round trip for all 35 shipped defaults against a real engine.
+ * WHAT IT DOES NOT PROMISE, learned from a real engine rather than assumed: sanitising a shipped
+ * default does NOT return identical bytes. `wp_kses` rewrites `style` attributes — it drops the
+ * trailing semicolon and the spaces after separators — so `margin: 0 auto; padding: 20px;` comes back
+ * as `margin: 0 auto;padding: 20px`. Equivalent CSS, different bytes.
+ *
+ * That is why the boundary is TRUST, not content: the repository stores a shipped default verbatim,
+ * because it is the text that ships with the plugin and is reviewed in git, and it sanitises what an
+ * operator submits, because that arrives from a request. The ten live templates stay pinned
+ * byte-exact against the golden oracle, which is the only evidence that moving to templates changed
+ * nothing for families, and no editor round trip can silently move them off that pin.
+ *
+ * What IS promised, and asserted against a real engine: sanitisation is idempotent, it removes every
+ * construct the policy forbids, and it never eats the renderer's block markers.
  *
  * @since  1.40.0
  * @package ANPA_Socios
@@ -94,7 +102,13 @@ final class ANPA_Socios_Email_Template_Sanitizer {
 	 */
 	public static function sanitize_text( string $text ): string {
 		$text = self::normalise_line_endings( $text );
-		$text = wp_strip_all_tags( $text, false );
+
+		// NOT `wp_strip_all_tags()`: it trims, and a trailing newline in a written plain-text body is
+		// content, not slack. The two steps are the ones that function performs before trimming —
+		// remove any script/style block whole, then remove the remaining tags — so a `<script>` never
+		// leaves its contents behind as visible text.
+		$text = (string) preg_replace( '@<(script|style)[^>]*?>.*?</\\1>@si', '', $text );
+		$text = strip_tags( $text );
 
 		return self::strip_control_characters( $text, true );
 	}
@@ -102,20 +116,23 @@ final class ANPA_Socios_Email_Template_Sanitizer {
 	/**
 	 * Runs a callback with the template CSS allowlist in force.
 	 *
-	 * WordPress filters `style` attributes through its own CSS property allowlist, which does not
-	 * cover everything these emails already use. Rather than allow arbitrary CSS, the policy's list
-	 * is added for the duration of the call and removed afterwards — including when the callback
-	 * throws, or a failed save would leave the site's CSS policy widened for every other consumer.
+	 * WordPress filters `style` attributes through its own CSS property allowlist. That list is
+	 * REPLACED here, not extended: it is broader than an email needs and it permits
+	 * `background-image`, which turns a style attribute into a remote fetch — read-tracking by
+	 * accident. Merging would have made the policy's list a floor with no ceiling, so a property the
+	 * project deliberately excluded would still be storable because WordPress happens to allow it.
+	 *
+	 * The replacement lasts for the duration of the call and is undone in a `finally`: a failed save
+	 * must not leave the site's CSS policy altered for every other consumer.
 	 *
 	 * @param  callable $callback Operation to run.
 	 * @return string
 	 */
 	private static function with_css_policy( callable $callback ): string {
 		$filter = static function ( $properties ) {
-			return array_values( array_unique( array_merge(
-				(array) $properties,
-				ANPA_Socios_Email_Template_Html_Policy::allowed_css_properties()
-			) ) );
+			unset( $properties );
+
+			return ANPA_Socios_Email_Template_Html_Policy::allowed_css_properties();
 		};
 
 		add_filter( 'safe_style_css', $filter, 10, 1 );
