@@ -1,0 +1,1 @@
+Abrimos a xestión de matrículas para o trimestre {{trimestre_seguinte}}

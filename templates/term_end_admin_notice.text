@@ -1,0 +1,22 @@
+Toca revisar o trimestre {{trimestre_actual}}
+
+Chegou a data operativa configurada para o peche do trimestre {{trimestre_actual}} do curso {{curso_escolar}}.
+
+Xa se poden revisar:
+
+- solicitudes de baixa;
+- prazas dispoñibles;
+- listas de agarda;
+- novas solicitudes;
+- grupos pendentes de decisión;
+- comunicacións ás familias.
+
+O cambio de trimestre non queda finalizado ata completar ese proceso: esta data só abre a revisión, non a fai.
+{{#ligazon_axustes}}
+Abrir a xestión:
+{{ligazon_axustes}}
+{{/}}
+Aviso interno da aplicación.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

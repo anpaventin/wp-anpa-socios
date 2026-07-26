@@ -1,0 +1,22 @@
+Xestión de matrículas do trimestre {{trimestre_seguinte}}
+
+Está aberto o período de xestión de matrículas para o trimestre {{trimestre_seguinte}}{{#curso_escolar}} do curso {{curso_escolar}}{{/}}.
+
+Durante este período podes:
+
+- solicitar a baixa dunha actividade;
+- consultar as matrículas da túa familia;
+- presentar novas solicitudes nas actividades dispoñibles;
+- responder ás ofertas de praza que teñas pendentes.
+
+As baixas aprobadas terán a data de efectividade que se indique en cada solicitude.
+
+Presentar unha nova solicitude non confirma a praza: dependerá das prazas dispoñibles e da revisión do grupo.
+{{#ligazon_matriculas}}
+Acceder á área de matrículas:
+{{ligazon_matriculas}}
+{{/}}
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

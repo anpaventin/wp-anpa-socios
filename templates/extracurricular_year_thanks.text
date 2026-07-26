@@ -1,0 +1,15 @@
+Grazas por este curso
+
+Remata o curso {{curso_escolar}} e queremos agradecer a participación da túa familia nas actividades extraescolares de {{nome_anpa}}.
+
+Grazas pola confianza, pola colaboración e por axudarnos a manter unha oferta de actividades para o alumnado do centro.
+{{#ligazon_enquisa}}
+A túa opinión axúdanos a mellorar. Se queres, podes contarnos que che pareceu:
+{{ligazon_enquisa}}
+{{/}}
+Agardamos contar convosco o vindeiro curso.
+
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

@@ -1,0 +1,25 @@
+Tes unha acción pendente
+
+{{#nome_proxenitor}}Ola, {{nome_proxenitor}}:
+
+{{/}}Este correo non anuncia ningún cambio: anuncia que segue pendente algo que precisa da túa resposta.
+
+{{accion_pendente}}
+{{#nome_alumno}}
+Afecta a {{nome_alumno}}.
+{{/}}{{#nome_actividade}}
+Actividade: {{nome_actividade}}.
+{{/}}{{#data_limite}}
+Prazo para responder: {{data_limite}}.
+{{/}}{{#consecuencia}}
+{{consecuencia}}
+{{/}}{{#ligazon_area_socios}}
+Podes resolvelo desde a área de socios:
+{{ligazon_area_socios}}
+{{/}}{{#correo_anpa}}
+Se cres que xa o fixeches ou non entendes que se pide, escríbenos a {{correo_anpa}}.
+{{/}}
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

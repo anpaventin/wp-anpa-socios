@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="gl">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+<h2>Tes unha acción pendente</h2>
+{{#nome_proxenitor}}<p>Ola, {{nome_proxenitor}}:</p>{{/}}
+<p>Este correo non anuncia ningún cambio: anuncia que segue pendente algo que precisa da túa resposta.</p>
+<p style="white-space: pre-line"><strong>{{accion_pendente}}</strong></p>
+{{#nome_alumno}}<p>Afecta a <strong>{{nome_alumno}}</strong>.</p>{{/}}
+{{#nome_actividade}}<p>Actividade: <strong>{{nome_actividade}}</strong>.</p>{{/}}
+{{#data_limite}}<p>Prazo para responder: <strong>{{data_limite}}</strong>.</p>{{/}}
+{{#consecuencia}}<p style="white-space: pre-line">{{consecuencia}}</p>{{/}}
+{{#ligazon_area_socios}}<p>Podes resolvelo desde a área de socios:<br><a href="{{ligazon_area_socios}}">{{ligazon_area_socios}}</a></p>{{/}}
+{{#correo_anpa}}<p>Se cres que xa o fixeches ou non entendes que se pide, escríbenos a <a href="mailto:{{correo_anpa}}">{{correo_anpa}}</a>.</p>{{/}}
+<p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p>
+{{#sinatura}}<hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">{{sinatura}}</p>{{/}}
+</body>
+</html>

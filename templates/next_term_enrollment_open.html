@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="gl">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+<h2>Xestión de matrículas do trimestre {{trimestre_seguinte}}</h2>
+<p>Está aberto o período de xestión de matrículas para o trimestre <strong>{{trimestre_seguinte}}</strong>{{#curso_escolar}} do curso {{curso_escolar}}{{/}}.</p>
+<p>Durante este período podes:</p>
+<ul>
+<li>solicitar a baixa dunha actividade;</li>
+<li>consultar as matrículas da túa familia;</li>
+<li>presentar novas solicitudes nas actividades dispoñibles;</li>
+<li>responder ás ofertas de praza que teñas pendentes.</li>
+</ul>
+<p>As baixas aprobadas terán a data de efectividade que se indique en cada solicitude.</p>
+<p>Presentar unha nova solicitude non confirma a praza: dependerá das prazas dispoñibles e da revisión do grupo.</p>
+{{#ligazon_matriculas}}<p>Acceder á área de matrículas:<br><a href="{{ligazon_matriculas}}">{{ligazon_matriculas}}</a></p>{{/}}
+<p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p>
+{{#sinatura}}<hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">{{sinatura}}</p>{{/}}
+</body>
+</html>

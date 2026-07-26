@@ -802,6 +802,135 @@ final class Test_ANPA_Socios_Email_Template_Content extends TestCase {
 		$this->assertStringContainsString( 'nin comunicarse a terceiros', $haystack );
 	}
 
+	// ── Grupo: trimestres e campañas ─────────────────────────────────────
+
+	public function test_the_term_group_is_complete(): void {
+		foreach (
+			array(
+				'term_end_admin_notice',
+				'next_term_enrollment_open',
+				'extracurricular_year_thanks',
+			) as $stem
+		) {
+			$this->assertTrue( ANPA_Socios_Email_Template_Defaults::exists( $stem ), "{$stem} not shipped" );
+			$this->assertContains( $stem, $this->new_stems(), "{$stem} is not treated as new content" );
+		}
+	}
+
+	public function test_the_term_end_notice_does_not_claim_the_term_was_closed(): void {
+		// The date opens the review; a human closes the term. A notice that reads like a completed
+		// action is how a term ends up half-closed with nobody looking.
+		$default  = ANPA_Socios_Email_Template_Defaults::load( 'term_end_admin_notice' );
+		$haystack = mb_strtolower( $default['body_html'] . ' ' . $default['body_text'] );
+
+		$this->assertStringContainsString( 'non queda finalizado', $haystack );
+		$this->assertStringContainsString( 'só abre a revisión', $haystack );
+	}
+
+	public function test_the_next_term_email_repeats_that_a_request_is_not_a_place(): void {
+		// It invites new requests, so it carries the same disclaimer as the opening email. Inviting
+		// without it is how a family assumes a place it does not have.
+		$default  = ANPA_Socios_Email_Template_Defaults::load( 'next_term_enrollment_open' );
+		$haystack = mb_strtolower( $default['body_html'] . ' ' . $default['body_text'] );
+
+		$this->assertStringContainsString( 'non confirma a praza', $haystack );
+	}
+
+	public function test_the_year_thanks_email_survives_having_no_survey(): void {
+		// The recorded §15 correction: with no link the whole paragraph disappears rather than
+		// inviting the reader to click nothing.
+		$default = ANPA_Socios_Email_Template_Defaults::load( 'extracurricular_year_thanks' );
+
+		foreach ( array( 'body_html', 'body_text' ) as $channel ) {
+			$this->assertMatchesRegularExpression(
+				'/\{\{#ligazon_enquisa\}\}[^{]*(\{\{[a-z_]+\}\}[^{]*)*\{\{\/\}\}/u',
+				$default[ $channel ],
+				"extracurricular_year_thanks.{$channel}: the survey link is not inside its own block"
+			);
+		}
+
+		$definition = $this->definition( 'extracurricular_year_thanks' );
+		$this->assertNotContains( 'ligazon_enquisa', $definition->required_tokens() );
+	}
+
+	// ── Grupo: sistema e administración ──────────────────────────────────
+
+	public function test_the_system_group_is_complete(): void {
+		foreach ( array( 'pending_action_reminder', 'email_campaign_summary_admin' ) as $stem ) {
+			$this->assertTrue( ANPA_Socios_Email_Template_Defaults::exists( $stem ), "{$stem} not shipped" );
+			$this->assertContains( $stem, $this->new_stems(), "{$stem} is not treated as new content" );
+		}
+	}
+
+	public function test_the_reminder_says_it_announces_no_change(): void {
+		// A reminder that reads like news gets opened once and ignored afterwards. Saying plainly
+		// that nothing changed is what distinguishes it from every other notification.
+		$default  = ANPA_Socios_Email_Template_Defaults::load( 'pending_action_reminder' );
+		$haystack = mb_strtolower( $default['body_html'] . ' ' . $default['body_text'] );
+
+		$this->assertStringContainsString( 'non anuncia ningún cambio', $haystack );
+	}
+
+	public function test_the_reminder_never_writes_the_action_itself(): void {
+		// The action text comes from the typed catalogue, never from the template and never from
+		// emitter prose. The template only has a slot.
+		$default = ANPA_Socios_Email_Template_Defaults::load( 'pending_action_reminder' );
+
+		$this->assertStringContainsString( '{{accion_pendente}}', $default['body_html'] );
+		$this->assertStringContainsString( '{{accion_pendente}}', $default['body_text'] );
+
+		$haystack = mb_strtolower( $default['body_html'] . ' ' . $default['body_text'] );
+		foreach ( ANPA_Socios_Email_Template_Actions::supported_types() as $type ) {
+			$description = mb_strtolower( ANPA_Socios_Email_Template_Actions::description( $type ) );
+			$this->assertStringNotContainsString(
+				$description,
+				$haystack,
+				"pending_action_reminder hardcodes the '{$type}' wording instead of using the slot"
+			);
+		}
+	}
+
+	public function test_the_campaign_summary_explains_what_accepted_counts_mean(): void {
+		// Same claim boundary as the company notice, in the one email that reports numbers: a count
+		// of accepted messages is not a count of delivered ones.
+		$default  = ANPA_Socios_Email_Template_Defaults::load( 'email_campaign_summary_admin' );
+		$haystack = mb_strtolower( $default['body_html'] . ' ' . $default['body_text'] );
+
+		$this->assertStringContainsString( 'admitiu a mensaxe', $haystack );
+		$this->assertStringContainsString( 'non é unha confirmación de entrega', $haystack );
+	}
+
+	public function test_the_campaign_summary_tells_the_board_what_to_do_next(): void {
+		$default  = ANPA_Socios_Email_Template_Defaults::load( 'email_campaign_summary_admin' );
+		$haystack = mb_strtolower( $default['body_html'] . ' ' . $default['body_text'] );
+
+		$this->assertStringContainsString( 'revisa os fallos antes de iniciar outro envío', $haystack );
+	}
+
+	// ── The catalogue as a whole ─────────────────────────────────────────
+
+	public function test_every_declared_event_ships_a_default(): void {
+		// The closing bijection. `test_every_shipped_default_belongs_to_a_registered_event` already
+		// catches an orphan FILE; this catches the opposite and more dangerous case — a declared
+		// event with no wording, which is a template panel offering a row that cannot render.
+		foreach ( ANPA_Socios_Email_Template_Events::set()->all() as $key => $definition ) {
+			$this->assertTrue(
+				ANPA_Socios_Email_Template_Defaults::exists( $definition->default_template() ),
+				"event '{$key}' is declared but ships no default"
+			);
+		}
+	}
+
+	public function test_every_shipped_default_declares_a_version(): void {
+		// The version answers "should installations be offered an update". A default with no declared
+		// version silently answers "no" for ever.
+		$versions = ANPA_Socios_Email_Template_Defaults::VERSIONS;
+
+		foreach ( ANPA_Socios_Email_Template_Defaults::stems() as $stem ) {
+			$this->assertArrayHasKey( $stem, $versions, "'{$stem}' ships without a declared version" );
+		}
+	}
+
 	public function test_the_application_receipt_does_not_promise_approval(): void {
 		// It confirms arrival, not acceptance. «Pendente de revisión» is the whole message.
 		$default  = ANPA_Socios_Email_Template_Defaults::load( 'member_application_received' );
