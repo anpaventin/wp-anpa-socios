@@ -1,0 +1,28 @@
+Fallou o aviso á empresa
+
+Non foi posible enviar o aviso a {{nome_empresa}} sobre a actividade {{nome_actividade}}. A empresa non está informada.
+
+Que fallou:
+
+{{motivo_erro}}
+
+Que facer:
+
+{{accion_recomendada}}
+
+Datos do intento:
+
+Empresa: {{nome_empresa}}
+Actividade: {{nome_actividade}}
+{{#nome_grupo}}Grupo: {{nome_grupo}}
+{{/}}{{#estado_grupo}}Estado do grupo: {{estado_grupo}}
+{{/}}{{#data_intento}}Data do intento: {{data_intento}}
+{{/}}{{#id_correlacion}}Identificador de correlación: {{id_correlacion}}
+{{/}}{{#ligazon_axustes}}
+Revisar no panel de xestión:
+{{ligazon_axustes}}
+{{/}}
+Aviso interno da aplicación.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

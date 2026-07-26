@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="gl">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+<h2>Grupo confirmado</h2>
+<p>Para {{nome_empresa}}: confirmamos o grupo correspondente á seguinte actividade.</p>
+<h3>Datos do grupo</h3>
+<ul>
+<li><strong>Actividade:</strong> {{nome_actividade}}</li>
+<li><strong>Curso escolar:</strong> {{curso_escolar}}</li>
+{{#nome_grupo}}<li><strong>Grupo:</strong> {{nome_grupo}}</li>{{/}}
+{{#horario_grupo}}<li><strong>Día e horario:</strong> {{horario_grupo}}</li>{{/}}
+{{#numero_alumnos}}<li><strong>Número de alumnos/as:</strong> {{numero_alumnos}}</li>{{/}}
+{{#estado_grupo}}<li><strong>Estado:</strong> {{estado_grupo}}</li>{{/}}
+</ul>
+{{#ligazon_descarga_segura}}<p>O listado de participantes está dispoñible como descarga autenticada, non como anexo deste correo:<br><a href="{{ligazon_descarga_segura}}">{{ligazon_descarga_segura}}</a></p>{{/}}
+{{#data_caducidade}}<p>A ligazón de descarga deixa de estar dispoñible o <strong>{{data_caducidade}}</strong>.</p>{{/}}
+<p>Os datos facilitados poden empregarse unicamente para organizar e prestar esta actividade. Non deben usarse para outras finalidades nin comunicarse a terceiros.</p>
+{{#correo_anpa}}<p>Para calquera dúbida sobre o grupo, escribide a <a href="mailto:{{correo_anpa}}">{{correo_anpa}}</a>.</p>{{/}}
+<p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p>
+{{#sinatura}}<hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">{{sinatura}}</p>{{/}}
+</body>
+</html>

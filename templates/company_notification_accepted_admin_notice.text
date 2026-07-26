@@ -1,0 +1,21 @@
+Aviso á empresa aceptado polo sistema de correo
+
+O sistema de correo aceptou o envío do aviso a {{nome_empresa}} sobre a actividade {{nome_actividade}}.
+
+Que significa isto exactamente: o sistema de correo local aceptou a mensaxe para envialo. Non significa que a empresa a recibise, nin que a lese. Se precisas certeza, confírmao pola vía habitual.
+
+Datos do envío:
+
+Empresa: {{nome_empresa}}
+Actividade: {{nome_actividade}}
+{{#nome_grupo}}Grupo: {{nome_grupo}}
+{{/}}{{#curso_escolar}}Curso escolar: {{curso_escolar}}
+{{/}}{{#data_intento}}Data do intento: {{data_intento}}
+{{/}}{{#id_correlacion}}Identificador de correlación: {{id_correlacion}}
+{{/}}
+Non fai falta ningunha acción. Este aviso existe para deixar constancia do intento.
+
+Aviso interno da aplicación.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

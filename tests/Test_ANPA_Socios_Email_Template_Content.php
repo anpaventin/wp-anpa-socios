@@ -690,6 +690,118 @@ final class Test_ANPA_Socios_Email_Template_Content extends TestCase {
 		$this->assertStringNotContainsString( 'matrícula completa', $haystack );
 	}
 
+	// ── Grupo: empresas ──────────────────────────────────────────────────
+
+	public function test_the_company_group_is_complete_under_its_final_names(): void {
+		foreach (
+			array(
+				'company_group_confirmed',
+				'company_notification_accepted_admin_notice',
+				'company_notification_failed_admin_notice',
+			) as $stem
+		) {
+			$this->assertTrue( ANPA_Socios_Email_Template_Defaults::exists( $stem ), "{$stem} not shipped" );
+			$this->assertContains( $stem, $this->new_stems(), "{$stem} is not treated as new content" );
+		}
+	}
+
+	public function test_the_earlier_company_notification_names_are_gone(): void {
+		// Renamed before freezing and with NO alias: neither earlier name reached production or an
+		// emitter, so an alias would be permanent maintenance for a name nobody ever used. This test
+		// is what makes «no alias» verifiable instead of a claim in a commit message.
+		$keys = array();
+		foreach ( ANPA_Socios_Email_Template_Events::set()->all() as $key => $definition ) {
+			$keys[] = (string) $key;
+		}
+
+		foreach (
+			array(
+				'company_notification_succeeded',
+				'company_notification_failed',
+				'company_notification_admin_confirmation',
+				'company_notification_admin_failure',
+			) as $obsolete
+		) {
+			$this->assertNotContains( $obsolete, $keys, "'{$obsolete}' is still declared" );
+			$this->assertFalse(
+				ANPA_Socios_Email_Template_Defaults::exists( $obsolete ),
+				"'{$obsolete}' still ships files"
+			);
+		}
+	}
+
+	public function test_the_accepted_notice_says_what_accepted_means_and_does_not_overclaim(): void {
+		// `wp_mail() === true` means the local mail system took the message. The email says exactly
+		// that, because a board that reads «notificada» stops following up.
+		$default  = ANPA_Socios_Email_Template_Defaults::load( 'company_notification_accepted_admin_notice' );
+		$haystack = mb_strtolower( $default['subject'] . ' ' . $default['body_html'] . ' ' . $default['body_text'] );
+
+		$this->assertStringContainsString( 'aceptou', $haystack );
+		$this->assertStringContainsString( 'non significa que a empresa a recibise', $haystack );
+
+		foreach ( array( 'entregado', 'entregouse', 'xa está informada', 'recibiu o correo' ) as $overclaim ) {
+			$this->assertStringNotContainsString( $overclaim, $haystack, "overclaims: '{$overclaim}'" );
+		}
+	}
+
+	public function test_the_failure_notice_states_plainly_that_the_company_is_not_informed(): void {
+		// A failure notice whose first line is technical leaves the reader working out the
+		// consequence. The consequence IS the message.
+		$default  = ANPA_Socios_Email_Template_Defaults::load( 'company_notification_failed_admin_notice' );
+		$haystack = mb_strtolower( $default['body_html'] . ' ' . $default['body_text'] );
+
+		$this->assertStringContainsString( 'a empresa non está informada', $haystack );
+	}
+
+	public function test_the_failure_notice_always_carries_a_reason_and_an_action(): void {
+		// Both are required in the declaration: an alert with no recommended action only transmits
+		// alarm, and the board cannot act on «failed».
+		$definition = $this->definition( 'company_notification_failed_admin_notice' );
+
+		$this->assertContains( 'motivo_erro', $definition->required_tokens() );
+		$this->assertContains( 'accion_recomendada', $definition->required_tokens() );
+	}
+
+	public function test_the_two_company_notices_cannot_be_confused_in_an_inbox(): void {
+		// Two events instead of one conditional, precisely so a failure is not filed among the
+		// successes.
+		$accepted = ANPA_Socios_Email_Template_Defaults::load( 'company_notification_accepted_admin_notice' );
+		$failed   = ANPA_Socios_Email_Template_Defaults::load( 'company_notification_failed_admin_notice' );
+
+		$this->assertNotSame( $accepted['subject'], $failed['subject'] );
+		$this->assertStringContainsString( 'Fallou', $failed['subject'] );
+	}
+
+	public function test_the_company_email_never_attaches_a_participant_list(): void {
+		// Authenticated download in the company portal, never an attachment, and the expiry sentence
+		// lives in its own block so no dangling reference survives when there is no link.
+		$default  = ANPA_Socios_Email_Template_Defaults::load( 'company_group_confirmed' );
+		$haystack = mb_strtolower( $default['body_html'] . ' ' . $default['body_text'] );
+
+		$this->assertStringContainsString( 'descarga autenticada', $haystack );
+		$this->assertStringContainsString( 'non como anexo', $haystack );
+		$this->assertStringNotContainsString( 'achégase', $haystack );
+		$this->assertStringNotContainsString( 'adxunto', $haystack );
+
+		foreach ( array( 'body_html', 'body_text' ) as $channel ) {
+			$this->assertMatchesRegularExpression(
+				'/\{\{#ligazon_descarga_segura\}\}[^{]*(\{\{[a-z_]+\}\}[^{]*)*\{\{\/\}\}/u',
+				$default[ $channel ],
+				"company_group_confirmed.{$channel}: the download link is not inside its own block"
+			);
+		}
+	}
+
+	public function test_the_company_email_states_the_purpose_limitation(): void {
+		// The company receives personal data of other people's children. The limitation is not
+		// decoration: it is the record of what was authorised.
+		$default  = ANPA_Socios_Email_Template_Defaults::load( 'company_group_confirmed' );
+		$haystack = mb_strtolower( $default['body_html'] . ' ' . $default['body_text'] );
+
+		$this->assertStringContainsString( 'unicamente para organizar e prestar esta actividade', $haystack );
+		$this->assertStringContainsString( 'nin comunicarse a terceiros', $haystack );
+	}
+
 	public function test_the_application_receipt_does_not_promise_approval(): void {
 		// It confirms arrival, not acceptance. «Pendente de revisión» is the whole message.
 		$default  = ANPA_Socios_Email_Template_Defaults::load( 'member_application_received' );

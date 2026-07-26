@@ -1,0 +1,26 @@
+Grupo confirmado
+
+Para {{nome_empresa}}: confirmamos o grupo correspondente á seguinte actividade.
+
+Datos do grupo:
+
+Actividade: {{nome_actividade}}
+Curso escolar: {{curso_escolar}}
+{{#nome_grupo}}Grupo: {{nome_grupo}}
+{{/}}{{#horario_grupo}}Día e horario: {{horario_grupo}}
+{{/}}{{#numero_alumnos}}Número de alumnos/as: {{numero_alumnos}}
+{{/}}{{#estado_grupo}}Estado: {{estado_grupo}}
+{{/}}{{#ligazon_descarga_segura}}
+O listado de participantes está dispoñible como descarga autenticada, non como anexo deste correo:
+{{ligazon_descarga_segura}}
+{{/}}{{#data_caducidade}}
+A ligazón de descarga deixa de estar dispoñible o {{data_caducidade}}.
+{{/}}
+Os datos facilitados poden empregarse unicamente para organizar e prestar esta actividade. Non deben usarse para outras finalidades nin comunicarse a terceiros.
+{{#correo_anpa}}
+Para calquera dúbida sobre o grupo, escribide a {{correo_anpa}}.
+{{/}}
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

@@ -94,6 +94,10 @@ final class ANPA_Socios_Email_Template_Defaults {
 		'waitlist_place_accepted'             => 1,
 		'waitlist_place_declined'             => 1,
 		'waitlist_place_expired'              => 1,
+		// Empresas.
+		'company_group_confirmed'             => 1,
+		'company_notification_accepted_admin_notice' => 1,
+		'company_notification_failed_admin_notice'   => 1,
 	);
 
 	/**
