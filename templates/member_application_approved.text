@@ -1,0 +1,15 @@
+Benvido/a a {{nome_anpa}}
+
+A directiva de {{nome_anpa}} aprobou a túa alta como socio/a. Xa podes acceder á túa área persoal.
+{{#ligazon_area_socios}}
+Entra na área de socios e inicia sesión co teu correo (recibirás un código de acceso):
+{{ligazon_area_socios}}
+{{/}}{{#sen_ligazon_area_socios}}
+Entra na área de socios da web e inicia sesión co teu correo; recibirás un código de acceso.
+{{/}}
+Desde a túa área persoal poderás xestionar os teus datos, os teus fillos/as e as actividades extraescolares.
+
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

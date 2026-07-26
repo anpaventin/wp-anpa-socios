@@ -1,0 +1,12 @@
+Verificación de socio/a
+
+O teu código de verificación é:
+
+{{codigo}}
+
+Este código caduca en 15 minutos.
+
+Se non solicitaches este código, ignora este correo.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

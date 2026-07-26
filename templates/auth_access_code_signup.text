@@ -1,0 +1,12 @@
+Alta na {{nome_anpa}}
+
+O teu código para continuar coa alta é:
+
+{{codigo}}
+
+Este código caduca en 15 minutos.
+
+Se non solicitaches esta alta, ignora este correo.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

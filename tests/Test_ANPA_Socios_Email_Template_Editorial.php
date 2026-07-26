@@ -107,6 +107,21 @@ final class Test_ANPA_Socios_Email_Template_Editorial extends TestCase {
 		$this->assertSame( $editorial, ANPA_Socios_Email_Template_Editorial::fingerprint(), 'must be stable' );
 	}
 
+	public function test_the_plain_text_channel_is_never_approved_by_parity(): void {
+		// Production sends HTML only, so there is no plain-text output to compare against. Every
+		// .text file is new writing, and the only thing that can approve it is somebody reading
+		// it — including for the ten events whose HTML is approved because it is already live.
+		foreach ( $this->set()->keys() as $key ) {
+			$this->assertSame(
+				ANPA_Socios_Email_Template_Editorial::STATUS_PENDING_REVIEW,
+				ANPA_Socios_Email_Template_Editorial::plain_text_status( (string) $key ),
+				"{$key}: the plain-text body cannot inherit the HTML approval"
+			);
+		}
+
+		$this->assertTrue( ANPA_Socios_Email_Template_Editorial::is_approved( 'waitlist_place_offer' ) );
+	}
+
 	public function test_the_editorial_class_does_not_touch_wordpress(): void {
 		$src = (string) file_get_contents( dirname( __DIR__ ) . '/includes/lib/class-anpa-socios-email-template-editorial.php' );
 
