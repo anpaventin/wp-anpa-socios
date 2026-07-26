@@ -133,8 +133,12 @@ final class Test_ANPA_Socios_Email_Template_Context extends TestCase {
 
 	// ── Structured data: built in the context, never by an emitter ──────
 
+	/** Event key used in the activity-list error messages. */
+	private const EVENT = 'school_year_enrollment_open';
+
 	public function test_the_activity_list_is_plain_text_with_one_activity_per_line(): void {
 		$list = ANPA_Socios_Email_Template_Context::activity_list(
+			self::EVENT,
 			array(
 				array( 'nome' => 'Robótica', 'horario' => 'martes e xoves, 16:30 a 17:30' ),
 				array( 'nome' => 'Xadrez' ),
@@ -149,6 +153,7 @@ final class Test_ANPA_Socios_Email_Template_Context extends TestCase {
 		// reach the family as literal tags. That is a feature: no emitter can inject markup.
 		// Presentation lives in the template, which wraps this in white-space: pre-line.
 		$list = ANPA_Socios_Email_Template_Context::activity_list(
+			self::EVENT,
 			array( array( 'nome' => 'Robótica & Xadrez', 'horario' => '<b>16:30</b>' ) )
 		);
 
@@ -176,81 +181,194 @@ final class Test_ANPA_Socios_Email_Template_Context extends TestCase {
 		$this->assertSame(
 			'Robótica',
 			ANPA_Socios_Email_Template_Context::activity_list(
+				self::EVENT,
 				array( array( 'nome' => '  ' ), array( 'nome' => 'Robótica' ) )
 			)
+		);
+	}
+
+	public function test_a_single_activity_is_a_valid_list(): void {
+		$this->assertSame(
+			'Robótica',
+			ANPA_Socios_Email_Template_Context::activity_list( self::EVENT, array( array( 'nome' => 'Robótica' ) ) )
 		);
 	}
 
 	public function test_the_activity_list_preserves_the_order_it_receives(): void {
 		// The order a family reads is a product decision, not a side effect of a query.
 		$list = ANPA_Socios_Email_Template_Context::activity_list(
+			self::EVENT,
 			array( array( 'nome' => 'Xadrez' ), array( 'nome' => 'Baile' ), array( 'nome' => 'Robótica' ) )
 		);
 
 		$this->assertSame( "Xadrez\nBaile\nRobótica", $list );
 	}
 
-	public function test_a_newline_inside_an_entry_cannot_split_it_into_two_activities(): void {
-		// A schedule pasted from a spreadsheet arrives with CRLF.
+	public function test_a_newline_or_tab_inside_an_entry_cannot_split_it_into_two_activities(): void {
+		// A schedule pasted from a spreadsheet arrives with CRLF and tabs.
 		$list = ANPA_Socios_Email_Template_Context::activity_list(
-			array( array( 'nome' => "Robótica", 'horario' => "martes\r\ne xoves" ) )
+			self::EVENT,
+			array( array( 'nome' => "Robótica", 'horario' => "martes\r\ne\txoves" ) )
 		);
 
 		$this->assertSame( 'Robótica — martes e xoves', $list );
 		$this->assertSame( 1, count( explode( "\n", $list ) ) );
 	}
 
-	public function test_an_empty_activity_list_is_refused(): void {
+	public function test_an_empty_activity_list_is_refused_and_names_the_event(): void {
 		// An enrollment-opening email with a blank activity block is worse than no email: it
 		// announces an opening and then shows nothing.
-		$this->expectException( ANPA_Socios_Email_Template_Registry_Error::class );
-		$this->expectExceptionMessage( 'do not announce an opening with nothing to show' );
-
-		ANPA_Socios_Email_Template_Context::activity_list( array() );
+		try {
+			ANPA_Socios_Email_Template_Context::activity_list( self::EVENT, array() );
+			$this->fail( 'expected an empty list to be refused' );
+		} catch ( ANPA_Socios_Email_Template_Registry_Error $e ) {
+			$this->assertStringContainsString( self::EVENT, $e->getMessage() );
+			$this->assertStringContainsString( 'nothing to show', $e->getMessage() );
+		}
 	}
 
-	public function test_an_implausibly_long_activity_list_is_refused(): void {
+	public function test_duplicate_activities_are_an_error(): void {
+		// Two identical lines almost always mean a join without DISTINCT or a context built
+		// twice. Both are bugs worth failing on rather than emailing.
+		try {
+			ANPA_Socios_Email_Template_Context::activity_list(
+				self::EVENT,
+				array( array( 'nome' => 'Robótica' ), array( 'nome' => 'Robótica' ) )
+			);
+			$this->fail( 'expected duplicates to be refused' );
+		} catch ( ANPA_Socios_Email_Template_Registry_Error $e ) {
+			$this->assertStringContainsString( 'without DISTINCT', $e->getMessage() );
+			$this->assertStringContainsString( '2 entries', $e->getMessage() );
+			// The names must not travel in an error message that may end up in a log.
+			$this->assertStringNotContainsString( 'Robótica', $e->getMessage() );
+		}
+	}
+
+	public function test_the_activity_guard_accepts_exactly_the_maximum(): void {
 		$many = array();
-		for ( $i = 0; $i <= ANPA_Socios_Email_Template_Context::MAX_ACTIVITY_LINES; $i++ ) {
+		for ( $i = 1; $i <= ANPA_Socios_Email_Template_Context::MAX_ACTIVITY_LINES; $i++ ) {
 			$many[] = array( 'nome' => 'Actividade ' . $i );
 		}
 
-		$this->expectException( ANPA_Socios_Email_Template_Registry_Error::class );
-		$this->expectExceptionMessage( 'more than the' );
+		$list = ANPA_Socios_Email_Template_Context::activity_list( self::EVENT, $many );
+		$this->assertCount( ANPA_Socios_Email_Template_Context::MAX_ACTIVITY_LINES, explode( "\n", $list ) );
+	}
 
-		ANPA_Socios_Email_Template_Context::activity_list( $many );
+	public function test_one_activity_past_the_guard_is_refused_with_counts_and_no_names(): void {
+		$many = array();
+		for ( $i = 1; $i <= ANPA_Socios_Email_Template_Context::MAX_ACTIVITY_LINES + 1; $i++ ) {
+			$many[] = array( 'nome' => 'Actividade ' . $i );
+		}
+
+		try {
+			ANPA_Socios_Email_Template_Context::activity_list( self::EVENT, $many );
+			$this->fail( 'expected the guard to refuse' );
+		} catch ( ANPA_Socios_Email_Template_Registry_Error $e ) {
+			// A TECHNICAL guard, not a limit on how many activities the association may offer.
+			$this->assertStringContainsString( 'technical guard', $e->getMessage() );
+			$this->assertStringContainsString( self::EVENT, $e->getMessage() );
+			$this->assertStringContainsString( (string) ( ANPA_Socios_Email_Template_Context::MAX_ACTIVITY_LINES + 1 ), $e->getMessage() );
+			$this->assertStringNotContainsString( 'Actividade 1', $e->getMessage() );
+		}
 	}
 
 	// ── Dates: one policy, in one place ─────────────────────────────────
 
 	public function test_a_canonical_date_becomes_the_administrative_format(): void {
-		$this->assertSame( '05/10/2026', ANPA_Socios_Email_Template_Context::format_date( '2026-10-05' ) );
+		$this->assertSame( '05/10/2026', ANPA_Socios_Email_Template_Context::format_optional_date( '2026-10-05' ) );
+		$this->assertSame( '05/10/2026', ANPA_Socios_Email_Template_Context::format_required_date( '2026-10-05' ) );
 	}
 
-	public function test_an_absent_date_renders_nothing_rather_than_a_gap(): void {
+	public function test_an_absent_optional_date_renders_nothing(): void {
 		// So the template's optional block removes the paragraph instead of printing a
 		// date-shaped hole.
-		$this->assertSame( '', ANPA_Socios_Email_Template_Context::format_date( '' ) );
-		$this->assertSame( '', ANPA_Socios_Email_Template_Context::format_date( '   ' ) );
+		$this->assertSame( '', ANPA_Socios_Email_Template_Context::format_optional_date( '' ) );
+		$this->assertSame( '', ANPA_Socios_Email_Template_Context::format_optional_date( '   ' ) );
+	}
+
+	public function test_an_absent_required_date_is_an_error_not_a_missing_paragraph(): void {
+		// The dangerous case. An optional block would hide the omission and produce an email that
+		// looks complete and never mentions the deadline: it validates, it sends, and nobody
+		// notices until a family misses a date they were never told about.
+		try {
+			ANPA_Socios_Email_Template_Context::format_required_date( '', 'data_limite' );
+			$this->fail( 'expected a missing required date to be refused' );
+		} catch ( ANPA_Socios_Email_Template_Registry_Error $e ) {
+			$this->assertStringContainsString( 'data_limite', $e->getMessage() );
+			$this->assertStringContainsString( 'hide its absence', $e->getMessage() );
+		}
 	}
 
 	public function test_a_non_canonical_date_is_refused_so_no_emitter_picks_a_format(): void {
 		// Without this, one association sends 1/9/2026, 01-09-2026 and "1 de setembro".
 		foreach ( array( '1/9/2026', '01-09-2026', '1 de setembro de 2026', '2026-9-5' ) as $bad ) {
-			try {
-				ANPA_Socios_Email_Template_Context::format_date( $bad );
-				$this->fail( "expected '{$bad}' to be refused" );
-			} catch ( ANPA_Socios_Email_Template_Registry_Error $e ) {
-				$this->assertStringContainsString( 'canonical', $e->getMessage() );
+			foreach ( array( 'format_optional_date', 'format_required_date' ) as $method ) {
+				try {
+					ANPA_Socios_Email_Template_Context::$method( $bad );
+					$this->fail( "expected '{$bad}' to be refused by {$method}" );
+				} catch ( ANPA_Socios_Email_Template_Registry_Error $e ) {
+					$this->assertStringContainsString( 'canonical', $e->getMessage() );
+				}
 			}
 		}
 	}
 
 	public function test_a_date_that_does_not_exist_is_refused(): void {
 		$this->expectException( ANPA_Socios_Email_Template_Registry_Error::class );
-		$this->expectExceptionMessage( 'does not exist' );
+		$this->expectExceptionMessage( 'not a date that exists' );
 
-		ANPA_Socios_Email_Template_Context::format_date( '2026-02-30' );
+		ANPA_Socios_Email_Template_Context::format_optional_date( '2026-02-30' );
+	}
+
+	// ── URLs ────────────────────────────────────────────────────────────
+
+	public function test_an_https_url_passes_untouched(): void {
+		$this->assertSame(
+			'https://example.org/area-socios/',
+			ANPA_Socios_Email_Template_Context::format_url( ' https://example.org/area-socios/ ' )
+		);
+	}
+
+	public function test_plain_http_is_refused_except_for_development_hosts(): void {
+		// http in an email a family clicks is a downgrade nobody chose.
+		$this->assertSame(
+			'http://example.org/area/',
+			ANPA_Socios_Email_Template_Context::format_url( 'http://example.org/area/' )
+		);
+		$this->assertSame(
+			'http://localhost:8080/area/',
+			ANPA_Socios_Email_Template_Context::format_url( 'http://localhost:8080/area/' )
+		);
+
+		$this->expectException( ANPA_Socios_Email_Template_Registry_Error::class );
+		$this->expectExceptionMessage( 'must use https' );
+		ANPA_Socios_Email_Template_Context::format_url( 'http://anpa-real.example-not-reserved.gal/area/' );
+	}
+
+	public function test_a_url_with_a_line_break_is_refused(): void {
+		// A newline that reaches a header is a header-injection vector.
+		$this->expectException( ANPA_Socios_Email_Template_Registry_Error::class );
+		$this->expectExceptionMessage( 'line break' );
+
+		ANPA_Socios_Email_Template_Context::format_url( "https://example.org/a\r\nBcc: outro@example.org" );
+	}
+
+	public function test_an_overlong_url_is_refused(): void {
+		$this->expectException( ANPA_Socios_Email_Template_Registry_Error::class );
+		$this->expectExceptionMessage( 'more than the' );
+
+		ANPA_Socios_Email_Template_Context::format_url( 'https://example.org/' . str_repeat( 'a', 2100 ) );
+	}
+
+	public function test_an_absent_url_is_allowed_only_when_optional(): void {
+		$this->assertSame( '', ANPA_Socios_Email_Template_Context::format_url( '', 'ligazon_enquisa', false ) );
+
+		try {
+			ANPA_Socios_Email_Template_Context::format_url( '', 'ligazon_confirmacion', true );
+			$this->fail( 'expected a missing required URL to be refused' );
+		} catch ( ANPA_Socios_Email_Template_Registry_Error $e ) {
+			$this->assertStringContainsString( 'nowhere to do it', $e->getMessage() );
+		}
 	}
 
 	// ── Pending actions: controlled, not prose ──────────────────────────
@@ -278,6 +396,83 @@ final class Test_ANPA_Socios_Email_Template_Context extends TestCase {
 			// Each description must actually say what to do, not restate the type.
 			$this->assertGreaterThan( 20, mb_strlen( $label ), "{$type}: the description is too thin to be useful" );
 		}
+	}
+
+	public function test_an_action_requiring_a_deadline_cannot_render_without_one(): void {
+		// requires_deadline is enforcement, not documentation.
+		$this->assertTrue( ANPA_Socios_Email_Template_Actions::requires_deadline( 'confirmar_praza' ) );
+
+		try {
+			ANPA_Socios_Email_Template_Context::pending_action( 'confirmar_praza', '', 'https://example.org/c/' );
+			$this->fail( 'expected a missing deadline to be refused' );
+		} catch ( ANPA_Socios_Email_Template_Registry_Error $e ) {
+			$this->assertStringContainsString( 'data_limite', $e->getMessage() );
+		}
+	}
+
+	public function test_an_action_requiring_a_link_cannot_render_without_one(): void {
+		try {
+			ANPA_Socios_Email_Template_Context::pending_action( 'confirmar_praza', '2026-10-20', '' );
+			$this->fail( 'expected a missing link to be refused' );
+		} catch ( ANPA_Socios_Email_Template_Registry_Error $e ) {
+			$this->assertStringContainsString( 'nowhere to do it', $e->getMessage() );
+		}
+	}
+
+	public function test_a_complete_pending_action_context_answers_the_five_questions(): void {
+		$context = ANPA_Socios_Email_Template_Context::pending_action(
+			'confirmar_praza',
+			'2026-10-20',
+			'https://example.org/confirmar/exemplo/'
+		);
+
+		$this->assertNotSame( '', $context['accion_pendente'], 'what must be done' );
+		$this->assertSame( '20/10/2026', $context['data_limite'], 'by when' );
+		$this->assertSame( 'https://example.org/confirmar/exemplo/', $context['ligazon_confirmacion'], 'where' );
+		$this->assertNotSame( '', $context['consecuencia'], 'what happens otherwise' );
+	}
+
+	public function test_an_action_without_a_deadline_requirement_may_omit_it(): void {
+		$context = ANPA_Socios_Email_Template_Context::pending_action(
+			'corrixir_solicitude_alta',
+			'',
+			'https://example.org/area-socios/'
+		);
+
+		$this->assertSame( '', $context['data_limite'] );
+		$this->assertNotSame( '', $context['accion_pendente'] );
+	}
+
+	public function test_the_action_catalogue_is_a_declared_contract_with_its_own_fingerprint(): void {
+		// It changes what a family reads, so it cannot change silently. Its own digest, not the
+		// registry's: "we reworded a reminder" must not look like "the template contract changed".
+		$fingerprint = ANPA_Socios_Email_Template_Actions::fingerprint();
+
+		$this->assertStringStartsWith( ANPA_Socios_Email_Template_Actions::FINGERPRINT_SCHEME . ':', $fingerprint );
+		$this->assertMatchesRegularExpression( '/^[a-z0-9-]+:[0-9a-f]{64}$/', $fingerprint );
+		$this->assertSame( $fingerprint, ANPA_Socios_Email_Template_Actions::fingerprint() );
+		$this->assertNotSame( ANPA_Socios_Email_Template_Events::set()->fingerprint(), $fingerprint );
+	}
+
+	public function test_every_action_declaration_is_complete(): void {
+		$required = array( 'label', 'description', 'entity', 'requires_deadline', 'requires_link', 'consequence', 'phase' );
+
+		foreach ( ANPA_Socios_Email_Template_Actions::supported_types() as $type ) {
+			$declaration = ANPA_Socios_Email_Template_Actions::declaration( $type );
+
+			foreach ( $required as $field ) {
+				$this->assertArrayHasKey( $field, $declaration, "{$type}: missing {$field}" );
+			}
+			$this->assertNotSame( '', trim( (string) $declaration['consequence'] ), "{$type}: no consequence" );
+			$this->assertNotSame( '', trim( (string) $declaration['phase'] ), "{$type}: no owning phase" );
+		}
+	}
+
+	public function test_an_unknown_action_type_never_renders(): void {
+		$this->assertFalse( ANPA_Socios_Email_Template_Actions::supports( 'inventado' ) );
+
+		$this->expectException( ANPA_Socios_Email_Template_Registry_Error::class );
+		ANPA_Socios_Email_Template_Context::pending_action( 'inventado', '2026-10-20', 'https://example.org/' );
 	}
 
 	public function test_state_labels_come_from_a_validated_identifier(): void {
