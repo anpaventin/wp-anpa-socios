@@ -1,0 +1,23 @@
+Praza confirmada
+
+Confirmamos que {{nome_alumno}} está incluído/a na actividade {{nome_actividade}}.
+
+Inicialmente non se acadou o número mínimo previsto de participantes{{#prazas_minimas}} ({{prazas_minimas}}){{/}}, pero falamos coa empresa responsable e aceptou poñer o grupo en marcha.
+
+Datos da actividade:
+
+Actividade: {{nome_actividade}}
+{{#nome_grupo}}Grupo: {{nome_grupo}}
+{{/}}{{#horario_grupo}}Día e horario: {{horario_grupo}}
+{{/}}{{#data_inicio}}Inicio: {{data_inicio}}
+{{/}}{{#nome_empresa}}Empresa responsable: {{nome_empresa}}
+{{/}}{{#ligazon_area_socios}}
+Podes consultar a matrícula desde a área de socios:
+{{ligazon_area_socios}}
+{{/}}{{#correo_anpa}}
+Se algún destes datos non é correcto, avísanos canto antes en {{correo_anpa}}.
+{{/}}
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

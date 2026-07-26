@@ -1,0 +1,17 @@
+O grupo creouse, pero non houbo praza
+
+O grupo de {{nome_actividade}} quedou creado, pero non foi posible incluír a {{nome_alumno}} por falta de prazas.
+
+A solicitude permanece na lista de agarda. Se se libera unha praza, contactaremos contigo para ofrecerlla.
+{{#posicion_lista}}
+Posición actual na lista de agarda: {{posicion_lista}}.
+{{/}}{{#ligazon_area_socios}}
+Se prefires retirar a solicitude da lista de agarda, podes facelo desde a área de socios:
+{{ligazon_area_socios}}
+{{/}}
+Sentímolo moito. Avisarémoste en canto haxa novidades.
+
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}
