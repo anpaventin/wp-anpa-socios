@@ -124,6 +124,9 @@
       <file>tests/Test_ANPA_Socios_Email_Template_Repo_Integration.php</file>
       <file>tests/Test_ANPA_Socios_Email_Template_Migration_Integration.php</file>
       <file>tests/Test_ANPA_Socios_Email_Template_Sanitizer_Integration.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Signatures.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Headers.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Failure_Policy.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

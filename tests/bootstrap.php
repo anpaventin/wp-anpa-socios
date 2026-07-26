@@ -88,6 +88,8 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-csv-import.php';
 require_once __DIR__ . '/../includes/class-anpa-socios-db.php';
 // fase35: needed by the admin menu contract test (its register_menu is called).
 require_once __DIR__ . '/../includes/class-anpa-socios-email-communications-page.php';
+// fase36 PR-36s3: the transactional email class, for signature reflection tests.
+require_once __DIR__ . '/../includes/class-anpa-socios-email.php';
 
 // Minimal $wpdb stub for table-name helpers; tests never hit a real DB.
 if ( ! isset( $GLOBALS['wpdb'] ) ) {

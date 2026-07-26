@@ -50,13 +50,22 @@ final class Test_ANPA_Socios_Email_Emitter_Inventory extends TestCase {
 
 	// ── The three counts, derived ────────────────────────────────────────
 
-	public function test_the_class_declares_one_send_per_public_emitter(): void {
-		// Nine methods, nine wp_mail call sites. A tenth call site would mean a send nobody
-		// inventoried; an eighth would mean a method that silently stopped sending.
+	public function test_all_public_emitters_delegate_to_send_templated(): void {
+		// After fase36 migration, every public enviar_* delegates to send_templated, which is
+		// the single point where wp_mail() is called. One call site, nine emitters.
+		// Count actual calls, not references in comments/docblocks.
+		$code_only = preg_replace( '/\/\*\*.*?\*\//s', '', $this->email_src ); // Remove docblocks.
+		$code_only = preg_replace( '/\/\/[^\n]*/m', '', (string) $code_only );  // Remove line comments.
+
+		$this->assertSame(
+			1,
+			(int) substr_count( (string) $code_only, 'wp_mail(' ),
+			'wp_mail() must appear exactly once in executable code (inside send_templated)'
+		);
 		$this->assertSame(
 			count( $this->emitter_methods() ),
-			substr_count( $this->email_src, 'wp_mail(' ),
-			'the number of wp_mail() calls no longer matches the number of emitters'
+			substr_count( $this->email_src, 'self::send_templated(' ),
+			'every enviar_* method must call send_templated exactly once'
 		);
 	}
 
@@ -89,7 +98,7 @@ final class Test_ANPA_Socios_Email_Emitter_Inventory extends TestCase {
 			'/function\s+enviar_codigo\(\s*string \$email, string \$codigo, string \$context/',
 			$this->email_src
 		);
-		$this->assertStringContainsString( "if ( 'verificacion' === \$context ) {", $this->email_src );
+		$this->assertStringContainsString( "'verificacion' === \$context", $this->email_src );
 	}
 
 	public function test_every_golden_stem_belongs_to_a_live_event(): void {
@@ -155,9 +164,12 @@ final class Test_ANPA_Socios_Email_Emitter_Inventory extends TestCase {
 	public function test_the_transactional_emitters_send_html_only(): void {
 		// Production sends HTML, with the content type forced for the duration of each call. Shipping
 		// a .text file does not authorise changing the historical MIME type, and 36s3 does not.
+		// After migration, send_templated uses rendered['body_html'] and ignores body_text for MIME.
 		$this->assertStringContainsString( "add_filter( 'wp_mail_content_type'", $this->email_src );
 		$this->assertStringNotContainsString( 'multipart/alternative', $this->email_src );
-		$this->assertStringNotContainsString( 'body_text', $this->email_src );
+		// wp_mail receives body_html, not body_text: the plain-text channel is loaded but not sent.
+		$this->assertStringContainsString( "rendered['body_html']", $this->email_src );
+		$this->assertStringNotContainsString( "rendered['body_text']", $this->email_src );
 	}
 
 	public function test_the_queue_column_still_fits_every_enqueueable_event_key(): void {
