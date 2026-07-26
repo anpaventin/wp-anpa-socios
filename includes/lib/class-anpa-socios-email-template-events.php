@@ -100,6 +100,12 @@ final class ANPA_Socios_Email_Template_Events {
 				'example'     => 'https://example.org/area-socios/',
 				'type'        => $url,
 			),
+			'sen_ligazon_area_socios' => array(
+				'label'       => 'Sen ligazón á área de socios',
+				'description' => 'Marca interna: enche o parágrafo alternativo cando non hai ligazón. Non se amosa nunca no correo; só activa ou desactiva un bloque. Constrúea sempre ANPA_Socios_Email_Template_Context::area_link().',
+				'example'     => '1',
+				'type'        => ANPA_Socios_Email_Template_Variable::TYPE_TEXT,
+			),
 			'sinatura'                => array(
 				'label'       => 'Sinatura',
 				'description' => 'Sinatura configurada para os correos. Engádese ao final.',
@@ -381,7 +387,10 @@ final class ANPA_Socios_Email_Template_Events {
 				'audience'       => $family,
 				'phase'          => $live,
 				'legacy_emitter' => 'enviar_aprobacion',
-				'variables'      => array(),
+				// The complementary flag of the members'-area pair. The URL itself is a global;
+				// this token only enables the alternative paragraph when there is no URL, which
+				// is how the live if/else survives a renderer with no `else`.
+				'variables'      => array( 'sen_ligazon_area_socios' => false ),
 			),
 			array(
 				'event_key'      => 'member_application_completed',
@@ -391,7 +400,7 @@ final class ANPA_Socios_Email_Template_Events {
 				'audience'       => $family,
 				'phase'          => $live,
 				'legacy_emitter' => 'enviar_benvida_alta',
-				'variables'      => array(),
+				'variables'      => array( 'sen_ligazon_area_socios' => false ),
 			),
 			array(
 				'event_key'      => 'member_application_changes_required',
