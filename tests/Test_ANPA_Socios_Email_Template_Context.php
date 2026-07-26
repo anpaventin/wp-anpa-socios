@@ -181,6 +181,105 @@ final class Test_ANPA_Socios_Email_Template_Context extends TestCase {
 		);
 	}
 
+	public function test_the_activity_list_preserves_the_order_it_receives(): void {
+		// The order a family reads is a product decision, not a side effect of a query.
+		$list = ANPA_Socios_Email_Template_Context::activity_list(
+			array( array( 'nome' => 'Xadrez' ), array( 'nome' => 'Baile' ), array( 'nome' => 'Robótica' ) )
+		);
+
+		$this->assertSame( "Xadrez\nBaile\nRobótica", $list );
+	}
+
+	public function test_a_newline_inside_an_entry_cannot_split_it_into_two_activities(): void {
+		// A schedule pasted from a spreadsheet arrives with CRLF.
+		$list = ANPA_Socios_Email_Template_Context::activity_list(
+			array( array( 'nome' => "Robótica", 'horario' => "martes\r\ne xoves" ) )
+		);
+
+		$this->assertSame( 'Robótica — martes e xoves', $list );
+		$this->assertSame( 1, count( explode( "\n", $list ) ) );
+	}
+
+	public function test_an_empty_activity_list_is_refused(): void {
+		// An enrollment-opening email with a blank activity block is worse than no email: it
+		// announces an opening and then shows nothing.
+		$this->expectException( ANPA_Socios_Email_Template_Registry_Error::class );
+		$this->expectExceptionMessage( 'do not announce an opening with nothing to show' );
+
+		ANPA_Socios_Email_Template_Context::activity_list( array() );
+	}
+
+	public function test_an_implausibly_long_activity_list_is_refused(): void {
+		$many = array();
+		for ( $i = 0; $i <= ANPA_Socios_Email_Template_Context::MAX_ACTIVITY_LINES; $i++ ) {
+			$many[] = array( 'nome' => 'Actividade ' . $i );
+		}
+
+		$this->expectException( ANPA_Socios_Email_Template_Registry_Error::class );
+		$this->expectExceptionMessage( 'more than the' );
+
+		ANPA_Socios_Email_Template_Context::activity_list( $many );
+	}
+
+	// ── Dates: one policy, in one place ─────────────────────────────────
+
+	public function test_a_canonical_date_becomes_the_administrative_format(): void {
+		$this->assertSame( '05/10/2026', ANPA_Socios_Email_Template_Context::format_date( '2026-10-05' ) );
+	}
+
+	public function test_an_absent_date_renders_nothing_rather_than_a_gap(): void {
+		// So the template's optional block removes the paragraph instead of printing a
+		// date-shaped hole.
+		$this->assertSame( '', ANPA_Socios_Email_Template_Context::format_date( '' ) );
+		$this->assertSame( '', ANPA_Socios_Email_Template_Context::format_date( '   ' ) );
+	}
+
+	public function test_a_non_canonical_date_is_refused_so_no_emitter_picks_a_format(): void {
+		// Without this, one association sends 1/9/2026, 01-09-2026 and "1 de setembro".
+		foreach ( array( '1/9/2026', '01-09-2026', '1 de setembro de 2026', '2026-9-5' ) as $bad ) {
+			try {
+				ANPA_Socios_Email_Template_Context::format_date( $bad );
+				$this->fail( "expected '{$bad}' to be refused" );
+			} catch ( ANPA_Socios_Email_Template_Registry_Error $e ) {
+				$this->assertStringContainsString( 'canonical', $e->getMessage() );
+			}
+		}
+	}
+
+	public function test_a_date_that_does_not_exist_is_refused(): void {
+		$this->expectException( ANPA_Socios_Email_Template_Registry_Error::class );
+		$this->expectExceptionMessage( 'does not exist' );
+
+		ANPA_Socios_Email_Template_Context::format_date( '2026-02-30' );
+	}
+
+	// ── Pending actions: controlled, not prose ──────────────────────────
+
+	public function test_a_pending_action_comes_from_a_controlled_type(): void {
+		$this->assertSame(
+			'Confirmar unha praza ofrecida nunha actividade extraescolar.',
+			ANPA_Socios_Email_Template_Context::pending_action_label( 'confirmar_praza' )
+		);
+	}
+
+	public function test_free_prose_as_a_pending_action_is_refused(): void {
+		// A reminder whose body is emitter-supplied prose is a reminder nobody can review,
+		// translate or keep consistent.
+		$this->expectException( ANPA_Socios_Email_Template_Registry_Error::class );
+		$this->expectExceptionMessage( 'never be free text' );
+
+		ANPA_Socios_Email_Template_Context::pending_action_label( 'Fai o que sexa antes do venres' );
+	}
+
+	public function test_every_roadmap_pending_action_type_has_a_description(): void {
+		foreach ( ANPA_Socios_Email_Template_Context::pending_action_types() as $type ) {
+			$label = ANPA_Socios_Email_Template_Context::pending_action_label( $type );
+			$this->assertNotSame( '', $label );
+			// Each description must actually say what to do, not restate the type.
+			$this->assertGreaterThan( 20, mb_strlen( $label ), "{$type}: the description is too thin to be useful" );
+		}
+	}
+
 	public function test_state_labels_come_from_a_validated_identifier(): void {
 		$this->assertSame(
 			'Confirmado excepcionalmente baixo mínimo',

@@ -272,8 +272,8 @@ final class ANPA_Socios_Email_Template_Events {
 			// ── Recordatorios e incidencias ────────────────────────────
 			'accion_pendente'         => array(
 				'label'       => 'Acción pendente',
-				'description' => 'Que ten que facer a familia, escrito polo emisor. É obrigatoria: un recordatorio que non di que se espera é un correo que se ignora.',
-				'example'     => 'Confirmar a praza de Antía Exemplo en Robótica.',
+				'description' => 'Que ten que facer a familia. NON é texto libre: constrúeo ANPA_Socios_Email_Template_Context::pending_action_label() a partir dun tipo de acción controlado. Un recordatorio cuxo corpo escribe o emisor é un recordatorio que ninguén pode revisar nin manter coherente.',
+				'example'     => 'Confirmar unha praza ofrecida nunha actividade extraescolar.',
 				'type'        => $multiline,
 			),
 			'motivo_erro'             => array(
@@ -845,9 +845,14 @@ final class ANPA_Socios_Email_Template_Events {
 			// Two events, not one with a conditional: the success notice needs no action, the
 			// failure notice requires one, and a shared subject line would hide the failures
 			// among the successes in an inbox.
+			// Renamed before freezing: `company_notification_succeeded` did not say WHO receives
+			// it, and read as if it went to the company — which would be a company being emailed
+			// to be told it was emailed. The `_admin_` infix follows the convention the rest of
+			// the board notices already use, and renaming now is far cheaper than after fase37
+			// has an emitter calling the key.
 			array(
-				'event_key'    => 'company_notification_succeeded',
-				'display_name' => 'Empresa notificada correctamente',
+				'event_key'    => 'company_notification_admin_confirmation',
+				'display_name' => 'Aviso á xunta: empresa notificada',
 				'description'  => 'Confirma á xunta que o aviso á empresa foi aceptado polo sistema de correo. Aceptado non significa entregado.',
 				'category'     => $companies,
 				'audience'     => $board,
@@ -862,8 +867,8 @@ final class ANPA_Socios_Email_Template_Events {
 				),
 			),
 			array(
-				'event_key'    => 'company_notification_failed',
-				'display_name' => 'Fallo ao notificar a empresa',
+				'event_key'    => 'company_notification_admin_failure',
+				'display_name' => 'Aviso á xunta: fallo ao notificar a empresa',
 				'description'  => 'Avisa a xunta de que o aviso á empresa non saíu e require unha acción: reintentar, revisar o enderezo ou avisar por outra vía.',
 				'category'     => $companies,
 				'audience'     => $board,
@@ -894,6 +899,8 @@ final class ANPA_Socios_Email_Template_Events {
 				'variables'    => array(
 					'nome_proxenitor' => false,
 					'accion_pendente' => true,
+					'nome_alumno'     => false,
+					'nome_actividade' => false,
 					'data_limite'     => false,
 					'consecuencia'    => false,
 				),
