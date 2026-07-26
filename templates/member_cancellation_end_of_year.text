@@ -1,0 +1,16 @@
+A túa baixa quedará efectiva ao finalizar o curso
+
+A túa solicitude de baixa como socio/a de {{nome_anpa}} quedou rexistrada correctamente.
+
+A baixa será efectiva ao finalizar o curso escolar{{#curso_escolar}} {{curso_escolar}}{{/}}, tal e como está establecido no funcionamento da asociación.
+{{#data_efectiva}}
+Data prevista de efectividade: {{data_efectiva}}.
+{{/}}
+Ata esa data mantés o acceso á área de socios e as condicións que tes agora.
+{{#correo_anpa}}
+Se detectas algún erro ou queres retirar a solicitude, escríbenos a {{correo_anpa}}.
+{{/}}
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

@@ -1,0 +1,17 @@
+Recibimos a túa solicitude de baixa
+
+Rexistramos a túa solicitude de baixa como socio/a de {{nome_anpa}}.
+{{#data_efectiva}}
+Se a administración a aproba, a baixa quedará efectiva o {{data_efectiva}}. Ata esa data mantés o acceso e as condicións que tes agora.
+{{/}}
+A administración revisará a solicitude e recibirás outro correo cando o proceso quede finalizado. Mentres tanto non tes que facer nada máis.
+{{#ligazon_area_socios}}
+Podes consultar o estado desde a área de socios:
+{{ligazon_area_socios}}
+{{/}}{{#correo_anpa}}
+Se solicitaches a baixa por erro ou queres retirala, escríbenos a {{correo_anpa}}.
+{{/}}
+Aviso automático do sistema de socios.
+{{#sinatura}}
+--
+{{sinatura}}{{/}}

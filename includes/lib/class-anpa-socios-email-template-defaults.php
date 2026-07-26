@@ -67,6 +67,15 @@ final class ANPA_Socios_Email_Template_Defaults {
 		'member_reactivation_admin_notice'    => 1,
 		'activity_cancellation_admin_notice'  => 1,
 		'waitlist_place_offer'                => 1,
+
+		// NEW CONTENT, not transcriptions. These events have no emitter in production, so
+		// there is nothing to be byte-identical to: the wording comes from the §15 source
+		// brief and every channel starts as `pending_manual_review`. Version 1 means "first
+		// wording shipped", not "approved".
+		// Socios e acceso.
+		'member_application_received'         => 1,
+		'member_cancellation_requested'       => 1,
+		'member_cancellation_end_of_year'     => 1,
 	);
 
 	/**
