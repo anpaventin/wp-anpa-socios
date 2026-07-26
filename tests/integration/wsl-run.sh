@@ -165,6 +165,8 @@ export WP_TESTS_PHPUNIT_POLYFILLS_PATH="$WORK_PLUGIN/vendor/yoast/phpunit-polyfi
 [[ -d "$WP_TESTS_PHPUNIT_POLYFILLS_PATH" ]] || { echo "PHPUnit-Polyfills missing; see $BASE/composer.log" >&2; tail -30 "$BASE/composer.log" >&2; exit 1; }
 
 # ── Evidence: environment / timezones ──────────────────────────────────────
+WP_VERSION="$(php -r '$f=getenv("WP_CORE_DIR")."/wp-includes/version.php"; if (is_readable($f)) { $wp_version=""; include $f; echo $wp_version; } else { echo "unknown"; }' 2>/dev/null || echo unknown)"
+
 {
   echo "engine:            $ENGINE_DESC"
   echo "system tz:         $(cat /etc/timezone 2>/dev/null || date +%Z)"
@@ -172,6 +174,8 @@ export WP_TESTS_PHPUNIT_POLYFILLS_PATH="$WORK_PLUGIN/vendor/yoast/phpunit-polyfi
   echo "wp tz (intended):  $WP_TZ"
   echo "db session tz:     $DB_TZ_SQL"
   echo "php version:       $(php -r 'echo PHP_VERSION;')"
+  echo "wordpress version: $WP_VERSION"
+  echo "phpunit config:    phpunit-integration.xml (failOnSkipped, failOnRisky)"
 } > "$EV/environment.txt"
 
 "$CLIENT_BIN" --no-defaults --socket="$SOCKET" -uroot -e \
