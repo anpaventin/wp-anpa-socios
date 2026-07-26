@@ -52,6 +52,45 @@ final class ANPA_Socios_Email_Queue_Repo {
 	}
 
 	/**
+	 * Event types that must never enter the queue. The access code is ephemeral by
+	 * design: it exists in memory and in the family's inbox, and nowhere else. Writing
+	 * it to a payload snapshot, a campaign row, or the communications log would break
+	 * that invariant. The guard reads the registry to identify them: any event whose
+	 * declaration includes the `codigo` variable is non-enqueueable.
+	 *
+	 * @since  1.40.0
+	 * @param  string $event_type Event type to check.
+	 * @return bool True when the event must be refused at the queue boundary.
+	 */
+	public static function is_non_enqueueable_event( string $event_type ): bool {
+		if ( '' === $event_type ) {
+			return false;
+		}
+
+		// Read from the registry: an event that declares `codigo` is a one-time access
+		// code and must never be persisted in the queue.
+		if ( ! class_exists( 'ANPA_Socios_Email_Template_Events' ) ) {
+			// Fallback: the two known auth event keys. This branch only fires if the
+			// registry class is not yet loaded, which cannot happen in production but
+			// allows the guard to fire during bootstrap edge cases.
+			return in_array( $event_type, array( 'auth_access_code', 'auth_access_code_signup' ), true );
+		}
+
+		try {
+			$set = ANPA_Socios_Email_Template_Events::set();
+			if ( ! $set->has( $event_type ) ) {
+				return false;
+			}
+			$definition = $set->get( $event_type );
+			$variables  = $definition->variables();
+			return isset( $variables['codigo'] );
+		} catch ( ANPA_Socios_Email_Template_Registry_Error $e ) {
+			// If the registry cannot build (broken install), fall back to hardcoded keys.
+			return in_array( $event_type, array( 'auth_access_code', 'auth_access_code_signup' ), true );
+		}
+	}
+
+	/**
 	 * Creates a campaign, or returns the existing one for the same
 	 * idempotency key (so a retried operation never creates a duplicate).
 	 *
@@ -67,7 +106,18 @@ final class ANPA_Socios_Email_Queue_Repo {
 		global $wpdb;
 
 		$table = ANPA_Socios_DB::tabela_email_campaigns();
-		$key   = (string) ( $args['idempotency_key'] ?? '' );
+
+		// ─── NON-ENQUEUE GUARD ────────────────────────────────────────────────────
+		// Auth events carry a one-time code that must never be persisted. The guard
+		// reads the registry to identify them (see is_non_enqueueable_event).
+		$event_type_arg = (string) ( $args['event_type'] ?? '' );
+		if ( self::is_non_enqueueable_event( $event_type_arg ) ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] SECURITY: create_campaign refused non-enqueueable event type: ' . $event_type_arg );
+			return array( 'ok' => false, 'code' => 'non_enqueueable_event', 'campaign_id' => 0, 'uuid' => '', 'created' => false );
+		}
+
+		$key = (string) ( $args['idempotency_key'] ?? '' );
 		if ( '' === $key ) {
 			return array( 'ok' => false, 'code' => 'missing_idempotency_key', 'campaign_id' => 0, 'uuid' => '', 'created' => false );
 		}

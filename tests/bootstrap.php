@@ -90,6 +90,10 @@ require_once __DIR__ . '/../includes/class-anpa-socios-db.php';
 require_once __DIR__ . '/../includes/class-anpa-socios-email-communications-page.php';
 // fase36 PR-36s3: the transactional email class, for signature reflection tests.
 require_once __DIR__ . '/../includes/class-anpa-socios-email.php';
+// fase36 correction: queue repo loaded for the non-enqueue guard (is_non_enqueueable_event).
+// The class only reaches for $wpdb inside methods; the unit suite can call static guards
+// without a database.
+require_once __DIR__ . '/../includes/class-anpa-socios-email-queue-repo.php';
 
 // Minimal $wpdb stub for table-name helpers; tests never hit a real DB.
 if ( ! isset( $GLOBALS['wpdb'] ) ) {
