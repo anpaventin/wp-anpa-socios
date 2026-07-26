@@ -1,0 +1,6 @@
+TO: nai@example.com
+SUBJECT: Alta completada — ANPA Exemplo
+HEADERS: From: ANPA Exemplo <xunta@example.org> | Reply-To: ANPA Exemplo <xunta@example.org>
+---BODY---
+<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;"><h2>Benvido/a a ANPA Exemplo</h2><p>A túa alta como socio/a en ANPA Exemplo completouse correctamente. Xa podes acceder á túa área persoal.</p><p>Entra na área de socios da web e inicia sesión co teu correo; recibirás un código de acceso.</p><p>Desde a túa área persoal poderás xestionar os teus datos, os teus fillos/as e as actividades extraescolares.</p><p style="color: #666; font-size: 12px; margin-top: 30px;">Aviso automático do sistema de socios.</p><hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">A Xunta Directiva
+ANPA Exemplo</p></body></html>

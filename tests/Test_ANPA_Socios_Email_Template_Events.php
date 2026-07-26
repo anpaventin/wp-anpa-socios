@@ -110,28 +110,50 @@ final class Test_ANPA_Socios_Email_Template_Events extends TestCase {
 		}
 	}
 
-	// ── The join with the golden oracle: a bijection, not a count ───────
+	// ── The join with the golden oracle ─────────────────────────────────
 
-	public function test_the_live_events_and_the_golden_files_are_a_bijection(): void {
-		$declared = array_keys( $this->set()->legacy_emitters() );
+	/**
+	 * The historical bijection: one live event per legacy emitter, both ways.
+	 *
+	 * This is NOT a comparison against filenames. One event can need several captures — two of
+	 * them branch on the members'-area URL — so files are declared by
+	 * `ANPA_Socios_Golden_Manifest` and checked there. Forcing "one event, one file" would
+	 * either forbid the second capture or turn a deliberate 10-events/12-files statement into
+	 * what looks like a counting error.
+	 */
+	public function test_every_live_event_has_exactly_one_legacy_emitter_and_vice_versa(): void {
+		$map = $this->set()->legacy_emitters();
+
+		$this->assertSame( count( $map ), count( array_unique( array_values( $map ) ) ), 'an event is claimed twice' );
+
+		$live = $this->set()->live_keys();
+		sort( $live, SORT_STRING );
+
+		$mapped = array_values( $map );
+		sort( $mapped, SORT_STRING );
+
+		$this->assertSame( $live, $mapped, 'live events and legacy emitters must correspond exactly' );
+	}
+
+	/**
+	 * The manifest declares captures for exactly the live events, no more and no fewer.
+	 *
+	 * A live event with no declared capture would be wording nothing pins; a declared capture
+	 * for a non-live event would be an oracle entry describing an email that does not exist yet.
+	 */
+	public function test_the_manifest_declares_captures_for_exactly_the_live_events(): void {
+		$live = $this->set()->live_keys();
+		sort( $live, SORT_STRING );
+
+		$declared = ANPA_Socios_Golden_Manifest::events();
 		sort( $declared, SORT_STRING );
 
-		$captured = array_map(
-			static function ( $file ): string {
-				return basename( (string) $file, '.txt' );
-			},
-			(array) glob( $this->golden_dir() . '/*.txt' )
-		);
-		sort( $captured, SORT_STRING );
+		$this->assertSame( $live, $declared );
 
-		// Both directions at once. A live event with no golden file would be a template
-		// whose wording nothing pins; a golden file with no live event would be an email the
-		// registry has forgotten to describe. Neither can pass.
-		$this->assertSame(
-			$captured,
-			$declared,
-			'the live events and the captured emails must describe exactly the same set'
-		);
+		foreach ( $declared as $event_key ) {
+			$this->assertTrue( $this->set()->has( $event_key ), "{$event_key} is not a registered event" );
+			$this->assertTrue( $this->set()->get( $event_key )->is_live(), "{$event_key} is not live" );
+		}
 	}
 
 	public function test_every_live_event_is_live_and_every_other_event_is_not(): void {
