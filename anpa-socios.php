@@ -79,6 +79,7 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-email-temp
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-email-template-defaults.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-email-template-context.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-email-template-editorial.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-email-template-actions.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-course-settings.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-season.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-preseason-gate.php';
