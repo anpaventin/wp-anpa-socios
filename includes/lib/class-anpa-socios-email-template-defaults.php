@@ -173,6 +173,38 @@ final class ANPA_Socios_Email_Template_Defaults {
 	}
 
 	/**
+	 * Content hash of each channel separately.
+	 *
+	 * Per channel, not combined, because the editorial state is per channel: a reviewer can
+	 * approve an HTML body while its plain-text alternative is still a draft, and one shared
+	 * hash could not express that one of them changed.
+	 *
+	 * @since  1.40.0
+	 * @param  string $stem     Template stem.
+	 * @param  string $base_dir Optional override, for tests.
+	 * @return array<string,string> Channel => scheme-qualified hash, empty strings when not shipped.
+	 */
+	public static function part_hashes( string $stem, string $base_dir = '' ): array {
+		$empty = array(
+			'subject'    => '',
+			'html'       => '',
+			'plain_text' => '',
+		);
+
+		if ( 1 !== preg_match( '/^[a-z][a-z0-9_]*$/', $stem ) || ! self::exists( $stem, $base_dir ) ) {
+			return $empty;
+		}
+
+		$default = self::load( $stem, $base_dir );
+
+		return array(
+			'subject'    => self::CONTENT_SCHEME . ':' . hash( 'sha256', self::CONTENT_SCHEME . "\x1f" . $default['subject'] ),
+			'html'       => self::CONTENT_SCHEME . ':' . hash( 'sha256', self::CONTENT_SCHEME . "\x1f" . $default['body_html'] ),
+			'plain_text' => self::CONTENT_SCHEME . ':' . hash( 'sha256', self::CONTENT_SCHEME . "\x1f" . $default['body_text'] ),
+		);
+	}
+
+	/**
 	 * @since  1.40.0
 	 * @param  string $stem Template stem.
 	 * @return int Declared version, 1 when not declared.
