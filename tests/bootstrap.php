@@ -94,7 +94,9 @@ require_once __DIR__ . '/../includes/class-anpa-socios-email.php';
 // The class only reaches for $wpdb inside methods; the unit suite can call static guards
 // without a database.
 require_once __DIR__ . '/../includes/class-anpa-socios-email-queue-repo.php';
-// fase36 I16: reusable failure policy for $wpdb writes. Pure helper, no WP dependency.
+// fase36 I16: reusable failure policy for $wpdb writes. WP glue over $wpdb — every
+// method starts with `global $wpdb`. Required here because the unit tests exercise it
+// against the existing $wpdb stub defined at the bottom of this bootstrap.
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-db-write-policy.php';
 
 // Minimal $wpdb stub for table-name helpers; tests never hit a real DB.

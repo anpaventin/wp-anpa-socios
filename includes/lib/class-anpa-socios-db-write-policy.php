@@ -11,8 +11,13 @@
  * engine message. Callers decide whether to catch-and-log or let it propagate;
  * the default is LOUD, because the silent default is what caused the defect.
  *
- * Pure glue: depends on $wpdb but contains no business logic. Testable via
- * php -l + integration against a real engine.
+ * Glue with no business logic. Depends on `$wpdb` (every method opens with
+ * `global $wpdb`), so it is NOT pure — it is verified by `php -l` plus
+ * integration against a real engine, not by a purity assertion.
+ *
+ * Placement note: `includes/lib/` is documented in AGENTS.md as pure logic,
+ * but already contains WP-dependent helpers (e.g. class-anpa-socios-admin-auth.php).
+ * This file follows existing practice rather than the written convention.
  *
  * @since   1.41.0
  * @package ANPA_Socios
