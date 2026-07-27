@@ -15,7 +15,7 @@
  * PURE CLASS: no WordPress functions, no `esc_html`, no `get_option`, no `$wpdb`,
  * no `apply_filters`, no `__()`. Testable without any WP bootstrap.
  *
- * @since  1.48.0
+ * @since  TBD
  * @package ANPA_Socios
  */
 
@@ -28,15 +28,17 @@ final class ANPA_Socios_Email_Template_Nesting_Guard {
 	/**
 	 * Pattern for an optional-block opener: {{#token_name}}.
 	 *
-	 * Matches the same syntax the renderer recognises. Named capture `token` extracts the
-	 * token name for the error message.
+	 * Matches the same character class the renderer recognises (including uppercase and
+	 * accented characters in the Latin Extended range). Without the `u` flag and the full
+	 * class, a token like `{{#Código}}` or `{{#Nome_Área}}` would escape the guard while
+	 * the renderer still mis-resolves it.
 	 */
-	const OPENER_PATTERN = '/\{\{#([a-z][a-z0-9_]*)\}\}/';
+	const OPENER_PATTERN = '/\{\{#([a-zA-Z0-9_\x{00C0}-\x{024F}]+)\}\}/u';
 
 	/**
 	 * Pattern for an optional-block closer: {{/}} or {{/token_name}}.
 	 */
-	const CLOSER_PATTERN = '/\{\{\/(?:[a-z][a-z0-9_]*)?\}\}/';
+	const CLOSER_PATTERN = '/\{\{\/(?:[a-zA-Z0-9_\x{00C0}-\x{024F}]+)?\}\}/u';
 
 	/**
 	 * Checks a single channel body for nested optional blocks.
@@ -97,12 +99,12 @@ final class ANPA_Socios_Email_Template_Nesting_Guard {
 	/**
 	 * Checks all three channels of a template content array.
 	 *
-	 * @param  array<string,string> $content Keys: 'subject', 'html', 'text'.
+	 * @param  array<string,string> $content Keys: 'subject', 'body_html', 'body_text'.
 	 * @return array{nested: bool, error: string, channel: string} Additionally reports which
 	 *         channel triggered the detection (empty when no nesting).
 	 */
 	public static function check_content( array $content ): array {
-		foreach ( array( 'subject', 'html', 'text' ) as $channel ) {
+		foreach ( array( 'subject', 'body_html', 'body_text' ) as $channel ) {
 			if ( ! isset( $content[ $channel ] ) || '' === $content[ $channel ] ) {
 				continue;
 			}

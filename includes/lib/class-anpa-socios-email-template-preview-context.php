@@ -15,7 +15,7 @@
  * PURE CLASS: no WordPress functions, no `esc_html`, no `get_option`, no `$wpdb`,
  * no `apply_filters`, no `__()`. Testable without any WP bootstrap.
  *
- * @since  1.48.0
+ * @since  TBD
  * @package ANPA_Socios
  */
 
