@@ -198,6 +198,18 @@ RC=$?
 set -e
 tail -40 "$EV/phpunit.txt"
 
+# ── GUARD: detect truncated PHPUnit runs (C1/I25) ──────────────────────────
+# A PHPUnit run that terminates mid-suite (e.g. a handler calling exit;) produces no
+# summary line and exits 0. Treat an absent summary as failure regardless of exit code.
+if ! grep -qE '^(OK \(|Tests:|FAILURES!|ERRORS!)' "$EV/phpunit.txt"; then
+  echo ""
+  echo "!! TRUNCATED RUN DETECTED: PHPUnit produced no summary line."
+  echo "!! The most common cause is a handler calling exit; which is a language construct,"
+  echo "!! not a Throwable, so it kills the process silently with exit code 0."
+  echo "!! Reporting exit 99 instead of the original exit code $RC."
+  RC=99
+fi
+
 # The suite runs inside the ephemeral /tmp copy, so freshly captured golden
 # files would die with it. Copy them back into the real worktree, and ONLY in
 # capture mode: a verification run must never be able to rewrite its own oracle.

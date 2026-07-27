@@ -67,8 +67,9 @@ final class ANPA_Socios_Email_Template_Admin_Actions {
 	 * would have kept. Nonce and capability checks are this handler's responsibility;
 	 * sanitisation is the repository's.
 	 *
-	 * Possible result codes: saved, unchanged, conflict, not_found, undeclared_tokens,
-	 * empty_subject, subject_too_long, empty_html, empty_text, db_error, nested_block.
+	 * Possible result codes: saved, unchanged, conflict, not_found, unknown_event,
+	 * undeclared_tokens, empty_subject, subject_too_long, empty_html, empty_text,
+	 * db_error, nested_block.
 	 *
 	 * @since  TBD
 	 * @return void
@@ -297,6 +298,16 @@ final class ANPA_Socios_Email_Template_Admin_Actions {
 	/**
 	 * Adopts newer shipped defaults for all non-customised templates.
 	 *
+	 * The repository returns `array{ok:bool, adopted:string[], reported:string[]}`.
+	 * There is no 'code' key — the outcome is derived here from the lengths of those arrays:
+	 * - Both empty: nothing was outdated → 'nothing_to_adopt'
+	 * - adopted non-empty: some defaults were adopted → 'adopted_defaults'
+	 * - reported non-empty: some customised templates have newer defaults but were not
+	 *   overwritten — reported so the operator knows what was deliberately left alone.
+	 *
+	 * The count in the redirect is `count($result['adopted'])`, i.e. the number of template
+	 * keys whose shipped default was actually applied. This is what the admin screen displays.
+	 *
 	 * @since  TBD
 	 * @return void
 	 */
@@ -306,8 +317,24 @@ final class ANPA_Socios_Email_Template_Admin_Actions {
 		$actor  = self::current_actor_email();
 		$result = ANPA_Socios_Email_Template_Repo::adopt_newer_defaults( $actor );
 
-		self::audit( self::ACTION_ADOPT_DEFAULTS, '', $result['code'] );
-		self::redirect_back( '', array( 'anpa_msg' => $result['code'], 'anpa_adopted' => (int) $result['adopted'] ) );
+		$adopted_count  = count( $result['adopted'] );
+		$reported_count = count( $result['reported'] );
+
+		// Derive an honest outcome string from the actual result shape.
+		if ( $adopted_count > 0 ) {
+			$code = 'adopted_defaults';
+		} elseif ( $reported_count > 0 ) {
+			$code = 'newer_available';
+		} else {
+			$code = 'nothing_to_adopt';
+		}
+
+		self::audit( self::ACTION_ADOPT_DEFAULTS, '', $code );
+		self::redirect_back( '', array(
+			'anpa_msg'      => $code,
+			'anpa_adopted'  => $adopted_count,
+			'anpa_reported' => $reported_count,
+		) );
 	}
 
 	/**
