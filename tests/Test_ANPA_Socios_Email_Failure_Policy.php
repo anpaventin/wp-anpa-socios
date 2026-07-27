@@ -185,9 +185,11 @@ final class Test_ANPA_Socios_Email_Failure_Policy extends TestCase {
 		// Only files that ACTUALLY CALL wp_mail in executable code.
 		// - class-anpa-socios-email.php: transactional send via send_templated.
 		// - class-anpa-socios-email-processor.php: campaign batch transport (fase35).
+		// - class-anpa-socios-email-template-admin-actions.php: test send to the logged-in admin (fase36).
 		$allowed = array(
 			'class-anpa-socios-email.php',
 			'class-anpa-socios-email-processor.php',
+			'class-anpa-socios-email-template-admin-actions.php',
 		);
 
 		$violations = array();
