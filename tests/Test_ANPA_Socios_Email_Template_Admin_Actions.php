@@ -2,20 +2,21 @@
 /**
  * Inspection tests for ANPA_Socios_Email_Template_Admin_Actions.
  *
- * These are structural / security-contract tests that examine the source code to prove
- * properties that must hold regardless of WordPress runtime state:
- * - Capability check before any output or write.
- * - Per-action nonce check.
- * - No free-text recipient field in any action.
- * - Authorize-before-act ordering.
- * - Test send resolves recipient from wp_get_current_user(), not from the request.
- * - Preview path never reaches wp_mail.
- * - All actions audited through the existing hook.
- * - Save passes expected_digest for optimistic concurrency.
- * - Restore default requires explicit confirmation.
- * - Nesting guard runs before repository save.
+ * These tests examine source code to prove properties that hold REGARDLESS of WordPress
+ * runtime state. Each docblock states what it DOES and DOES NOT prove.
  *
- * @since  1.48.0
+ * What inspection CAN prove:
+ * - Structural ordering (authorize before any write call).
+ * - Absence of dangerous patterns (no recipient field, no wp_mail in preview).
+ * - Presence of required calls (audit hook, nonce, capability constant).
+ * - Registration completeness (every ACTION constant is wired).
+ *
+ * What inspection CANNOT prove (covered by the integration suite):
+ * - That the handlers actually run and produce correct results.
+ * - That the renderer returns the right content.
+ * - That the database ends up in the right state.
+ *
+ * @since  TBD
  * @package ANPA_Socios
  */
 
@@ -25,7 +26,7 @@ use PHPUnit\Framework\TestCase;
 
 final class Test_ANPA_Socios_Email_Template_Admin_Actions extends TestCase {
 
-	/** @var string */
+	/** @var string Raw source. */
 	private $source;
 
 	/** @var string Source with comments stripped (for executable-code assertions). */
@@ -47,9 +48,11 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions extends TestCase {
 
 	// ─── Capability and nonce ────────────────────────────────────────────────
 
+	/**
+	 * Proves: every handler calls authorize/authorize_simple as its FIRST action.
+	 * Does NOT prove: that WordPress actually enforces the capability at runtime.
+	 */
 	public function test_every_handler_calls_authorize_before_any_write(): void {
-		// Every public handle_* method must call authorize or authorize_simple as its first
-		// substantive statement (after the method signature).
 		$handlers = array(
 			'handle_save',
 			'handle_preview',
@@ -60,14 +63,12 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions extends TestCase {
 		);
 
 		foreach ( $handlers as $handler ) {
-			// Find the method body: starts after "function {$handler}..."
 			$pattern = '/function\s+' . preg_quote( $handler, '/' ) . '\s*\([^)]*\)\s*:\s*void\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/s';
 			$this->assertMatchesRegularExpression( $pattern, $this->code, "Could not find {$handler} body" );
 
 			preg_match( $pattern, $this->code, $m );
 			$body = $m[1];
 
-			// The first call in the body must be self::authorize or self::authorize_simple.
 			$this->assertMatchesRegularExpression(
 				'/^\s*\$?\w*\s*=?\s*self::authorize(?:_simple)?\s*\(/',
 				$body,
@@ -76,12 +77,19 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions extends TestCase {
 		}
 	}
 
+	/**
+	 * Proves: the declared capability constant is manage_options.
+	 * Does NOT prove: that it is actually used at runtime.
+	 */
 	public function test_cap_is_manage_options(): void {
 		$this->assertStringContainsString( "const CAP = 'manage_options'", $this->source );
 	}
 
+	/**
+	 * Proves: in the authorize method, current_user_can appears before check_admin_referer.
+	 * Does NOT prove: that WordPress is running or that the check actually fires.
+	 */
 	public function test_authorize_checks_capability_before_nonce(): void {
-		// In the authorize method, current_user_can must appear before check_admin_referer.
 		$cap_pos   = strpos( $this->code, 'current_user_can' );
 		$nonce_pos = strpos( $this->code, 'check_admin_referer' );
 		$this->assertNotFalse( $cap_pos );
@@ -91,9 +99,12 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions extends TestCase {
 
 	// ─── No free-text recipient ──────────────────────────────────────────────
 
+	/**
+	 * Proves: the executable source never reads a dangerous recipient field name from
+	 * the request superglobals.
+	 * Does NOT prove: that the actual send works or goes to the right address (integration).
+	 */
 	public function test_no_recipient_field_in_request(): void {
-		// The code must never read a 'recipient', 'to', 'email', or 'destinatario' field
-		// from $_POST or $_GET or $_REQUEST for the test send.
 		$dangerous_fields = array( 'recipient', 'to_email', 'destinatario', 'send_to' );
 		foreach ( $dangerous_fields as $field ) {
 			$this->assertStringNotContainsString(
@@ -109,8 +120,11 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions extends TestCase {
 		}
 	}
 
+	/**
+	 * Proves: handle_test_send resolves its recipient from wp_get_current_user().
+	 * Does NOT prove: that the actual email arrives at the right address (integration).
+	 */
 	public function test_test_send_recipient_from_current_user(): void {
-		// The handle_test_send method must contain wp_get_current_user for the recipient.
 		preg_match( '/function\s+handle_test_send[^{]*\{(.*?)\n\t\}/s', $this->source, $m );
 		$this->assertNotEmpty( $m[1], 'Could not extract handle_test_send body' );
 		$body = $m[1];
@@ -121,8 +135,11 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions extends TestCase {
 
 	// ─── Preview sends nothing ───────────────────────────────────────────────
 
+	/**
+	 * Proves: handle_preview does not contain a wp_mail call.
+	 * Does NOT prove: that some indirect path cannot send (integration covers that).
+	 */
 	public function test_preview_does_not_call_wp_mail(): void {
-		// Extract the preview handler and verify wp_mail is absent.
 		preg_match( '/function\s+handle_preview[^{]*\{(.*?)\n\t\}/s', $this->source, $m );
 		$this->assertNotEmpty( $m[1], 'Could not extract handle_preview body' );
 		$body = $m[1];
@@ -132,6 +149,10 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions extends TestCase {
 
 	// ─── Audit ───────────────────────────────────────────────────────────────
 
+	/**
+	 * Proves: every handler calls self::audit() somewhere in its body.
+	 * Does NOT prove: that the audit hook fires at runtime.
+	 */
 	public function test_all_handlers_audit_through_the_hook(): void {
 		$handlers = array(
 			'handle_save',
@@ -149,9 +170,12 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions extends TestCase {
 		}
 	}
 
+	/**
+	 * Proves: the audit method never mentions content, html, text, subject or recipient
+	 * keys in its do_action payload.
+	 * Does NOT prove: that the action payload is correct at runtime.
+	 */
 	public function test_audit_never_includes_content_or_addresses(): void {
-		// The audit method fires do_action with specific fields. It must NOT include
-		// content, html, text, subject, or recipient.
 		preg_match( '/private\s+static\s+function\s+audit[^{]*\{(.*?)\n\t\}/s', $this->source, $m );
 		$this->assertNotEmpty( $m[1], 'Could not extract audit method' );
 		$body = $m[1];
@@ -166,18 +190,25 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions extends TestCase {
 
 	// ─── Save uses expected_digest ───────────────────────────────────────────
 
+	/**
+	 * Proves: handle_save passes expected_digest as 4th argument to Repo::save.
+	 * Does NOT prove: that the concurrency check works (integration covers that).
+	 */
 	public function test_save_passes_expected_digest_to_repo(): void {
 		preg_match( '/function\s+handle_save[^{]*\{(.*?)\n\t\}/s', $this->source, $m );
 		$this->assertNotEmpty( $m[1], 'Could not extract handle_save body' );
 		$body = $m[1];
 
 		$this->assertStringContainsString( 'expected_digest', $body );
-		// The call to Repo::save must include expected_digest as the 4th argument.
 		$this->assertStringContainsString( '::save( $template_key, $content, $actor, $expected_digest )', $body );
 	}
 
 	// ─── Nesting guard ───────────────────────────────────────────────────────
 
+	/**
+	 * Proves: nesting guard call appears BEFORE Repo::save in handle_save.
+	 * Does NOT prove: that the guard detects all nested patterns (unit tests on the guard).
+	 */
 	public function test_save_runs_nesting_guard_before_repo_save(): void {
 		preg_match( '/function\s+handle_save[^{]*\{(.*?)\n\t\}/s', $this->source, $m );
 		$this->assertNotEmpty( $m[1], 'Could not extract handle_save body' );
@@ -192,6 +223,10 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions extends TestCase {
 
 	// ─── Restore default requires confirmation ───────────────────────────────
 
+	/**
+	 * Proves: handle_restore_default references confirm_restore and restore_not_confirmed.
+	 * Does NOT prove: that an unconfirmed restore is actually refused (integration).
+	 */
 	public function test_restore_default_requires_confirmation(): void {
 		preg_match( '/function\s+handle_restore_default[^{]*\{(.*?)\n\t\}/s', $this->source, $m );
 		$this->assertNotEmpty( $m[1], 'Could not extract handle_restore_default body' );
@@ -203,12 +238,20 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions extends TestCase {
 
 	// ─── No delete action exists ─────────────────────────────────────────────
 
+	/**
+	 * Proves: the string "delete" never appears in executable code.
+	 * Does NOT prove: that templates cannot be deleted through another path.
+	 */
 	public function test_no_delete_template_action(): void {
 		$this->assertStringNotContainsString( 'delete', strtolower( $this->code ) );
 	}
 
 	// ─── Action constants are also nonce names ───────────────────────────────
 
+	/**
+	 * Proves: every ACTION_* constant value appears somewhere in the source.
+	 * Does NOT prove: that wp_nonce_field/check_admin_referer actually use them.
+	 */
 	public function test_action_constants_used_as_nonce_names(): void {
 		$ref = new ReflectionClass( 'ANPA_Socios_Email_Template_Admin_Actions' );
 		$constants = $ref->getConstants();
@@ -218,8 +261,6 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions extends TestCase {
 		}, ARRAY_FILTER_USE_KEY );
 
 		foreach ( $actions as $name => $value ) {
-			// Each action value must appear in a check_admin_referer or wp_nonce_field call
-			// (through self::authorize which passes the action string).
 			$this->assertStringContainsString(
 				$value,
 				$this->source,
@@ -230,6 +271,10 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions extends TestCase {
 
 	// ─── Register wires all handlers ─────────────────────────────────────────
 
+	/**
+	 * Proves: register() references every ACTION_* constant.
+	 * Does NOT prove: that WordPress actually fires them (integration).
+	 */
 	public function test_register_wires_all_action_constants(): void {
 		$ref = new ReflectionClass( 'ANPA_Socios_Email_Template_Admin_Actions' );
 		$constants = $ref->getConstants();
@@ -251,13 +296,129 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions extends TestCase {
 		}
 	}
 
+	// ─── No nopriv handler registered ────────────────────────────────────────
+
+	/**
+	 * Proves: register() does not contain 'nopriv' — unauthenticated users never reach
+	 * these handlers.
+	 * Does NOT prove: that an unregistered hook is unreachable at runtime (WP guarantees that).
+	 */
+	public function test_no_nopriv_handler_registered(): void {
+		preg_match( '/function\s+register[^{]*\{(.*?)\n\t\}/s', $this->source, $m );
+		$this->assertNotEmpty( $m[1], 'Could not extract register method' );
+		$this->assertStringNotContainsString( 'nopriv', $m[1] );
+	}
+
 	// ─── Test send marks message as test ─────────────────────────────────────
 
+	/**
+	 * Proves: handle_test_send prepends [PROBA] to the subject.
+	 * Does NOT prove: that the actual email carries it (integration).
+	 */
 	public function test_test_send_marks_subject_as_test(): void {
 		preg_match( '/function\s+handle_test_send[^{]*\{(.*?)\n\t\}/s', $this->source, $m );
 		$this->assertNotEmpty( $m[1], 'Could not extract handle_test_send body' );
 		$body = $m[1];
 
 		$this->assertStringContainsString( '[PROBA]', $body );
+	}
+
+	// ─── Test send uses association sender identity ──────────────────────────
+
+	/**
+	 * Proves: handle_test_send delegates to ANPA_Socios_Email::send_test() rather than
+	 * hand-building headers, so it uses the same From/Reply-To/Content-Type as production.
+	 * Does NOT prove: that send_test() actually sets the headers (integration covers that).
+	 */
+	public function test_test_send_uses_association_sender_identity(): void {
+		preg_match( '/function\s+handle_test_send[^{]*\{(.*?)\n\t\}/s', $this->source, $m );
+		$this->assertNotEmpty( $m[1], 'Could not extract handle_test_send body' );
+		$body = $m[1];
+
+		$this->assertStringContainsString( 'ANPA_Socios_Email::send_test(', $body );
+		// Must NOT hand-build Content-Type headers.
+		$this->assertStringNotContainsString( 'Content-Type:', $body );
+	}
+
+	// ─── Save does not pre-sanitise content ──────────────────────────────────
+
+	/**
+	 * Proves: handle_save does not call sanitize_text_field or sanitize_textarea_field on
+	 * the template content (the repository owns sanitisation).
+	 * Does NOT prove: that the repository actually sanitises (its own tests cover that).
+	 */
+	public function test_save_does_not_pre_sanitise_content(): void {
+		preg_match( '/function\s+handle_save[^{]*\{(.*?)\n\t\}/s', $this->source, $m );
+		$this->assertNotEmpty( $m[1], 'Could not extract handle_save body' );
+		$body = $m[1];
+
+		// sanitize_text_field is allowed for expected_digest (a hash), but not for content.
+		// Look for it after the $content array is built: between content and Repo::save.
+		$content_end = strpos( $body, "expected_digest" );
+		$after_content = substr( $body, 0, $content_end );
+		$this->assertStringNotContainsString( 'sanitize_text_field', $after_content );
+		$this->assertStringNotContainsString( 'sanitize_textarea_field', $after_content );
+	}
+
+	// ─── Content keys match the repository vocabulary ────────────────────────
+
+	/**
+	 * Proves: handle_save builds a content array with keys subject, body_html, body_text —
+	 * the same vocabulary Repo::save() and Stored_Custom_Template::from_request() expect.
+	 * Does NOT prove: that the save actually works (integration).
+	 */
+	public function test_save_content_keys_match_repository_vocabulary(): void {
+		preg_match( '/function\s+handle_save[^{]*\{(.*?)\n\t\}/s', $this->source, $m );
+		$this->assertNotEmpty( $m[1], 'Could not extract handle_save body' );
+		$body = $m[1];
+
+		$this->assertStringContainsString( "'subject'", $body );
+		$this->assertStringContainsString( "'body_html'", $body );
+		$this->assertStringContainsString( "'body_text'", $body );
+		// Must NOT use the old wrong keys.
+		$this->assertStringNotContainsString( "'html'", $body );
+		$this->assertStringNotContainsString( "'text'", $body );
+	}
+
+	// ─── Preview and test send use Validator::render, not Renderer directly ──
+
+	/**
+	 * Proves: handle_preview uses Validator::render (the production gate) not Renderer::render.
+	 * Does NOT prove: that the render actually succeeds (integration).
+	 */
+	public function test_preview_routes_through_validator(): void {
+		preg_match( '/function\s+handle_preview[^{]*\{(.*?)\n\t\}/s', $this->source, $m );
+		$this->assertNotEmpty( $m[1], 'Could not extract handle_preview body' );
+		$body = $m[1];
+
+		$this->assertStringContainsString( 'Validator::render(', $body );
+		$this->assertStringNotContainsString( 'Renderer::render(', $body );
+	}
+
+	/**
+	 * Proves: handle_test_send uses Validator::render (the production gate) not Renderer directly.
+	 * Does NOT prove: that the render actually succeeds (integration).
+	 */
+	public function test_test_send_routes_through_validator(): void {
+		preg_match( '/function\s+handle_test_send[^{]*\{(.*?)\n\t\}/s', $this->source, $m );
+		$this->assertNotEmpty( $m[1], 'Could not extract handle_test_send body' );
+		$body = $m[1];
+
+		$this->assertStringContainsString( 'Validator::render(', $body );
+		$this->assertStringNotContainsString( 'Renderer::render(', $body );
+	}
+
+	// ─── Uses Events::set() — the correct entry point ────────────────────────
+
+	/**
+	 * Proves: the code uses ANPA_Socios_Email_Template_Events::set() — the memoised validated
+	 * entry point — and does NOT use Registry::build() or Events::definitions() (which does
+	 * not exist).
+	 * Does NOT prove: that the set is valid at runtime (the registry engine tests cover that).
+	 */
+	public function test_uses_events_set_not_fabricated_registry_build(): void {
+		$this->assertStringContainsString( 'Events::set()', $this->code );
+		$this->assertStringNotContainsString( 'Registry::build(', $this->code );
+		$this->assertStringNotContainsString( 'Events::definitions()', $this->code );
 	}
 }
