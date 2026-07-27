@@ -94,6 +94,8 @@ require_once __DIR__ . '/../includes/class-anpa-socios-email.php';
 // The class only reaches for $wpdb inside methods; the unit suite can call static guards
 // without a database.
 require_once __DIR__ . '/../includes/class-anpa-socios-email-queue-repo.php';
+// fase36 I16: reusable failure policy for $wpdb writes. Pure helper, no WP dependency.
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-db-write-policy.php';
 
 // Minimal $wpdb stub for table-name helpers; tests never hit a real DB.
 if ( ! isset( $GLOBALS['wpdb'] ) ) {

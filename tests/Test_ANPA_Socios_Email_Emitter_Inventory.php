@@ -173,16 +173,18 @@ final class Test_ANPA_Socios_Email_Emitter_Inventory extends TestCase {
 	}
 
 	public function test_the_queue_column_still_fits_every_enqueueable_event_key(): void {
-		// I15, pinned NOW rather than discovered in a later integration run. No transactional emitter
-		// enqueues today, but the moment one does, a key longer than the queue column is refused by
-		// the engine exactly as the template seeding was.
+		// I15, resolved by migrate_to_1_41_0 which widens the queue column to varchar(64).
+		// This test now verifies that the migration target width fits EVERY registered key,
+		// not just the enqueueable ones.
 		$db      = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-db.php' );
-		$start   = strpos( $db, 'private static function migrate_to_1_39_0' );
-		$this->assertIsInt( $start );
-		$queue   = substr( $db, (int) $start, 4000 );
+		$start   = strpos( $db, 'private static function migrate_to_1_41_0' );
+		$this->assertIsInt( $start, 'migrate_to_1_41_0 must exist (I15 resolution)' );
+		$body    = substr( $db, (int) $start, 2000 );
 
-		preg_match( '/event_type varchar\((\d+)\)/', $queue, $width );
-		$this->assertNotEmpty( $width, 'the queue no longer declares event_type as varchar' );
+		// The migration targets varchar(64).
+		preg_match( "/MODIFY COLUMN event_type varchar\((\d+)\)/", $body, $width );
+		$this->assertNotEmpty( $width, 'migrate_to_1_41_0 must widen event_type' );
+		$target_width = (int) $width[1];
 
 		$longest = 0;
 		$worst   = '';
@@ -193,30 +195,20 @@ final class Test_ANPA_Socios_Email_Emitter_Inventory extends TestCase {
 			}
 		}
 
-		// This assertion is EXPECTED TO FAIL the day a 42-character event becomes enqueueable, which
-		// is the point: it converts I15 from a note into a gate. Today it holds because the emitters
-		// that reach the queue are the campaign ones, whose keys are shorter — asserted below.
-		$enqueueable = array();
-		foreach ( ANPA_Socios_Email_Template_Events::set()->all() as $key => $definition ) {
-			if ( ANPA_Socios_Email_Template_Definition::CATEGORY_SYSTEM === $definition->category()
-				|| ANPA_Socios_Email_Template_Phase::FASE35 === $definition->phase()->id() ) {
-				$enqueueable[] = (string) $key;
-			}
-		}
-
-		foreach ( $enqueueable as $key ) {
-			$this->assertLessThanOrEqual(
-				(int) $width[1],
-				strlen( $key ),
-				"'{$key}' can be enqueued but does not fit the queue's event_type column; widen it before that emitter lands"
-			);
-		}
-
-		// And the known offender is recorded so the gate is not mistaken for "everything fits".
-		$this->assertGreaterThan(
-			(int) $width[1],
+		$this->assertGreaterThanOrEqual(
 			$longest,
-			"'{$worst}' was expected to exceed the queue column; if it no longer does, I15 is resolved and this test should be simplified"
+			$target_width,
+			"'{$worst}' ({$longest} chars) does not fit the widened queue event_type column ({$target_width})"
 		);
+
+		// The non-enqueue guard (is_non_enqueueable_event) compares the full string argument BEFORE
+		// any DB write, so it does not depend on a truncated column value. Confirm it is still a
+		// pre-write check by inspecting create_campaign source order.
+		$queue_repo = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-email-queue-repo.php' );
+		$guard_pos  = strpos( $queue_repo, 'is_non_enqueueable_event' );
+		$insert_pos = strpos( $queue_repo, '$wpdb->insert', (int) $guard_pos );
+		$this->assertIsInt( $guard_pos );
+		$this->assertIsInt( $insert_pos );
+		$this->assertLessThan( $insert_pos, $guard_pos, 'the non-enqueue guard must fire BEFORE the insert' );
 	}
 }
