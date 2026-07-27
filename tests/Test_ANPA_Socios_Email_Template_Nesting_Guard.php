@@ -81,9 +81,9 @@ final class Test_ANPA_Socios_Email_Template_Nesting_Guard extends TestCase {
 
 	public function test_check_content_with_no_nesting_anywhere(): void {
 		$content = array(
-			'subject' => 'Hello {{nome_socio}}',
-			'html'    => '<p>{{#data_limite}}Prazo{{/}}</p>',
-			'text'    => '{{#data_limite}}Prazo{{/}}',
+			'subject'   => 'Hello {{nome_socio}}',
+			'body_html' => '<p>{{#data_limite}}Prazo{{/}}</p>',
+			'body_text' => '{{#data_limite}}Prazo{{/}}',
 		);
 		$result = ANPA_Socios_Email_Template_Nesting_Guard::check_content( $content );
 		$this->assertFalse( $result['nested'] );
@@ -92,31 +92,31 @@ final class Test_ANPA_Socios_Email_Template_Nesting_Guard extends TestCase {
 
 	public function test_check_content_detects_nesting_in_html(): void {
 		$content = array(
-			'subject' => 'Hello',
-			'html'    => '<p>{{#outer}}{{#inner}}nested{{/}}{{/}}</p>',
-			'text'    => 'clean text',
+			'subject'   => 'Hello',
+			'body_html' => '<p>{{#outer}}{{#inner}}nested{{/}}{{/}}</p>',
+			'body_text' => 'clean text',
 		);
 		$result = ANPA_Socios_Email_Template_Nesting_Guard::check_content( $content );
 		$this->assertTrue( $result['nested'] );
-		$this->assertSame( 'html', $result['channel'] );
+		$this->assertSame( 'body_html', $result['channel'] );
 	}
 
 	public function test_check_content_detects_nesting_in_text(): void {
 		$content = array(
-			'subject' => 'Hello',
-			'html'    => '<p>clean</p>',
-			'text'    => '{{#a}}before {{#b}}nested{{/}}{{/}}',
+			'subject'   => 'Hello',
+			'body_html' => '<p>clean</p>',
+			'body_text' => '{{#a}}before {{#b}}nested{{/}}{{/}}',
 		);
 		$result = ANPA_Socios_Email_Template_Nesting_Guard::check_content( $content );
 		$this->assertTrue( $result['nested'] );
-		$this->assertSame( 'text', $result['channel'] );
+		$this->assertSame( 'body_text', $result['channel'] );
 	}
 
 	public function test_check_content_detects_nesting_in_subject(): void {
 		$content = array(
-			'subject' => '{{#a}}{{#b}}bad{{/}}{{/}}',
-			'html'    => 'clean',
-			'text'    => 'clean',
+			'subject'   => '{{#a}}{{#b}}bad{{/}}{{/}}',
+			'body_html' => 'clean',
+			'body_text' => 'clean',
 		);
 		$result = ANPA_Socios_Email_Template_Nesting_Guard::check_content( $content );
 		$this->assertTrue( $result['nested'] );
@@ -124,11 +124,11 @@ final class Test_ANPA_Socios_Email_Template_Nesting_Guard extends TestCase {
 	}
 
 	public function test_check_content_reports_first_channel_with_nesting(): void {
-		// Subject is checked first, so if both subject and html have nesting, subject wins.
+		// Subject is checked first, so if both subject and body_html have nesting, subject wins.
 		$content = array(
-			'subject' => '{{#a}}{{#b}}x{{/}}{{/}}',
-			'html'    => '{{#c}}{{#d}}y{{/}}{{/}}',
-			'text'    => 'clean',
+			'subject'   => '{{#a}}{{#b}}x{{/}}{{/}}',
+			'body_html' => '{{#c}}{{#d}}y{{/}}{{/}}',
+			'body_text' => 'clean',
 		);
 		$result = ANPA_Socios_Email_Template_Nesting_Guard::check_content( $content );
 		$this->assertTrue( $result['nested'] );
@@ -137,11 +137,46 @@ final class Test_ANPA_Socios_Email_Template_Nesting_Guard extends TestCase {
 
 	public function test_check_content_skips_missing_channels(): void {
 		$content = array(
-			'subject' => '',
-			'html'    => '',
-			'text'    => '',
+			'subject'   => '',
+			'body_html' => '',
+			'body_text' => '',
 		);
 		$result = ANPA_Socios_Email_Template_Nesting_Guard::check_content( $content );
+		$this->assertFalse( $result['nested'] );
+	}
+
+	// ─── Accented and uppercase tokens (defect #7 coverage) ──────────────────
+
+	/**
+	 * An uppercase token in a nested block must be detected. Before the fix, the guard
+	 * used [a-z][a-z0-9_]* which could not match uppercase, letting it escape.
+	 */
+	public function test_nested_block_with_uppercase_token_is_detected(): void {
+		$body = '{{#Outer}}text {{#Inner}}nested{{/}}{{/}}';
+		$result = ANPA_Socios_Email_Template_Nesting_Guard::check( $body );
+		$this->assertTrue( $result['nested'] );
+		$this->assertStringContainsString( 'Inner', $result['error'] );
+		$this->assertStringContainsString( 'Outer', $result['error'] );
+	}
+
+	/**
+	 * An accented token (Latin Extended range) in a nested block must be detected.
+	 * The renderer matches \x{00C0}-\x{024F}; the guard must too.
+	 */
+	public function test_nested_block_with_accented_token_is_detected(): void {
+		$body = '{{#área_socios}}text {{#código_acceso}}nested{{/}}{{/}}';
+		$result = ANPA_Socios_Email_Template_Nesting_Guard::check( $body );
+		$this->assertTrue( $result['nested'] );
+		$this->assertStringContainsString( 'código_acceso', $result['error'] );
+		$this->assertStringContainsString( 'área_socios', $result['error'] );
+	}
+
+	/**
+	 * A single block with an accented token (no nesting) must NOT be flagged.
+	 */
+	public function test_single_block_with_accented_token_is_not_nested(): void {
+		$body = '{{#código_acceso}}Your code: {{código_acceso}}{{/}}';
+		$result = ANPA_Socios_Email_Template_Nesting_Guard::check( $body );
 		$this->assertFalse( $result['nested'] );
 	}
 

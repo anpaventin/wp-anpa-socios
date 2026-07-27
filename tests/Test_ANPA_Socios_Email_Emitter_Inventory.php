@@ -51,16 +51,17 @@ final class Test_ANPA_Socios_Email_Emitter_Inventory extends TestCase {
 	// ── The three counts, derived ────────────────────────────────────────
 
 	public function test_all_public_emitters_delegate_to_send_templated(): void {
-		// After fase36 migration, every public enviar_* delegates to send_templated, which is
-		// the single point where wp_mail() is called. One call site, nine emitters.
+		// After fase36 migration, every public enviar_* delegates to send_templated.
+		// wp_mail() appears in two places: send_templated (production) and send_test
+		// (internal entry point for admin test sends, same sender identity).
 		// Count actual calls, not references in comments/docblocks.
 		$code_only = preg_replace( '/\/\*\*.*?\*\//s', '', $this->email_src ); // Remove docblocks.
 		$code_only = preg_replace( '/\/\/[^\n]*/m', '', (string) $code_only );  // Remove line comments.
 
 		$this->assertSame(
-			1,
+			2,
 			(int) substr_count( (string) $code_only, 'wp_mail(' ),
-			'wp_mail() must appear exactly once in executable code (inside send_templated)'
+			'wp_mail() must appear exactly twice: once in send_templated (production) and once in send_test (admin test sends)'
 		);
 		$this->assertSame(
 			count( $this->emitter_methods() ),

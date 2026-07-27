@@ -27,6 +27,8 @@
       <file>tests/Test_ANPA_Socios_Email_Template_Repo_Integration.php</file>
       <!-- fase36 PR-36s3: emitter migration. -->
       <file>tests/Test_ANPA_Socios_Email_Headers.php</file>
+      <!-- fase36 PR-36s4: admin actions (save/preview/test-send/restore). -->
+      <file>tests/Test_ANPA_Socios_Email_Template_Admin_Actions_Integration.php</file>
     </testsuite>
   </testsuites>
 </phpunit>
