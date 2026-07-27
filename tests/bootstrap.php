@@ -103,6 +103,9 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-db-write-policy.php';
 // fase36 PR-36s4: template admin actions class — loaded for inspection tests. The class
 // reaches for WP functions only inside handler methods; signatures and constants are safe.
 require_once __DIR__ . '/../includes/class-anpa-socios-email-template-admin-actions.php';
+// fase36 PR-36s4: template admin screen — loaded for the admin menu contract test and
+// inspection tests. Only reaches for WP functions inside render methods.
+require_once __DIR__ . '/../includes/class-anpa-socios-email-templates-page.php';
 
 // Minimal $wpdb stub for table-name helpers; tests never hit a real DB.
 if ( ! isset( $GLOBALS['wpdb'] ) ) {
