@@ -88,6 +88,8 @@ final class ANPA_Socios_Admin_Settings {
 		ANPA_Socios_Admin_Management_Page::register_menu( self::OVERVIEW_SLUG, self::CAP );
 		// fase35: communications queue (server rendered audit screen).
 		ANPA_Socios_Email_Communications_Page::register_menu( self::OVERVIEW_SLUG, self::CAP );
+		// fase36: email template editor (server rendered).
+		ANPA_Socios_Email_Templates_Page::register_menu( self::OVERVIEW_SLUG, self::CAP );
 		add_submenu_page(
 			self::OVERVIEW_SLUG,
 			esc_html__( 'Axustes', 'anpa-socios' ),

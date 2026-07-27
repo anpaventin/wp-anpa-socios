@@ -143,6 +143,7 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-template
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-purge.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-cron.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-communications-page.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-templates-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-empresa-view.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-empresa-rest.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-page.php';

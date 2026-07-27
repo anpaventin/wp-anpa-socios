@@ -397,11 +397,11 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 		);
 
 		$this->assertSame(
-			array( 'anpa-socios-management', 'anpa-socios-comunicacions', 'anpa-socios-settings', 'anpa-socios-docs' ),
+			array( 'anpa-socios-management', 'anpa-socios-comunicacions', 'anpa-socios-plantelas', 'anpa-socios-settings', 'anpa-socios-docs' ),
 			array_column( $GLOBALS['anpa_socios_admin_nav_submenu_calls'], 4 )
 		);
 		$this->assertSame(
-			array( 'Xestión', 'Comunicacións', 'Axustes', 'Documentación' ),
+			array( 'Xestión', 'Comunicacións', 'Plantelas', 'Axustes', 'Documentación' ),
 			array_column( $GLOBALS['anpa_socios_admin_nav_submenu_calls'], 2 )
 		);
 		$this->assertNotContains( 'ANPA Socios', array_column( $GLOBALS['anpa_socios_admin_nav_submenu_calls'], 2 ) );
