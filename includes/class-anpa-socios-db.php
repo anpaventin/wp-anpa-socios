@@ -117,10 +117,14 @@ class ANPA_Socios_DB {
 	 *        UNIQUE(idempotency_key)) and wp_anpa_email_attempts (one row per
 	 *        attempt). Additive; creates no campaign and sends no email.
 	 *
+	 * 1.41.0 (fase36/I15) widens email_campaigns.event_type from varchar(40)
+	 *        to varchar(64) so the longest registered event key (42 chars) fits.
+	 *        Additive, idempotent, no DROP. Must land before 36s5 (queue provider).
+	 *
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.40.0';
+	const DB_VERSION = '1.41.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -364,6 +368,14 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.40.0', '<' ) && ! self::migrate_to_1_40_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.40.0 (migrate_to_1_40_0): ' . $wpdb->last_error );
+			return;
+		}
+
+		// 1.41.0: widen email_campaigns.event_type from varchar(40) to varchar(64).
+		$wpdb->last_error = '';
+		if ( version_compare( $installed_version, '1.41.0', '<' ) && ! self::migrate_to_1_41_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.41.0 (migrate_to_1_41_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -4052,6 +4064,51 @@ class ANPA_Socios_DB {
 		// Postcondition: both tables exist.
 		if ( self::table_missing( $templates ) || self::table_missing( $versions ) ) {
 			$wpdb->last_error = '1.40.0 email template table creation postcondition failed';
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Migration 1.41.0 (fase36/I15): widen email_campaigns.event_type from
+	 * varchar(40) to varchar(64).
+	 *
+	 * The longest registered event key (`company_notification_accepted_admin_notice`)
+	 * is 42 characters, which exceeds the original varchar(40) under strict mode.
+	 * This migration MUST land before 36s5 (the queue provider that actually
+	 * enqueues those events).
+	 *
+	 * Additive and idempotent: ALTER TABLE MODIFY on a wider varchar is a metadata
+	 * change that preserves existing data. Running twice is a no-op.
+	 * No DROP, no data loss.
+	 *
+	 * @since  1.41.0
+	 * @return bool
+	 */
+	private static function migrate_to_1_41_0(): bool {
+		global $wpdb;
+
+		$campaigns = self::tabela_email_campaigns();
+
+		// Widen: varchar(40) → varchar(64). Idempotent: running on a column that
+		// is already varchar(64) produces no change.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query( "ALTER TABLE {$campaigns} MODIFY COLUMN event_type varchar(64) NOT NULL DEFAULT ''" );
+
+		if ( '' !== (string) $wpdb->last_error ) {
+			return false;
+		}
+
+		// Postcondition: the column is now wide enough for the longest key.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$row = $wpdb->get_row(
+			"SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS "
+			. "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{$campaigns}' AND COLUMN_NAME = 'event_type'"
+		);
+
+		if ( null === $row || (int) $row->CHARACTER_MAXIMUM_LENGTH < 64 ) {
+			$wpdb->last_error = '1.41.0 event_type column widening postcondition failed';
 			return false;
 		}
 

@@ -24,14 +24,14 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 		$this->plugin_file = dirname( __DIR__ ) . '/anpa-socios.php';
 	}
 
-	public function test_db_version_constant_is_1_40_0(): void {
-		$this->assertSame( '1.40.0', ANPA_Socios_DB::DB_VERSION );
+	public function test_db_version_constant_is_1_41_0(): void {
+		$this->assertSame( '1.41.0', ANPA_Socios_DB::DB_VERSION );
 	}
 
-	public function test_anpa_socios_db_version_is_1_40_0(): void {
+	public function test_anpa_socios_db_version_is_1_41_0(): void {
 		$source = file_get_contents( $this->plugin_file );
 		$this->assertIsString( $source );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.40.0' )", $source );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.41.0' )", $source );
 	}
 
 	/**
@@ -607,5 +607,59 @@ final class Test_ANPA_Socios_DB_Migration extends TestCase {
 			'template_key varchar(64) NOT NULL',
 			substr( $body, (int) $versions_start )
 		);
+	}
+
+	// ── migrate_to_1_41_0 (I15: widen queue event_type) ──────────────────────
+
+	private function migration_1_41_0_body(): string {
+		$source = (string) file_get_contents( $this->db_file );
+		$start  = strpos( $source, 'private static function migrate_to_1_41_0' );
+		$this->assertIsInt( $start, 'migrate_to_1_41_0 must exist' );
+		$next   = strpos( $source, 'private static function migrate_to_1_39_0', (int) $start );
+		$this->assertIsInt( $next );
+		return substr( $source, (int) $start, (int) $next - (int) $start );
+	}
+
+	public function test_migration_1_41_0_widens_queue_event_type_to_64(): void {
+		$body = $this->migration_1_41_0_body();
+
+		$this->assertStringContainsString( 'MODIFY COLUMN event_type varchar(64)', $body );
+	}
+
+	public function test_migration_1_41_0_is_additive_no_drop(): void {
+		$body = $this->migration_1_41_0_body();
+
+		$this->assertStringNotContainsString( 'DROP TABLE', $body );
+		$this->assertStringNotContainsString( 'DROP COLUMN', $body );
+		$this->assertStringNotContainsString( 'TRUNCATE', $body );
+	}
+
+	public function test_migration_1_41_0_checks_its_postcondition(): void {
+		$body = $this->migration_1_41_0_body();
+
+		$this->assertStringContainsString( '1.41.0 event_type column widening postcondition failed', $body );
+		$this->assertStringContainsString( 'CHARACTER_MAXIMUM_LENGTH', $body );
+	}
+
+	public function test_migration_1_41_0_is_wired_into_the_chain(): void {
+		$source = (string) file_get_contents( $this->db_file );
+
+		$this->assertStringContainsString(
+			"version_compare( \$installed_version, '1.41.0', '<' ) && ! self::migrate_to_1_41_0()",
+			$source
+		);
+	}
+
+	public function test_migration_1_41_0_target_width_fits_the_longest_event_key(): void {
+		$longest = 0;
+		foreach ( ANPA_Socios_Email_Template_Events::set()->keys() as $key ) {
+			$longest = max( $longest, strlen( $key ) );
+		}
+
+		$body = $this->migration_1_41_0_body();
+		preg_match( '/MODIFY COLUMN event_type varchar\((\d+)\)/', $body, $width );
+
+		$this->assertNotEmpty( $width, 'migrate_to_1_41_0 must widen event_type' );
+		$this->assertGreaterThanOrEqual( $longest, (int) $width[1] );
 	}
 }
