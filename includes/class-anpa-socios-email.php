@@ -369,4 +369,29 @@ class ANPA_Socios_Email {
 
 		return self::send_templated( 'member_application_changes_required', $email_socio, $event_context );
 	}
+
+	/**
+	 * Sends a pre-rendered test email using the association's sender identity.
+	 *
+	 * @internal Used by ANPA_Socios_Email_Template_Admin_Actions::handle_test_send() to
+	 *           ensure the test message carries the same From, Reply-To and Content-Type as
+	 *           every production email, rather than WordPress's default identity.
+	 *
+	 * @since  TBD
+	 * @param  string $to      Recipient (resolved server-side by the caller).
+	 * @param  string $subject Already-rendered subject (caller prepends [PROBA]).
+	 * @param  string $html    Already-rendered HTML body.
+	 * @return bool            True if wp_mail() accepted the message locally.
+	 */
+	public static function send_test( string $to, string $subject, string $html ): bool {
+		$headers = self::notice_headers();
+
+		add_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
+
+		try {
+			return wp_mail( $to, $subject, $html, $headers );
+		} finally {
+			remove_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
+		}
+	}
 }
