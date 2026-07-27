@@ -14,8 +14,22 @@
  * - A preview renders and sends NOTHING (asserted via pre_wp_mail that no message was attempted).
  * - A test send produces exactly one message addressed to the logged-in administrator with the
  *   association's From and Reply-To and an HTML content type.
- * - Restore default works.
- * - Restore version works.
+ * - Restore default works and returns code 'restored_default'.
+ * - Restore version works and returns code 'restored_version'.
+ * - Adopt newer defaults correctly derives its outcome from the result shape and reports count.
+ *
+ * ARCHITECTURE NOTE — intercepting exit; inside redirect_back():
+ * Production code calls wp_safe_redirect() followed by exit;. `exit` is NOT a Throwable — it
+ * terminates the PHP process unconditionally. The only way to test code that calls exit; without
+ * modifying production is to prevent execution from REACHING exit; in the first place.
+ *
+ * We do this by hooking `wp_redirect` (which wp_safe_redirect calls internally) and THROWING a
+ * dedicated exception from the filter callback. The exception propagates out of wp_safe_redirect
+ * BEFORE the subsequent exit; is reached. The test helper catches ONLY this specific exception
+ * class — never a bare \Throwable, which is exactly the pattern that hid the original failure.
+ *
+ * If a handler returns WITHOUT the redirect having been captured, the helper fails loudly.
+ * This guard ensures silent non-execution can never recur.
  *
  * @group integration
  * @package ANPA_Socios
@@ -24,6 +38,24 @@
 declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
+
+/**
+ * Dedicated exception thrown by the wp_redirect filter to intercept before exit; is reached.
+ * This is NOT a Throwable catch-all — the helper catches ONLY this class.
+ */
+final class ANPA_Socios_Test_Redirect_Interception extends \Exception {
+	/** @var string The captured redirect location. */
+	private $location;
+
+	public function __construct( string $location ) {
+		parent::__construct( 'Redirect intercepted: ' . $location );
+		$this->location = $location;
+	}
+
+	public function get_location(): string {
+		return $this->location;
+	}
+}
 
 final class Test_ANPA_Socios_Email_Template_Admin_Actions_Integration extends TestCase {
 
@@ -64,8 +96,9 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions_Integration extends Te
 	}
 
 	protected function tearDown(): void {
-		// Remove any filters we added.
+		// Remove any filters we added during the test.
 		remove_all_filters( 'pre_wp_mail' );
+		remove_all_filters( 'wp_redirect' );
 	}
 
 	// ─── Helpers ─────────────────────────────────────────────────────────────
@@ -134,35 +167,43 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions_Integration extends Te
 	/**
 	 * Invokes a handler and captures the redirect URL instead of actually redirecting.
 	 *
+	 * HOW IT WORKS: wp_safe_redirect() calls wp_redirect() internally. Our filter on
+	 * wp_redirect THROWS a dedicated exception, which propagates out of wp_safe_redirect()
+	 * BEFORE the subsequent exit; is reached. We catch ONLY that exception class — never a
+	 * bare \Throwable, which is what hid the original failure (exit is not Throwable).
+	 *
+	 * GUARD: if the handler returns without throwing (meaning the redirect was never reached),
+	 * the helper fails the test loudly. Silent non-execution cannot recur.
+	 *
 	 * @param string $method Handler method name.
 	 * @return string The redirect URL.
 	 */
 	private function capture_redirect( string $method ): string {
-		$redirect_url = '';
-
-		// Override wp_redirect to capture instead of sending headers.
-		add_filter( 'wp_redirect', static function ( $location ) use ( &$redirect_url ) {
-			$redirect_url = $location;
-			return false; // Prevent actual header output.
+		// Hook wp_redirect to THROW before exit; is reached.
+		add_filter( 'wp_redirect', static function ( $location ) {
+			throw new ANPA_Socios_Test_Redirect_Interception( (string) $location );
 		}, 1 );
-
-		// Prevent exit() call inside redirect_back — override via wp_safe_redirect filter.
-		add_filter( 'wp_safe_redirect_fallback', static function () {
-			return admin_url();
-		} );
 
 		// Set a referer for redirect_back.
 		$_SERVER['HTTP_REFERER'] = admin_url( 'admin.php?page=anpa-socios-plantelas&template_key=' . self::KEY );
 
+		$redirect_url = null;
 		try {
 			ANPA_Socios_Email_Template_Admin_Actions::$method();
-		} catch ( \Throwable $e ) {
-			// The exit; in redirect_back throws if we cannot suppress it.
-			// We capture via the filter above.
+		} catch ( ANPA_Socios_Test_Redirect_Interception $e ) {
+			$redirect_url = $e->get_location();
 		}
 
 		remove_all_filters( 'wp_redirect' );
-		remove_all_filters( 'wp_safe_redirect_fallback' );
+
+		// GUARD: if no redirect was captured, the handler returned without redirecting.
+		// This is the exact failure mode that allowed eight dead tests before.
+		$this->assertNotNull(
+			$redirect_url,
+			"capture_redirect('{$method}'): handler returned without a redirect being captured. "
+			. 'This means the handler did not reach redirect_back(), which is the failure mode '
+			. 'that allowed silent non-execution in the original test suite.'
+		);
 
 		return $redirect_url;
 	}
@@ -179,7 +220,10 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions_Integration extends Te
 			'body_text' => $original['body_text'],
 		);
 
-		$this->invoke_save( $edited, $digest );
+		$url = $this->invoke_save( $edited, $digest );
+
+		// The repo returns code 'saved' on success.
+		$this->assertStringContainsString( 'anpa_msg=saved', $url );
 
 		$row = ANPA_Socios_Email_Template_Repo::get( self::KEY );
 		$this->assertIsArray( $row );
@@ -201,7 +245,7 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions_Integration extends Te
 
 		$url = $this->invoke_save( $edited, $stale );
 
-		// The redirect should contain anpa_msg=conflict.
+		// The repo returns code 'conflict' when the digest has moved.
 		$this->assertStringContainsString( 'anpa_msg=conflict', $url );
 
 		// The row must NOT have changed.
@@ -223,6 +267,7 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions_Integration extends Te
 
 		$url = $this->invoke_save( $edited, $digest );
 
+		// The repo returns 'undeclared_tokens' from validate().
 		$this->assertStringContainsString( 'anpa_msg=undeclared_tokens', $url );
 	}
 
@@ -240,6 +285,7 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions_Integration extends Te
 
 		$url = $this->invoke_save( $edited, $digest );
 
+		// The nesting guard fires BEFORE the repo, returning 'nested_block'.
 		$this->assertStringContainsString( 'anpa_msg=nested_block', $url );
 
 		// Row must be unchanged.
@@ -297,7 +343,6 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions_Integration extends Te
 		$this->assertStringContainsString( '[PROBA]', $msg['subject'] );
 
 		// Headers include the association's From and Reply-To.
-		$from_name  = ANPA_Socios_Config::association_name();
 		$from_email = ANPA_Socios_Config::master_email();
 
 		$headers_str = is_array( $msg['headers'] ) ? implode( "\n", $msg['headers'] ) : (string) $msg['headers'];
@@ -325,14 +370,15 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions_Integration extends Te
 		$this->assertSame( 1, (int) $row['is_customised'] );
 
 		// Now restore default.
-		$_POST['template_key']   = self::KEY;
+		$_POST['template_key']    = self::KEY;
 		$_POST['confirm_restore'] = '1';
-		$_POST['_wpnonce']       = wp_create_nonce( ANPA_Socios_Email_Template_Admin_Actions::ACTION_RESTORE_DEFAULT );
-		$_REQUEST['_wpnonce']    = $_POST['_wpnonce'];
+		$_POST['_wpnonce']        = wp_create_nonce( ANPA_Socios_Email_Template_Admin_Actions::ACTION_RESTORE_DEFAULT );
+		$_REQUEST['_wpnonce']     = $_POST['_wpnonce'];
 
 		$url = $this->capture_redirect( 'handle_restore_default' );
 
-		$this->assertStringContainsString( 'anpa_msg=restored', $url );
+		// The repo returns code 'restored_default' — NOT 'restored'.
+		$this->assertStringContainsString( 'anpa_msg=restored_default', $url );
 
 		// Verify: row is now NOT customised and subject is back to original.
 		$row = ANPA_Socios_Email_Template_Repo::get( self::KEY );
@@ -368,10 +414,39 @@ final class Test_ANPA_Socios_Email_Template_Admin_Actions_Integration extends Te
 
 		$url = $this->capture_redirect( 'handle_restore_version' );
 
-		$this->assertStringContainsString( 'anpa_msg=restored', $url );
+		// The repo returns code 'restored_version' — NOT 'restored'.
+		$this->assertStringContainsString( 'anpa_msg=restored_version', $url );
 
 		// The row should now have the original subject (restored from archive).
 		$row = ANPA_Socios_Email_Template_Repo::get( self::KEY );
 		$this->assertSame( $original['subject'], (string) $row['subject'] );
+	}
+
+	// ─── Adopt newer defaults: correct count and no undefined key access ─────
+
+	/**
+	 * Verifies that handle_adopt_defaults() correctly consumes the return shape of
+	 * Repo::adopt_newer_defaults() — specifically that it uses count($result['adopted'])
+	 * (an array of keys), not (int)$result['adopted'] (which would cast an array to 1 or 0),
+	 * and that it derives an outcome code rather than accessing a non-existent $result['code'].
+	 *
+	 * This test would have caught C3 had it existed when the handler was written.
+	 */
+	public function test_adopt_defaults_reports_correct_count_and_code(): void {
+		// When no templates are outdated, the result should report nothing_to_adopt with 0 adopted.
+		$_POST['_wpnonce']    = wp_create_nonce( ANPA_Socios_Email_Template_Admin_Actions::ACTION_ADOPT_DEFAULTS );
+		$_REQUEST['_wpnonce'] = $_POST['_wpnonce'];
+
+		$url = $this->capture_redirect( 'handle_adopt_defaults' );
+
+		// The handler should produce a valid redirect URL with anpa_msg and anpa_adopted.
+		$this->assertStringContainsString( 'anpa_msg=', $url, 'Redirect must carry an anpa_msg code' );
+		$this->assertStringContainsString( 'anpa_adopted=', $url, 'Redirect must carry anpa_adopted count' );
+		$this->assertStringContainsString( 'anpa_reported=', $url, 'Redirect must carry anpa_reported count' );
+
+		// When nothing is outdated, the code should be 'nothing_to_adopt' and count 0.
+		$this->assertStringContainsString( 'anpa_msg=nothing_to_adopt', $url );
+		$this->assertStringContainsString( 'anpa_adopted=0', $url );
+		$this->assertStringContainsString( 'anpa_reported=0', $url );
 	}
 }
