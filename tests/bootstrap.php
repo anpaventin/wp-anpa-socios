@@ -64,6 +64,8 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-editor
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-actions.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-validator.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-scenarios.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-nesting-guard.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-preview-context.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-html-policy.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-stored-custom-template.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-packaged-default.php';
@@ -98,6 +100,9 @@ require_once __DIR__ . '/../includes/class-anpa-socios-email-queue-repo.php';
 // method starts with `global $wpdb`. Required here because the unit tests exercise it
 // against the existing $wpdb stub defined at the bottom of this bootstrap.
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-db-write-policy.php';
+// fase36 PR-36s4: template admin actions class — loaded for inspection tests. The class
+// reaches for WP functions only inside handler methods; signatures and constants are safe.
+require_once __DIR__ . '/../includes/class-anpa-socios-email-template-admin-actions.php';
 
 // Minimal $wpdb stub for table-name helpers; tests never hit a real DB.
 if ( ! isset( $GLOBALS['wpdb'] ) ) {

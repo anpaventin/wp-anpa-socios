@@ -128,6 +128,9 @@
       <file>tests/Test_ANPA_Socios_Email_Headers.php</file>
       <file>tests/Test_ANPA_Socios_Email_Failure_Policy.php</file>
       <file>tests/Test_ANPA_Socios_DB_Write_Policy.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Template_Nesting_Guard.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Template_Preview_Context.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Template_Admin_Actions.php</file>
     </testsuite>
   </testsuites>
 </phpunit>
