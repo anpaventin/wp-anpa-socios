@@ -330,6 +330,11 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 					'menu_label' => 'Comunicacións',
 					'page_title' => 'Comunicacións',
 				),
+				'templates' => array(
+					'slug'       => 'anpa-socios-plantelas',
+					'menu_label' => 'Plantelas',
+					'page_title' => 'Plantelas de correo electrónico',
+				),
 				'settings' => array(
 					'slug'       => 'anpa-socios-settings',
 					'menu_label' => 'Axustes',
