@@ -8,13 +8,81 @@ use PHPUnit\Framework\TestCase;
 
 final class Test_ANPA_Socios_WpCli_Remote extends TestCase {
 
-	/** @var string */
+	/**
+	 * @var string
+	 */
 	private $script;
+
+	/**
+	 * Resolve the monorepo root directory.
+	 *
+	 * Priority:
+	 * 1. ANPA_MONOREPO_ROOT environment variable (explicit, portable).
+	 * 2. Git worktree detection (if plugin is inside a monorepo worktree).
+	 * 3. dirname(__DIR__, 3) fallback (assumes plugin at <root>/plugins/anpa-socios/).
+	 *
+	 * @return string
+	 */
+	private static function resolve_monorepo_root(): string {
+		$env = getenv( 'ANPA_MONOREPO_ROOT' );
+		if ( $env !== false && $env !== '' ) {
+			return rtrim( $env, '/' );
+		}
+
+		// Try git worktree detection: if the plugin is inside a monorepo,
+		// the git root will be the monorepo root.
+		$git_root = self::detect_git_root();
+		if ( $git_root !== null ) {
+			return $git_root;
+		}
+
+		return dirname( __DIR__, 3 );
+	}
+
+	/**
+	 * Detect the git repository root from the plugin directory.
+	 *
+	 * @return string|null The git root path, or null if not found.
+	 */
+	private static function detect_git_root(): ?string {
+		$dir = __DIR__;
+		for ( $i = 0; $i < 6; $i++ ) {
+			$candidate = dirname( $dir, $i );
+			if ( $candidate === '/' || $candidate === '' ) {
+				break;
+			}
+			if ( is_dir( $candidate . '/.git' ) ) {
+				return $candidate;
+			}
+		}
+		return null;
+	}
 
 	public function setUp(): void {
 		parent::setUp();
-		$this->script = dirname( __DIR__, 3 ) . '/scripts/WpCli-Remote.ps1';
-		$this->assertFileExists( $this->script );
+		$root = self::resolve_monorepo_root();
+		$this->script = $root . '/scripts/WpCli-Remote.ps1';
+		if ( ! file_exists( $this->script ) ) {
+			$this->markTestSkipped(
+				'WpCli-Remote.ps1 not found at ' . $this->script .
+				'. This is a monorepo contract test; set ANPA_MONOREPO_ROOT or run from the monorepo.'
+			);
+		}
+	}
+
+	public function test_monorepo_root_resolution_is_portable(): void {
+		$root = self::resolve_monorepo_root();
+		$this->assertIsString( $root );
+		$this->assertNotEmpty( $root );
+		$this->assertDirectoryExists( $root );
+		$expected = $root . '/scripts/WpCli-Remote.ps1';
+		if ( ! file_exists( $expected ) ) {
+			$this->markTestSkipped(
+				'WpCli-Remote.ps1 not found at ' . $expected .
+				'. This is a monorepo contract test; set ANPA_MONOREPO_ROOT or run from the monorepo.'
+			);
+		}
+		$this->assertFileExists( $expected, "WpCli-Remote.ps1 not found at: $expected" );
 	}
 
 	public function test_timeout_is_enforced_on_the_real_plink_process(): void {
