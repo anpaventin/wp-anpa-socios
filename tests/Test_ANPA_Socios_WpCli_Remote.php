@@ -46,7 +46,8 @@ final class Test_ANPA_Socios_WpCli_Remote extends TestCase {
 	 */
 	private static function detect_git_root(): ?string {
 		$dir = __DIR__;
-		for ( $i = 0; $i < 6; $i++ ) {
+		// Start at 1: dirname($dir, 0) is invalid in PHP 8.1+
+		for ( $i = 1; $i <= 6; $i++ ) {
 			$candidate = dirname( $dir, $i );
 			if ( $candidate === '/' || $candidate === '' ) {
 				break;
