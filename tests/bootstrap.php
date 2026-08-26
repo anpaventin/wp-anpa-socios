@@ -10,6 +10,11 @@
 
 declare(strict_types=1);
 
+// Composer autoloader (for polyfills and any PSR-4 classes).
+if ( file_exists( __DIR__ . '/../vendor/autoload.php' ) ) {
+    require_once __DIR__ . '/../vendor/autoload.php';
+}
+
 // Define ABSPATH so classes that guard against direct access (e.g. Config)
 // can be loaded in the test bootstrap without WordPress.
 if ( ! defined( 'ABSPATH' ) ) {
