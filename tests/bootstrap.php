@@ -10,6 +10,11 @@
 
 declare(strict_types=1);
 
+// Composer autoloader (for polyfills and any PSR-4 classes).
+if ( file_exists( __DIR__ . '/../vendor/autoload.php' ) ) {
+    require_once __DIR__ . '/../vendor/autoload.php';
+}
+
 // Define ABSPATH so classes that guard against direct access (e.g. Config)
 // can be loaded in the test bootstrap without WordPress.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -44,11 +49,13 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-waitlist.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-calendario.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-trimestre-estado.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-ventana-estado.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-campana-estado.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-comunicacion-estado.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-backoff.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-destinatarios.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-cola-planner.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-campaign-state.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-recipient-state.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-backoff.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-recipients.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-batch-planner.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-retention.php';
+require_once __DIR__ . '/trait-anpa-socios-inspection.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-trimestre.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-alta-payload.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-actividades-collapse.php';
@@ -63,6 +70,8 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-normalize.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-familia.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-csv-import.php';
 require_once __DIR__ . '/../includes/class-anpa-socios-db.php';
+// fase35: needed by the admin menu contract test (its register_menu is called).
+require_once __DIR__ . '/../includes/class-anpa-socios-email-communications-page.php';
 
 // Minimal $wpdb stub for table-name helpers; tests never hit a real DB.
 if ( ! isset( $GLOBALS['wpdb'] ) ) {

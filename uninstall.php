@@ -12,9 +12,27 @@
  * It intentionally does NOT rely on the plugin's classes: WordPress loads this
  * file in isolation, so everything is done directly with $wpdb + core helpers.
  *
- * WARNING: this is destructive by design. Socios, fillos, matrículas, banking
- * data, activities, groups and school structure are all removed. Take a backup
- * (Axustes → Copias) before deleting the plugin if you want to keep the data.
+ * COMMUNICATIONS EXCEPTION (fase35): the email communications tables
+ * (wp_anpa_email_campaigns / _recipients / _attempts) are PRESERVED by default,
+ * because campaign and attempt records may be needed to diagnose incidents and
+ * to evidence administrative actions. They are removed ONLY when an admin
+ * explicitly enabled the option `anpa_socios_delete_comms_on_uninstall` (value
+ * exactly "1"). The option scope is COMMUNICATIONS ONLY — it is deliberately NOT
+ * named "delete all data", since the rest of the plugin's tables follow the
+ * existing destructive-by-default uninstall (take a backup first).
+ *
+ * DEFENSIVE: absent option → preserve; unexpected value → preserve; only the
+ * exact authorized value "1" deletes the communications tables.
+ *
+ * MULTISITE: the plugin is designed for PER-SITE installation. On multisite this
+ * cleanup runs per site (switch_to_blog loop below) and only ever touches the
+ * CURRENT site's own tables and options; the delete-comms option is read in each
+ * site's own context. It performs no cross-site/network-wide deletion beyond the
+ * standard per-site uninstall that WordPress itself drives.
+ *
+ * WARNING: this is destructive by design (except the communications tables noted
+ * above). Socios, fillos, matrículas, banking data, activities, groups and
+ * school structure are removed. Take a backup (Axustes → Copias) first.
  *
  * @package ANPA_Socios
  */
@@ -29,16 +47,34 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
  *
  * @return void
  */
+if ( ! function_exists( 'anpa_socios_uninstall_cleanup' ) ) :
 function anpa_socios_uninstall_cleanup() {
 	global $wpdb;
 
-	// 1. Drop every custom table owned by the plugin (wp_anpa_*). Table names
-	//    come from SHOW TABLES (never user input), so they are safe to inline.
+	// fase35: the email communications tables (campaigns/recipients/attempts) are
+	// PRESERVED by default on uninstall — they may be needed to diagnose incidents
+	// and to evidence administrative actions. They are removed ONLY when an admin
+	// explicitly set `anpa_socios_delete_comms_on_uninstall` to exactly "1"
+	// (COMMUNICATIONS-ONLY scope). Defensive: any other value, or its absence,
+	// preserves. Read the flag BEFORE deleting options below.
+	$delete_comms = ( '1' === (string) get_option( 'anpa_socios_delete_comms_on_uninstall', '0' ) );
+	$preserve     = $delete_comms ? array() : array(
+		$wpdb->prefix . 'anpa_email_campaigns',
+		$wpdb->prefix . 'anpa_email_recipients',
+		$wpdb->prefix . 'anpa_email_attempts',
+	);
+
+	// 1. Drop every custom table owned by the plugin (wp_anpa_*), except the
+	//    communications tables when they must be preserved. Table names come from
+	//    SHOW TABLES (never user input), so they are safe to inline.
 	$like   = $wpdb->esc_like( $wpdb->prefix . 'anpa_' ) . '%';
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
 	$tables = $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $like ) );
 	if ( is_array( $tables ) ) {
 		foreach ( $tables as $table ) {
+			if ( in_array( $table, $preserve, true ) ) {
+				continue; // Keep communications data unless explicit delete-all.
+			}
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
 			$wpdb->query( 'DROP TABLE IF EXISTS `' . str_replace( '`', '', $table ) . '`' );
 		}
@@ -85,6 +121,7 @@ function anpa_socios_uninstall_cleanup() {
 	wp_cache_delete( 'alloptions', 'options' );
 	wp_cache_delete( 'notoptions', 'options' );
 }
+endif;
 
 // Multisite: clean each site; single site: clean the current one.
 if ( is_multisite() ) {

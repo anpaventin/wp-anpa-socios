@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Integration test suite (fase35 email queue). Runs ONLY against an ephemeral,
+  isolated MySQL/MariaDB via the WordPress test library. Uses a dedicated
+  bootstrap with hard production guards. Never run against production.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.6/phpunit.xsd"
+         bootstrap="tests/integration/bootstrap.php"
+         colors="true"
+         convertErrorsToExceptions="true"
+         convertNoticesToExceptions="true"
+         convertWarningsToExceptions="true"
+         failOnSkipped="true"
+         failOnRisky="true">
+  <testsuites>
+    <testsuite name="anpa-socios-integration">
+      <file>tests/Test_ANPA_Socios_Email_Migration_Integration.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Queue_Integration.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Processor_Integration.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Communications_Page_Integration.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Purge_Integration.php</file>
+    </testsuite>
+  </testsuites>
+</phpunit>
