@@ -3427,7 +3427,6 @@ class ANPA_Socios_DB {
 			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN familia_id bigint(20) unsigned NULL DEFAULT NULL, ADD KEY familia_id (familia_id)" );
 		}
 	}
-	}
 
 	/**
 	 * Returns the full anpa_domiciliacions table name.
