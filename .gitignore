@@ -41,6 +41,16 @@ pub.txt
 *.bak
 *.zip
 
+# Integration harness: real credentials and captured evidence never get committed.
+# Only .env.integration.example (fictitious values) is versioned.
+/tests/integration/.env.integration
+/tests/integration/.env.integration.local
+/.integration-evidence/
+
+# CI workflows ARE versioned in the public repo (a token with the GitHub
+# `workflow` scope is configured). Only local CI scratch output is ignored.
+/.github/**/*.local.yml
+
 # OS / editor
 .DS_Store
 Thumbs.db

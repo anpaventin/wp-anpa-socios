@@ -1,0 +1,34 @@
+# Ephemeral, isolated integration DB for fase35 email-queue tests.
+# NEVER points at production. All resources are prefixed wp_anpa_integration_*
+# and removed by clean.sh (which only touches this project's own resources).
+#
+# Usage: see README.md (start.sh / run.sh / collect.sh / clean.sh).
+name: wp_anpa_integration
+
+services:
+  mysql:
+    image: ${MYSQL_IMAGE:-mysql:8.0}
+    container_name: wp_anpa_integration_mysql
+    environment:
+      MYSQL_DATABASE: ${WP_TESTS_DB_NAME:-wp_anpa_integration_test}
+      MYSQL_USER: ${WP_TESTS_DB_USER:-wp_anpa_it}
+      MYSQL_PASSWORD: ${WP_TESTS_DB_PASS:-changeme_ephemeral}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_ephemeral}
+      # Deliberately non-UTC to prove the UTC storage/compare convention.
+      TZ: ${DB_TZ:-America/Argentina/Buenos_Aires}
+    command: --default-time-zone=${DB_TZ_SQL:--03:00}
+    networks:
+      - wp_anpa_integration_net
+    tmpfs:
+      - /var/lib/mysql            # ephemeral: data never persists to disk
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "${DB_PORT:-33061}:3306"
+
+networks:
+  wp_anpa_integration_net:
+    name: wp_anpa_integration_net

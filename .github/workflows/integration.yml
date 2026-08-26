@@ -1,0 +1,149 @@
+name: email-queue integration
+
+# Real-database integration matrix (fase35 PR-35s2) on feature branches.
+# Ephemeral, isolated service databases only. Never touches production, never
+# publishes a release, never modifies main, never touches the update channels.
+on:
+  push:
+    branches:
+      - 'feature/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    name: ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The plugin declares no official minimum MySQL/MariaDB version (only
+          # WordPress 6.0 / PHP 7.4). These are PROVISIONAL targets, not policy.
+          # They mirror the versions validated locally in WSL.
+          - image: mysql:8.0
+          - image: mariadb:10.6
+
+    services:
+      db:
+        image: ${{ matrix.image }}
+        env:
+          MYSQL_DATABASE: wp_anpa_integration_test
+          MYSQL_USER: wp_anpa_it
+          MYSQL_PASSWORD: wp_anpa_it_ephemeral
+          MYSQL_ROOT_PASSWORD: root_ephemeral
+          MARIADB_DATABASE: wp_anpa_integration_test
+          MARIADB_USER: wp_anpa_it
+          MARIADB_PASSWORD: wp_anpa_it_ephemeral
+          MARIADB_ROOT_PASSWORD: root_ephemeral
+          # Deliberately NON-UTC so the UTC storage/compare convention is proven.
+          TZ: America/Argentina/Buenos_Aires
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot_ephemeral --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+
+    env:
+      WP_TESTS_DB_NAME: wp_anpa_integration_test
+      WP_TESTS_DB_USER: wp_anpa_it
+      WP_TESTS_DB_PASS: wp_anpa_it_ephemeral
+      WP_TESTS_DB_HOST: 127.0.0.1:3306
+      WP_TESTS_TABLE_PREFIX: wpint_
+      WP_TESTS_DOMAIN: example.org
+      WP_TESTS_DIR: /tmp/wordpress-tests-lib
+      WP_CORE_DIR: /tmp/wordpress
+      # Three different timezones (DB session / PHP / WordPress).
+      PHP_TZ: Europe/Madrid
+      WP_TZ: Pacific/Auckland
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          # Mirrors the locally validated environment. The plugin's declared
+          # minimum is PHP 7.4, which is not covered by this matrix (documented).
+          php-version: '8.1'
+          extensions: mysqli, mbstring, xml, curl, zip
+          ini-values: date.timezone=Europe/Madrid
+          tools: composer
+
+      - name: Environment evidence
+        run: |
+          echo "system tz: $(cat /etc/timezone 2>/dev/null || date +%Z)"
+          php -r 'echo "php tz: ".date_default_timezone_get().PHP_EOL;'
+          php -r 'echo "php version: ".PHP_VERSION.PHP_EOL;'
+
+      - name: Wait for the database
+        run: |
+          for i in $(seq 1 40); do
+            if mysqladmin ping -h 127.0.0.1 -uroot -proot_ephemeral --silent 2>/dev/null; then
+              echo "DB up"; break
+            fi
+            sleep 3
+          done
+          mysql -h 127.0.0.1 -uroot -proot_ephemeral \
+            -e "SELECT VERSION(), @@global.time_zone, @@session.time_zone, NOW(), UTC_TIMESTAMP();"
+
+      - name: Ensure subversion is available
+        run: |
+          # Recent runner images do not guarantee svn, which the WordPress test
+          # library installer uses to export the test suite.
+          command -v svn >/dev/null 2>&1 || sudo apt-get update -y
+          command -v svn >/dev/null 2>&1 || sudo apt-get install -y --no-install-recommends subversion
+          svn --version --quiet
+
+      - name: Install the WordPress test library
+        run: |
+          chmod +x tests/integration/install-wp-tests.sh
+          tests/integration/install-wp-tests.sh \
+            "$WP_TESTS_DB_NAME" "$WP_TESTS_DB_USER" "$WP_TESTS_DB_PASS" "127.0.0.1:3306" latest
+
+      - name: Composer dev dependencies
+        run: |
+          # The committed lock may target a newer PHP; resolve fresh if needed.
+          composer install --no-interaction --no-progress \
+            || { rm -f composer.lock; composer update --no-interaction --no-progress; }
+          # The WordPress test suite requires Yoast's PHPUnit-Polyfills.
+          if [ ! -d vendor/yoast/phpunit-polyfills ]; then
+            composer require --dev --no-interaction --no-progress "yoast/phpunit-polyfills:^2.0" \
+              || composer require --dev --no-interaction --no-progress "yoast/phpunit-polyfills"
+          fi
+          echo "WP_TESTS_PHPUNIT_POLYFILLS_PATH=$PWD/vendor/yoast/phpunit-polyfills" >> "$GITHUB_ENV"
+
+      - name: Run the integration suite (skips are failures)
+        run: |
+          vendor/bin/phpunit -c phpunit-integration.xml --no-coverage 2>&1 | tee /tmp/phpunit.txt
+
+      - name: Collect schema evidence
+        if: always()
+        run: |
+          OUT=/tmp/evidence
+          mkdir -p "$OUT"
+          mysql -h 127.0.0.1 -uroot -proot_ephemeral -e \
+            "SELECT VERSION() AS version, @@global.time_zone AS global_tz, @@session.time_zone AS session_tz, NOW() AS now_session, UTC_TIMESTAMP() AS now_utc\G" \
+            > "$OUT/engine-and-timezones.txt" 2>&1 || true
+          for t in wpint_anpa_email_campaigns wpint_anpa_email_recipients wpint_anpa_email_attempts; do
+            mysql -h 127.0.0.1 -uroot -proot_ephemeral "$WP_TESTS_DB_NAME" \
+              -e "SHOW CREATE TABLE $t\G" >> "$OUT/show-create-table.txt" 2>&1 || true
+            mysql -h 127.0.0.1 -uroot -proot_ephemeral "$WP_TESTS_DB_NAME" \
+              -e "SHOW INDEX FROM $t\G"  >> "$OUT/show-index.txt" 2>&1 || true
+          done
+          mysql -h 127.0.0.1 -uroot -proot_ephemeral "$WP_TESTS_DB_NAME" \
+            -e "SELECT option_value AS db_version FROM wpint_options WHERE option_name='anpa_socios_db_version'\G" \
+            > "$OUT/db-version.txt" 2>&1 || true
+          cp /tmp/phpunit.txt "$OUT/phpunit.txt" 2>/dev/null || true
+          ( cd "$OUT" && sha256sum * > SHA256SUMS.txt 2>/dev/null || true )
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-${{ strategy.job-index }}
+          path: /tmp/evidence
