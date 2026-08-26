@@ -3390,13 +3390,11 @@ class ANPA_Socios_DB {
 	/**
 	 * Migration 1.5.0 -> 1.6.0: add nif, telefono and familia_id to socios.
 	 *
-	 * - `nif`         titular/parent fiscal id (validated NIF/NIE).
-	 * - `telefono`    contact phone.
-	 * - `familia_id`  links a second parent row to the same family unit;
-	 *                 nullable, indexed. Fillos stay keyed by socio_email
-	 *                 (re-keying deferred per design decision).
-	 *
-	 * Idempotent: each column is checked before it is added.
+	 * Idempotent: skips entirely if all columns already exist. This makes
+	 * the migration safe to re-run (e.g. when crear_tabelas() is invoked
+	 * more than once in the same request) and avoids "Duplicate column"
+	 * errors on clean installs where create_base_tables() already defined
+	 * these columns.
 	 *
 	 * @since  1.6.0
 	 * @return void
@@ -3405,6 +3403,14 @@ class ANPA_Socios_DB {
 		global $wpdb;
 
 		$table = self::tabela_socios();
+
+		// Skip if all columns already exist (idempotent).
+		if ( self::socios_tem_columna( 'nif' )
+			&& self::socios_tem_columna( 'telefono' )
+			&& self::socios_tem_columna( 'familia_id' )
+		) {
+			return;
+		}
 
 		if ( ! self::socios_tem_columna( 'nif' ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration guarded by column check.
@@ -3420,6 +3426,7 @@ class ANPA_Socios_DB {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration guarded by column check.
 			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN familia_id bigint(20) unsigned NULL DEFAULT NULL, ADD KEY familia_id (familia_id)" );
 		}
+	}
 	}
 
 	/**
