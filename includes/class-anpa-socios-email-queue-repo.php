@@ -936,14 +936,21 @@ final class ANPA_Socios_Email_Queue_Repo {
 	}
 
 	/**
-	 * Truncates and strips newlines from an error message so the log never grows
-	 * unbounded and never carries multi-line transport dumps.
+	 * Redact potentially sensitive data (email addresses) from an error
+	 * message before persisting it. Normalises whitespace and truncates.
 	 *
 	 * @since  1.39.0
 	 * @param  string $error Raw error.
 	 * @return string
 	 */
 	private static function redact_error( string $error ): string {
+		// Replace email addresses with a stable placeholder before
+		// persisting transport errors (last_error / attempts.error_message).
+		$error = (string) preg_replace(
+			'/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/',
+			'[redacted-email]',
+			$error
+		);
 		$error = trim( preg_replace( '/\s+/', ' ', $error ) ?? '' );
 		return mb_substr( $error, 0, 255 );
 	}
