@@ -10,72 +10,98 @@
 
 declare(strict_types=1);
 
-// Composer autoloader (for polyfills and any PSR-4 classes).
-if ( file_exists( __DIR__ . '/../vendor/autoload.php' ) ) {
-    require_once __DIR__ . '/../vendor/autoload.php';
+// Ensure we have access to basic WordPress stubs for pure-logic tests.
+define( 'ABSPATH', '/tmp/' );
+define( 'WP_CONTENT_DIR', '/tmp/' );
+define( 'WP_PLUGIN_DIR', '/tmp/' );
+
+// Minimal WP stubs required by pure-logic tests.
+if ( ! function_exists( 'apply_filters' ) ) {
+	function apply_filters() {
+		return null;
+	}
+}
+if ( ! function_exists( 'add_filter' ) ) {
+	function add_filter() {}
+}
+if ( ! function_exists( 'remove_filter' ) ) {
+	function remove_filter() {}
+}
+if ( ! function_exists( 'esc_html' ) ) {
+	function esc_html( $text ) {
+		return htmlspecialchars( (string) $text, ENT_QUOTES, 'UTF-8' );
+	}
+}
+if ( ! function_exists( 'esc_url' ) ) {
+	function esc_url( $url ) {
+		return filter_var( (string) $url, FILTER_VALIDATE_URL ) ?: '';
+	}
+}
+if ( ! function_exists( 'esc_attr' ) ) {
+	function esc_attr( $text ) {
+		return htmlspecialchars( (string) $text, ENT_QUOTES, 'UTF-8' );
+	}
+}
+if ( ! function_exists( 'wp_kses_post' ) ) {
+	function wp_kses_post( $html ) {
+		$allowed = array(
+			'p'      => array( 'class' => true ),
+			'br'     => array(),
+			'strong' => array(),
+			'em'     => array(),
+			'ul'     => array(),
+			'ol'     => array(),
+			'li'     => array(),
+			'a'      => array( 'href' => true, 'title' => true ),
+			'h1'     => array(),
+			'h2'     => array(),
+			'h3'     => array(),
+			'h4'     => array(),
+			'table'  => array(),
+			'tr'     => array(),
+			'td'     => array(),
+			'th'     => array(),
+			'img'    => array( 'src' => true, 'alt' => true, 'width' => true, 'height' => true ),
+			'div'    => array( 'class' => true ),
+			'span'   => array( 'class' => true ),
+		);
+		return wp_kses( $html, $allowed );
+	}
+}
+if ( ! function_exists( 'wp_kses' ) ) {
+	function wp_kses( $html, $allowed_html ) {
+		$html = strip_tags( $html, '<' . implode( '><', array_keys( $allowed_html ) ) . '>' );
+		// Remove any disallowed attributes.
+		return preg_replace( '/<([a-z]+)[^>]*?(on\w+)=[^>]*?/i', '<$1', $html );
+	}
+}
+if ( ! function_exists( 'wp_strip_all_tags' ) ) {
+	function wp_strip_all_tags( $html ) {
+		return strip_tags( $html );
+	}
+}
+if ( ! function_exists( 'wp_specialchars_decode' ) ) {
+	function wp_specialchars_decode( $string ) {
+		return htmlspecialchars_decode( (string) $string, ENT_QUOTES );
+	}
+}
+if ( ! function_exists( 'ent2ncr' ) ) {
+	function ent2ncr( $text ) {
+		return $text;
+	}
 }
 
-// Define ABSPATH so classes that guard against direct access (e.g. Config)
-// can be loaded in the test bootstrap without WordPress.
-if ( ! defined( 'ABSPATH' ) ) {
-    define( 'ABSPATH', dirname( __DIR__ ) . '/' );
+// Plugin constants.
+if ( ! defined( 'ANPA_SOCIOS_VERSION' ) ) {
+	define( 'ANPA_SOCIOS_VERSION', '1.49.0' );
+}
+if ( ! defined( 'ANPA_SOCIOS_PLUGIN_DIR' ) ) {
+	define( 'ANPA_SOCIOS_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
+}
+if ( ! defined( 'ANPA_SOCIOS_PLUGIN_URL' ) ) {
+	define( 'ANPA_SOCIOS_PLUGIN_URL', 'http://example.org/wp-content/plugins/anpa-socios/' );
 }
 
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-payload.php';
-require_once __DIR__ . '/../includes/class-anpa-socios-config.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-sepa.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-crypto.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-codigo-generator.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-rate-limiter.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-area-session.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-roles.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-flow.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-admin-payload.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-actividade-options.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-curso-fit.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-grupo-niveis.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-grupo-serie.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-prazas.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-disponibilidade-horaria.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-estrutura-escolar.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-curso-escolar.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-grupos-horarios.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-curso-lifecycle.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-course-settings.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-season.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-preseason-gate.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-horario-builder.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-waitlist.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-calendario.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-trimestre-estado.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-ventana-estado.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-campaign-state.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-recipient-state.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-backoff.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-recipients.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-batch-planner.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-retention.php';
-require_once __DIR__ . '/trait-anpa-socios-inspection.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-trimestre.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-alta-payload.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-actividades-collapse.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-empresa-view.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-csv.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-antibot.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-alumnos-export.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-admin-nav.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-verificacion-guard.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-admin-auth.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-normalize.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-familia.php';
-require_once __DIR__ . '/../includes/lib/class-anpa-socios-csv-import.php';
-require_once __DIR__ . '/../includes/class-anpa-socios-db.php';
-// fase35: needed by the admin menu contract test (its register_menu is called).
-require_once __DIR__ . '/../includes/class-anpa-socios-email-communications-page.php';
-
-// Minimal $wpdb stub for table-name helpers; tests never hit a real DB.
-if ( ! isset( $GLOBALS['wpdb'] ) ) {
-	$GLOBALS['wpdb'] = new class {
-		public string $prefix = 'wp_';
-	};
-}
+// Autoloader classes and lib.
+require_once __DIR__ . '/includes/lib/class-anpa-socios-email-template-store.php';
+require_once __DIR__ . '/includes/lib/class-anpa-socios-email-template-renderer.php';
