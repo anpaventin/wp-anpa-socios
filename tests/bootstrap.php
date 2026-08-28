@@ -103,5 +103,5 @@ if ( ! defined( 'ANPA_SOCIOS_PLUGIN_URL' ) ) {
 }
 
 // Autoloader classes and lib.
-require_once __DIR__ . '/includes/lib/class-anpa-socios-email-template-store.php';
-require_once __DIR__ . '/includes/lib/class-anpa-socios-email-template-renderer.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-store.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-renderer.php';
