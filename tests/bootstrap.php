@@ -149,6 +149,16 @@ if ( ! function_exists( 'wp_strip_all_tags' ) ) {
 	}
 }
 
+if ( ! function_exists( 'current_time' ) ) {
+	function current_time( $type, $gmt = 0 ) {
+		return $gmt ? gmdate( 'Y-m-d H:i:s' ) : date( 'Y-m-d H:i:s' );
+	}
+}
+
+// NOTE: current_user_can() is intentionally NOT stubbed here.
+// Tests that verify capability checks must define their own version.
+// This allows tests to return false to test failure paths.
+
 // Plugin constants.
 if ( ! defined( 'ANPA_SOCIOS_VERSION' ) ) {
 	define( 'ANPA_SOCIOS_VERSION', '1.49.0' );
