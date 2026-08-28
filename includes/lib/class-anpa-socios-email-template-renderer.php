@@ -3,6 +3,7 @@
  * ANPA_Socios_Email_Template_Renderer
  *
  * Renders email templates with safe variable replacement.
+ * Uses variable metadata from the store to ensure correct substitution.
  *
  * @since  1.39.0
  * @package ANPA_Socios
@@ -31,47 +32,45 @@ final class ANPA_Socios_Email_Template_Renderer {
 			'text'    => '',
 		) );
 
+		$vars = ANPA_Socios_Email_Template_Store::get_variables( $template_id );
+
 		return array(
-			'subject' => self::render_field( $template['subject'], $context, 'subject' ),
-			'html'    => self::render_field( $template['html'], $context, 'html' ),
-			'text'    => self::render_text( $template['text'], $template['html'], $context ),
+			'subject' => self::render_field( $template['subject'], $vars['subject'] ?? array(), $context, 'subject' ),
+			'html'    => self::render_field( $template['html'], $vars['html'] ?? array(), $context, 'html' ),
+			'text'    => self::render_text( $template['text'], $vars['text'] ?? array(), $context ),
 		);
 	}
 
 	/**
-	 * Render a field using sprintf-style placeholders.
+	 * Render a field using sprintf with ordered values from store metadata.
 	 */
-	private static function render_field( string $content, array $context, string $type ): string {
-		if ( empty( $content ) ) {
-			return '';
+	private static function render_field( string $content, array $var_keys, array $context, string $type ): string {
+		if ( empty( $content ) || empty( $var_keys ) ) {
+			return $content;
 		}
-		$values = self::prepare_values( $context, $type, $content );
-		return wp_kses_post( sprintf( $content, ...$values ) );
+		$values = self::prepare_values( $var_keys, $context, $type );
+		$result = @sprintf( $content, ...$values );
+		return false !== $result ? ( 'html' === $type ? wp_kses_post( $result ) : $result ) : $content;
 	}
 
 	/**
-	 * Render plain text.
+	 * Render plain text body.
 	 */
-	private static function render_text( string $text, string $html, array $context ): string {
-		if ( empty( $text ) ) {
-			$text = $html;
+	private static function render_text( string $text, array $var_keys, array $context ): string {
+		if ( empty( $text ) || empty( $var_keys ) ) {
+			return $text;
 		}
-		$values = self::prepare_values( $context, 'text', $text );
-		return sprintf( $text, ...$values );
+		$values = self::prepare_values( $var_keys, $context, 'text' );
+		$result = @sprintf( $text, ...$values );
+		return false !== $result ? $result : $text;
 	}
 
 	/**
-	 * Prepare values for sprintf based on %s occurrences in order.
+	 * Prepare escaped values in the order specified by the store.
 	 */
-	private static function prepare_values( array $context, string $type, string $template ): array {
-		$count = substr_count( $template, '%s' );
-		if ( $count === 0 ) {
-			return array();
-		}
-
-		$ordered = self::get_ordered_keys( $template );
+	private static function prepare_values( array $var_keys, array $context, string $type ): array {
 		$values = array();
-		foreach ( $ordered as $key ) {
+		foreach ( $var_keys as $key ) {
 			$value = $context[ $key ] ?? '';
 			if ( 'subject' === $type || 'text' === $type ) {
 				$values[] = sanitize_text_field( (string) $value );
@@ -82,25 +81,5 @@ final class ANPA_Socios_Email_Template_Renderer {
 			}
 		}
 		return $values;
-	}
-
-	/**
-	 * Get ordered keys from template based on known variable names.
-	 */
-	private static function get_ordered_keys( string $template ): array {
-		$known = array(
-			'association_name', 'email_socio', 'nome', 'apelidos',
-			'alumno', 'actividade', 'dias_prazo', 'login_url', 'codigo',
-			'contact_email', 'master_email',
-		);
-		$found = array();
-		foreach ( $known as $key ) {
-			if ( str_contains( $template, '%s' ) ) {
-				// We need to find which keys are used; this is a simplified approach
-				// In production, we'd parse the template more carefully
-				$found[] = $key;
-			}
-		}
-		return array_slice( $found, 0, substr_count( $template, '%s' ) );
 	}
 }
