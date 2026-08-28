@@ -147,7 +147,7 @@ final class ANPA_Socios_Email_Template_Store {
 					'<p>' . __( 'Your verification code is:', 'anpa-socios' ) . '</p>' .
 					'<p><strong>{{codigo}}</strong></p>' .
 					'<p>' . __( 'This code expires in 15 minutes.', 'anpa-socios' ) . '</p>',
-				'text'    => sprintf( __( 'Hello %s,', 'anpa-socios' ), '{{nome' ) ) . "\n\n" .
+				'text'    => sprintf( __( 'Hello %s,', 'anpa-socios' ), '{{nome}}' ) . "\n\n" .
 					__( 'Your verification code is: {{codigo}}', 'anpa-socios' ) . "\n\n" .
 					__( 'This code expires in 15 minutes.', 'anpa-socios' ),
 			),
