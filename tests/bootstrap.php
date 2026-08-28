@@ -143,14 +143,9 @@ if ( ! function_exists( 'add_filter' ) ) {
 if ( ! function_exists( 'remove_filter' ) ) {
 	function remove_filter() {}
 }
-if ( ! function_exists( 'current_user_can' ) ) {
-	function current_user_can( $cap ) {
-		return true;
-	}
-}
-if ( ! function_exists( 'current_time' ) ) {
-	function current_time( $type, $gmt = 0 ) {
-		return $gmt ? gmdate( 'Y-m-d H:i:s' ) : date( 'Y-m-d H:i:s' );
+if ( ! function_exists( 'wp_strip_all_tags' ) ) {
+	function wp_strip_all_tags( $string ) {
+		return strip_tags( (string) $string );
 	}
 }
 
