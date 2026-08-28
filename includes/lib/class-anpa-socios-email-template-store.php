@@ -176,6 +176,20 @@ final class ANPA_Socios_Email_Template_Store {
 					array( 'contact_email' ),
 				),
 			),
+			'send_from_master' => array(
+				'subject' => array(
+					'%s',
+					array( 'association_name' ),
+				),
+				'html' => array(
+					'<p>%s</p>',
+					array( 'custom_body' ),
+				),
+				'text' => array(
+					'%s',
+					array( 'custom_body' ),
+				),
+			),
 		);
 	}
 
