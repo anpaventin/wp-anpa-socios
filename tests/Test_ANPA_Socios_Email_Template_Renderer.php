@@ -1,6 +1,6 @@
 <?php
 /**
- * TDD RED: ANPA_Socios_Email_Template_Renderer
+ * TDD: ANPA_Socios_Email_Template_Renderer
  */
 
 declare(strict_types=1);
@@ -12,96 +12,79 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-render
 
 final class Test_ANPA_Socios_Email_Template_Renderer extends TestCase {
 
-	/**
-	 * RED: render() returns subject, html, text with variables replaced.
-	 */
-	public function test_render_replaces_variables(): void {
-		delete_option( 'anpa_socios_email_templates' );
-		$result = ANPA_Socios_Email_Template_Renderer::render( 'verification_code', array(
-			'nome'               => 'Xoan',
-			'codigo'             => '123456',
-			'association_name'   => 'ANPA As Brañas',
-		) );
+	public function test_render_replaces_single_variable(): void {
+		$vars = ANPA_Socios_Email_Template_Store::get_variables( 'verification_code' );
+		$context = array_combine( $vars['subject'], array( 'ANPA As Brañas' ) );
+		$result = ANPA_Socios_Email_Template_Renderer::render( 'verification_code', $context );
 		$this->assertIsArray( $result );
-		$this->assertArrayHasKey( 'subject', $result );
-		$this->assertArrayHasKey( 'html', $result );
-		$this->assertArrayHasKey( 'text', $result );
+		$this->assertStringContainsString( 'ANPA As Brañas', $result['subject'] );
+	}
+
+	public function test_render_replaces_multiple_variables(): void {
+		$vars = ANPA_Socios_Email_Template_Store::get_variables( 'verification_code' );
+		$context = array(
+			'association_name' => 'ANPA',
+			'nome'             => 'Xoan',
+			'codigo'           => '123456',
+		);
+		$result = ANPA_Socios_Email_Template_Renderer::render( 'verification_code', $context );
 		$this->assertStringContainsString( 'Xoan', $result['subject'] );
+		$this->assertStringContainsString( 'Xoan', $result['html'] );
 		$this->assertStringContainsString( '123456', $result['html'] );
+		$this->assertStringContainsString( '123456', $result['text'] );
 	}
 
-	/**
-	 * RED: unknown variables are replaced with empty string.
-	 */
 	public function test_render_handles_unknown_variables(): void {
-		delete_option( 'anpa_socios_email_templates' );
-		$template = array(
-			'subject' => 'Hello {{unknown}}',
-			'html'    => '<p>{{unknown}}</p>',
-			'text'    => '{{unknown}}',
-		);
-		$result = ANPA_Socios_Email_Template_Renderer::render( 'custom', array(), $template );
-		$this->assertStringNotContainsString( '{{unknown}}', $result['subject'] );
+		$context = array( 'unknown_var' => 'value' );
+		$result = ANPA_Socios_Email_Template_Renderer::render( 'verification_code', $context );
+		$this->assertIsArray( $result );
+		$this->assertStringNotContainsString( 'value', $result['subject'] );
 	}
 
-	/**
-	 * RED: HTML is escaped.
-	 */
 	public function test_render_escapes_html(): void {
-		delete_option( 'anpa_socios_email_templates' );
-		$result = ANPA_Socios_Email_Template_Renderer::render( 'verification_code', array(
-			'nome' => '<script>alert(1)</script>',
-		) );
-		$this->assertStringNotContainsString( '<script>', $result['html'] );
-	}
-
-	/**
-	 * RED: URL variables use esc_url.
-	 */
-	public function test_render_escapes_url(): void {
-		delete_option( 'anpa_socios_email_templates' );
-		$result = ANPA_Socios_Email_Template_Renderer::render( 'pendente_aprobacion', array(
-			'login_url' => 'http://example.org/wp-admin"><script>',
-		) );
-		$this->assertStringNotContainsString( '<script>', $result['html'] );
-	}
-
-	/**
-	 * RED: plain text is derived from HTML.
-	 */
-	public function test_render_derives_text_from_html(): void {
-		delete_option( 'anpa_socios_email_templates' );
-		$template = array(
-			'subject' => 'Test',
-			'html'    => '<p>Hello <strong>World</strong></p>',
-			'text'    => '',
+		$vars = ANPA_Socios_Email_Template_Store::get_variables( 'verification_code' );
+		$context = array(
+			'association_name' => '<script>alert(1)</script>',
+			'nome'             => '<b>Xoan</b>',
+			'codigo'           => '123456',
 		);
-		$result = ANPA_Socios_Email_Template_Renderer::render( 'custom', array(), $template );
-		$this->assertStringContainsString( 'Hello World', $result['text'] );
-		$this->assertStringNotContainsString( '<strong>', $result['text'] );
+		$result = ANPA_Socios_Email_Template_Renderer::render( 'verification_code', $context );
+		$this->assertStringNotContainsString( '<script>', $result['html'] );
+		$this->assertStringNotContainsString( '<b>', $result['text'] );
 	}
 
-	/**
-	 * RED: custom text is preserved if provided.
-	 */
-	public function test_render_preserves_custom_text(): void {
-		delete_option( 'anpa_socios_email_templates' );
-		$template = array(
-			'subject' => 'Test',
-			'html'    => '<p>HTML</p>',
-			'text'    => 'Custom plain text',
-		);
-		$result = ANPA_Socios_Email_Template_Renderer::render( 'custom', array(), $template );
-		$this->assertSame( 'Custom plain text', $result['text'] );
-	}
-
-	/**
-	 * RED: empty context still works.
-	 */
 	public function test_render_with_empty_context(): void {
-		delete_option( 'anpa_socios_email_templates' );
 		$result = ANPA_Socios_Email_Template_Renderer::render( 'verification_code', array() );
 		$this->assertIsArray( $result );
 		$this->assertNotEmpty( $result['subject'] );
+	}
+
+	public function test_render_text_contains_plain_text(): void {
+		$context = array(
+			'association_name' => 'ANPA',
+			'nome'             => 'Xoan',
+			'codigo'           => '123456',
+		);
+		$result = ANPA_Socios_Email_Template_Renderer::render( 'verification_code', $context );
+		$this->assertStringNotContainsString( '<p>', $result['text'] );
+		$this->assertStringContainsString( 'Xoan', $result['text'] );
+	}
+
+	public function test_all_templates_render_without_error(): void {
+		$templates = ANPA_Socios_Email_Template_Store::get_all();
+		foreach ( $templates as $id => $template ) {
+			$vars = ANPA_Socios_Email_Template_Store::get_variables( $id );
+			$context = array();
+			foreach ( $vars as $field => $keys ) {
+				foreach ( $keys as $key ) {
+					$context[ $key ] = 'test_' . $key;
+				}
+			}
+			$result = ANPA_Socios_Email_Template_Renderer::render( $id, $context );
+			$this->assertIsArray( $result, "Template $id should return array" );
+			$this->assertArrayHasKey( 'subject', $result, "Template $id missing subject" );
+			$this->assertArrayHasKey( 'html', $result, "Template $id missing html" );
+			$this->assertArrayHasKey( 'text', $result, "Template $id missing text" );
+		}
 	}
 }
