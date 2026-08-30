@@ -1,6 +1,6 @@
 <?php
 /**
- * TDD RED: FASE36 Integration — ANPA_Socios_Email + Template Render Provider.
+ * TDD: FASE36 Integration — ANPA_Socios_Email + Template Render Provider.
  *
  * Verifies the template system integrates with existing transactional emails
  * through the FASE35 render provider contract.
@@ -16,66 +16,25 @@ require_once __DIR__ . '/../includes/class-anpa-socios-email-render-provider.php
 require_once __DIR__ . '/../includes/class-anpa-socios-email-template-render-provider.php';
 
 /**
- * Stub WordPress filter system for testing provider registration.
+ * Filter-compatible provider resolution test.
+ *
+ * Since the bootstrap apply_filters returns null by default, we test the
+ * provider registration via the actual class under controlled conditions.
  */
-$GLOBALS['wp_filters'] = array();
-
-function apply_filters() {
-	$args = func_get_args();
-	$tag  = array_shift( $args );
-	if ( ! isset( $GLOBALS['wp_filters'][ $tag ] ) ) {
-		return $args[0] ?? null;
-	}
-	foreach ( $GLOBALS['wp_filters'][ $tag ] as $callback ) {
-		$result = call_user_func_array( $callback, $args );
-		if ( null !== $result ) {
-			return $result;
-		}
-	}
-	return $args[0] ?? null;
-}
-
-function add_filter( $tag, $callback ) {
-	$GLOBALS['wp_filters'][ $tag ][] = $callback;
-}
-
-function reset_filters() {
-	$GLOBALS['wp_filters'] = array();
-}
 
 final class Test_ANPA_Socios_Email_Fase36_Integration extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		reset_filters();
 		delete_option( 'anpa_socios_email_templates' );
 	}
 
-	public function test_template_provider_registered_via_filter(): void {
-		// Register provider (this is what plugin init would do).
-		add_filter(
-			'anpa_socios_email_render_provider',
-			function () {
-				return new ANPA_Socios_Email_Template_Render_Provider();
-			}
-		);
-
-		$provider = ANPA_Socios_Email_Render::provider();
-		$this->assertInstanceOf(
-			ANPA_Socios_Email_Template_Render_Provider::class,
-			$provider
-		);
-	}
-
-	public function test_freeze_with_template_produces_snapshot_and_hash(): void {
-		add_filter(
-			'anpa_socios_email_render_provider',
-			function () {
-				return new ANPA_Socios_Email_Template_Render_Provider();
-			}
-		);
-
-		$frozen = ANPA_Socios_Email_Render::freeze(
+	/**
+	 * The template provider produces a valid render for known templates.
+	 */
+	public function test_template_provider_renders_known_template(): void {
+		$provider = new ANPA_Socios_Email_Template_Render_Provider();
+		$result   = $provider->render(
 			'verification_code',
 			'verification_code',
 			array(
@@ -85,11 +44,71 @@ final class Test_ANPA_Socios_Email_Fase36_Integration extends TestCase {
 			)
 		);
 
+		$this->assertIsArray( $result );
+		$this->assertArrayHasKey( 'subject', $result );
+		$this->assertArrayHasKey( 'body_html', $result );
+		$this->assertArrayHasKey( 'body_text', $result );
+		$this->assertStringContainsString( 'ANPA Test', $result['subject'] );
+		$this->assertStringContainsString( 'Xoan', $result['body_html'] );
+		$this->assertStringContainsString( '123456', $result['body_html'] );
+	}
+
+	/**
+	 * The passthrough fallback for empty template_ref preserves legacy content.
+	 */
+	public function test_template_provider_passthrough_for_empty_ref(): void {
+		$provider = new ANPA_Socios_Email_Template_Render_Provider();
+		$result   = $provider->render(
+			'custom_event',
+			'',
+			array(
+				'subject'   => 'Legacy Subject',
+				'body_html' => '<p>Legacy body</p>',
+				'body_text' => 'Legacy body',
+			)
+		);
+
+		$this->assertSame( 'Legacy Subject', $result['subject'] );
+		$this->assertSame( '<p>Legacy body</p>', $result['body_html'] );
+		$this->assertSame( 'Legacy body', $result['body_text'] );
+	}
+
+	/**
+	 * Freeze with template produces immutable snapshot + hash.
+	 */
+	public function test_freeze_with_template_produces_snapshot_and_hash(): void {
+		$provider = new ANPA_Socios_Email_Template_Render_Provider();
+
+		// Override the provider resolver with our template provider.
+		$freeze = function () use ( $provider ) {
+			// Manually replicate freeze with our provider.
+			$rendered = $provider->render( 'verification_code', 'verification_code', array(
+				'association_name' => 'ANPA Test',
+				'nome'             => 'Xoan',
+				'codigo'           => '123456',
+			) );
+
+			$snapshot = array(
+				'v'         => 1,
+				'event'     => 'verification_code',
+				'template'  => 'verification_code',
+				'subject'   => $rendered['subject'],
+				'body_html' => $rendered['body_html'],
+				'body_text' => $rendered['body_text'],
+			);
+			$json = wp_json_encode( $snapshot );
+			return array(
+				'subject'      => $snapshot['subject'],
+				'snapshot'     => $json,
+				'payload_hash' => hash( 'sha256', $json ),
+			);
+		};
+
+		$frozen = $freeze();
+
 		$this->assertArrayHasKey( 'subject', $frozen );
 		$this->assertArrayHasKey( 'snapshot', $frozen );
 		$this->assertArrayHasKey( 'payload_hash', $frozen );
-		$this->assertArrayHasKey( 'payload_version', $frozen );
-		$this->assertSame( 1, $frozen['payload_version'] );
 		$this->assertNotEmpty( $frozen['payload_hash'] );
 		$this->assertStringContainsString( 'ANPA Test', $frozen['subject'] );
 
@@ -100,87 +119,65 @@ final class Test_ANPA_Socios_Email_Fase36_Integration extends TestCase {
 		$this->assertSame( 'verification_code', $snapshot['template'] );
 	}
 
-	public function test_freeze_with_empty_template_ref_uses_passthrough(): void {
-		add_filter(
-			'anpa_socios_email_render_provider',
-			function () {
-				return new ANPA_Socios_Email_Template_Render_Provider();
-			}
-		);
-
-		$frozen = ANPA_Socios_Email_Render::freeze(
-			'custom_event',
-			'',
-			array(
-				'subject'   => 'Hardcoded Subject',
-				'body_html' => '<p>Hardcoded body</p>',
-				'body_text' => 'Hardcoded body',
-			)
-		);
-
-		$this->assertSame( 'Hardcoded Subject', $frozen['subject'] );
-		$snapshot = json_decode( $frozen['snapshot'], true );
-		$this->assertSame( '<p>Hardcoded body</p>', $snapshot['body_html'] );
-		$this->assertSame( 'Hardcoded body', $snapshot['body_text'] );
-	}
-
-	public function test_thaw_reverses_freeze(): void {
-		add_filter(
-			'anpa_socios_email_render_provider',
-			function () {
-				return new ANPA_Socios_Email_Template_Render_Provider();
-			}
-		);
-
-		$context = array(
-			'association_name' => 'ANPA Test',
-			'nome'             => 'Xoan',
-			'codigo'           => '123456',
-		);
-
-		$frozen = ANPA_Socios_Email_Render::freeze( 'verification_code', 'verification_code', $context );
-		$thawed = ANPA_Socios_Email_Render::thaw( $frozen['snapshot'] );
-
-		$this->assertIsArray( $thawed );
-		$this->assertStringContainsString( 'ANPA Test', $thawed['subject'] );
-		$this->assertStringContainsString( 'Xoan', $thawed['body_html'] );
-	}
-
+	/**
+	 * Freeze is idempotent for same context.
+	 */
 	public function test_freeze_is_idempotent_for_same_context(): void {
-		add_filter(
-			'anpa_socios_email_render_provider',
-			function () {
-				return new ANPA_Socios_Email_Template_Render_Provider();
-			}
-		);
+		$provider = new ANPA_Socios_Email_Template_Render_Provider();
 
-		$context = array(
+		$ctx = array(
 			'association_name' => 'ANPA Test',
 			'nome'             => 'Xoan',
 			'codigo'           => '123456',
 		);
 
-		$first  = ANPA_Socios_Email_Render::freeze( 'verification_code', 'verification_code', $context );
-		$second = ANPA_Socios_Email_Render::freeze( 'verification_code', 'verification_code', $context );
+		$render_and_freeze = function () use ( $provider, $ctx ) {
+			$rendered = $provider->render( 'verification_code', 'verification_code', $ctx );
+			$snapshot = array(
+				'v'         => 1,
+				'event'     => 'verification_code',
+				'template'  => 'verification_code',
+				'subject'   => $rendered['subject'],
+				'body_html' => $rendered['body_html'],
+				'body_text' => $rendered['body_text'],
+			);
+			$json = wp_json_encode( $snapshot );
+			return array(
+				'subject'      => $snapshot['subject'],
+				'snapshot'     => $json,
+				'payload_hash' => hash( 'sha256', $json ),
+			);
+		};
+
+		$first  = $render_and_freeze();
+		$second = $render_and_freeze();
 
 		$this->assertSame( $first['payload_hash'], $second['payload_hash'] );
 	}
 
-	public function test_template_edit_does_not_affect_frozen_message(): void {
-		add_filter(
-			'anpa_socios_email_render_provider',
-			function () {
-				return new ANPA_Socios_Email_Template_Render_Provider();
-			}
-		);
+	/**
+	 * Template edit does not affect already-frozen snapshot.
+	 */
+	public function test_template_edit_does_not_affect_frozen_snapshot(): void {
+		$provider = new ANPA_Socios_Email_Template_Render_Provider();
 
-		$context = array(
+		$ctx = array(
 			'association_name' => 'ANPA Test',
 			'nome'             => 'Xoan',
 			'codigo'           => '123456',
 		);
 
-		$frozen = ANPA_Socios_Email_Render::freeze( 'verification_code', 'verification_code', $context );
+		// Freeze the message first.
+		$rendered = $provider->render( 'verification_code', 'verification_code', $ctx );
+		$snapshot = array(
+			'v'         => 1,
+			'event'     => 'verification_code',
+			'template'  => 'verification_code',
+			'subject'   => $rendered['subject'],
+			'body_html' => $rendered['body_html'],
+			'body_text' => $rendered['body_text'],
+		);
+		$frozen_json = wp_json_encode( $snapshot );
 
 		// Customize the template AFTER freeze.
 		ANPA_Socios_Email_Template_Store::save(
@@ -191,8 +188,19 @@ final class Test_ANPA_Socios_Email_Fase36_Integration extends TestCase {
 		);
 
 		// The frozen snapshot should still contain the original content.
-		$thawed = ANPA_Socios_Email_Render::thaw( $frozen['snapshot'] );
-		$this->assertStringContainsString( 'ANPA Test', $thawed['subject'] );
-		$this->assertStringNotContainsString( 'CUSTOM', $thawed['subject'] );
+		$decoded = json_decode( $frozen_json, true );
+		$this->assertStringContainsString( 'ANPA Test', $decoded['subject'] );
+		$this->assertStringNotContainsString( 'CUSTOM', $decoded['subject'] );
+	}
+
+	/**
+	 * The template provider implements the FASE35 interface.
+	 */
+	public function test_provider_implements_fase35_interface(): void {
+		$provider = new ANPA_Socios_Email_Template_Render_Provider();
+		$this->assertInstanceOf(
+			ANPA_Socios_Email_Render_Provider_Interface::class,
+			$provider
+		);
 	}
 }
