@@ -15,13 +15,6 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-render
 require_once __DIR__ . '/../includes/class-anpa-socios-email-render-provider.php';
 require_once __DIR__ . '/../includes/class-anpa-socios-email-template-render-provider.php';
 
-/**
- * Filter-compatible provider resolution test.
- *
- * Since the bootstrap apply_filters returns null by default, we test the
- * provider registration via the actual class under controlled conditions.
- */
-
 final class Test_ANPA_Socios_Email_Fase36_Integration extends TestCase {
 
 	protected function setUp(): void {
@@ -79,32 +72,11 @@ final class Test_ANPA_Socios_Email_Fase36_Integration extends TestCase {
 	public function test_freeze_with_template_produces_snapshot_and_hash(): void {
 		$provider = new ANPA_Socios_Email_Template_Render_Provider();
 
-		// Override the provider resolver with our template provider.
-		$freeze = function () use ( $provider ) {
-			// Manually replicate freeze with our provider.
-			$rendered = $provider->render( 'verification_code', 'verification_code', array(
-				'association_name' => 'ANPA Test',
-				'nome'             => 'Xoan',
-				'codigo'           => '123456',
-			) );
-
-			$snapshot = array(
-				'v'         => 1,
-				'event'     => 'verification_code',
-				'template'  => 'verification_code',
-				'subject'   => $rendered['subject'],
-				'body_html' => $rendered['body_html'],
-				'body_text' => $rendered['body_text'],
-			);
-			$json = wp_json_encode( $snapshot );
-			return array(
-				'subject'      => $snapshot['subject'],
-				'snapshot'     => $json,
-				'payload_hash' => hash( 'sha256', $json ),
-			);
-		};
-
-		$frozen = $freeze();
+		$frozen = $this->render_and_freeze( $provider, 'verification_code', 'verification_code', array(
+			'association_name' => 'ANPA Test',
+			'nome'             => 'Xoan',
+			'codigo'           => '123456',
+		) );
 
 		$this->assertArrayHasKey( 'subject', $frozen );
 		$this->assertArrayHasKey( 'snapshot', $frozen );
@@ -131,26 +103,8 @@ final class Test_ANPA_Socios_Email_Fase36_Integration extends TestCase {
 			'codigo'           => '123456',
 		);
 
-		$render_and_freeze = function () use ( $provider, $ctx ) {
-			$rendered = $provider->render( 'verification_code', 'verification_code', $ctx );
-			$snapshot = array(
-				'v'         => 1,
-				'event'     => 'verification_code',
-				'template'  => 'verification_code',
-				'subject'   => $rendered['subject'],
-				'body_html' => $rendered['body_html'],
-				'body_text' => $rendered['body_text'],
-			);
-			$json = wp_json_encode( $snapshot );
-			return array(
-				'subject'      => $snapshot['subject'],
-				'snapshot'     => $json,
-				'payload_hash' => hash( 'sha256', $json ),
-			);
-		};
-
-		$first  = $render_and_freeze();
-		$second = $render_and_freeze();
+		$first  = $this->render_and_freeze( $provider, 'verification_code', 'verification_code', $ctx );
+		$second = $this->render_and_freeze( $provider, 'verification_code', 'verification_code', $ctx );
 
 		$this->assertSame( $first['payload_hash'], $second['payload_hash'] );
 	}
@@ -168,24 +122,17 @@ final class Test_ANPA_Socios_Email_Fase36_Integration extends TestCase {
 		);
 
 		// Freeze the message first.
-		$rendered = $provider->render( 'verification_code', 'verification_code', $ctx );
-		$snapshot = array(
-			'v'         => 1,
-			'event'     => 'verification_code',
-			'template'  => 'verification_code',
-			'subject'   => $rendered['subject'],
-			'body_html' => $rendered['body_html'],
-			'body_text' => $rendered['body_text'],
-		);
-		$frozen_json = wp_json_encode( $snapshot );
+		$frozen = $this->render_and_freeze( $provider, 'verification_code', 'verification_code', $ctx );
+		$frozen_json = $frozen['snapshot'];
 
-		// Customize the template AFTER freeze.
-		ANPA_Socios_Email_Template_Store::save(
-			'verification_code',
-			'CUSTOM SUBJECT',
-			'<p>CUSTOM BODY</p>',
-			'CUSTOM TEXT'
-		);
+		// Customize the template AFTER freeze via option (bypassing capability check).
+		update_option( 'anpa_socios_email_templates', array(
+			'verification_code' => array(
+				'subject' => 'CUSTOM SUBJECT',
+				'html'    => '<p>CUSTOM BODY</p>',
+				'text'    => 'CUSTOM TEXT',
+			),
+		) );
 
 		// The frozen snapshot should still contain the original content.
 		$decoded = json_decode( $frozen_json, true );
@@ -201,6 +148,27 @@ final class Test_ANPA_Socios_Email_Fase36_Integration extends TestCase {
 		$this->assertInstanceOf(
 			ANPA_Socios_Email_Render_Provider_Interface::class,
 			$provider
+		);
+	}
+
+	/**
+	 * Helper: render and freeze a message snapshot.
+	 */
+	private function render_and_freeze( $provider, $event, $template_ref, $ctx ): array {
+		$rendered = $provider->render( $event, $template_ref, $ctx );
+		$snapshot = array(
+			'v'         => 1,
+			'event'     => $event,
+			'template'  => $template_ref,
+			'subject'   => $rendered['subject'],
+			'body_html' => $rendered['body_html'],
+			'body_text' => $rendered['body_text'],
+		);
+		$json = wp_json_encode( $snapshot );
+		return array(
+			'subject'      => $snapshot['subject'],
+			'snapshot'     => $json,
+			'payload_hash' => hash( 'sha256', $json ),
 		);
 	}
 }
