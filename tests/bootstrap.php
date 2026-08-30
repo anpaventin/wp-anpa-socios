@@ -155,6 +155,12 @@ if ( ! function_exists( 'current_time' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_json_encode' ) ) {
+	function wp_json_encode( $data ) {
+		return json_encode( $data );
+	}
+}
+
 // NOTE: current_user_can() is intentionally NOT stubbed here.
 // Tests that verify capability checks must define their own version.
 // This allows tests to return false to test failure paths.
@@ -173,4 +179,6 @@ if ( ! defined( 'ANPA_SOCIOS_PLUGIN_URL' ) ) {
 // Autoloader classes and lib.
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-store.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-renderer.php';
+require_once __DIR__ . '/../includes/class-anpa-socios-email-render-provider.php';
+require_once __DIR__ . '/../includes/class-anpa-socios-email-template-render-provider.php';
 require_once __DIR__ . '/trait-anpa-socios-inspection.php';

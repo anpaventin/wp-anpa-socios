@@ -112,6 +112,7 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-extraescolares
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-extraescolar-offers.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-season-service.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-render-provider.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-template-render-provider.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-queue-repo.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-queue.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-processor.php';
@@ -218,5 +219,14 @@ add_action(
 	'init',
 	static function () {
 		load_plugin_textdomain( 'anpa-socios', false, dirname( plugin_basename( ANPA_SOCIOS_PLUGIN_FILE ) ) . '/languages' );
+	}
+);
+
+// FASE36: Register the template render provider so FASE35 queue can render
+// template-based emails without knowing the template syntax.
+add_filter(
+	'anpa_socios_email_render_provider',
+	static function () {
+		return new ANPA_Socios_Email_Template_Render_Provider();
 	}
 );
