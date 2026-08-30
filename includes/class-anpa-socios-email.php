@@ -54,6 +54,33 @@ class ANPA_Socios_Email {
 	}
 
 	/**
+	 * FASE36: Renders email content with template override support.
+	 *
+	 * If a custom template exists for the given ID, uses the template renderer.
+	 * Otherwise falls back to the hardcoded content builder (preserving
+	 * backward compatibility exactly).
+	 *
+	 * @since  1.39.0
+	 * @param string   $template_id  Template identifier.
+	 * @param array    $context      Variables for template rendering.
+	 * @param callable $hardcoded_fn Returns [subject, html, text] arrays.
+	 * @return array{subject:string,html:string,text:string}
+	 */
+	private static function render_with_template(
+		string $template_id,
+		array $context,
+		callable $hardcoded_fn
+	): array {
+		$custom = get_option( 'anpa_socios_email_templates', null );
+
+		if ( is_array( $custom ) && isset( $custom[ $template_id ] ) ) {
+			return ANPA_Socios_Email_Template_Renderer::render( $template_id, $context );
+		}
+
+		return $hardcoded_fn();
+	}
+
+	/**
 	 * Sends a verification code email to the given address.
 	 *
 	 * @param  string $email Recipient email address.
@@ -64,15 +91,31 @@ class ANPA_Socios_Email {
 	public static function enviar_codigo( string $email, string $codigo, string $context = 'alta' ): bool {
 		$assoc = ANPA_Socios_Config::association_name();
 
-		if ( 'verificacion' === $context ) {
-			/* translators: %s: association name */
-			$asunto = wp_specialchars_decode( sprintf( __( 'O teu código de verificación — %s', 'anpa-socios' ), $assoc ), ENT_QUOTES );
-			$corpo  = self::crear_corpo_html_verificacion( $codigo );
-		} else {
-			/* translators: %s: association name */
-			$asunto = wp_specialchars_decode( sprintf( __( 'O teu código de alta — %s', 'anpa-socios' ), $assoc ), ENT_QUOTES );
-			$corpo  = self::crear_corpo_html( $codigo );
-		}
+		$content = self::render_with_template(
+			'verification_code',
+			array(
+				'association_name' => $assoc,
+				'nome'             => $email,
+				'codigo'           => $codigo,
+			),
+			function () use ( $assoc, $codigo, $context ) {
+				if ( 'verificacion' === $context ) {
+					$subj = wp_specialchars_decode( sprintf( __( 'O teu código de verificación — %s', 'anpa-socios' ), $assoc ), ENT_QUOTES );
+					$html = self::crear_corpo_html_verificacion( $codigo );
+				} else {
+					$subj = wp_specialchars_decode( sprintf( __( 'O teu código de alta — %s', 'anpa-socios' ), $assoc ), ENT_QUOTES );
+					$html = self::crear_corpo_html( $codigo );
+				}
+				return array(
+					'subject' => $subj,
+					'html'    => $html,
+					'text'    => wp_strip_all_tags( $html ),
+				);
+			}
+		);
+
+		$asunto = $content['subject'];
+		$corpo  = $content['html'];
 
 		// Append the configurable signature (if any) before </body>.
 		$corpo = str_replace( '</body>', self::signature_html() . '</body>', $corpo );
@@ -184,25 +227,42 @@ class ANPA_Socios_Email {
 	 */
 	public static function enviar_aviso_baixa_socio( string $email_socio, string $nome, string $apelidos ): bool {
 		$assoc         = ANPA_Socios_Config::association_name();
-		/* translators: %s: association name */
-		$asunto        = wp_specialchars_decode( sprintf( __( 'Solicitude de baixa de socio/a — %s', 'anpa-socios' ), $assoc ), ENT_QUOTES );
 		$nome_completo = trim( $nome . ' ' . $apelidos );
 
-		$corpo = '<!DOCTYPE html>'
-			. '<html>'
-			. '<head><meta charset="UTF-8"></head>'
-			. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
-			. '<h2>' . esc_html__( 'Solicitude de baixa de socio/a', 'anpa-socios' ) . '</h2>'
-			/* translators: %s: association name */
-			. '<p>' . sprintf( esc_html__( 'Un/unha socio/a solicitou a baixa en %s:', 'anpa-socios' ), esc_html( $assoc ) ) . '</p>'
-			. '<ul>'
-			. '<li><strong>' . esc_html__( 'Nome:', 'anpa-socios' ) . '</strong> ' . esc_html( $nome_completo ) . '</li>'
-			. '<li><strong>' . esc_html__( 'Email:', 'anpa-socios' ) . '</strong> ' . esc_html( $email_socio ) . '</li>'
-			. '</ul>'
-			. '<p>' . esc_html__( 'A baixa será efectiva a fin de curso, tras a confirmación dun/dunha administrador/a no panel de Xestión ANPA.', 'anpa-socios' ) . '</p>'
-			. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
-			. '</body>'
-			. '</html>';
+		$content = self::render_with_template(
+			'baixa_socio',
+			array(
+				'association_name' => $assoc,
+				'nome'             => $nome,
+				'apelidos'         => $apelidos,
+				'email_socio'      => $email_socio,
+			),
+			function () use ( $assoc, $nome_completo, $email_socio ) {
+				$subj = wp_specialchars_decode( sprintf( __( 'Solicitude de baixa de socio/a — %s', 'anpa-socios' ), $assoc ), ENT_QUOTES );
+				$html = '<!DOCTYPE html>'
+					. '<html>'
+					. '<head><meta charset="UTF-8"></head>'
+					. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
+					. '<h2>' . esc_html__( 'Solicitude de baixa de socio/a', 'anpa-socios' ) . '</h2>'
+					. '<p>' . sprintf( esc_html__( 'Un/unha socio/a solicitou a baixa en %s:', 'anpa-socios' ), esc_html( $assoc ) ) . '</p>'
+					. '<ul>'
+					. '<li><strong>' . esc_html__( 'Nome:', 'anpa-socios' ) . '</strong> ' . esc_html( $nome_completo ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Email:', 'anpa-socios' ) . '</strong> ' . esc_html( $email_socio ) . '</li>'
+					. '</ul>'
+					. '<p>' . esc_html__( 'A baixa será efectiva a fin de curso, tras a confirmación dun/dunha administrador/a no panel de Xestión ANPA.', 'anpa-socios' ) . '</p>'
+					. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
+					. '</body>'
+					. '</html>';
+				return array(
+					'subject' => $subj,
+					'html'    => $html,
+					'text'    => wp_strip_all_tags( $html ),
+				);
+			}
+		);
+
+		$asunto = $content['subject'];
+		$corpo  = $content['html'];
 
 		$headers = self::notice_headers();
 
@@ -225,20 +285,35 @@ class ANPA_Socios_Email {
 	 * @return bool                True if wp_mail() accepted the message.
 	 */
 	public static function enviar_aviso_reactivacion( string $email_socio ): bool {
-		/* translators: %s: association name */
-		$asunto = wp_specialchars_decode( sprintf( __( 'Solicitude de reactivación de socio/a — %s', 'anpa-socios' ), ANPA_Socios_Config::association_name() ), ENT_QUOTES );
+		$content = self::render_with_template(
+			'reactivacion',
+			array(
+				'association_name' => ANPA_Socios_Config::association_name(),
+				'email_socio'      => $email_socio,
+			),
+			function () use ( $email_socio ) {
+				$subj = wp_specialchars_decode( sprintf( __( 'Solicitude de reactivación de socio/a — %s', 'anpa-socios' ), ANPA_Socios_Config::association_name() ), ENT_QUOTES );
+				$html = '<!DOCTYPE html>'
+					. '<html>'
+					. '<head><meta charset="UTF-8"></head>'
+					. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
+					. '<h2>' . esc_html__( 'Solicitude de reactivación', 'anpa-socios' ) . '</h2>'
+					. '<p>' . esc_html__( 'Un/unha antig@ socio/a solicitou reactivar a súa conta:', 'anpa-socios' ) . '</p>'
+					. '<ul><li><strong>' . esc_html__( 'Email:', 'anpa-socios' ) . '</strong> ' . esc_html( $email_socio ) . '</li></ul>'
+					. '<p>' . esc_html__( 'A conta quedou en estado pendente de alta. Un/unha administrador/a debe activala explicitamente no panel de Xestión ANPA para restaurar o acceso.', 'anpa-socios' ) . '</p>'
+					. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
+					. '</body>'
+					. '</html>';
+				return array(
+					'subject' => $subj,
+					'html'    => $html,
+					'text'    => wp_strip_all_tags( $html ),
+				);
+			}
+		);
 
-		$corpo = '<!DOCTYPE html>'
-			. '<html>'
-			. '<head><meta charset="UTF-8"></head>'
-			. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
-			. '<h2>' . esc_html__( 'Solicitude de reactivación', 'anpa-socios' ) . '</h2>'
-			. '<p>' . esc_html__( 'Un/unha antig@ socio/a solicitou reactivar a súa conta:', 'anpa-socios' ) . '</p>'
-			. '<ul><li><strong>' . esc_html__( 'Email:', 'anpa-socios' ) . '</strong> ' . esc_html( $email_socio ) . '</li></ul>'
-			. '<p>' . esc_html__( 'A conta quedou en estado pendente de alta. Un/unha administrador/a debe activala explicitamente no panel de Xestión ANPA para restaurar o acceso.', 'anpa-socios' ) . '</p>'
-			. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
-			. '</body>'
-			. '</html>';
+		$asunto = $content['subject'];
+		$corpo  = $content['html'];
 
 		$headers = self::notice_headers();
 
@@ -263,21 +338,38 @@ class ANPA_Socios_Email {
 	 * @return bool
 	 */
 	public static function enviar_aviso_baixa_extraescolar( string $email_socio, string $alumno, string $actividade ): bool {
-		/* translators: %s: association name */
-		$asunto = wp_specialchars_decode( sprintf( __( 'Solicitude de baixa nunha extraescolar — %s', 'anpa-socios' ), ANPA_Socios_Config::association_name() ), ENT_QUOTES );
+		$content = self::render_with_template(
+			'baixa_extraescolar',
+			array(
+				'association_name' => ANPA_Socios_Config::association_name(),
+				'alumno'           => $alumno,
+				'actividade'       => $actividade,
+				'email_socio'      => $email_socio,
+			),
+			function () use ( $email_socio, $alumno, $actividade ) {
+				$subj = wp_specialchars_decode( sprintf( __( 'Solicitude de baixa nunha extraescolar — %s', 'anpa-socios' ), ANPA_Socios_Config::association_name() ), ENT_QUOTES );
+				$html = '<!DOCTYPE html>'
+					. '<html><head><meta charset="UTF-8"></head>'
+					. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
+					. '<h2>' . esc_html__( 'Solicitude de baixa nunha actividade extraescolar', 'anpa-socios' ) . '</h2>'
+					. '<ul>'
+					. '<li><strong>' . esc_html__( 'Alumno/a:', 'anpa-socios' ) . '</strong> ' . esc_html( $alumno ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Actividade:', 'anpa-socios' ) . '</strong> ' . esc_html( $actividade ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Solicitado por:', 'anpa-socios' ) . '</strong> ' . esc_html( $email_socio ) . '</li>'
+					. '</ul>'
+					. '<p>' . esc_html__( 'A baixa será efectiva a fin de trimestre, tras a confirmación dun/dunha administrador/a no panel de Xestión ANPA.', 'anpa-socios' ) . '</p>'
+					. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
+					. '</body></html>';
+				return array(
+					'subject' => $subj,
+					'html'    => $html,
+					'text'    => wp_strip_all_tags( $html ),
+				);
+			}
+		);
 
-		$corpo = '<!DOCTYPE html>'
-			. '<html><head><meta charset="UTF-8"></head>'
-			. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
-			. '<h2>' . esc_html__( 'Solicitude de baixa nunha actividade extraescolar', 'anpa-socios' ) . '</h2>'
-			. '<ul>'
-			. '<li><strong>' . esc_html__( 'Alumno/a:', 'anpa-socios' ) . '</strong> ' . esc_html( $alumno ) . '</li>'
-			. '<li><strong>' . esc_html__( 'Actividade:', 'anpa-socios' ) . '</strong> ' . esc_html( $actividade ) . '</li>'
-			. '<li><strong>' . esc_html__( 'Solicitado por:', 'anpa-socios' ) . '</strong> ' . esc_html( $email_socio ) . '</li>'
-			. '</ul>'
-			. '<p>' . esc_html__( 'A baixa será efectiva a fin de trimestre, tras a confirmación dun/dunha administrador/a no panel de Xestión ANPA.', 'anpa-socios' ) . '</p>'
-			. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
-			. '</body></html>';
+		$asunto = $content['subject'];
+		$corpo  = $content['html'];
 
 		$headers = self::notice_headers();
 		add_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
@@ -301,19 +393,33 @@ class ANPA_Socios_Email {
 	 * @return bool
 	 */
 	public static function enviar_oferta_extraescolar( string $email_socio, string $actividade, int $dias_prazo ): bool {
-		/* translators: %s: association name */
-		$asunto = wp_specialchars_decode( sprintf( __( 'Hai unha praza dispoñible nunha extraescolar — %s', 'anpa-socios' ), ANPA_Socios_Config::association_name() ), ENT_QUOTES );
+		$content = self::render_with_template(
+			'oferta_extraescolar',
+			array(
+				'association_name' => ANPA_Socios_Config::association_name(),
+				'actividade'       => $actividade,
+				'dias_prazo'       => $dias_prazo,
+			),
+			function () use ( $actividade, $dias_prazo ) {
+				$subj = wp_specialchars_decode( sprintf( __( 'Hai unha praza dispoñible nunha extraescolar — %s', 'anpa-socios' ), ANPA_Socios_Config::association_name() ), ENT_QUOTES );
+				$html = '<!DOCTYPE html>'
+					. '<html><head><meta charset="UTF-8"></head>'
+					. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
+					. '<h2>' . esc_html__( 'Quedou unha praza libre', 'anpa-socios' ) . '</h2>'
+					. '<p>' . sprintf( esc_html__( 'Liberouse unha praza na actividade %s e o teu fillo/a é o/a seguinte na lista de espera.', 'anpa-socios' ), '<strong>' . esc_html( $actividade ) . '</strong>' ) . '</p>'
+					. '<p>' . sprintf( esc_html__( 'Entra na túa Área persoal da web da ANPA e acepta a praza no apartado «Actividades extraescolares» antes de %d días. Se non respondes a tempo, a praza ofrecerase á seguinte familia.', 'anpa-socios' ), (int) $dias_prazo ) . '</p>'
+					. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
+					. '</body></html>';
+				return array(
+					'subject' => $subj,
+					'html'    => $html,
+					'text'    => wp_strip_all_tags( $html ),
+				);
+			}
+		);
 
-		$corpo = '<!DOCTYPE html>'
-			. '<html><head><meta charset="UTF-8"></head>'
-			. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
-			. '<h2>' . esc_html__( 'Quedou unha praza libre', 'anpa-socios' ) . '</h2>'
-			/* translators: %s: activity name */
-			. '<p>' . sprintf( esc_html__( 'Liberouse unha praza na actividade %s e o teu fillo/a é o/a seguinte na lista de espera.', 'anpa-socios' ), '<strong>' . esc_html( $actividade ) . '</strong>' ) . '</p>'
-			/* translators: %d: number of days to respond */
-			. '<p>' . sprintf( esc_html__( 'Entra na túa Área persoal da web da ANPA e acepta a praza no apartado «Actividades extraescolares» antes de %d días. Se non respondes a tempo, a praza ofrecerase á seguinte familia.', 'anpa-socios' ), (int) $dias_prazo ) . '</p>'
-			. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
-			. '</body></html>';
+		$asunto = $content['subject'];
+		$corpo  = $content['html'];
 
 		$headers = self::notice_headers();
 		add_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
@@ -362,24 +468,38 @@ class ANPA_Socios_Email {
 		$assoc        = ANPA_Socios_Config::association_name();
 		$settings_url = admin_url( 'admin.php?page=anpa-socios-settings' );
 
-		/* translators: %s: association name */
-		$asunto = sprintf( __( 'Novo socio/a pendente de aprobación — %s', 'anpa-socios' ), $assoc );
-		$corpo  = '<!DOCTYPE html>'
-			. '<html><head><meta charset="UTF-8"></head>'
-			. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
-			. '<h2>' . esc_html__( 'Novo socio/a pendente de aprobación', 'anpa-socios' ) . '</h2>'
-			/* translators: %s: association name */
-			. '<p>' . sprintf( esc_html__( 'Unha nova persoa solicitou darse de alta en %s e precisa da túa aprobación:', 'anpa-socios' ), esc_html( $assoc ) ) . '</p>'
-			. '<ul>'
-			. '<li><strong>' . esc_html__( 'Nome:', 'anpa-socios' ) . '</strong> ' . esc_html( '' !== trim( $nome ) ? $nome : __( '(sen nome)', 'anpa-socios' ) ) . '</li>'
-			. '<li><strong>' . esc_html__( 'Email:', 'anpa-socios' ) . '</strong> ' . esc_html( $email_socio ) . '</li>'
-			. '</ul>'
-			. '<p>' . esc_html__( 'Revisa e aproba (ou rexeita) as solicitudes pendentes na sección de Xestión ANPA da área de socios, ou na páxina de Axustes do plugin:', 'anpa-socios' ) . '</p>'
-			. '<p><a href="' . esc_url( $settings_url ) . '">' . esc_html( $settings_url ) . '</a></p>'
-			. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
-			. '</body></html>';
+		$content = self::render_with_template(
+			'pendente_aprobacion',
+			array(
+				'association_name' => $assoc,
+				'nome'             => $nome,
+				'email_socio'      => $email_socio,
+				'login_url'        => $settings_url,
+			),
+			function () use ( $assoc, $email_socio, $nome, $settings_url ) {
+				$subj = sprintf( __( 'Novo socio/a pendente de aprobación — %s', 'anpa-socios' ), $assoc );
+				$html = '<!DOCTYPE html>'
+					. '<html><head><meta charset="UTF-8"></head>'
+					. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
+					. '<h2>' . esc_html__( 'Novo socio/a pendente de aprobación', 'anpa-socios' ) . '</h2>'
+					. '<p>' . sprintf( esc_html__( 'Unha nova persoa solicitou darse de alta en %s e precisa da túa aprobación:', 'anpa-socios' ), esc_html( $assoc ) ) . '</p>'
+					. '<ul>'
+					. '<li><strong>' . esc_html__( 'Nome:', 'anpa-socios' ) . '</strong> ' . esc_html( '' !== trim( $nome ) ? $nome : __( '(sen nome)', 'anpa-socios' ) ) . '</li>'
+					. '<li><strong>' . esc_html__( 'Email:', 'anpa-socios' ) . '</strong> ' . esc_html( $email_socio ) . '</li>'
+					. '</ul>'
+					. '<p>' . esc_html__( 'Revisa e aproba (ou rexeita) as solicitudes pendentes na sección de Xestión ANPA da área de socios, ou na páxina de Axustes do plugin:', 'anpa-socios' ) . '</p>'
+					. '<p><a href="' . esc_url( $settings_url ) . '">' . esc_html( $settings_url ) . '</a></p>'
+					. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
+					. '</body></html>';
+				return array(
+					'subject' => $subj,
+					'html'    => $html,
+					'text'    => wp_strip_all_tags( $html ),
+				);
+			}
+		);
 
-		return self::send_from_master( ANPA_Socios_Config::master_email(), $asunto, $corpo );
+		return self::send_from_master( ANPA_Socios_Config::master_email(), $content['subject'], $content['html'] );
 	}
 
 	/**
@@ -393,24 +513,35 @@ class ANPA_Socios_Email {
 	public static function enviar_aprobacion( string $email_socio, string $login_url = '' ): bool {
 		$assoc = ANPA_Socios_Config::association_name();
 
-		/* translators: %s: association name */
-		$asunto = sprintf( __( 'A túa alta foi aprobada — %s', 'anpa-socios' ), $assoc );
-		$corpo  = '<!DOCTYPE html>'
-			. '<html><head><meta charset="UTF-8"></head>'
-			. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
-			/* translators: %s: association name */
-			. '<h2>' . sprintf( esc_html__( 'Benvido/a a %s', 'anpa-socios' ), esc_html( $assoc ) ) . '</h2>'
-			/* translators: %s: association name */
-			. '<p>' . sprintf( esc_html__( 'A directiva de %s aprobou a túa alta como socio/a. Xa podes acceder á túa área persoal.', 'anpa-socios' ), esc_html( $assoc ) ) . '</p>'
-			. ( '' !== $login_url
-				? '<p>' . esc_html__( 'Entra na área de socios e inicia sesión co teu correo (recibirás un código de acceso):', 'anpa-socios' ) . '</p>'
-					. '<p><a href="' . esc_url( $login_url ) . '">' . esc_html( $login_url ) . '</a></p>'
-				: '<p>' . esc_html__( 'Entra na área de socios da web e inicia sesión co teu correo; recibirás un código de acceso.', 'anpa-socios' ) . '</p>' )
-			. '<p>' . esc_html__( 'Desde a túa área persoal poderás xestionar os teus datos, os teus fillos/as e as actividades extraescolares.', 'anpa-socios' ) . '</p>'
-			. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
-			. '</body></html>';
+		$content = self::render_with_template(
+			'aprobacion',
+			array(
+				'association_name' => $assoc,
+				'login_url'        => $login_url,
+			),
+			function () use ( $assoc, $login_url ) {
+				$subj = sprintf( __( 'A túa alta foi aprobada — %s', 'anpa-socios' ), $assoc );
+				$html = '<!DOCTYPE html>'
+					. '<html><head><meta charset="UTF-8"></head>'
+					. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
+					. '<h2>' . sprintf( esc_html__( 'Benvido/a a %s', 'anpa-socios' ), esc_html( $assoc ) ) . '</h2>'
+					. '<p>' . sprintf( esc_html__( 'A directiva de %s aprobou a túa alta como socio/a. Xa podes acceder á túa área persoal.', 'anpa-socios' ), esc_html( $assoc ) ) . '</p>'
+					. ( '' !== $login_url
+						? '<p>' . esc_html__( 'Entra na área de socios e inicia sesión co teu correo (recibirás un código de acceso):', 'anpa-socios' ) . '</p>'
+							. '<p><a href="' . esc_url( $login_url ) . '">' . esc_html( $login_url ) . '</a></p>'
+						: '<p>' . esc_html__( 'Entra na área de socios da web e inicia sesión co teu correo; recibirás un código de acceso.', 'anpa-socios' ) . '</p>' )
+					. '<p>' . esc_html__( 'Desde a túa área persoal poderás xestionar os teus datos, os teus fillos/as e as actividades extraescolares.', 'anpa-socios' ) . '</p>'
+					. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
+					. '</body></html>';
+				return array(
+					'subject' => $subj,
+					'html'    => $html,
+					'text'    => wp_strip_all_tags( $html ),
+				);
+			}
+		);
 
-		return self::send_from_master( $email_socio, $asunto, $corpo );
+		return self::send_from_master( $email_socio, $content['subject'], $content['html'] );
 	}
 
 	/**
@@ -426,24 +557,35 @@ class ANPA_Socios_Email {
 	public static function enviar_benvida_alta( string $email_socio, string $login_url = '' ): bool {
 		$assoc = ANPA_Socios_Config::association_name();
 
-		/* translators: %s: association name */
-		$asunto = sprintf( __( 'Alta completada — %s', 'anpa-socios' ), $assoc );
-		$corpo  = '<!DOCTYPE html>'
-			. '<html><head><meta charset="UTF-8"></head>'
-			. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
-			/* translators: %s: association name */
-			. '<h2>' . sprintf( esc_html__( 'Benvido/a a %s', 'anpa-socios' ), esc_html( $assoc ) ) . '</h2>'
-			/* translators: %s: association name */
-			. '<p>' . sprintf( esc_html__( 'A túa alta como socio/a en %s completouse correctamente. Xa podes acceder á túa área persoal.', 'anpa-socios' ), esc_html( $assoc ) ) . '</p>'
-			. ( '' !== $login_url
-				? '<p>' . esc_html__( 'Entra na área de socios e inicia sesión co teu correo (recibirás un código de acceso):', 'anpa-socios' ) . '</p>'
-					. '<p><a href="' . esc_url( $login_url ) . '">' . esc_html( $login_url ) . '</a></p>'
-				: '<p>' . esc_html__( 'Entra na área de socios da web e inicia sesión co teu correo; recibirás un código de acceso.', 'anpa-socios' ) . '</p>' )
-			. '<p>' . esc_html__( 'Desde a túa área persoal poderás xestionar os teus datos, os teus fillos/as e as actividades extraescolares.', 'anpa-socios' ) . '</p>'
-			. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
-			. '</body></html>';
+		$content = self::render_with_template(
+			'benvida_alta',
+			array(
+				'association_name' => $assoc,
+				'login_url'        => $login_url,
+			),
+			function () use ( $assoc, $login_url ) {
+				$subj = sprintf( __( 'Alta completada — %s', 'anpa-socios' ), $assoc );
+				$html = '<!DOCTYPE html>'
+					. '<html><head><meta charset="UTF-8"></head>'
+					. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
+					. '<h2>' . sprintf( esc_html__( 'Benvido/a a %s', 'anpa-socios' ), esc_html( $assoc ) ) . '</h2>'
+					. '<p>' . sprintf( esc_html__( 'A túa alta como socio/a en %s completouse correctamente. Xa podes acceder á túa área persoal.', 'anpa-socios' ), esc_html( $assoc ) ) . '</p>'
+					. ( '' !== $login_url
+						? '<p>' . esc_html__( 'Entra na área de socios e inicia sesión co teu correo (recibirás un código de acceso):', 'anpa-socios' ) . '</p>'
+							. '<p><a href="' . esc_url( $login_url ) . '">' . esc_html( $login_url ) . '</a></p>'
+						: '<p>' . esc_html__( 'Entra na área de socios da web e inicia sesión co teu correo; recibirás un código de acceso.', 'anpa-socios' ) . '</p>' )
+					. '<p>' . esc_html__( 'Desde a túa área persoal poderás xestionar os teus datos, os teus fillos/as e as actividades extraescolares.', 'anpa-socios' ) . '</p>'
+					. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
+					. '</body></html>';
+				return array(
+					'subject' => $subj,
+					'html'    => $html,
+					'text'    => wp_strip_all_tags( $html ),
+				);
+			}
+		);
 
-		return self::send_from_master( $email_socio, $asunto, $corpo );
+		return self::send_from_master( $email_socio, $content['subject'], $content['html'] );
 	}
 
 	/**
@@ -457,22 +599,33 @@ class ANPA_Socios_Email {
 		$assoc   = ANPA_Socios_Config::association_name();
 		$contact = ANPA_Socios_Config::contact_email();
 
-		/* translators: %s: association name */
-		$asunto = sprintf( __( 'Sobre a túa solicitude de alta — %s', 'anpa-socios' ), $assoc );
-		$corpo  = '<!DOCTYPE html>'
-			. '<html><head><meta charset="UTF-8"></head>'
-			. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
-			. '<h2>' . esc_html__( 'Solicitude de alta', 'anpa-socios' ) . '</h2>'
-			/* translators: %s: association name */
-			. '<p>' . sprintf( esc_html__( 'Sentímolo, pero por decisión da directiva de %s non se aprobou a túa solicitude de alta como socio/a neste momento.', 'anpa-socios' ), esc_html( $assoc ) ) . '</p>'
-			. '<p>' . sprintf(
-				/* translators: %s: contact email address (already linked) */
-				__( 'Se pensas que se trata dun erro ou queres máis información, ponte en contacto con nós respondendo a este correo ou escribindo a %s.', 'anpa-socios' ),
-				'<a href="mailto:' . esc_attr( $contact ) . '">' . esc_html( $contact ) . '</a>'
-			) . '</p>'
-			. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
-			. '</body></html>';
+		$content = self::render_with_template(
+			'rexeitamento',
+			array(
+				'association_name' => $assoc,
+				'contact_email'    => $contact,
+			),
+			function () use ( $assoc, $contact ) {
+				$subj = sprintf( __( 'Sobre a túa solicitude de alta — %s', 'anpa-socios' ), $assoc );
+				$html = '<!DOCTYPE html>'
+					. '<html><head><meta charset="UTF-8"></head>'
+					. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
+					. '<h2>' . esc_html__( 'Solicitude de alta', 'anpa-socios' ) . '</h2>'
+					. '<p>' . sprintf( esc_html__( 'Sentímolo, pero por decisión da directiva de %s non se aprobou a túa solicitude de alta como socio/a neste momento.', 'anpa-socios' ), esc_html( $assoc ) ) . '</p>'
+					. '<p>' . sprintf(
+						__( 'Se pensas que se trata dun erro ou queres máis información, ponte en contacto con nós respondendo a este correo ou escribindo a %s.', 'anpa-socios' ),
+						'<a href="mailto:' . esc_attr( $contact ) . '">' . esc_html( $contact ) . '</a>'
+					) . '</p>'
+					. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
+					. '</body></html>';
+				return array(
+					'subject' => $subj,
+					'html'    => $html,
+					'text'    => wp_strip_all_tags( $html ),
+				);
+			}
+		);
 
-		return self::send_from_master( $email_socio, $asunto, $corpo );
+		return self::send_from_master( $email_socio, $content['subject'], $content['html'] );
 	}
 }
