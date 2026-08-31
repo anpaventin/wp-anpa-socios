@@ -122,6 +122,7 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-cron.php
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-communications-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-templates-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-template-actions.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-template-migration.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-empresa-view.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-empresa-rest.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-page.php';
@@ -145,6 +146,8 @@ register_activation_hook( __FILE__, array( 'ANPA_Socios_DB', 'crear_tabelas' ) )
 register_activation_hook( __FILE__, array( 'ANPA_Socios_Extraescolar_Offers', 'programar' ) );
 register_activation_hook( __FILE__, array( 'ANPA_Socios_Season_Service', 'programar' ) );
 register_activation_hook( __FILE__, array( 'ANPA_Socios_Email_Cron', 'schedule' ) );
+// fase36: seed email template defaults on activation.
+register_activation_hook( __FILE__, array( 'ANPA_Socios_Email_Template_Migration', 'migrate' ) );
 
 // fase35: custom 5-min recurrence for the email queue tick (filterable, bounded).
 add_filter( 'cron_schedules', array( 'ANPA_Socios_Email_Cron', 'add_schedule' ) );
@@ -166,6 +169,9 @@ add_action( 'admin_init', static function () {
 	if ( version_compare( $installed, ANPA_Socios_DB::DB_VERSION, '<' ) ) {
 		ANPA_Socios_DB::crear_tabelas();
 	}
+
+	// fase36: seed/add templates on upgrade.
+	ANPA_Socios_Email_Template_Migration::migrate();
 } );
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_DB', 'desprogramar_limpeza_sesions' ) );
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Extraescolar_Offers', 'desprogramar' ) );
