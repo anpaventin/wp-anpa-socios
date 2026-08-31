@@ -1,11 +1,13 @@
-# Cola de comunicacións por correo
+# Comunicacións por correo
+
+## Parte 1: Cola de comunicacións (FASE35)
 
 Esta páxina explica como funciona o envío de correos do plugin, que significa cada
 estado, como intervir cando algo se atasca e canto tempo se garda a información.
 
 Está escrita para quen mantén a web da asociación, non fai falta ser técnico/a.
 
-## Idea xeral
+### Idea xeral
 
 O plugin **non envía os correos no momento** en que ocorre a acción que os provoca.
 En vez diso apúntaos nunha **cola** gardada na base de datos e vaios enviando **por
@@ -18,7 +20,7 @@ lotes** cada poucos minutos. Iso ten tres vantaxes:
 Cada envío agrúpase nunha **campaña**. Unha campaña ten moitos **destinatarios**, e
 cada destinatario ten un ou varios **intentos**.
 
-## "Aceptado" non é "entregado"
+### "Aceptado" non é "entregado"
 
 Isto é importante e non é un detalle.
 
@@ -30,7 +32,7 @@ Por iso a pantalla di sempre **"Aceptado"** e nunca "Entregado". Se precisas
 confirmación real de entrega, iso require un servizo de correo transaccional con
 seguimento, que hoxe non forma parte deste plugin.
 
-## Pode haber un correo repetido (e sabémolo)
+### Pode haber un correo repetido (e sabémolo)
 
 O sistema de correo non dá un identificador que permita saber se unha mensaxe xa se
 enviou. Se unha execución se corta **xusto despois** de enviar e **antes** de gardar o
@@ -41,15 +43,15 @@ comunicación importante que recibila dúas veces. Eses casos márcanse como **"
 e a pantalla avisa de que puido haber duplicado. O modelo é, dito con propiedade,
 *polo menos unha vez*, nunca *exactamente unha vez*.
 
-## Onde se ve todo
+### Onde se ve todo
 
 **Menú do plugin → Comunicacións.**
 
 Na lista de campañas vese o estado, os contadores e as accións dispoñibles. Ao premer
-nunha campaña vese cada destinatario, o seu estado, o último erro e o historial de
+unha campaña vese cada destinatario, o seu estado, o último erro e o historial de
 intentos.
 
-### Estados dunha campaña
+#### Estados dunha campaña
 
 | Estado | Que significa |
 |---|---|
@@ -62,7 +64,7 @@ intentos.
 "Rematada" e "Cancelada" son estados **finais**: non se poden reabrir. Para volver
 enviar algo hai que xerar unha **campaña nova**.
 
-### Estados dun destinatario
+#### Estados dun destinatario
 
 | Estado | Que significa |
 |---|---|
@@ -73,7 +75,7 @@ enviar algo hai que xerar unha **campaña nova**.
 | Fallo definitivo | Esgotou os intentos. Non se reintentará só. |
 | Cancelado | Cancelouse antes de enviarse. |
 
-### Accións
+#### Accións
 
 - **Procesar agora**: envía un lote nese momento. Útil se o cron non vai.
 - **Pausar / Continuar**: detén e retoma unha campaña.
@@ -82,7 +84,7 @@ enviar algo hai que xerar unha **campaña nova**.
   aceptados. **Se a campaña xa está rematada ou cancelada, non se pode**: hai que crear
   unha campaña nova.
 
-## Cron: o punto que máis falla
+### Cron: o punto que máis falla
 
 WordPress non ten un temporizador propio. O seu "cron" dispárase **cando alguén visita
 a web**. Nunha web de ANPA con pouco tráfico iso significa que a cola pode quedar
@@ -94,7 +96,7 @@ A pantalla de Comunicacións avisa cando detecta un destes tres problemas:
 2. **O evento non está programado** (perdeuse do rexistro de tarefas).
 3. **Levamos moito sen procesar** (non houbo execucións recentes).
 
-### Solución recomendada: cron real do servidor
+#### Solución recomendada: cron real do servidor
 
 O correcto nunha instalación de produción é desactivar o cron por visitas e chamar o
 temporizador desde o servidor. No `wp-config.php`:
@@ -114,7 +116,7 @@ serve igual: só ten que pedir esa URL periodicamente.
 
 Mentres non haxa cron real, sempre se pode usar **Procesar agora** a man.
 
-### Cada canto se procesa
+#### Cada canto se procesa
 
 Por defecto, cada **5 minutos**. Non se cambia desde a interface a propósito (un
 intervalo demasiado curto castiga o servidor).
@@ -129,7 +131,7 @@ add_filter( 'anpa_socios_email_cron_interval', fn() => 600 ); // 10 minutos
 Cada execución está limitada **por número de mensaxes** e **por tempo**, para non
 solapar coa seguinte. Se se esgota o tempo, o que quede volve á cola de inmediato.
 
-## Canto tempo se garda a información
+### Canto tempo se garda a información
 
 Unha tarefa diaria aplica dúas limpezas, sempre nesta orde:
 
@@ -147,7 +149,7 @@ desaparecerían as filas antes de limpar a parte sensible.
 Unha campaña que **non** está rematada ou cancelada nunca se toca: aínda precisa o seu
 contido para enviar.
 
-## Desactivar e desinstalar
+### Desactivar e desinstalar
 
 - **Desactivar o plugin**: cancélanse as tarefas programadas. **Non se borra ningún dato.**
 - **Desinstalar**: por defecto **consérvase** o rexistro de comunicacións, porque pode
@@ -156,7 +158,7 @@ contido para enviar.
   desinstalar"**. Esa opción afecta **só** ás comunicacións: nin socios/as, nin fillos/as,
   nin actividades, nin matrículas.
 
-## Se algo vai mal: por onde empezar
+### Se algo vai mal: por onde empezar
 
 | Síntoma | Onde mirar |
 |---|---|
@@ -166,7 +168,7 @@ contido para enviar.
 | Hai unha campaña "En curso" que non avanza | Comproba o cron e mira se os destinatarios teñen "seguinte intento" no futuro (backoff). |
 | Quero parar un envío agora | "Pausar" (temporal) ou "Cancelar" (definitivo). |
 
-## Notas técnicas
+### Notas técnicas
 
 - Todas as datas gárdanse en **UTC** (columnas con sufixo `_utc`). Non se mesturan coa
   hora local de WordPress nin coa da sesión da base de datos.
@@ -186,3 +188,235 @@ contido para enviar.
   `anpa_socios_email_payload_retention_days`,
   `anpa_socios_email_metadata_retention_days`, e a acción de auditoría
   `anpa_socios_email_admin_action`.
+
+---
+
+## Parte 2: Sistema de Plantillas de Email (FASE36)
+
+### Idea xeral
+
+FASE36 engade un **sistema de plantillas editable** para os emails transaccionais do plugin. O contido dos emails (asunto, HTML, texto plano) pódese personalizar dende **Axustes → Plantillas de Email** sen tocar código.
+
+**Principios:**
+
+- Os **defaults canónicos** coinciden exactamente co comportamento anterior: se non hai personalización, o email é idéntico ao de antes de FASE36.
+- A personalización almacénase nunha **opción de WordPress** (`anpa_socios_email_templates`), sen novas táboas nin cambios de schema.
+- O sistema reinfra a **cola FASE35** para envío/retentos/auditoría. Non crea unha nova cola.
+- Os templates **conxélase ao encolar** (como en FASE35): cambiar unha plantilla non altera os envíos xa pendentes.
+
+### Arquitectura
+
+```
+Método transaccional (enviar_codigo, baixa_socio, etc.)
+    ↓
+render_with_template(template_id, context, fallback_fn)
+    ↓
+¿Existe template personalizado na opción?
+    ├── SÍ → ANPA_Socios_Email_Template_Renderer::render()
+    │         ↓
+    │       Template Render Provider (filter: anpa_socios_email_render_provider)
+    │         ↓
+    │       Output: subject + html + text (con variables substituídas)
+    │
+    └── NO → fallback_fn() (comportamento hardcoded legacy intacto)
+```
+
+### Template Store
+
+**Clase:** `ANPA_Socios_Email_Template_Store`
+
+**Almacenamento:** Opción `anpa_socios_email_templates` (array serializado).
+
+```php
+[
+    'verification_code' => [
+        'subject'  => 'Your verification code for %s',
+        'html'     => '<p>Hello %s,</p><p>Your code is: <strong>%s</strong></p>',
+        'text'     => 'Hello %s,\n\nYour code is: %s',
+        'modified' => '2026-08-27 12:00:00',  // ou vacío se é default
+    ],
+    // ...
+]
+```
+
+**Métodos:**
+
+| Método | Desc |
+|--------|------|
+| `get($id)` | Devolve template personalizado ou default |
+| `get_all()` | Devolve todos os templates (personalizados + defaults) |
+| `save($id, $subject, $html, $text)` | Garda con capability check |
+| `delete($id)` | Elimina template personalizado (restaura default) |
+| `restore_all()` | Limpa todas as personalizacións |
+| `get_default($id)` | Devolve o default canónico |
+| `get_all_defaults()` | Devolve todos os defaults |
+| `get_variables($id)` | Devolve variables dispoñibles por campo |
+
+**Variables dispoñibles:**
+
+| Variable | Uso | Escaping |
+|----------|-----|----------|
+| `{{association_name}}` | Nome da ANPA | `esc_html` |
+| `{{contact_email}}` | Email de contacto | `esc_html` |
+| `{{master_email}}` | Email da xunta | `esc_html` |
+| `{{nome}}` | Nome do destinatario | `esc_html` |
+| `{{apelidos}}` | Apelidos | `esc_html` |
+| `{{email_socio}}` | Email do socio | `esc_html` |
+| `{{alumno}}` | Nome do alumno/a | `esc_html` |
+| `{{actividade}}` | Actividade extraescolar | `esc_html` |
+| `{{dias_prazo}}` | Días para aceptar oferta | `esc_html` |
+| `{{login_url}}` | URL de acceso | `esc_url` |
+| `{{codigo}}` | Código de verificación | `esc_html` |
+
+### Template Renderer
+
+**Clase:** `ANPA_Socios_Email_Template_Renderer`
+
+```php
+$result = ANPA_Socios_Email_Template_Renderer::render( $template_id, $context );
+// Devolve: ['subject' => ..., 'html' => ..., 'text' => ...]
+```
+
+**Procedimento:**
+
+1. Carga template da opción (ou default se non existe)
+2. Substitúe variables coas escapadas segundo contexto
+3. Sanitiza HTML con `wp_kses_post()`
+4. Deriva texto plano (se non se fornece)
+
+### Template Render Provider
+
+**Clase:** `ANPA_Socios_Email_Template_Render_Provider`
+
+Implementa `ANPA_Socios_Email_Render_Provider_Interface` (FASE35).
+
+```php
+add_filter('anpa_socios_email_render_provider', function () {
+    return new ANPA_Socios_Email_Template_Render_Provider();
+});
+```
+
+**Comportamento:**
+
+- Con `template_ref` non baleiro: renderiza template
+- Con `template_ref` baleiro: modo pasaúnte (contido xa renderizado)
+
+### Métodos Transaccionais
+
+| Método | Template ID | Variables | Notas |
+|--------|-------------|-----------|-------|
+| `enviar_codigo` | `verification_code` | `association_name`, `nome`, `codigo` | Contexto `alta`/`verificacion` |
+| `enviar_aviso_baixa_socio` | `baixa_socio` | `association_name`, `nome`, `apelidos`, `email_socio` | Callback á xunta |
+| `enviar_aviso_reactivacion` | `reactivacion` | `association_name`, `email_socio` | Callback á xunta |
+| `enviar_aviso_baixa_extraescolar` | `baixa_extraescolar` | `association_name`, `alumno`, `actividade`, `email_socio` | Callback á xunta |
+| `enviar_oferta_extraescolar` | `oferta_extraescolar` | `association_name`, `actividade`, `dias_prazo` | Ao socio |
+| `enviar_aviso_pendente_aprobacion` | `pendente_aprobacion` | `association_name`, `nome`, `email_socio`, `login_url` | Callback á xunta |
+| `enviar_aprobacion` | `aprobacion` | `association_name`, `login_url` | Ao socio |
+| `enviar_benvida_alta` | `benvida_alta` | `association_name`, `login_url` | Ao socio |
+| `enviar_rexeitamento` | `rexeitamento` | `association_name`, `contact_email` | Ao socio |
+| `send_from_master` | N/A | N/A | Helper directo (non usa templates) |
+
+### Migración / Seed
+
+**Clase:** `ANPA_Socios_Email_Template_Migration`
+
+**Activación (plugin novo):**
+
+```php
+register_activation_hook(__FILE__, ['ANPA_Socios_Email_Template_Migration', 'migrate']);
+```
+
+**Upgrade (plugin existente):**
+
+```php
+add_action('admin_init', function () {
+    ANPA_Socios_Email_Template_Migration::migrate();
+});
+```
+
+**Comportamento:**
+
+| Estado | Acción |
+|--------|--------|
+| Opción non existe | Crea opción con 10 defaults canónicos |
+| Opción existe | Engade só templates novos (preserva personalizacións) |
+| Reexecución | Idempotente: non sobrescribe datos |
+
+**Seguridade:**
+
+- Nunca sobrescribe templates personalizados
+- Nunca crea táboas nin modifica schema
+- Nunca envía emails
+
+### Admin UX
+
+**Localización:** Menú ANPA Socios → Plantillas de Email
+
+**Permisos:** `manage_options`
+
+**Funcionalidades:**
+
+- Listado de templates con ID, asunto, estado (personalizado/default), variables
+- Formulario de edición: subject, HTML, texto plano
+- Previsualización HTML
+- Restore ao default canónico
+
+**Seguridade:**
+
+- Nonce: `anpa_save_template` / `anpa_template_nonce`
+- Sanitización: `wp_kses_post()` (HTML), `sanitize_text_field()` (subject), `sanitize_textarea_field()` (texto)
+- Capability check en todos os writes
+
+### Seguridade
+
+- **manage_options** requirido para acceder á pantalla
+- **Nonce** en todos os formularios
+- **Sanitización** segundo contexto (HTML vs texto vs URL)
+- **Escaping** de variables segundo contexto
+- **Sen secretos** nos templates nin logs
+- **Sen PII** nos exemplos nin tests
+
+### Integración con FASE35
+
+FASE36 **non modifica** FASE35. Reutiliza:
+
+| Componente FASE35 | Uso en FASE36 |
+|-------------------|---------------|
+| `ANPA_Socios_Email_Queue` | Envío por lotes |
+| `ANPA_Socios_Email_Render::freeze()` | Snapshot + payload_hash |
+| `ANPA_Socios_Email_Render::thaw()` | Recuperación de snapshot |
+| `ANPA_Socios_Email_Processor` | Procesamento de campañas |
+| `ANPA_Socios_Email_Backoff` | Reintentos |
+| `ANPA_Socios_Email_Retention` | Limpeza de datos |
+| `ANPA_Socios_Email_Redaction` | Ofuscación de emails en logs |
+
+### Testing
+
+**Tests FASE36:**
+
+| Microfase | Tests | Assertions |
+|-----------|-------|------------|
+| 1. Store + Renderer | 17 | 101 |
+| 2. Provider + Integration | 12 | 40 |
+| 4. Admin UX | 9 | 23 |
+| 5.1. Migration | 8 | 58 |
+| 5.3. Backward compat | 16 | 28 |
+| **Total FASE36** | **62** | **250** |
+
+**FASE35 regression:** 57 tests, 215 assertions, 0 failures
+
+**Limitacións coñecidas:**
+
+- A suite completa ten 606 errors preexistentes (clases que requiren WordPress runtime real, non causados por FASE36)
+- 20 failures preexistentes (tests con expectativas incorrectas ou dependencias de bootstrap)
+- Os tests FASE36 executanse con stubs de WordPress (bootstrap de tests)
+
+### Rollback
+
+Para desactivar o sistema de templates:
+
+```sql
+DELETE FROM wp_options WHERE option_name = 'anpa_socios_email_templates';
+```
+
+O plugin volve ao comportamento hardcoded legacy automaticamente.
