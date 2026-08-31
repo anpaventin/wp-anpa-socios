@@ -181,4 +181,5 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-store.
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-renderer.php';
 require_once __DIR__ . '/../includes/class-anpa-socios-email-templates-page.php';
 require_once __DIR__ . '/../includes/class-anpa-socios-email-template-actions.php';
+require_once __DIR__ . '/../includes/class-anpa-socios-email-template-migration.php';
 require_once __DIR__ . '/trait-anpa-socios-inspection.php';
