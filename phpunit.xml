@@ -109,6 +109,7 @@
       <file>tests/Test_ANPA_Socios_Email_Template_Renderer.php</file>
       <file>tests/Test_ANPA_Socios_Email_Templates_Page.php</file>
       <file>tests/Test_ANPA_Socios_Email_Template_Migration.php</file>
+      <file>tests/Test_ANPA_Socios_Fase36_Transaction_Backward_Compat.php</file>
       <file>tests/Test_ANPA_Socios_Email_Template_Render_Provider.php</file>
       <file>tests/Test_ANPA_Socios_Email_Fase36_Integration.php</file>
     </testsuite>
