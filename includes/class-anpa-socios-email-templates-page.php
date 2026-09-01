@@ -139,7 +139,7 @@ final class ANPA_Socios_Email_Templates_Page {
 			echo '<td><code>' . esc_html( implode( ', ', array_map( function( $v ) { return '{{' . $v . '}}'; }, $all_vars ) ) ) . '</code></td>';
 			echo '<td><a class="button button-small" href="' . esc_url( admin_url( 'admin.php?page=' . self::SLUG . '&edit=' . $id ) ) . '">' . esc_html__( 'Editar', 'anpa-socios' ) . '</a> ';
 			if ( $is_custom ) {
-				echo '<a class="button button-small" href="' . esc_url( wp_nonce_url( admin_post_url( 'anpa_restore_template_' . $id ), self::NONCE_ACTION ) ) . '">' . esc_html__( 'Restaurar', 'anpa-socios' ) . '</a>';
+				echo '<a class="button button-small" href="' . esc_url( admin_url( 'admin-post.php?action=anpa_restore_template_' . $id ) ) . '">' . esc_html__( 'Restaurar', 'anpa-socios' ) . '</a>';
 			}
 			echo '</td>';
 			echo '</tr>';
@@ -162,7 +162,7 @@ final class ANPA_Socios_Email_Templates_Page {
 
 		echo '<h2>' . sprintf( esc_html__( 'Editando: %s', 'anpa-socios' ), '<code>' . esc_html( $id ) . '</code>' ) . '</h2>';
 
-		echo '<form method="post" action="' . esc_url( admin_post_url( 'anpa_save_template' ) ) . '">';
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php?action=anpa_save_template' ) ) . '">';
 		wp_nonce_field( self::NONCE_ACTION, self::NONCE_FIELD );
 		echo '<input type="hidden" name="template_id" value="' . esc_attr( $id ) . '" />';
 
