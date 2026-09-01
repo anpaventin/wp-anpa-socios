@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.49.2] - 2026-09-01
+
+### Fixed
+
+- Fix fatal error in Admin UX for Email Templates (`/wp-admin/admin.php?page=anpa-socios-templates`): replace undefined `admin_post_url()` with valid WordPress API `admin_url('admin-post.php?action=...')`.
+  - Save action now correctly uses `admin-post.php?action=anpa_save_template`.
+  - Restore action now correctly uses `admin-post.php?action=anpa_restore_template_<id>`.
+- Add regression tests (`Test_ANPA_Socios_Admin_URL_Correctness`) to prevent re-introduction of `admin_post_url()`.
+
+## [1.49.1] - 2026-08-30
+
+### Changed
+
+- Release preparation for FASE36 (Plantillas de Email).
+
 ## [1.49.0] - 2026-08-25
 
 ### Added
