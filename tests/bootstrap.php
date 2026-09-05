@@ -239,6 +239,8 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-batch-planner.p
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-campaign-state.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-recipient-state.php';
 require_once __DIR__ . '/../includes/class-anpa-socios-email-communications-page.php';
+// Fase 37 administrative content.
+require_once __DIR__ . '/../includes/class-anpa-socios-contenido-shortcode.php';
 
 // Minimal $wpdb so table-name helpers (ANPA_Socios_DB::tabela_*) work in pure
 // tests. Tests that need query behaviour install their own fake and override it.
