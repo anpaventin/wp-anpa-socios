@@ -81,7 +81,7 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 
 	public function test_settings_tabs_are_grouped_without_maintenance_children_as_top_level(): void {
 		$this->assertSame(
-			array( 'xeral', 'cursos', 'localizacion', 'actualizacions' ),
+			array( 'xeral', 'cursos', 'localizacion', 'actualizacions', 'contenido' ),
 			array_keys( ANPA_Socios_Admin_Nav::settings_tabs() )
 		);
 

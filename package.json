@@ -1,0 +1,23 @@
+{
+  "name": "anpa-socios",
+  "version": "1.0.0",
+  "description": "<h1 align=\"center\">ANPA Socios</h1>",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://gitea.casabetty.mywire.org/projects/wp-anpa-socios.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "playwright": "^1.63.0"
+  }
+}

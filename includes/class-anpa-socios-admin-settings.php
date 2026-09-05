@@ -50,6 +50,8 @@ final class ANPA_Socios_Admin_Settings {
 		add_action( 'admin_post_anpa_socios_save_comms_retention', array( __CLASS__, 'handle_save_comms_retention' ) );
 		add_action( 'admin_post_anpa_socios_save_comms_retention_periods', array( __CLASS__, 'handle_save_comms_retention_periods' ) );
 		add_action( 'admin_post_anpa_socios_restore', array( __CLASS__, 'handle_restore' ) );
+		// FASE37: administrative content (transporte, libros, servizos).
+		add_action( 'admin_post_anpa_save_contenido', array( __CLASS__, 'handle_save_contenido' ) );
 	}
 
 	/**
@@ -554,6 +556,9 @@ final class ANPA_Socios_Admin_Settings {
 			case 'actualizacions':
 				self::render_subsection_actualizacions( esc_url( admin_url( 'admin-post.php' ) ) );
 				break;
+			case 'contenido':
+				self::render_tab_contenido( $section );
+				break;
 			case 'cursos':
 				self::render_tab_cursos( $section );
 				break;
@@ -1054,13 +1059,474 @@ final class ANPA_Socios_Admin_Settings {
 		echo '<p class="description">Comproba a última <em>Release</em> publicada no repositorio e, se hai unha versión máis nova, aparecerá en <strong>Plugins</strong> para actualizar cun clic.</p>';
 	}
 
-		/**
-		 * Subsection: contrasinais (autenticación de administración).
-		 *
-		 * @param  string $post_url Admin-post URL.
-		 * @return void
-		 */
-		private static function render_subsection_contrasinais( string $post_url ): void {
+	/**
+	 * FASE37: admin-post handler for saving contenido administrativo.
+	 *
+	 * Follows the existing admin-post + PRG pattern:
+	 * 1. Capability + nonce (category-specific).
+	 * 2. Strict whitelist of 5 categories.
+	 * 3. Sanitize + normalize.
+	 * 4. Persist via ANPA_Socios_Config.
+	 * 5. Redirect with notice.
+	 *
+	 * @return void
+	 */
+	public static function handle_save_contenido(): void {
+		$categoria = isset( $_POST['categoria'] ) ? sanitize_key( wp_unslash( $_POST['categoria'] ) ) : '';
+		if ( ! in_array( $categoria, ANPA_Socios_Config::CATEGORIAS_VALIDAS, true ) ) {
+			wp_die( esc_html__( 'Categoría non válida.', 'anpa-socios' ) );
+		}
+
+		$nonce_action = "anpa_save_contenido_{$categoria}";
+		self::guard( $nonce_action );
+
+		$data = array(
+			'activo'     => ! empty( $_POST['activo'] ),
+			'titulo'     => isset( $_POST['titulo'] ) ? sanitize_text_field( wp_unslash( $_POST['titulo'] ) ) : '',
+			'contido'    => isset( $_POST['contido'] ) ? wp_kses_post( wp_unslash( $_POST['contido'] ) ) : '',
+			'icono'      => isset( $_POST['icono'] ) ? sanitize_key( wp_unslash( $_POST['icono'] ) ) : '',
+			'orden'      => isset( $_POST['orden'] ) ? absint( wp_unslash( $_POST['orden'] ) ) : 1,
+			'documentos' => array(),
+			'enlaces'    => array(),
+		);
+
+		// Documents: array of [id, url, title]
+		if ( isset( $_POST['documentos'] ) && is_array( $_POST['documentos'] ) ) {
+			foreach ( $_POST['documentos'] as $doc ) {
+				if ( ! is_array( $doc ) ) {
+					continue;
+				}
+				$data['documentos'][] = array(
+					'id'    => isset( $doc['id'] ) ? absint( $doc['id'] ) : 0,
+					'url'   => isset( $doc['url'] ) ? esc_url_raw( wp_unslash( $doc['url'] ) ) : '',
+					'title' => isset( $doc['title'] ) ? sanitize_text_field( wp_unslash( $doc['title'] ) ) : '',
+				);
+			}
+		}
+
+		// Links: array of [title, url]
+		if ( isset( $_POST['enlaces'] ) && is_array( $_POST['enlaces'] ) ) {
+			foreach ( $_POST['enlaces'] as $link ) {
+				if ( ! is_array( $link ) ) {
+					continue;
+				}
+				$data['enlaces'][] = array(
+					'title' => isset( $link['title'] ) ? sanitize_text_field( wp_unslash( $link['title'] ) ) : '',
+					'url'   => isset( $link['url'] ) ? esc_url_raw( wp_unslash( $link['url'] ) ) : '',
+				);
+			}
+		}
+
+		// Structured items for libros/comedor
+		if ( in_array( $categoria, array( 'libros', 'comedor' ), true ) && isset( $_POST['items'] ) && is_array( $_POST['items'] ) ) {
+			foreach ( $_POST['items'] as $item ) {
+				if ( ! is_array( $item ) ) {
+					continue;
+				}
+				$sanitized = array();
+				foreach ( $item as $key => $val ) {
+					$sanitized[ sanitize_key( $key ) ] = sanitize_text_field( wp_unslash( $val ) );
+				}
+				$data['items'][] = $sanitized;
+			}
+		}
+
+		ANPA_Socios_Config::update_contenido_admin( $categoria, $data );
+
+		$redirect = add_query_arg(
+			array(
+				'tab'     => 'contenido',
+				'section' => $categoria,
+				'anpa_msg' => 'contenido_saved',
+			),
+			admin_url( 'admin.php?page=' . self::SETTINGS_SLUG )
+		);
+		wp_safe_redirect( $redirect );
+		exit;
+	}
+
+	/**
+	 * FASE37: render the "Contido" tab with vertical category navigation.
+	 *
+	 * @param string $section Active category section.
+	 * @return void
+	 */
+	private static function render_tab_contenido( string $section = 'transporte' ): void {
+		$post_url  = esc_url( admin_url( 'admin-post.php' ) );
+		$base      = admin_url( 'admin.php?page=' . self::SETTINGS_SLUG );
+		$sections  = ANPA_Socios_Admin_Nav::settings_sections( 'contenido' );
+		$active    = in_array( $section, array_keys( $sections ), true ) ? $section : 'transporte';
+		$config    = ANPA_Socios_Config::contenido_admin( $active );
+
+		printf( '<h2>%s</h2>', esc_html__( 'Contido Administrativo', 'anpa-socios' ) );
+		echo '<p class="description">' . esc_html__( 'Xestiona o contido das categorías públicas: transporte, libros e servizos.', 'anpa-socios' ) . '</p>';
+
+		// Vertical category nav
+		echo '<nav class="anpa-section-nav anpa-section-nav-vertical" aria-label="' . esc_attr__( 'Categorías de contido', 'anpa-socios' ) . '">';
+		foreach ( $sections as $slug => $label ) {
+			$is_active = ( $active === $slug );
+			printf(
+				'<a href="%s" class="anpa-section-link%s"%s>%s</a>',
+				esc_url( add_query_arg( array( 'tab' => 'contenido', 'section' => $slug ), $base ) ),
+				$is_active ? ' current' : '',
+				$is_active ? ' aria-current="page"' : '',
+				esc_html( $label )
+			);
+		}
+		echo '</nav>';
+
+		// Form
+		echo '<form method="post" action="' . $post_url . '" class="anpa-form">';
+		echo '<input type="hidden" name="action" value="anpa_save_contenido">';
+		echo '<input type="hidden" name="categoria" value="' . esc_attr( $active ) . '">';
+		echo '<input type="hidden" name="tab" value="contenido">';
+		echo '<input type="hidden" name="section" value="' . esc_attr( $active ) . '">';
+		wp_nonce_field( "anpa_save_contenido_{$active}" );
+
+		echo '<table class="form-table" role="presentation"><tbody>';
+
+		// Activo
+		echo '<tr><th scope="row"><label for="contenido-activo">' . esc_html__( 'Activo', 'anpa-socios' ) . '</label></th><td>';
+		printf(
+			'<input type="checkbox" id="contenido-activo" name="activo" value="1"%s>',
+			checked( ! empty( $config['activo'] ), true, false )
+		);
+		echo '</td></tr>';
+
+		// Título
+		echo '<tr><th scope="row"><label for="contenido-titulo">' . esc_html__( 'Título', 'anpa-socios' ) . '</label></th><td>';
+		printf(
+			'<input type="text" id="contenido-titulo" name="titulo" value="%s" class="regular-text">',
+			esc_attr( $config['titulo'] ?? '' )
+		);
+		echo '</td></tr>';
+
+		// Contido
+		echo '<tr><th scope="row"><label for="contenido-contido">' . esc_html__( 'Contido', 'anpa-socios' ) . '</label></th><td>';
+		printf(
+			'<textarea id="contenido-contido" name="contido" rows="6" class="large-text">%s</textarea>',
+			esc_textarea( $config['contido'] ?? '' )
+		);
+		echo '</td></tr>';
+
+		// Icono
+		echo '<tr><th scope="row"><label for="contenido-icono">' . esc_html__( 'Icono', 'anpa-socios' ) . '</label></th><td>';
+		printf(
+			'<input type="text" id="contenido-icono" name="icono" value="%s" class="regular-text">',
+			esc_attr( $config['icono'] ?? '' )
+		);
+		echo '<p class="description">' . esc_html__( 'Clase Dashicon (ex: dashicons-car).', 'anpa-socios' ) . '</p>';
+		echo '</td></tr>';
+
+		// Orden
+		echo '<tr><th scope="row"><label for="contenido-orden">' . esc_html__( 'Orden', 'anpa-socios' ) . '</label></th><td>';
+		printf(
+			'<input type="number" id="contenido-orden" name="orden" value="%d" min="1" max="5" class="small-text">',
+			absint( $config['orden'] ?? 1 )
+		);
+		echo '</td></tr>';
+
+		echo '</tbody></table>';
+		submit_button( __( 'Gardar cambios', 'anpa-socios' ) );
+		echo '</form>';
+
+		// FASE37 M4/M5: Structured items for libros/comedor
+		if ( 'libros' === $active ) {
+			self::render_libros_items_form( $config['items'] ?? [], $post_url );
+		} elseif ( 'comedor' === $active ) {
+			self::render_comedor_items_form( $config['items'] ?? [], $post_url );
+		}
+
+		// FASE37 M6: Documents and links for all categories
+		self::render_documentos_form( $config['documentos'] ?? [], $post_url );
+		self::render_enlaces_form( $config['enlaces'] ?? [], $post_url );
+	}
+
+	/**
+	 * FASE37 M6: Render the documents sub-form with Media Library.
+	 *
+	 * @param array  $documentos Current documents.
+	 * @param string $post_url   Admin-post URL.
+	 * @return void
+	 */
+	private static function render_documentos_form( array $documentos, string $post_url ): void {
+		echo '<h3>' . esc_html__( 'Documentos', 'anpa-socios' ) . '</h3>';
+
+		echo '<table class="widefat striped anpa-documentos-table" style="max-width:700px">';
+		echo '<caption class="screen-reader-text">' . esc_html__( 'Lista de documentos', 'anpa-socios' ) . '</caption>';
+		echo '<thead><tr>';
+		echo '<th scope="col">' . esc_html__( 'ID', 'anpa-socios' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Título', 'anpa-socios' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'URL', 'anpa-socios' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Accións', 'anpa-socios' ) . '</th>';
+		echo '</tr></thead>';
+		echo '<tbody>';
+
+		if ( empty( $documentos ) ) {
+			echo '<tr><td colspan="4">' . esc_html__( 'Non hai documentos engadidos.', 'anpa-socios' ) . '</td></tr>';
+		} else {
+			foreach ( $documentos as $index => $doc ) {
+				echo '<tr>';
+				printf( '<td><input type="number" name="documentos[%d][id]" value="%d" class="small-text" min="1"></td>', $index, $doc['id'] );
+				printf( '<td><input type="text" name="documentos[%d][title]" value="%s" class="regular-text"></td>', $index, esc_attr( $doc['title'] ?? '' ) );
+				printf( '<td><input type="text" name="documentos[%d][url]" value="%s" class="regular-text"></td>', $index, esc_attr( $doc['url'] ?? '' ) );
+				printf( '<td><button type="button" class="button anpa-remove-doc" data-index="%d">%s</button></td>', $index, esc_html__( 'Eliminar', 'anpa-socios' ) );
+				echo '</tr>';
+			}
+		}
+
+		echo '</tbody></table>';
+
+		echo '<p><button type="button" class="button button-secondary anpa-add-doc">' . esc_html__( 'Engadir documento', 'anpa-socios' ) . '</button></p>';
+
+		echo '<script>
+		document.addEventListener("DOMContentLoaded", function() {
+			var table = document.querySelector(".anpa-documentos-table tbody");
+			var addBtn = document.querySelector(".anpa-add-doc");
+			if (addBtn && table) {
+				addBtn.addEventListener("click", function() {
+					var index = table.querySelectorAll("tr").length;
+					var row = document.createElement("tr");
+					row.innerHTML = "<td><input type=\"number\" name=\"documentos[" + index + "][id]\" value=\"\" class=\"small-text\" min=\"1\"></td>" +
+						"<td><input type=\"text\" name=\"documentos[" + index + "][title]\" value=\"\" class=\"regular-text\"></td>" +
+						"<td><input type=\"text\" name=\"documentos[" + index + "][url]\" value=\"\" class=\"regular-text\"></td>" +
+						"<td><button type=\"button\" class=\"button anpa-remove-doc\">' . esc_js( __( 'Eliminar', 'anpa-socios' ) ) . '</button></td>";
+					table.appendChild(row);
+				});
+				table.addEventListener("click", function(e) {
+					if (e.target.classList.contains("anpa-remove-doc")) {
+						e.target.closest("tr").remove();
+					}
+				});
+			}
+		});
+		</script>';
+	}
+
+	/**
+	 * FASE37 M6: Render the links sub-form.
+	 *
+	 * @param array  $enlaces Current links.
+	 * @param string $post_url Admin-post URL.
+	 * @return void
+	 */
+	private static function render_enlaces_form( array $enlaces, string $post_url ): void {
+		echo '<h3>' . esc_html__( 'Enlaces', 'anpa-socios' ) . '</h3>';
+
+		echo '<table class="widefat striped anpa-enlaces-table" style="max-width:700px">';
+		echo '<caption class="screen-reader-text">' . esc_html__( 'Lista de enlaces', 'anpa-socios' ) . '</caption>';
+		echo '<thead><tr>';
+		echo '<th scope="col">' . esc_html__( 'Título', 'anpa-socios' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'URL', 'anpa-socios' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Accións', 'anpa-socios' ) . '</th>';
+		echo '</tr></thead>';
+		echo '<tbody>';
+
+		if ( empty( $enlaces ) ) {
+			echo '<tr><td colspan="3">' . esc_html__( 'Non hai enlaces engadidos.', 'anpa-socios' ) . '</td></tr>';
+		} else {
+			foreach ( $enlaces as $index => $link ) {
+				echo '<tr>';
+				printf( '<td><input type="text" name="enlaces[%d][title]" value="%s" class="regular-text"></td>', $index, esc_attr( $link['title'] ?? '' ) );
+				printf( '<td><input type="text" name="enlaces[%d][url]" value="%s" class="regular-text"></td>', $index, esc_attr( $link['url'] ?? '' ) );
+				printf( '<td><button type="button" class="button anpa-remove-link" data-index="%d">%s</button></td>', $index, esc_html__( 'Eliminar', 'anpa-socios' ) );
+				echo '</tr>';
+			}
+		}
+
+		echo '</tbody></table>';
+
+		echo '<p><button type="button" class="button button-secondary anpa-add-link">' . esc_html__( 'Engadir enlace', 'anpa-socios' ) . '</button></p>';
+
+		echo '<script>
+		document.addEventListener("DOMContentLoaded", function() {
+			var table = document.querySelector(".anpa-enlaces-table tbody");
+			var addBtn = document.querySelector(".anpa-add-link");
+			if (addBtn && table) {
+				addBtn.addEventListener("click", function() {
+					var index = table.querySelectorAll("tr").length;
+					var row = document.createElement("tr");
+					row.innerHTML = "<td><input type=\"text\" name=\"enlaces[" + index + "][title]\" value=\"\" class=\"regular-text\"></td>" +
+						"<td><input type=\"text\" name=\"enlaces[" + index + "][url]\" value=\"\" class=\"regular-text\"></td>" +
+						"<td><button type=\"button\" class=\"button anpa-remove-link\">' . esc_js( __( 'Eliminar', 'anpa-socios' ) ) . '</button></td>";
+					table.appendChild(row);
+				});
+				table.addEventListener("click", function(e) {
+					if (e.target.classList.contains("anpa-remove-link")) {
+						e.target.closest("tr").remove();
+					}
+				});
+			}
+		});
+		</script>';
+	}
+
+	/**
+	 * FASE37 M5: Render the comedor items sub-form (reuses M4 pattern).
+	 *
+	 * @param array  $items    Current comedor items.
+	 * @param string $post_url Admin-post URL.
+	 * @return void
+	 */
+	private static function render_comedor_items_form( array $items, string $post_url ): void {
+		echo '<h3>' . esc_html__( 'Menús do Comedor', 'anpa-socios' ) . '</h3>';
+
+		echo '<table class="widefat striped anpa-comedor-table" style="max-width:700px">';
+		echo '<caption class="screen-reader-text">' . esc_html__( 'Lista de menús', 'anpa-socios' ) . '</caption>';
+		echo '<thead><tr>';
+		echo '<th scope="col">' . esc_html__( 'Data', 'anpa-socios' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Menú', 'anpa-socios' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Alérxenos', 'anpa-socios' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Accións', 'anpa-socios' ) . '</th>';
+		echo '</tr></thead>';
+		echo '<tbody>';
+
+		if ( empty( $items ) ) {
+			echo '<tr><td colspan="4">' . esc_html__( 'Non hai menús engadidos.', 'anpa-socios' ) . '</td></tr>';
+		} else {
+			foreach ( $items as $index => $item ) {
+				echo '<tr>';
+				printf( '<td><input type="text" name="items[%d][fecha]" value="%s" class="small-text"></td>', $index, esc_attr( $item['fecha'] ?? '' ) );
+				printf( '<td><input type="text" name="items[%d][menu]" value="%s" class="regular-text"></td>', $index, esc_attr( $item['menu'] ?? '' ) );
+				printf( '<td><input type="text" name="items[%d][alerxenos]" value="%s" class="regular-text"></td>', $index, esc_attr( $item['alerxenos'] ?? '' ) );
+				printf( '<td><button type="button" class="button anpa-remove-item" data-index="%d">%s</button></td>', $index, esc_html__( 'Eliminar', 'anpa-socios' ) );
+				echo '</tr>';
+			}
+		}
+
+		echo '</tbody></table>';
+
+		echo '<p><button type="button" class="button button-secondary anpa-add-menu">' . esc_html__( 'Engadir menú', 'anpa-socios' ) . '</button></p>';
+
+		echo '<script>
+		document.addEventListener("DOMContentLoaded", function() {
+			var table = document.querySelector(".anpa-comedor-table tbody");
+			var addBtn = document.querySelector(".anpa-add-menu");
+			if (addBtn && table) {
+				addBtn.addEventListener("click", function() {
+					var index = table.querySelectorAll("tr").length;
+					var cols = ["fecha","menu","alerxenos"];
+					var row = document.createElement("tr");
+					cols.forEach(function(col) {
+						var td = document.createElement("td");
+						var input = document.createElement("input");
+						input.type = "text";
+						input.name = "items[" + index + "][" + col + "]";
+						input.className = (col === "menu" || col === "alerxenos") ? "regular-text" : "small-text";
+						td.appendChild(input);
+						row.appendChild(td);
+					});
+					var td = document.createElement("td");
+					var btn = document.createElement("button");
+					btn.type = "button";
+					btn.className = "button anpa-remove-item";
+					btn.textContent = "' . esc_js( __( 'Eliminar', 'anpa-socios' ) ) . '";
+					td.appendChild(btn);
+					row.appendChild(td);
+					table.appendChild(row);
+				});
+				table.addEventListener("click", function(e) {
+					if (e.target.classList.contains("anpa-remove-item")) {
+						e.target.closest("tr").remove();
+					}
+				});
+			}
+		});
+		</script>';
+	}
+
+	/**
+	 * FASE37 M4: Render the books items sub-form.
+	 *
+	 * @param array  $items    Current books items.
+	 * @param string $post_url Admin-post URL.
+	 * @return void
+	 */
+	private static function render_libros_items_form( array $items, string $post_url ): void {
+		echo '<h3>' . esc_html__( 'Libros', 'anpa-socios' ) . '</h3>';
+
+		echo '<table class="widefat striped anpa-libros-table" style="max-width:900px">';
+		echo '<caption class="screen-reader-text">' . esc_html__( 'Lista de libros', 'anpa-socios' ) . '</caption>';
+		echo '<thead><tr>';
+		echo '<th scope="col">' . esc_html__( 'Curso', 'anpa-socios' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Nivel', 'anpa-socios' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Materia', 'anpa-socios' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Título', 'anpa-socios' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Editorial', 'anpa-socios' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'ISBN', 'anpa-socios' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Prezo', 'anpa-socios' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Descarga', 'anpa-socios' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Accións', 'anpa-socios' ) . '</th>';
+		echo '</tr></thead>';
+		echo '<tbody>';
+
+		if ( empty( $items ) ) {
+			echo '<tr><td colspan="8">' . esc_html__( 'Non hai libros engadidos.', 'anpa-socios' ) . '</td></tr>';
+		} else {
+			foreach ( $items as $index => $item ) {
+				echo '<tr>';
+				printf( '<td><input type="text" name="items[%d][curso]" value="%s" class="small-text"></td>', $index, esc_attr( $item['curso'] ?? '' ) );
+				printf( '<td><input type="text" name="items[%d][nivel]" value="%s" class="small-text"></td>', $index, esc_attr( $item['nivel'] ?? '' ) );
+				printf( '<td><input type="text" name="items[%d][materia]" value="%s" class="small-text"></td>', $index, esc_attr( $item['materia'] ?? '' ) );
+				printf( '<td><input type="text" name="items[%d][titulo]" value="%s" class="regular-text"></td>', $index, esc_attr( $item['titulo'] ?? '' ) );
+				printf( '<td><input type="text" name="items[%d][editorial]" value="%s" class="small-text"></td>', $index, esc_attr( $item['editorial'] ?? '' ) );
+				printf( '<td><input type="text" name="items[%d][isbn]" value="%s" class="small-text"></td>', $index, esc_attr( $item['isbn'] ?? '' ) );
+				printf( '<td><input type="text" name="items[%d][prezo]" value="%s" class="small-text"></td>', $index, esc_attr( $item['prezo'] ?? '' ) );
+				printf( '<td><input type="text" name="items[%d][descarga]" value="%s" class="regular-text"></td>', $index, esc_attr( $item['descarga'] ?? '' ) );
+				printf( '<td><button type="button" class="button anpa-remove-item" data-index="%d">%s</button></td>', $index, esc_html__( 'Eliminar', 'anpa-socios' ) );
+				echo '</tr>';
+			}
+		}
+
+		echo '</tbody></table>';
+
+		// Add book button
+		echo '<p><button type="button" class="button button-secondary anpa-add-libro">' . esc_html__( 'Engadir libro', 'anpa-socios' ) . '</button></p>';
+
+		// Minimal JS for add/remove
+		echo '<script>
+		document.addEventListener("DOMContentLoaded", function() {
+			var table = document.querySelector(".anpa-libros-table tbody");
+			var addBtn = document.querySelector(".anpa-add-libro");
+			if (addBtn && table) {
+				addBtn.addEventListener("click", function() {
+					var index = table.querySelectorAll("tr").length;
+					var cols = ["curso","nivel","materia","titulo","editorial","isbn","prezo","descarga"];
+					var row = document.createElement("tr");
+					cols.forEach(function(col) {
+						var td = document.createElement("td");
+						var input = document.createElement("input");
+						input.type = "text";
+						input.name = "items[" + index + "][" + col + "]";
+						input.className = (col === "titulo" || col === "descarga") ? "regular-text" : "small-text";
+						td.appendChild(input);
+						row.appendChild(td);
+					});
+					var td = document.createElement("td");
+					var btn = document.createElement("button");
+					btn.type = "button";
+					btn.className = "button anpa-remove-item";
+					btn.textContent = "' . esc_js( __( 'Eliminar', 'anpa-socios' ) ) . '";
+					td.appendChild(btn);
+					row.appendChild(td);
+					table.appendChild(row);
+				});
+				table.addEventListener("click", function(e) {
+					if (e.target.classList.contains("anpa-remove-item")) {
+						e.target.closest("tr").remove();
+					}
+				});
+			}
+		});
+		</script>';
+	}
+	/**
+	 * Subsection: contrasinais (autenticación de administración).
+	 *
+	 * @param  string $post_url Admin-post URL.
+	 * @return void
+	 */
+	private static function render_subsection_contrasinais( string $post_url ): void {
 		echo '<h2>' . esc_html__( 'Autenticación de administración', 'anpa-socios' ) . '</h2>';
 		echo '<p class="description">' . esc_html__( 'O acceso de administración usa as credenciais de WordPress (usuario + contrasinal). Para cambiar o teu contrasinal, accede ao teu perfil de WordPress.', 'anpa-socios' ) . '</p>';
 		printf( '<p><a class="button" href="%s">%s</a></p>', esc_url( admin_url( 'profile.php' ) ), esc_html__( 'Ir ao meu perfil', 'anpa-socios' ) );
