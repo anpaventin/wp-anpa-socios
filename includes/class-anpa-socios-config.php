@@ -285,4 +285,243 @@ final class ANPA_Socios_Config {
 	public static function use_prereleases(): bool {
 		return '1' === (string) get_option( self::OPTION_USE_PRERELEASES, '0' );
 	}
+
+	// ── FASE37: Contido Administrativo ──────────────────────────────────────────
+
+	/**
+	 * WordPress option key for administrative content (Transporte, Libros, Servizos).
+	 *
+	 * @since  1.49.2
+	 * @var string
+	 */
+	const OPTION_CONTENIDO_ADMIN = 'anpa_socios_contenido_admin';
+
+	/**
+	 * Valid content categories.
+	 *
+	 * @since  1.49.2
+	 * @var string[]
+	 */
+	const CATEGORIAS_VALIDAS = [ 'transporte', 'libros', 'bos-dias', 'comedor', 'tardes-divertidas' ];
+
+	/**
+	 * Dashicons per category.
+	 *
+	 * @since  1.49.2
+	 * @var string[]
+	 */
+	const ICONOS = [
+		'transporte'        => 'dashicons-car',
+		'libros'            => 'dashicons-book',
+		'bos-dias'          => 'dashicons-sun',
+		'comedor'           => 'dashicons-carrot',
+		'tardes-divertidas' => 'dashicons-palmtree',
+	];
+
+	/**
+	 * Default content configuration per category.
+	 *
+	 * @since  1.49.2
+	 * @var array
+	 */
+	const DEFAULTS = [
+		'transporte' => [
+			'activo' => true, 'titulo' => '', 'contido' => '',
+			'icono' => 'dashicons-car', 'documentos' => [], 'enlaces' => [], 'orden' => 1,
+		],
+		'libros' => [
+			'activo' => true, 'titulo' => '', 'contido' => '',
+			'icono' => 'dashicons-book', 'documentos' => [], 'enlaces' => [], 'items' => [], 'orden' => 2,
+		],
+		'bos-dias' => [
+			'activo' => true, 'titulo' => '', 'contido' => '',
+			'icono' => 'dashicons-sun', 'documentos' => [], 'enlaces' => [], 'orden' => 3,
+		],
+		'comedor' => [
+			'activo' => true, 'titulo' => '', 'contido' => '',
+			'icono' => 'dashicons-carrot', 'documentos' => [], 'enlaces' => [], 'items' => [], 'orden' => 4,
+		],
+		'tardes-divertidas' => [
+			'activo' => true, 'titulo' => '', 'contido' => '',
+			'icono' => 'dashicons-palmtree', 'documentos' => [], 'enlaces' => [], 'orden' => 5,
+		],
+	];
+
+	/**
+	 * Returns the default content configuration.
+	 *
+	 * @since  1.49.2
+	 * @return array
+	 */
+	public static function contenido_admin_defaults(): array {
+		return self::DEFAULTS;
+	}
+
+	/**
+	 * Gets the content configuration.
+	 *
+	 * @since  1.49.2
+	 * @param  string|null $categoria Optional. Specific category to retrieve.
+	 * @return array
+	 */
+	public static function contenido_admin( string $categoria = null ): array {
+		$config = get_option( self::OPTION_CONTENIDO_ADMIN, null );
+
+		if ( ! is_array( $config ) || empty( $config ) ) {
+			$config = self::contenido_admin_defaults();
+		}
+
+		if ( $categoria ) {
+			return isset( $config[ $categoria ] ) ? $config[ $categoria ] : [];
+		}
+
+		return $config;
+	}
+
+	/**
+	 * Updates the content configuration for a specific category.
+	 *
+	 * @since  1.49.2
+	 * @param  string $categoria Category key.
+	 * @param  array  $data      Data to merge.
+	 * @return bool
+	 */
+	public static function update_contenido_admin( string $categoria, array $data ): bool {
+		if ( ! in_array( $categoria, self::CATEGORIAS_VALIDAS, true ) ) {
+			return false;
+		}
+
+		$config    = self::contenido_admin();
+		$current   = isset( $config[ $categoria ] ) ? $config[ $categoria ] : self::DEFAULTS[ $categoria ];
+		$defaults  = self::DEFAULTS[ $categoria ];
+		$validKeys = array_keys( $defaults );
+
+		// Filter data to only valid keys (fail-closed: ignore unknown fields).
+		$filteredData = array_intersect_key( $data, array_flip( $validKeys ) );
+
+		// Sanitize string fields.
+		if ( isset( $filteredData['titulo'] ) ) {
+			$filteredData['titulo'] = trim( sanitize_text_field( wp_unslash( $filteredData['titulo'] ) ) );
+		}
+		if ( isset( $filteredData['icono'] ) ) {
+			$filteredData['icono'] = sanitize_key( wp_unslash( $filteredData['icono'] ) );
+		}
+
+		// Sanitize items array (for libros/comedor).
+		if ( isset( $filteredData['items'] ) && is_array( $filteredData['items'] ) ) {
+			$filteredData['items'] = self::sanitize_items( $filteredData['items'], $categoria );
+		}
+
+		// Sanitize documents array.
+		if ( isset( $filteredData['documentos'] ) && is_array( $filteredData['documentos'] ) ) {
+			$filteredData['documentos'] = self::sanitize_documentos( $filteredData['documentos'] );
+		}
+
+		// Sanitize links array.
+		if ( isset( $filteredData['enlaces'] ) && is_array( $filteredData['enlaces'] ) ) {
+			$filteredData['enlaces'] = self::sanitize_enlaces( $filteredData['enlaces'] );
+		}
+
+		$config[ $categoria ] = array_merge( $current, $filteredData );
+
+		return update_option( self::OPTION_CONTENIDO_ADMIN, $config );
+	}
+
+	/**
+	 * Sanitizes documents array (Media Library attachments).
+	 *
+	 * @since  1.49.2
+	 * @param  array $documentos Raw documents array.
+	 * @return array
+	 */
+	private static function sanitize_documentos( array $documentos ): array {
+		$sanitized = [];
+		foreach ( $documentos as $doc ) {
+			if ( ! is_array( $doc ) ) {
+				continue;
+			}
+			$id = isset( $doc['id'] ) ? absint( wp_unslash( $doc['id'] ) ) : 0;
+			if ( $id <= 0 ) {
+				continue;
+			}
+			$sanitized[] = [
+				'id'    => $id,
+				'url'   => isset( $doc['url'] ) ? esc_url_raw( wp_unslash( $doc['url'] ) ) : '',
+				'title' => isset( $doc['title'] ) ? sanitize_text_field( wp_unslash( $doc['title'] ) ) : '',
+			];
+		}
+		return array_values( $sanitized );
+	}
+
+	/**
+	 * Sanitizes links array.
+	 *
+	 * @since  1.49.2
+	 * @param  array $enlaces Raw links array.
+	 * @return array
+	 */
+	private static function sanitize_enlaces( array $enlaces ): array {
+		$sanitized = [];
+		foreach ( $enlaces as $link ) {
+			if ( ! is_array( $link ) ) {
+				continue;
+			}
+			$url = isset( $link['url'] ) ? esc_url_raw( wp_unslash( $link['url'] ) ) : '';
+			if ( '' === $url ) {
+				continue;
+			}
+			$sanitized[] = [
+				'title' => isset( $link['title'] ) ? sanitize_text_field( wp_unslash( $link['title'] ) ) : '',
+				'url'   => $url,
+			];
+		}
+		return array_values( $sanitized );
+	}
+
+	/**
+	 * Sanitizes an array of structured items.
+	 *
+	 * @since  1.49.2
+	 * @param  array  $items     Raw items array.
+	 * @param  string $categoria Category key.
+	 * @return array
+	 */
+	private static function sanitize_items( array $items, string $categoria ): array {
+		$validKeys = $categoria === 'comedor'
+			? [ 'fecha', 'menu', 'alerxenos' ]
+			: [ 'curso', 'nivel', 'materia', 'titulo', 'editorial', 'isbn', 'prezo', 'descarga' ];
+
+		$sanitized = [];
+		foreach ( $items as $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+			// Filter to valid keys only.
+			$filtered = array_intersect_key( $item, array_flip( $validKeys ) );
+			// Sanitize each field.
+			foreach ( $filtered as $key => $val ) {
+				if ( $key === 'descarga' ) {
+					$filtered[ $key ] = esc_url_raw( wp_unslash( $val ) );
+				} else {
+					$filtered[ $key ] = sanitize_text_field( wp_unslash( $val ) );
+				}
+			}
+			// Merge with defaults to ensure all keys exist.
+			$defaults = array_fill_keys( $validKeys, '' );
+			$sanitized[] = array_merge( $defaults, $filtered );
+		}
+
+		// Re-index array.
+		return array_values( $sanitized );
+	}
+
+	/**
+	 * Deletes the content configuration.
+	 *
+	 * @since  1.49.2
+	 * @return bool
+	 */
+	public static function delete_contenido_admin(): bool {
+		return delete_option( self::OPTION_CONTENIDO_ADMIN );
+	}
 }

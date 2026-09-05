@@ -1,0 +1,256 @@
+name: stable-release
+
+# Stable release workflow for anpa-socios
+# Trigger: manual dispatch or push to tags matching v* (no suffix)
+# Private/public boundary: this workflow runs ONLY on the public GitHub repo
+# Code must be explicitly promoted to GitHub before this workflow can run
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Stable version (e.g. 1.49.0, no prerelease suffix)'
+        required: true
+        type: string
+      release_notes:
+        description: 'Release notes (markdown). If empty, uses RELEASE_NOTES.md'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate release candidate
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate version format
+        id: ver
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: Version '$VERSION' is not a valid stable semver (X.Y.Z)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Validated version: $VERSION"
+
+      - name: Check tag does not exist
+        run: |
+          VERSION="${{ inputs.version }}"
+          if git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q .; then
+            echo "ERROR: Tag v$VERSION already exists"
+            exit 1
+          fi
+          echo "Tag v$VERSION is available"
+
+  test:
+    name: Test (${{ matrix.image }})
+    needs: validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [mysql:8.0, mariadb:10.6]
+
+    services:
+      db:
+        image: ${{ matrix.image }}
+        env:
+          MYSQL_DATABASE: wp_anpa_integration_test
+          MYSQL_USER: wp_anpa_it
+          MYSQL_PASSWORD: wp_anpa_it_ephemeral
+          MYSQL_ROOT_PASSWORD: root_ephemeral
+          MARIADB_DATABASE: wp_anpa_integration_test
+          MARIADB_USER: wp_anpa_it
+          MARIADB_PASSWORD: wp_anpa_it_ephemeral
+          MARIADB_ROOT_PASSWORD: root_ephemeral
+          TZ: America/Argentina/Buenos_Aires
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot_ephemeral --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+
+    env:
+      WP_TESTS_DB_NAME: wp_anpa_integration_test
+      WP_TESTS_DB_USER: wp_anpa_it
+      WP_TESTS_DB_PASS: wp_anpa_it_ephemeral
+      WP_TESTS_DB_HOST: 127.0.0.1:3306
+      WP_TESTS_TABLE_PREFIX: wpint_
+      WP_TESTS_DOMAIN: example.org
+      WP_TESTS_DIR: /tmp/wordpress-tests-lib
+      WP_CORE_DIR: /tmp/wordpress
+      PHP_TZ: Europe/Madrid
+      WP_TZ: Pacific/Auckland
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: mysqli, mbstring, xml, curl, zip
+          ini-values: date.timezone=Europe/Madrid
+          tools: composer
+
+      - name: Wait for database
+        run: |
+          for i in $(seq 1 40); do
+            if mysqladmin ping -h 127.0.0.1 -uroot -proot_ephemeral --silent 2>/dev/null; then
+              echo "DB up"; break
+            fi
+            sleep 3
+          done
+
+      - name: Ensure subversion
+        run: |
+          command -v svn >/dev/null 2>&1 || sudo apt-get update -y
+          command -v svn >/dev/null 2>&1 || sudo apt-get install -y --no-install-recommends subversion
+
+      - name: Install WordPress test library
+        run: |
+          chmod +x plugins/anpa-socios/tests/integration/install-wp-tests.sh
+          plugins/anpa-socios/tests/integration/install-wp-tests.sh \
+            "$WP_TESTS_DB_NAME" "$WP_TESTS_DB_USER" "$WP_TESTS_DB_PASS" "127.0.0.1:3306" latest
+
+      - name: Composer dev dependencies
+        run: |
+          cd plugins/anpa-socios
+          composer install --no-interaction --no-progress \
+            || { rm -f composer.lock; composer update --no-interaction --no-progress; }
+          if [ ! -d vendor/yoast/phpunit-polyfills ]; then
+            composer require --dev --no-interaction --no-progress "yoast/phpunit-polyfills:^2.0" \
+              || composer require --dev --no-interaction --no-progress "yoast/phpunit-polyfills"
+          fi
+
+      - name: Run integration suite
+        run: |
+          cd plugins/anpa-socios
+          vendor/bin/phpunit -c phpunit-integration.xml --no-coverage
+
+  build:
+    name: Build package
+    needs: [validate, test]
+    runs-on: ubuntu-latest
+    outputs:
+      artifact: ${{ steps.package.outputs.artifact }}
+      sha256: ${{ steps.package.outputs.sha256 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: mysqli, mbstring, xml, curl, zip
+          tools: composer
+
+      - name: Composer install (no dev for distribution)
+        run: |
+          cd plugins/anpa-socios
+          composer install --no-interaction --no-progress --no-dev --optimize-autoloader
+
+      - name: Build ZIP package
+        id: package
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          PLUGIN_DIR="plugins/anpa-socios"
+          DIST_DIR="dist"
+          mkdir -p "$DIST_DIR"
+
+          # Create clean distribution directory
+          BUILD_DIR=$(mktemp -d)
+          mkdir -p "$BUILD_DIR/anpa-socios"
+
+          # Copy plugin files (exclude dev files)
+          rsync -av --exclude='.git' \
+                    --exclude='.github' \
+                    --exclude='tests' \
+                    --exclude='vendor/bin' \
+                    --exclude='composer.json' \
+                    --exclude='composer.lock' \
+                    --exclude='phpunit.xml' \
+                    --exclude='phpunit-integration.xml' \
+                    --exclude='.hermes-phpunit-*.log' \
+                    --exclude='.phpunit.result.cache' \
+                    "$PLUGIN_DIR/" "$BUILD_DIR/anpa-socios/"
+
+          # Create ZIP
+          cd "$BUILD_DIR"
+          ZIP_NAME="wp-anpa-socios-${VERSION}.zip"
+          zip -r "$GITHUB_WORKSPACE/$DIST_DIR/$ZIP_NAME" anpa-socios/
+
+          # Generate checksum
+          cd "$GITHUB_WORKSPACE/$DIST_DIR"
+          SHA256=$(sha256sum "$ZIP_NAME" | cut -d' ' -f1)
+          echo "$SHA256  $ZIP_NAME" > "$ZIP_NAME.SHA256SUMS"
+
+          # Cleanup
+          rm -rf "$BUILD_DIR"
+
+          echo "artifact=$ZIP_NAME" >> $GITHUB_OUTPUT
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "Built: $ZIP_NAME (SHA256: $SHA256)"
+
+      - name: Validate package manifest
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          DIST_DIR="dist"
+          ZIP_NAME="wp-anpa-socios-${VERSION}.zip"
+
+          # Verify ZIP exists
+          [ -f "$DIST_DIR/$ZIP_NAME" ] || { echo "ERROR: ZIP not found"; exit 1; }
+
+          # Verify ZIP structure
+          unzip -l "$DIST_DIR/$ZIP_NAME" | grep -q "anpa-socios/anpa-socios.php" || { echo "ERROR: Plugin main file missing"; exit 1; }
+
+          # Verify no dev files
+          unzip -l "$DIST_DIR/$ZIP_NAME" | grep -qE '(tests/|phpunit|\.github/)' && { echo "ERROR: Dev files found in package"; exit 1; }
+
+          echo "Package manifest validated"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-package
+          path: dist/
+          retention-days: 7
+
+  release:
+    name: Create GitHub Release
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: plugin-package
+          path: dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ needs.validate.outputs.version }}
+          name: v${{ needs.validate.outputs.version }}
+          body: ${{ inputs.release_notes }}
+          draft: false
+          prerelease: false
+          files: |
+            dist/wp-anpa-socios-${{ needs.validate.outputs.version }}.zip
+            dist/wp-anpa-socios-${{ needs.validate.outputs.version }}.zip.SHA256SUMS
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

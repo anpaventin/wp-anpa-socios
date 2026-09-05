@@ -1,0 +1,411 @@
+/* FASE37: Public shortcode [anpa_contenido] styles */
+/* Mobile-first, WCAG AA compliant */
+
+/* ── CSS Custom Properties ─────────────────────────────────────────────── */
+:root {
+    --anpa-card-bg: #fff;
+    --anpa-card-border: #d9e2df;
+    --anpa-card-radius: 14px;
+    --anpa-card-shadow: 0 8px 20px rgba(24, 65, 47, 0.08);
+    --anpa-title-color: #17412f;
+    --anpa-text-color: #1d2327;
+    --anpa-link-color: #2271b1;
+    --anpa-link-hover: #135e96;
+    --anpa-link-focus: #2271b1;
+    --anpa-icon-bg: #edf7f1;
+    --anpa-icon-color: #17412f;
+    --anpa-table-header-bg: #edf7f1;
+    --anpa-table-header-color: #17412f;
+    --anpa-table-border: #d9e2df;
+    --anpa-table-zebra: #f8fbfa;
+    --anpa-spacing-xs: 0.25rem;
+    --anpa-spacing-sm: 0.5rem;
+    --anpa-spacing-md: 0.75rem;
+    --anpa-spacing-lg: 1rem;
+    --anpa-spacing-xl: 1.25rem;
+    --anpa-spacing-2xl: 1.5rem;
+    --anpa-font-sm: 0.875rem;
+    --anpa-font-base: 1rem;
+    --anpa-font-lg: 1.25rem;
+    --anpa-font-xl: 1.5rem;
+    --anpa-line-height: 1.6;
+    --anpa-focus-outline: 2px solid #2271b1;
+    --anpa-focus-offset: 2px;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────────── */
+.anpa-contenido-card {
+    background: var(--anpa-card-bg);
+    border: 1px solid var(--anpa-card-border);
+    border-radius: var(--anpa-card-radius);
+    box-shadow: var(--anpa-card-shadow);
+    padding: var(--anpa-spacing-2xl);
+    margin-bottom: var(--anpa-spacing-2xl);
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* ── Icon ─────────────────────────────────────────────────────────────── */
+.anpa-card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    margin: 0 0 var(--anpa-spacing-sm);
+    border-radius: 999px;
+    background: var(--anpa-icon-bg);
+    font-size: 1.5rem;
+}
+
+.anpa-card-icon .dashicons {
+    font-size: 1.5rem;
+    width: auto;
+    height: auto;
+    color: var(--anpa-icon-color);
+}
+
+/* ── Title ────────────────────────────────────────────────────────────── */
+.anpa-card-title {
+    margin-top: var(--anpa-spacing-xs);
+    margin-bottom: var(--anpa-spacing-sm);
+    color: var(--anpa-title-color);
+    font-size: var(--anpa-font-xl);
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+/* ── Content ──────────────────────────────────────────────────────────── */
+.anpa-card-content {
+    margin: var(--anpa-spacing-lg) 0;
+    line-height: var(--anpa-line-height);
+    color: var(--anpa-text-color);
+}
+
+.anpa-card-content p {
+    margin: var(--anpa-spacing-sm) 0;
+}
+
+.anpa-card-content a {
+    color: var(--anpa-link-color);
+    text-decoration: underline;
+    font-weight: 500;
+}
+
+.anpa-card-content a:hover {
+    color: var(--anpa-link-hover);
+}
+
+.anpa-card-content a:focus-visible {
+    outline: var(--anpa-focus-outline);
+    outline-offset: var(--anpa-focus-offset);
+}
+
+/* ── Documents & Links Sections ───────────────────────────────────────── */
+.anpa-card-docs,
+.anpa-card-links {
+    margin-top: var(--anpa-spacing-xl);
+    padding-top: var(--anpa-spacing-lg);
+    border-top: 1px solid #e8efeb;
+}
+
+.anpa-card-docs h3,
+.anpa-card-links h3 {
+    font-size: var(--anpa-font-base);
+    color: var(--anpa-title-color);
+    margin-bottom: var(--anpa-spacing-sm);
+    font-weight: 600;
+}
+
+.anpa-docs-list,
+.anpa-links-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.anpa-docs-list li,
+.anpa-links-list li {
+    margin: var(--anpa-spacing-xs) 0;
+    line-height: var(--anpa-line-height);
+}
+
+.anpa-docs-list a,
+.anpa-links-list a {
+    color: var(--anpa-link-color);
+    text-decoration: underline;
+    font-weight: 500;
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+.anpa-docs-list a:hover,
+.anpa-links-list a:hover {
+    color: var(--anpa-link-hover);
+}
+
+.anpa-docs-list a:focus-visible,
+.anpa-links-list a:focus-visible {
+    outline: var(--anpa-focus-outline);
+    outline-offset: var(--anpa-focus-offset);
+}
+
+/* ── Responsive Grid ──────────────────────────────────────────────────── */
+.anpa-contenido-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--anpa-spacing-2xl);
+    margin: var(--anpa-spacing-xl) 0;
+}
+
+@media (min-width: 768px) {
+    .anpa-contenido-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 1200px) {
+    .anpa-contenido-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* ── Tables ───────────────────────────────────────────────────────────── */
+.anpa-card-table-wrapper {
+    margin-top: var(--anpa-spacing-xl);
+    padding-top: var(--anpa-spacing-lg);
+    border-top: 1px solid #e8efeb;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    /* Ensure scrollable area is obvious */
+    background:
+        linear-gradient(to right, white 30%, rgba(255,255,255,0)),
+        linear-gradient(to right, rgba(255,255,255,0), white 70%) 0 100%,
+        radial-gradient(farthest-side at 0 50%, rgba(0,0,0,.2), rgba(0,0,0,0)),
+        radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,.2), rgba(0,0,0,0)) 0 100%;
+    background-repeat: no-repeat;
+    background-color: white;
+    background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+    background-position: 0 0, 100% 0, 0 0, 100% 0;
+    background-attachment: local, local, scroll, scroll;
+}
+
+.anpa-items-table {
+    width: 100%;
+    min-width: 600px;
+    border-collapse: collapse;
+    font-size: var(--anpa-font-base);
+}
+
+.anpa-items-table caption {
+    font-weight: 700;
+    color: var(--anpa-title-color);
+    margin-bottom: var(--anpa-spacing-sm);
+    text-align: left;
+    font-size: var(--anpa-font-lg);
+}
+
+.anpa-items-table th,
+.anpa-items-table td {
+    border: 1px solid var(--anpa-table-border);
+    padding: var(--anpa-spacing-sm) var(--anpa-spacing-md);
+    text-align: left;
+    vertical-align: top;
+}
+
+.anpa-items-table thead th {
+    background: var(--anpa-table-header-bg);
+    color: var(--anpa-table-header-color);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.anpa-items-table tbody tr:nth-child(even) {
+    background: var(--anpa-table-zebra);
+}
+
+.anpa-items-table td a {
+    color: var(--anpa-link-color);
+    text-decoration: underline;
+    font-weight: 500;
+    word-break: break-word;
+}
+
+.anpa-items-table td a:hover {
+    color: var(--anpa-link-hover);
+}
+
+.anpa-items-table td a:focus-visible {
+    outline: var(--anpa-focus-outline);
+    outline-offset: var(--anpa-focus-offset);
+}
+
+/* ── Responsive Improvements ──────────────────────────────────────────── */
+
+/* Mobile: smaller font for tables, ensure scroll */
+@media (max-width: 767px) {
+    .anpa-contenido-card {
+        padding: var(--anpa-spacing-lg);
+    }
+
+    .anpa-card-title {
+        font-size: var(--anpa-font-lg);
+    }
+
+    .anpa-items-table {
+        font-size: var(--anpa-font-sm);
+    }
+
+    .anpa-items-table th,
+    .anpa-items-table td {
+        padding: var(--anpa-spacing-xs) var(--anpa-spacing-sm);
+    }
+}
+
+/* Tablet: medium sizing */
+@media (min-width: 768px) and (max-width: 1199px) {
+    .anpa-contenido-card {
+        padding: var(--anpa-spacing-xl);
+    }
+}
+
+/* Desktop: full sizing */
+@media (min-width: 1200px) {
+    .anpa-contenido-card {
+        padding: var(--anpa-spacing-2xl);
+    }
+}
+
+/* ── Accessibility: Reduced Motion ─────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .anpa-contenido-card,
+    .anpa-card-icon,
+    .anpa-docs-list a,
+    .anpa-links-list a,
+    .anpa-items-table td a {
+        transition: none;
+        animation: none;
+    }
+}
+
+/* ── Accessibility: High Contrast ──────────────────────────────────────── */
+@media (prefers-contrast: high) {
+    .anpa-contenido-card {
+        border-width: 2px;
+    }
+
+    .anpa-items-table th,
+    .anpa-items-table td {
+        border-width: 2px;
+    }
+
+    .anpa-docs-list a,
+    .anpa-links-list a,
+    .anpa-items-table td a {
+        text-decoration: underline;
+        font-weight: 600;
+    }
+}
+
+/* ── Dark Mode Support ────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --anpa-card-bg: #1d2327;
+        --anpa-card-border: #3c434a;
+        --anpa-card-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        --anpa-title-color: #f0f0f1;
+        --anpa-text-color: #f0f0f1;
+        --anpa-link-color: #72aee6;
+        --anpa-link-hover: #a7c8e8;
+        --anpa-link-focus: #72aee6;
+        --anpa-icon-bg: #2c3338;
+        --anpa-icon-color: #f0f0f1;
+        --anpa-table-header-bg: #2c3338;
+        --anpa-table-header-color: #f0f0f1;
+        --anpa-table-border: #3c434a;
+        --anpa-table-zebra: #2c3338;
+    }
+
+    .anpa-card-table-wrapper {
+        background-color: var(--anpa-card-bg);
+    }
+}
+
+/* ── Print Styles ──────────────────────────────────────────────────────── */
+@media print {
+    .anpa-contenido-card {
+        box-shadow: none;
+        border: 1px solid #000;
+        break-inside: avoid;
+    }
+
+    .anpa-card-table-wrapper {
+        overflow-x: visible;
+    }
+
+    .anpa-items-table {
+        min-width: auto;
+    }
+
+    .anpa-docs-list a,
+    .anpa-links-list a,
+    .anpa-items-table td a {
+        color: #000;
+        text-decoration: underline;
+    }
+
+    .anpa-docs-list a[href]::after,
+    .anpa-links-list a[href]::after,
+    .anpa-items-table td a[href]::after {
+        content: " (" attr(href) ")";
+        font-size: 0.8em;
+        color: #333;
+    }
+}
+
+/* ── Focus Visible Polyfill ────────────────────────────────────────────── */
+.anpa-contenido-card *:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* ── Screen Reader Only Utility ───────────────────────────────────────── */
+.anpa-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ── Touch Target Improvements ─────────────────────────────────────────── */
+@media (pointer: coarse) {
+    .anpa-docs-list a,
+    .anpa-links-list a,
+    .anpa-items-table td a {
+        min-height: 44px;
+        min-width: 44px;
+        display: inline-flex;
+        align-items: center;
+        padding: var(--anpa-spacing-xs) 0;
+    }
+}
+
+/* ── Zoom/Reflow Support ──────────────────────────────────────────────── */
+@media (max-width: 480px) {
+    .anpa-contenido-card {
+        padding: var(--anpa-spacing-md);
+    }
+
+    .anpa-card-title {
+        font-size: var(--anpa-font-base);
+    }
+
+    .anpa-card-content {
+        font-size: var(--anpa-font-sm);
+    }
+}

@@ -132,6 +132,8 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-area-page.php'
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-hub-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-extraescolares-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-unified-page.php';
+// FASE37: Public shortcode renderer for administrative content.
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-contenido-shortcode.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-preseason-guard.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-admin-nav.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-verificacion-guard.php';
@@ -216,6 +218,7 @@ add_action( 'wp_enqueue_scripts', array( 'ANPA_Socios_Area_Page', 'enqueue_asset
 add_action( 'wp_enqueue_scripts', array( 'ANPA_Socios_Extraescolares_Page', 'enqueue_assets' ) );
 add_action( 'wp_enqueue_scripts', array( 'ANPA_Socios_Hub_Page', 'enqueue_assets' ) );
 add_action( 'wp_enqueue_scripts', array( 'ANPA_Socios_Unified_Page', 'enqueue_assets' ) );
+ANPA_Socios_Contenido_Shortcode::register();
 ANPA_Socios_Preseason_Guard::register();
 ANPA_Socios_Admin_Settings::register();
 ANPA_Socios_Admin_Management_Page::register();

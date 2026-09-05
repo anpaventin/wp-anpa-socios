@@ -185,12 +185,4 @@ require_once __DIR__ . '/../includes/class-anpa-socios-email-template-migration.
 require_once __DIR__ . '/trait-anpa-socios-inspection.php';
 require_once __DIR__ . '/../includes/class-anpa-socios-email.php';
 
-// ANPA_Socios_Config stub for tests.
-if ( ! class_exists( 'ANPA_Socios_Config' ) ) {
-	class ANPA_Socios_Config {
-		public static function association_name() { return 'ANPA Test'; }
-		public static function master_email() { return 'test@example.com'; }
-		public static function contact_email() { return 'contact@example.com'; }
-		public static function email_signature() { return ''; }
-	}
-}
+// ANPA_Socios_Config stub removed — tests that need it use require_once explicitly.

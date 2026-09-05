@@ -112,6 +112,15 @@
       <file>tests/Test_ANPA_Socios_Fase36_Transaction_Backward_Compat.php</file>
       <file>tests/Test_ANPA_Socios_Email_Template_Render_Provider.php</file>
       <file>tests/Test_ANPA_Socios_Email_Fase36_Integration.php</file>
+      <file>tests/Test_ANPA_Socios_Contenido_Config.php</file>
+      <file>tests/Test_ANPA_Socios_Contenido_Admin.php</file>
+      <file>tests/Test_ANPA_Socios_Contenido_Libros.php</file>
+      <file>tests/Test_ANPA_Socios_Contenido_Comedor.php</file>
+      <file>tests/Test_ANPA_Socios_Contenido_Docs_Links.php</file>
+      <file>tests/Test_ANPA_Socios_Contenido_Shortcode.php</file>
+      <file>tests/Test_ANPA_Socios_Contenido_Variantes.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Templates_Galego.php</file>
+      <file>tests/Test_ANPA_Socios_Contenido_Uninstall.php</file>
     </testsuite>
   </testsuites>
 </phpunit>
