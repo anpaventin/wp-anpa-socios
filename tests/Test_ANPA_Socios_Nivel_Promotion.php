@@ -32,16 +32,48 @@ final class Test_ANPA_Socios_Nivel_Promotion extends TestCase {
 		);
 	}
 
-	public function test_age_above_the_highest_level_is_completed(): void {
+	public function test_age_above_the_highest_level_is_capped_to_the_last_level(): void {
 		$levels = array(
 			array( 'id' => 51, 'codigo' => '5º', 'orde' => 11 ),
 			array( 'id' => 52, 'codigo' => '6º', 'orde' => 12 ),
 		);
 
+		// Older than 6º by age: the child stays in 6º (never removed automatically).
 		$this->assertSame(
-			array( 'status' => 'completed', 'max_age' => 12 ),
+			array( 'status' => 'capped', 'level' => $levels[1], 'max_age' => 12 ),
 			ANPA_Socios_Nivel_Promotion::target_for_age( 13, $levels )
 		);
+		// Younger than the first level is still a hard error (fail closed).
+		$this->assertSame(
+			array( 'status' => 'error', 'code' => 'missing_age' ),
+			ANPA_Socios_Nivel_Promotion::target_for_age( 10, $levels )
+		);
+	}
+
+	public function test_promotion_uses_birth_year_and_keeps_sixth_graders_in_sixth(): void {
+		// Spanish rule for 2026/2027: 1º = born 2020 (turn 7 in 2027) ... 6º = born 2015.
+		$levels = array();
+		for ( $i = 1; $i <= 6; $i++ ) {
+			$levels[] = array( 'id' => 100 + $i, 'codigo' => $i . 'º', 'orde' => 6 + $i );
+		}
+		$children = array();
+		foreach ( array( 2020 => '1º', 2019 => '2º', 2015 => '6º', 2014 => '6º' ) as $year => $expected ) {
+			$children[] = array( 'fillo_id' => $year, 'data_nacemento' => $year . '-12-01', 'aula' => 'A', 'principal_email' => 'f' . $year . '@example.test', 'principal_count' => 1, 'nivel_id' => 0, 'curso' => '' );
+		}
+		$plan = ANPA_Socios_Nivel_Promotion::build_plan( '2026/2027', $levels, $children );
+
+		$this->assertSame( 'ready', $plan['status'] );
+		$this->assertSame( array( '1º', '2º', '6º', '6º' ), array_column( $plan['items'], 'curso' ) );
+		$this->assertSame( array( 'update', 'update', 'update', 'capped' ), array_column( $plan['items'], 'action' ) );
+		$this->assertSame( array( 'f2014@example.test' ), $plan['emails_cco'] );
+
+		$summary = ANPA_Socios_Nivel_Promotion::summarize_plan( $plan );
+		$this->assertSame( 4, $summary['actualizados'] );
+		$this->assertSame( 0, $summary['sen_cambios'] );
+		$this->assertSame( 1, $summary['no_ultimo_nivel'] );
+		$this->assertSame( array( '1º' => 1, '2º' => 1, '6º' => 2 ), $summary['por_curso'] );
+		$this->assertSame( '', $summary['cambios'][0]['curso_anterior'] );
+		$this->assertSame( 'capped', $summary['cambios'][3]['accion'] );
 	}
 
 	public function test_duplicate_level_age_is_rejected(): void {
@@ -134,7 +166,7 @@ final class Test_ANPA_Socios_Nivel_Promotion extends TestCase {
 		$this->assertSame( array(), $plan['emails_cco'] );
 	}
 
-	public function test_completed_children_preserve_classroom_and_deduplicate_sorted_bcc_emails(): void {
+	public function test_capped_children_stay_in_last_level_preserve_classroom_and_deduplicate_sorted_bcc_emails(): void {
 		$levels = array( array( 'id' => 82, 'codigo' => '6º', 'orde' => 12 ) );
 		$children = array(
 			array( 'fillo_id' => 22, 'data_nacemento' => '2014-01-02', 'aula' => 'B', 'principal_email' => 'Zeta@Example.test', 'principal_count' => 1, 'nivel_id' => 82, 'curso' => '6º' ),
@@ -145,9 +177,10 @@ final class Test_ANPA_Socios_Nivel_Promotion extends TestCase {
 		$plan = ANPA_Socios_Nivel_Promotion::build_plan( '2026/2027', $levels, $children );
 
 		$this->assertSame( array( 'alfa@example.test', 'zeta@example.test' ), $plan['emails_cco'] );
-		$this->assertSame( array( 'completed', 'unchanged_completed', 'completed' ), array_column( $plan['items'], 'action' ) );
+		$this->assertSame( array( 'unchanged_capped', 'capped', 'unchanged_capped' ), array_column( $plan['items'], 'action' ) );
 		$this->assertSame( array( 'B', 'A', 'D' ), array_column( $plan['items'], 'aula' ) );
-		$this->assertSame( array( '', '', '' ), array_column( $plan['items'], 'curso' ) );
+		$this->assertSame( array( '6º', '6º', '6º' ), array_column( $plan['items'], 'curso' ) );
+		$this->assertSame( array( 82, 82, 82 ), array_column( $plan['items'], 'nivel_id' ) );
 	}
 
 	public function test_build_plan_requires_exactly_one_active_principal(): void {

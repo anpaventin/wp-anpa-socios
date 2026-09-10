@@ -48,16 +48,20 @@ final class ANPA_Socios_Nivel_Promotion {
 	 * @return array Promotion target.
 	 */
 	public static function target_for_age( int $age, array $levels ): array {
-		$max_age = 0;
-		$seen     = array();
-		$target   = null;
+		$max_age   = 0;
+		$top_level = null;
+		$seen      = array();
+		$target    = null;
 		foreach ( $levels as $level ) {
 			$level_age = (int) ( $level['orde'] ?? 0 );
 			if ( isset( $seen[ $level_age ] ) ) {
 				return array( 'status' => 'error', 'code' => 'duplicate_age', 'age' => $level_age );
 			}
 			$seen[ $level_age ] = true;
-			$max_age            = max( $max_age, $level_age );
+			if ( $level_age > $max_age ) {
+				$max_age   = $level_age;
+				$top_level = $level;
+			}
 			if ( $level_age === $age ) {
 				$target = $level;
 			}
@@ -65,11 +69,47 @@ final class ANPA_Socios_Nivel_Promotion {
 		if ( null !== $target ) {
 			return array( 'status' => 'assigned', 'level' => $target );
 		}
+		// Older than the highest configured level (e.g. would be beyond 6º):
+		// keep the child in the last level instead of removing the course. The
+		// family (or the board) decides when the child actually leaves.
 		if ( $max_age > 0 && $age > $max_age ) {
-			return array( 'status' => 'completed', 'max_age' => $max_age );
+			return array( 'status' => 'capped', 'level' => $top_level, 'max_age' => $max_age );
 		}
 
 		return array( 'status' => 'error', 'code' => 'missing_age' );
+	}
+
+	/**
+	 * Summarises a ready plan for the admin preview (counts + change list).
+	 *
+	 * @param  array $plan Plan returned by build_plan().
+	 * @return array{actualizados:int,sen_cambios:int,no_ultimo_nivel:int,por_curso:array<string,int>,cambios:array<int,array<string,mixed>>}
+	 */
+	public static function summarize_plan( array $plan ): array {
+		$summary = array( 'actualizados' => 0, 'sen_cambios' => 0, 'no_ultimo_nivel' => 0, 'por_curso' => array(), 'cambios' => array() );
+		foreach ( (array) ( $plan['items'] ?? array() ) as $item ) {
+			$action = (string) ( $item['action'] ?? '' );
+			$course = (string) ( $item['curso'] ?? '' );
+			$summary['por_curso'][ $course ] = ( $summary['por_curso'][ $course ] ?? 0 ) + 1;
+			if ( in_array( $action, array( 'capped', 'unchanged_capped' ), true ) ) {
+				++$summary['no_ultimo_nivel'];
+			}
+			if ( in_array( $action, array( 'unchanged', 'unchanged_capped' ), true ) ) {
+				++$summary['sen_cambios'];
+				continue;
+			}
+			++$summary['actualizados'];
+			$summary['cambios'][] = array(
+				'fillo_id'       => (int) $item['fillo_id'],
+				'idade'          => (int) ( $item['age'] ?? 0 ),
+				'curso_anterior' => (string) ( $item['curso_anterior'] ?? '' ),
+				'curso_novo'     => $course,
+				'aula'           => (string) ( $item['aula'] ?? '' ),
+				'accion'         => $action,
+			);
+		}
+		ksort( $summary['por_curso'], SORT_NATURAL );
+		return $summary;
 	}
 
 	/**
@@ -124,20 +164,20 @@ final class ANPA_Socios_Nivel_Promotion {
 				return $target;
 			}
 
-			$current_level = (int) ( $child['nivel_id'] ?? 0 );
+			$current_level  = (int) ( $child['nivel_id'] ?? 0 );
 			$current_course = (string) ( $child['curso'] ?? '' );
-			if ( 'completed' === $target['status'] ) {
-				$action                = 0 === $current_level && '' === $current_course ? 'unchanged_completed' : 'completed';
-				$items[]               = array( 'fillo_id' => $fillo_id, 'age' => $age, 'nivel_id' => 0, 'curso' => '', 'aula' => $aula, 'action' => $action );
-				$emails_cco[ $email ]  = true;
-				continue;
+			$level          = $target['level'];
+			$course         = (string) ( $level['codigo'] ?? '' );
+			$level_id       = (int) ( $level['id'] ?? 0 );
+			$same           = $level_id === $current_level && $course === $current_course;
+			if ( 'capped' === $target['status'] ) {
+				// Beyond the last level by age: stays in the last level (6º).
+				$action               = $same ? 'unchanged_capped' : 'capped';
+				$emails_cco[ $email ] = true;
+			} else {
+				$action = $same ? 'unchanged' : 'update';
 			}
-
-			$level  = $target['level'];
-			$course = (string) ( $level['codigo'] ?? '' );
-			$level_id = (int) ( $level['id'] ?? 0 );
-			$action = $level_id === $current_level && $course === $current_course ? 'unchanged' : 'update';
-			$items[] = array( 'fillo_id' => $fillo_id, 'age' => $age, 'nivel_id' => $level_id, 'curso' => $course, 'aula' => $aula, 'action' => $action );
+			$items[] = array( 'fillo_id' => $fillo_id, 'age' => $age, 'nivel_id' => $level_id, 'curso' => $course, 'curso_anterior' => $current_course, 'aula' => $aula, 'action' => $action );
 		}
 
 		$emails = array_keys( $emails_cco );
