@@ -124,7 +124,7 @@ class ANPA_Socios_Unified_Page {
 				<h2><?php echo sprintf( esc_html__( 'Acceder ó Área de socios/as da %s', 'anpa-socios' ), esc_html( ANPA_Socios_Config::association_name() ) ); ?></h2>
 				<p><?php esc_html_e( 'O formulario de alta require cubrir todos os campos obrigatorios e aceptar a política de privacidade. Recibirás un código de verificación no teu correo para confirmar a identidade.', 'anpa-socios' ); ?></p>
 				<label for="anpa-unified-email"><?php esc_html_e( 'Email', 'anpa-socios' ); ?></label>
-				<input id="anpa-unified-email" type="email" autocomplete="email" required>
+				<input id="anpa-unified-email" type="email" autocomplete="email" required placeholder="<?php esc_attr_e( 'nome@exemplo.com', 'anpa-socios' ); ?>">
 				<div style="position:absolute;left:-9999px" aria-hidden="true">
 					<input type="text" id="anpa-unified-website" name="website" tabindex="-1" autocomplete="off" value="">
 				</div>
@@ -139,7 +139,7 @@ class ANPA_Socios_Unified_Page {
 				<h2><?php esc_html_e( 'Revisa o teu correo', 'anpa-socios' ); ?></h2>
 				<p><?php esc_html_e( 'Escribe o código recibido para continuar.', 'anpa-socios' ); ?></p>
 				<label for="anpa-unified-code"><?php esc_html_e( 'Código de 6 díxitos', 'anpa-socios' ); ?></label>
-				<input id="anpa-unified-code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required>
+				<input id="anpa-unified-code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required placeholder="123456">
 				<div class="anpa-unified-actions">
 					<button type="button" class="wp-element-button" data-action="verify-code"><?php esc_html_e( 'Verificar', 'anpa-socios' ); ?></button>
 					<button type="button" class="wp-element-button is-style-outline" data-action="back-email"><?php esc_html_e( 'Cambiar email', 'anpa-socios' ); ?></button>

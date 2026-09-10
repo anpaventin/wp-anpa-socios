@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.49.3] - 2026-09-10
+
+### Changed
+
+- Área de socios, área unificada e formulario de alta: os campos de **correo electrónico** e de **código de 6 díxitos** amosan agora un exemplo en gris claro (`nome@exemplo.com`, `123456`) que desaparece ao escribir, para que as familias identifiquen mellor que teñen que introducir. Texto traducible (es_ES incluído).
+- O campo do código no formulario de alta pasa a `inputmode="numeric"` e `autocomplete="one-time-code"` (teclado numérico e autocompletado do SMS/correo no móbil), como xa facían a área e a área unificada.
+- `details.json` volve apuntar á release real (a metadata publicada en `main` quedara en 1.49.0 e a da etiqueta 1.49.2 en 1.48.0, polo que o actualizador nunca ofreceu 1.49.1/1.49.2).
+
 ## [1.49.2] - 2026-09-01
 
 ### Fixed

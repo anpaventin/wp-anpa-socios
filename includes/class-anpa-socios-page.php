@@ -97,7 +97,7 @@ class ANPA_Socios_Socios_Page {
 					<h2><?php esc_html_e( 'Facerme socio/a', 'anpa-socios' ); ?></h2>
 					<p><?php esc_html_e( 'Introduce o teu email para comezar a alta na ANPA. Enviarémosche un código de verificación para continuar.', 'anpa-socios' ); ?></p>
 					<label for="anpa-email"><?php esc_html_e( 'Email', 'anpa-socios' ); ?></label>
-					<input id="anpa-email" type="email" name="email" required>
+					<input id="anpa-email" type="email" name="email" required placeholder="<?php esc_attr_e( 'nome@exemplo.com', 'anpa-socios' ); ?>">
 					<div style="position:absolute;left:-9999px" aria-hidden="true">
 						<input type="text" name="website" tabindex="-1" autocomplete="off" value="">
 					</div>
@@ -108,7 +108,7 @@ class ANPA_Socios_Socios_Page {
 			</div>
 			<div data-step="codigo" hidden>
 				<label for="anpa-codigo"><?php esc_html_e( 'Código de 6 díxitos', 'anpa-socios' ); ?></label>
-				<input id="anpa-codigo" type="text" name="codigo" maxlength="6" required>
+				<input id="anpa-codigo" type="text" name="codigo" maxlength="6" inputmode="numeric" autocomplete="one-time-code" required placeholder="123456">
 				<button type="submit" class="wp-element-button"><?php esc_html_e( 'Verificar', 'anpa-socios' ); ?></button>
 			</div>
 			<div data-step="datos" hidden>

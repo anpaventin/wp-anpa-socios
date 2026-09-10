@@ -72,3 +72,10 @@
 	font-size: 1rem;
 	box-sizing: border-box;
 }
+
+/* 1.49.3: exemplo en gris claro nos campos de email e código; desaparece ao escribir. */
+#anpa-unified input::placeholder {
+	color: #9aa3ad;
+	opacity: 1;
+	font-style: normal;
+}
