@@ -16,7 +16,7 @@ final class ANPA_Socios_Nivel_Promotion_Service {
 	 *
 	 * @return array|WP_Error Result summary or an operational error.
 	 */
-	public static function run() {
+	public static function run( bool $dry_run = false ) {
 		global $wpdb;
 
 		$school_year = ANPA_Socios_Curso_Activo::get();
@@ -27,6 +27,13 @@ final class ANPA_Socios_Nivel_Promotion_Service {
 		$preflight = self::snapshot( $school_year );
 		if ( is_wp_error( $preflight ) ) {
 			return $preflight;
+		}
+
+		if ( $dry_run ) {
+			// Simulation: same validation and plan as the real run, nothing written.
+			$summary               = self::summarize( $school_year, $preflight );
+			$summary['dry_run']    = true;
+			return $summary;
 		}
 
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
@@ -53,7 +60,7 @@ final class ANPA_Socios_Nivel_Promotion_Service {
 		}
 
 		foreach ( $locked['items'] as $item ) {
-			if ( in_array( $item['action'], array( 'unchanged', 'unchanged_completed' ), true ) ) {
+			if ( in_array( $item['action'], array( 'unchanged', 'unchanged_capped' ), true ) ) {
 				continue;
 			}
 			if ( ! ANPA_Socios_DB::upsert_fillo_curso_assignment(
@@ -72,25 +79,31 @@ final class ANPA_Socios_Nivel_Promotion_Service {
 			return new WP_Error( 'anpa_nivel_promotion_commit', __( 'Non se puido completar a actualización. Non se confirmou ningún cambio.', 'anpa-socios' ) );
 		}
 
-		$summary = array(
-			'curso_escolar' => $school_year,
-			'procesados'    => count( $locked['items'] ),
-			'actualizados'  => 0,
-			'sen_cambios'   => 0,
-			'finalizados'   => 0,
-			'emails_cco'    => $locked['emails_cco'],
-		);
-		foreach ( $locked['items'] as $item ) {
-			if ( 'update' === $item['action'] ) {
-				++$summary['actualizados'];
-			} elseif ( 'unchanged' === $item['action'] ) {
-				++$summary['sen_cambios'];
-			} else {
-				++$summary['finalizados'];
-			}
-		}
+		$summary            = self::summarize( $school_year, $locked );
+		$summary['dry_run'] = false;
 
 		return $summary;
+	}
+
+	/**
+	 * Builds the user-facing summary of a ready plan.
+	 *
+	 * @param  string $school_year Operational school year.
+	 * @param  array  $plan        Ready plan.
+	 * @return array
+	 */
+	private static function summarize( string $school_year, array $plan ): array {
+		$s = ANPA_Socios_Nivel_Promotion::summarize_plan( $plan );
+		return array(
+			'curso_escolar'   => $school_year,
+			'procesados'      => count( $plan['items'] ),
+			'actualizados'    => $s['actualizados'],
+			'sen_cambios'     => $s['sen_cambios'],
+			'no_ultimo_nivel' => $s['no_ultimo_nivel'],
+			'por_curso'       => $s['por_curso'],
+			'cambios'         => $s['cambios'],
+			'emails_cco'      => $plan['emails_cco'],
+		);
 	}
 
 	/**

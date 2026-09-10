@@ -44,6 +44,7 @@ final class ANPA_Socios_Admin_Settings {
 		add_action( 'admin_post_anpa_socios_inicializar_trimestres', array( __CLASS__, 'handle_inicializar_trimestres' ) );
 		add_action( 'admin_post_anpa_socios_run_season', array( __CLASS__, 'handle_run_season' ) );
 		add_action( 'admin_post_anpa_socios_update_child_levels', array( __CLASS__, 'handle_update_child_levels' ) );
+		add_action( 'admin_post_anpa_socios_preview_child_levels', array( __CLASS__, 'handle_preview_child_levels' ) );
 		add_action( 'admin_post_anpa_socios_check_updates', array( __CLASS__, 'handle_check_updates' ) );
 		add_action( 'admin_post_anpa_socios_backup', array( __CLASS__, 'handle_backup' ) );
 		add_action( 'admin_post_anpa_socios_wipe', array( __CLASS__, 'handle_wipe' ) );
@@ -1134,15 +1135,25 @@ final class ANPA_Socios_Admin_Settings {
 
 		echo '<hr>';
 		echo '<h3>' . esc_html__( 'Actualizar niveis dos fillos', 'anpa-socios' ) . '</h3>';
-		echo '<p class="description">' . esc_html__( 'Recalcula o nivel dos fillos activos segundo a idade que cumpren no ano final do curso escolar activo. Conserva a letra da aula e non modifica cursos anteriores nin matrículas.', 'anpa-socios' ) . '</p>';
-		$confirm = __( 'Actualizar agora os niveis de todos os fillos activos? A operación pararase sen cambios se detecta calquera inconsistencia.', 'anpa-socios' );
+		echo '<p class="description">' . esc_html__( 'Recalcula o nivel de cada fillo activo a partir da súa data de nacemento: asígnalle o nivel cuxa «Idade alumnado» (en Estrutura escolar) coincide coa idade que cumpre no ano final do curso activo. Quen pola idade xa superaría o último nivel mantense nel (6º) ata que a familia o dea de baixa. Conserva a letra da aula e non modifica cursos anteriores nin matrículas.', 'anpa-socios' ) . '</p>';
+		echo '<p class="description"><strong>' . esc_html__( 'Consello:', 'anpa-socios' ) . '</strong> ' . esc_html__( 'usa primeiro «Simular» para ver que fillos cambiarían de nivel e a que curso, sen gardar nada. Se algún dato impide o cálculo con seguridade, a operación pararase sen cambios.', 'anpa-socios' ) . '</p>';
+		echo '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">';
+		echo '<form method="post" action="' . $post_url . '">';
+		echo '<input type="hidden" name="action" value="anpa_socios_preview_child_levels">';
+		echo '<input type="hidden" name="tab" value="xeral">';
+		echo '<input type="hidden" name="section" value="mantemento">';
+		wp_nonce_field( 'anpa_socios_preview_child_levels' );
+		submit_button( __( 'Simular (non garda cambios)', 'anpa-socios' ), 'secondary', 'submit', false );
+		echo '</form>';
+		$confirm = __( 'Actualizar agora os niveis de todos os fillos activos? Recoméndase simular antes. A operación pararase sen cambios se detecta calquera inconsistencia.', 'anpa-socios' );
 		echo '<form method="post" action="' . $post_url . '" onsubmit="return confirm(\'' . esc_js( $confirm ) . '\');">';
 		echo '<input type="hidden" name="action" value="anpa_socios_update_child_levels">';
 		echo '<input type="hidden" name="tab" value="xeral">';
 		echo '<input type="hidden" name="section" value="mantemento">';
 		wp_nonce_field( 'anpa_socios_update_child_levels' );
-		submit_button( __( 'Actualizar niveis dos fillos', 'anpa-socios' ), 'secondary', 'submit', false );
+		submit_button( __( 'Actualizar niveis dos fillos', 'anpa-socios' ), 'primary', 'submit', false );
 		echo '</form>';
+		echo '</div>';
 	}
 
 	/**
@@ -1831,6 +1842,19 @@ final class ANPA_Socios_Admin_Settings {
 	 *
 	 * @return void
 	 */
+	public static function handle_preview_child_levels(): void {
+		self::guard( 'anpa_socios_preview_child_levels' );
+		$result = ANPA_Socios_Nivel_Promotion_Service::run( true );
+		set_transient(
+			self::promotion_result_key(),
+			is_wp_error( $result )
+				? array( 'type' => 'error', 'message' => $result->get_error_message() )
+				: array( 'type' => 'preview', 'result' => $result ),
+			5 * MINUTE_IN_SECONDS
+		);
+		self::redirect_msg( 'child_levels_result' );
+	}
+
 	public static function handle_update_child_levels(): void {
 		self::guard( 'anpa_socios_update_child_levels' );
 		$result = ANPA_Socios_Nivel_Promotion_Service::run();
@@ -2194,29 +2218,61 @@ final class ANPA_Socios_Admin_Settings {
 				return;
 			}
 			$result       = is_array( $notice['result'] ?? null ) ? $notice['result'] : array();
+			$preview      = 'preview' === ( $notice['type'] ?? '' );
 			$curso        = (string) ( $result['curso_escolar'] ?? '' );
 			$actualizados = (int) ( $result['actualizados'] ?? 0 );
 			$sen_cambios  = (int) ( $result['sen_cambios'] ?? 0 );
-			$finalizados  = (int) ( $result['finalizados'] ?? 0 );
-			$modificados  = $actualizados + $finalizados;
-			if ( 0 === $modificados ) {
+			$ultimo       = (int) ( $result['no_ultimo_nivel'] ?? 0 );
+			$cambios      = is_array( $result['cambios'] ?? null ) ? $result['cambios'] : array();
+			if ( $preview ) {
+				printf(
+					'<div class="notice notice-info"><p><strong>%s</strong> %s</p>',
+					esc_html__( 'Simulación: non se gardou ningún cambio.', 'anpa-socios' ),
+					esc_html( sprintf( __( 'Curso %1$s: %2$d fillos cambiarían de nivel, %3$d xa están no nivel correcto e %4$d quedan no último nivel por idade.', 'anpa-socios' ), $curso, $actualizados, $sen_cambios, $ultimo ) )
+				);
+			} elseif ( 0 === $actualizados ) {
 				printf(
 					'<div class="notice notice-info"><p><strong>%s</strong> %s</p>',
 					esc_html__( 'Non se modificou ningún rexistro.', 'anpa-socios' ),
-					esc_html( sprintf( __( 'Curso %1$s: os %2$d fillos activos xa tiñan o nivel correcto.', 'anpa-socios' ), $curso, $sen_cambios ) )
+					esc_html( sprintf( __( 'Curso %1$s: os %2$d fillos activos xa tiñan o nivel correcto (%3$d deles no último nivel por idade).', 'anpa-socios' ), $curso, $sen_cambios, $ultimo ) )
 				);
 			} else {
 				printf(
 					'<div class="notice notice-success"><p><strong>%s</strong> %s</p>',
 					/* translators: %d: number of modified child records */
-					esc_html( sprintf( _n( '%d rexistro modificado.', '%d rexistros modificados.', $modificados, 'anpa-socios' ), $modificados ) ),
-					esc_html( sprintf( __( 'Curso %1$s: %2$d actualizados, %3$d finalizados e %4$d xa correctos.', 'anpa-socios' ), $curso, $actualizados, $finalizados, $sen_cambios ) )
+					esc_html( sprintf( _n( '%d rexistro modificado.', '%d rexistros modificados.', $actualizados, 'anpa-socios' ), $actualizados ) ),
+					esc_html( sprintf( __( 'Curso %1$s: %2$d actualizados, %3$d xa correctos e %4$d no último nivel por idade.', 'anpa-socios' ), $curso, $actualizados, $sen_cambios, $ultimo ) )
 				);
+			}
+			$por_curso = is_array( $result['por_curso'] ?? null ) ? $result['por_curso'] : array();
+			if ( array() !== $por_curso ) {
+				$parts = array();
+				foreach ( $por_curso as $c => $n ) {
+					$parts[] = sprintf( '%s: %d', '' === (string) $c ? __( '(sen nivel)', 'anpa-socios' ) : (string) $c, (int) $n );
+				}
+				echo '<p class="description">' . esc_html__( 'Distribución resultante por curso:', 'anpa-socios' ) . ' ' . esc_html( implode( ' · ', $parts ) ) . '</p>';
+			}
+			if ( array() !== $cambios ) {
+				echo '<details' . ( $preview ? ' open' : '' ) . '><summary>' . esc_html( sprintf( _n( 'Ver o cambio', 'Ver os %d cambios', count( $cambios ), 'anpa-socios' ), count( $cambios ) ) ) . '</summary>';
+				echo '<table class="widefat striped" style="max-width:720px;margin-top:8px"><thead><tr><th>' . esc_html__( 'Fillo (ID)', 'anpa-socios' ) . '</th><th>' . esc_html__( 'Idade', 'anpa-socios' ) . '</th><th>' . esc_html__( 'Nivel actual', 'anpa-socios' ) . '</th><th>' . esc_html__( 'Nivel novo', 'anpa-socios' ) . '</th><th>' . esc_html__( 'Aula', 'anpa-socios' ) . '</th></tr></thead><tbody>';
+				foreach ( array_slice( $cambios, 0, 500 ) as $ch ) {
+					$nota = 'capped' === ( $ch['accion'] ?? '' ) ? ' (' . esc_html__( 'último nivel por idade', 'anpa-socios' ) . ')' : '';
+					printf(
+						'<tr><td>%d</td><td>%d</td><td>%s</td><td>%s%s</td><td>%s</td></tr>',
+						(int) $ch['fillo_id'],
+						(int) $ch['idade'],
+						esc_html( '' === (string) $ch['curso_anterior'] ? '—' : (string) $ch['curso_anterior'] ),
+						esc_html( (string) $ch['curso_novo'] ),
+						$nota,
+						esc_html( (string) $ch['aula'] )
+					);
+				}
+				echo '</tbody></table></details>';
 			}
 			$emails = is_array( $result['emails_cco'] ?? null ) ? array_filter( array_map( 'sanitize_email', $result['emails_cco'] ) ) : array();
 			if ( array() !== $emails ) {
-				echo '<p><strong>' . esc_html__( 'Emails dos proxenitores principais dos alumnos que remataron:', 'anpa-socios' ) . '</strong></p>';
-				echo '<p class="description">' . esc_html__( 'Copia esta lista no campo CCO do correo para notificar que foi o seu último curso e que poden solicitar a baixa como socios se o desexan.', 'anpa-socios' ) . '</p>';
+				echo '<p><strong>' . esc_html__( 'Emails dos proxenitores principais dos alumnos que pola idade xa superarían o último nivel (mantidos en 6º):', 'anpa-socios' ) . '</strong></p>';
+				echo '<p class="description">' . esc_html__( 'Copia esta lista no campo CCO do correo para comprobar coa familia se o alumno segue no centro ou se desexan solicitar a baixa como socios.', 'anpa-socios' ) . '</p>';
 				printf( '<textarea class="large-text code" rows="3" readonly onclick="this.select();">%s</textarea>', esc_textarea( implode( ', ', $emails ) ) );
 			}
 			echo '</div>';

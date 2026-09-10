@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.49.4] - 2026-09-10
+
+### Fixed
+
+- **Axustes → Mantemento → «Actualizar niveis dos fillos»**: os fillos que pola súa data de nacemento
+  xa superarían o último nivel configurado **mantéñense nese nivel (6º)** en vez de quedar sen curso.
+  Antes o botón quitáballes o curso («finalizados»); agora só a familia ou a directiva os dá de baixa.
+- Novo botón **«Simular (non garda cambios)»**: executa exactamente a mesma validación e cálculo e amosa
+  cantos fillos cambiarían de nivel, a distribución resultante por curso e a lista de cambios
+  (fillo, idade, nivel actual → novo, aula), sen escribir nada.
+- O aviso de resultado indica agora cantos fillos quedan no último nivel por idade e lista os correos
+  das súas familias para comprobar se seguen no centro.
+- A descrición do botón explica de onde sae a idade: o nivel cuxa «Idade alumnado» (Estrutura escolar)
+  coincide coa idade que o alumno cumpre no ano final do curso activo.
+
 ## [1.49.3] - 2026-09-10
 
 ### Changed

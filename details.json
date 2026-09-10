@@ -1,17 +1,17 @@
 {
     "name": "ANPA Socios",
     "slug": "anpa-socios",
-    "version": "1.49.3",
-    "download_url": "https://github.com/anpaventin/wp-anpa-socios/releases/download/v1.49.3/wp-anpa-socios-1.49.3.zip",
+    "version": "1.49.4",
+    "download_url": "https://github.com/anpaventin/wp-anpa-socios/releases/download/v1.49.4/wp-anpa-socios-1.49.4.zip",
     "homepage": "https://github.com/anpaventin/wp-anpa-socios",
     "author": "ANPA Socios",
     "author_homepage": "https://github.com/anpaventin/wp-anpa-socios",
     "requires": "6.0",
     "tested": "6.7",
     "requires_php": "7.4",
-    "last_updated": "2026-09-10T20:30:38+00:00",
+    "last_updated": "2026-09-10T20:52:12+00:00",
     "sections": {
         "description": "Member management for parents associations (ANPA/AMPA) on WordPress: passwordless member area, children and extracurricular enrolment, encrypted SEPA banking, season lifecycle, native WordPress admin screens, and self-hosted updates from GitHub.",
-        "changelog": "<h4>1.49.3</h4><ul><li>Campos de correo e de código de 6 díxitos con exemplo en gris claro (placeholder) na área de socios, na área unificada e no formulario de alta; texto traducible (gl/es).</li><li>Campo do código do formulario de alta con teclado numérico e autocompletado do código dun só uso.</li><li>Metadata de actualización (details.json) corrixida: apunta á release real.</li></ul><h4>1.49.2</h4><ul><li>Fix crítico: URLs de admin incorrectas (admin_post_url() → admin_url()).</li><li>Tests de regresión para URLs de admin.</li></ul><h4>1.49.1</h4><ul><li>Fase 36 — Sistema de plantillas de email (10 templates, renderizado, admin UX, migración idempotente).</li><li>Fase 37 — Contido administrativo.</li></ul><h4>1.49.0</h4><ul><li>Fase 35 — Cola de comunicacións (campañas, lotes, reintentos, retención) e auditoría de seguridade (Fase 33).</li></ul>"
+        "changelog": "<h4>1.49.4</h4><ul><li>«Actualizar niveis dos fillos»: os fillos que pola idade superan o último nivel mantéñense en 6º (antes quedaban sen curso).</li><li>Novo botón «Simular (non garda cambios)» con distribución por curso e lista de cambios.</li><li>Aviso de resultado con recontos e correos das familias no último nivel por idade.</li></ul><h4>1.49.3</h4><ul><li>Campos de correo e de código de 6 díxitos con exemplo en gris claro (placeholder) na área de socios, na área unificada e no formulario de alta; texto traducible (gl/es).</li><li>Campo do código do formulario de alta con teclado numérico e autocompletado do código dun só uso.</li><li>Metadata de actualización (details.json) corrixida: apunta á release real.</li></ul><h4>1.49.2</h4><ul><li>Fix crítico: URLs de admin incorrectas (admin_post_url() → admin_url()).</li><li>Tests de regresión para URLs de admin.</li></ul><h4>1.49.1</h4><ul><li>Fase 36 — Sistema de plantillas de email (10 templates, renderizado, admin UX, migración idempotente).</li><li>Fase 37 — Contido administrativo.</li></ul><h4>1.49.0</h4><ul><li>Fase 35 — Cola de comunicacións (campañas, lotes, reintentos, retención) e auditoría de seguridade (Fase 33).</li></ul>"
     }
 }
