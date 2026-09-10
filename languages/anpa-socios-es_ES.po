@@ -1348,3 +1348,6 @@ msgstr "Nota: «aula» (clase ordinaria, ej. 4ºB) no es lo mismo que «grupo de
 #: includes/class-anpa-socios-extraescolares-page.php
 msgid "Cursos:"
 msgstr "Cursos:"
+
+msgid "nome@exemplo.com"
+msgstr "nombre@ejemplo.com"

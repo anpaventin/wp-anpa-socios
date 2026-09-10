@@ -126,7 +126,7 @@ class ANPA_Socios_Area_Page {
 				<h2><?php esc_html_e( 'Área persoal de socios/as', 'anpa-socios' ); ?></h2>
 				<p><?php esc_html_e( 'Introduce o email co que estás dado/a de alta na ANPA. Enviarémosche un código para acceder sen contrasinal.', 'anpa-socios' ); ?></p>
 				<label for="anpa-area-email"><?php esc_html_e( 'Email', 'anpa-socios' ); ?></label>
-				<input id="anpa-area-email" type="email" autocomplete="email" required>
+				<input id="anpa-area-email" type="email" autocomplete="email" required placeholder="<?php esc_attr_e( 'nome@exemplo.com', 'anpa-socios' ); ?>">
 				<div style="position:absolute;left:-9999px" aria-hidden="true">
 					<input type="text" id="anpa-area-website" name="website" tabindex="-1" autocomplete="off" value="">
 				</div>
@@ -138,7 +138,7 @@ class ANPA_Socios_Area_Page {
 				<h2><?php esc_html_e( 'Revisa o teu correo', 'anpa-socios' ); ?></h2>
 				<p><?php esc_html_e( 'Escribe o código recibido para abrir a túa área persoal.', 'anpa-socios' ); ?></p>
 				<label for="anpa-area-code"><?php esc_html_e( 'Código de 6 díxitos', 'anpa-socios' ); ?></label>
-				<input id="anpa-area-code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required>
+				<input id="anpa-area-code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required placeholder="123456">
 				<button type="button" data-action="verify-code"><?php esc_html_e( 'Entrar', 'anpa-socios' ); ?></button>
 				<button type="button" class="anpa-area-secondary" data-action="back-email"><?php esc_html_e( 'Cambiar email', 'anpa-socios' ); ?></button>
 			</div>
@@ -147,7 +147,7 @@ class ANPA_Socios_Area_Page {
 				<h2><?php esc_html_e( 'Completa a túa alta', 'anpa-socios' ); ?></h2>
 				<p><?php esc_html_e( 'Se o email é válido, recibirás un código. Tras introducilo, pedirémosche os teus datos para completar a alta como socio/a.', 'anpa-socios' ); ?></p>
 				<label for="anpa-area-email-alta"><?php esc_html_e( 'Email', 'anpa-socios' ); ?></label>
-				<input id="anpa-area-email-alta" type="email" autocomplete="email" required>
+				<input id="anpa-area-email-alta" type="email" autocomplete="email" required placeholder="<?php esc_attr_e( 'nome@exemplo.com', 'anpa-socios' ); ?>">
 				<button type="button" data-action="request-code-alta"><?php esc_html_e( 'Enviar código', 'anpa-socios' ); ?></button>
 			</div>
 
