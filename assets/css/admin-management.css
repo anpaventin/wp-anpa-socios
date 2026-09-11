@@ -232,6 +232,51 @@
 	background: #fef3e2;
 }
 
+/* ── Grupos: estado por cor (1.50.0) ───────────────────────────── */
+.anpa-mgmt-table .anpa-row-grupo-aberto td {
+	background: #e8f5e9;
+}
+
+.anpa-mgmt-table .anpa-row-grupo-pechado td {
+	background: #fdecea;
+}
+
+.anpa-mgmt-table .anpa-row-grupo-deshabilitado td {
+	background: #fff8e1;
+}
+
+.anpa-grupo-estado {
+	display: inline-block;
+	padding: 0.1rem 0.55rem;
+	border-radius: 999px;
+	font-size: 0.85em;
+	font-weight: 600;
+	border: 1px solid transparent;
+	white-space: nowrap;
+}
+
+.anpa-grupo-estado-aberto {
+	background: #c8e6c9;
+	border-color: #2e7d32;
+	color: #1b5e20;
+}
+
+.anpa-grupo-estado-pechado {
+	background: #f8c9c4;
+	border-color: #c62828;
+	color: #7f1d1d;
+}
+
+.anpa-grupo-estado-deshabilitado {
+	background: #ffe9a8;
+	border-color: #b58105;
+	color: #6d4c00;
+}
+
+.anpa-grupos-legend {
+	margin: 0.25rem 0 0.5rem;
+}
+
 /* ── Filters / toolbar bar ──────────────────────────────────────── */
 .anpa-mgmt-filter-bar {
 	display: flex;

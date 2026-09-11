@@ -492,7 +492,7 @@ final class ANPA_Socios_Admin_Payload {
 	 * @since 1.9.0
 	 * @var string[]
 	 */
-	const GRUPO_ESTADO = array( 'aberto', 'pechado' );
+	const GRUPO_ESTADO = array( 'aberto', 'pechado', 'deshabilitado' );
 
 	/**
 	 * Validates and returns a canonical grupo payload (standalone shape).

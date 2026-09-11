@@ -14,7 +14,17 @@ final class ANPA_Socios_Grupo_Serie {
 
 	private const NOME_MAX_LEN = 80;
 	private const HORARIOS = array( 'maña', 'manha', 'tarde' );
-	private const ESTADOS = array( 'aberto', 'pechado' );
+	/**
+	 * Group states (1.50.0):
+	 *  - aberto: visible on the public page/timetable, offered in the area, enrolment active while seats remain.
+	 *  - pechado: hidden from the public offer and the area; existing enrolments continue; a new one goes to the waitlist.
+	 *  - deshabilitado: hidden everywhere and accepts NO enrolments; only allowed when the group has no current enrolments.
+	 *    Kept for history and later reuse instead of deleting the row.
+	 */
+	public const ESTADO_ABERTO        = 'aberto';
+	public const ESTADO_PECHADO       = 'pechado';
+	public const ESTADO_DESHABILITADO = 'deshabilitado';
+	private const ESTADOS = array( self::ESTADO_ABERTO, self::ESTADO_PECHADO, self::ESTADO_DESHABILITADO );
 
 	/**
 	 * Normalizes a group-series payload. Returns an empty array on any error.
@@ -94,6 +104,25 @@ final class ANPA_Socios_Grupo_Serie {
 			'max_pupilos'    => $max,
 			'estado'         => $estado,
 		);
+	}
+
+	/** @return string[] */
+	public static function estados(): array {
+		return self::ESTADOS;
+	}
+
+	/** True when the state may only be set on a group without current (non-baixa) enrolments. */
+	public static function estado_requires_no_enrolments( string $estado ): bool {
+		return self::ESTADO_DESHABILITADO === $estado;
+	}
+
+	public static function estado_label( string $estado ): string {
+		$labels = array(
+			self::ESTADO_ABERTO        => __( 'Aberto', 'anpa-socios' ),
+			self::ESTADO_PECHADO       => __( 'Pechado', 'anpa-socios' ),
+			self::ESTADO_DESHABILITADO => __( 'Deshabilitado', 'anpa-socios' ),
+		);
+		return $labels[ $estado ] ?? $estado;
 	}
 
 	public static function horario_label( string $horario ): string {
