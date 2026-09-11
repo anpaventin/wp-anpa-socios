@@ -450,6 +450,14 @@
 					if (title) { title.hidden = false; }
 					if (actions) { actions.hidden = false; }
 					if (missing) { missing.hidden = true; }
+					// 1.54.0: remind families whose children have no classroom letter yet.
+					tokenRequest('GET', root.dataset.fillosUrl, areaToken, null, root).then(function (fillos) {
+						var sen = (Array.isArray(fillos) ? fillos : []).filter(function (f) { return !f.aula; });
+						if (sen.length && missing) {
+							missing.textContent = __( 'Falta indicar a aula (letra da clase) de:', 'anpa-socios' ) + ' ' + sen.map(function (f) { return ((f.nome || '') + ' ' + (f.apelidos || '')).trim(); }).join(', ') + '. ' + __( 'Faino en «Fillos/as» antes de matricular en extraescolares.', 'anpa-socios' );
+							missing.hidden = false;
+						}
+					});
 					tokenRequest('GET', root.dataset.extraMatriculasUrl, areaToken, null, root).then(function (mats) {
 						renderMatriculas(host, Array.isArray(mats) ? mats : []);
 					});
@@ -864,6 +872,13 @@
 				const detail = [fillo.curso, fillo.aula].filter(Boolean).join(' · ');
 				info.textContent = (fillo.nome || '') + ' ' + (fillo.apelidos || '') + (detail ? ' (' + detail + ')' : '');
 				row.appendChild(info);
+				if (!fillo.aula) {
+					// 1.54.0: the letter was cleared (level change or start-of-year reset).
+					const warn = document.createElement('span');
+					warn.className = 'anpa-area-required-warning anpa-fillo-sen-aula';
+					warn.textContent = __( 'Falta a aula (letra da clase): pulsa «Editar», escolle o curso e a aula e garda. Sen ela non se pode matricular.', 'anpa-socios' );
+					row.appendChild(warn);
+				}
 
 				const editBtn = document.createElement('button');
 				editBtn.type = 'button';
@@ -1031,15 +1046,34 @@
 
 			function addLabel(t) { const l = document.createElement('label'); l.textContent = t; form.appendChild(l); }
 
+			// 1.54.0: children without classroom letter cannot enrol (backend enforces it too).
+			const senAula = fillos.filter((f) => !f.aula);
+			if (senAula.length) {
+				const warn = document.createElement('p');
+				warn.className = 'anpa-area-required-warning';
+				warn.textContent = __( 'Antes de matricular hai que indicar a aula (letra da clase) de:', 'anpa-socios' ) + ' ' + senAula.map((f) => ((f.nome || '') + ' ' + (f.apelidos || '')).trim()).join(', ') + '. ' + __( 'Vai a «Fillos/as», pulsa «Editar», escolle o curso e a aula e garda.', 'anpa-socios' );
+				host.appendChild(warn);
+				const goFillos = document.createElement('button');
+				goFillos.type = 'button';
+				goFillos.textContent = __( 'Ir a Fillos/as', 'anpa-socios' );
+				goFillos.addEventListener('click', function () { navigateArea('fillos'); });
+				host.appendChild(goFillos);
+				if (senAula.length === fillos.length) { return; }
+			}
+
 			addLabel('Alumno/a');
 			const filloSel = document.createElement('select');
 			fillos.forEach((f) => {
 				const o = document.createElement('option');
 				o.value = String(f.id);
-				o.textContent = ((f.nome || '') + ' ' + (f.apelidos || '')).trim() + ' (curso ' + (f.curso || '?') + ')';
+				o.textContent = ((f.nome || '') + ' ' + (f.apelidos || '')).trim() + ' (curso ' + (f.curso || '?') + (f.aula ? ' ' + f.aula : ' — ' + __( 'falta a aula', 'anpa-socios' )) + ')';
 				o.dataset.curso = String(f.curso || '');
+				if (!f.aula) { o.disabled = true; }
 				filloSel.appendChild(o);
 			});
+			if (filloSel.options.length && filloSel.options[filloSel.selectedIndex] && filloSel.options[filloSel.selectedIndex].disabled) {
+				for (let i = 0; i < filloSel.options.length; i++) { if (!filloSel.options[i].disabled) { filloSel.selectedIndex = i; break; } }
+			}
 			form.appendChild(filloSel);
 
 			addLabel('Actividade');

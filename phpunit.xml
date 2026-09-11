@@ -122,6 +122,7 @@
       <file>tests/Test_ANPA_Socios_Grupo_Estado_Deshabilitado.php</file>
       <file>tests/Test_ANPA_Socios_Matricula_Gate.php</file>
       <file>tests/Test_ANPA_Socios_Alta_Fillo_Curso.php</file>
+      <file>tests/Test_ANPA_Socios_Aula_Baleira.php</file>
       <file>tests/Test_ANPA_Socios_Contenido_Config.php</file>
       <file>tests/Test_ANPA_Socios_Contenido_Admin.php</file>
       <file>tests/Test_ANPA_Socios_Contenido_Libros.php</file>

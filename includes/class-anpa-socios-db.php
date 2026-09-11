@@ -829,7 +829,10 @@ class ANPA_Socios_DB {
 	 * @return bool True on success, false on DB write failure.
 	 */
 	public static function upsert_fillo_curso_assignment( int $fillo_id, string $curso_escolar, string $curso, string $aula ): bool {
-		if ( $fillo_id <= 0 || '' === $curso_escolar || '' === $aula ) {
+		// 1.54.0: an empty aula is a valid state ("letter not yet given by the
+		// family"); the level update clears it on purpose and the area blocks
+		// enrolment until the family fills it in.
+		if ( $fillo_id <= 0 || '' === $curso_escolar ) {
 			return false;
 		}
 
