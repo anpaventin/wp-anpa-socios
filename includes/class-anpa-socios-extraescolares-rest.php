@@ -482,6 +482,8 @@ final class ANPA_Socios_Extraescolares_REST {
 			return self::err( 'anpa_extra_db', 'Erro interno ao matricular', 500 );
 		}
 
+		ANPA_Socios_Admin_Shared::write_audit_actor( $email, 'socio', 'matricula', (string) $mat_id, 'matricula_creada_' . $estado );
+
 		return new WP_REST_Response( array(
 			'id'        => $mat_id,
 			'estado'    => $estado,
@@ -645,6 +647,7 @@ final class ANPA_Socios_Extraescolares_REST {
 				return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
 			}
 			ANPA_Socios_Email::enviar_aviso_baixa_extraescolar( $email, self::pupil_name( (int) $mat['fillo_id'] ), self::activity_name( (int) $mat['activitad_id'] ) );
+			ANPA_Socios_Admin_Shared::write_audit_actor( $email, 'socio', 'matricula', (string) $id, 'matricula_baixa_solicitada' );
 			return new WP_REST_Response( array( 'id' => $id, 'estado' => 'baixa_solicitada' ), 200 );
 		}
 
@@ -674,6 +677,7 @@ final class ANPA_Socios_Extraescolares_REST {
 			if ( 'oferta' === $mat['estado'] ) {
 				ANPA_Socios_Extraescolar_Offers::offer_next( (int) $mat['grupo_id'], (int) $mat['trimestre'] );
 			}
+			ANPA_Socios_Admin_Shared::write_audit_actor( $email, 'socio', 'matricula', (string) $id, 'matricula_baixa' );
 			return new WP_REST_Response( array( 'id' => $id, 'estado' => 'baixa' ), 200 );
 		}
 
@@ -748,6 +752,7 @@ final class ANPA_Socios_Extraescolares_REST {
 			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
 		}
 
+		ANPA_Socios_Admin_Shared::write_audit_actor( self::current_email( $request ), 'socio', 'matricula', (string) $mat['id'], 'matricula_baixa_cancelada' );
 		return new WP_REST_Response( array( 'id' => (int) $mat['id'], 'estado' => 'activo' ), 200 );
 	}
 
@@ -836,6 +841,7 @@ final class ANPA_Socios_Extraescolares_REST {
 			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
 		}
 		// posición is the immutable registration order in the activity.
+		ANPA_Socios_Admin_Shared::write_audit_actor( self::current_email( $request ), 'socio', 'matricula', (string) $mat['id'], 'oferta_aceptada' );
 
 		return new WP_REST_Response( array( 'id' => (int) $mat['id'], 'estado' => 'activo' ), 200 );
 	}

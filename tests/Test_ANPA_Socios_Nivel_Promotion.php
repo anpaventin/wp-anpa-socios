@@ -240,6 +240,13 @@ final class Test_ANPA_Socios_Nivel_Promotion extends TestCase {
 		$this->assertStringContainsString( "set_transient( self::promotion_result_key()", $source );
 		$this->assertStringContainsString( "delete_transient( self::promotion_result_key()", $source );
 		$this->assertStringContainsString( 'anpa_socios_update_child_levels', $source );
+		// 1.49.6: single button. Step 1 always simulates; step 2 applies only the reviewed plan (fingerprint).
+		$this->assertStringContainsString( 'admin_post_anpa_socios_apply_child_levels', $source );
+		$this->assertStringContainsString( 'plan_fingerprint', $source );
+		$this->assertStringNotContainsString( 'anpa_socios_preview_child_levels', $source );
+		$service = file_get_contents( __DIR__ . '/../includes/class-anpa-socios-nivel-promotion-service.php' );
+		$this->assertStringContainsString( 'string $expected_fingerprint', $service );
+		$this->assertStringContainsString( 'anpa_nivel_promotion_plan_changed', $service );
 	}
 
 	public function test_only_the_level_order_header_is_renamed_to_student_age(): void {

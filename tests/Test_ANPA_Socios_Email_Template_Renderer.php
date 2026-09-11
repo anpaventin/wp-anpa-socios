@@ -28,7 +28,9 @@ final class Test_ANPA_Socios_Email_Template_Renderer extends TestCase {
 			'codigo'           => '123456',
 		);
 		$result = ANPA_Socios_Email_Template_Renderer::render( 'verification_code', $context );
-		$this->assertStringContainsString( 'Xoan', $result['subject'] );
+		// The subject only carries the association name; nome/codigo go in the body.
+		$this->assertStringContainsString( 'ANPA', $result['subject'] );
+		$this->assertStringNotContainsString( '{{', $result['subject'] );
 		$this->assertStringContainsString( 'Xoan', $result['html'] );
 		$this->assertStringContainsString( '123456', $result['html'] );
 		$this->assertStringContainsString( '123456', $result['text'] );

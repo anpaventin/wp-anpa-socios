@@ -161,6 +161,7 @@ final class ANPA_Socios_Fillos_REST {
 		if ( null !== $row ) {
 			self::sync_current_course_assignment( (int) $row['id'], (string) $row['curso'], (string) $row['aula'] );
 		}
+		ANPA_Socios_Admin_Shared::write_audit_actor( $email, 'socio', 'fillo', (string) (int) $wpdb->insert_id, 'fillo_engadido' );
 
 		return new WP_REST_Response( null === $row ? array() : $row, 201 );
 	}
@@ -228,6 +229,7 @@ final class ANPA_Socios_Fillos_REST {
 		if ( null !== $row ) {
 			self::sync_current_course_assignment( (int) $row['id'], (string) $row['curso'], (string) $row['aula'] );
 		}
+		ANPA_Socios_Admin_Shared::write_audit_actor( self::current_email( $request ), 'socio', 'fillo', (string) $id, 'fillo_actualizado' );
 
 		return new WP_REST_Response( null === $row ? array() : $row, 200 );
 	}
@@ -270,6 +272,7 @@ final class ANPA_Socios_Fillos_REST {
 		if ( false === $updated ) {
 			return self::db_error();
 		}
+		ANPA_Socios_Admin_Shared::write_audit_actor( self::current_email( $request ), 'socio', 'fillo', (string) $id, 'fillo_eliminado' );
 
 		return new WP_REST_Response( null, 204 );
 	}
