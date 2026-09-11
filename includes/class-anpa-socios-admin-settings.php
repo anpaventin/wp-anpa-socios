@@ -1163,7 +1163,6 @@ final class ANPA_Socios_Admin_Settings {
 	 */
 	private static function render_tab_contenido( string $section = 'transporte' ): void {
 		$post_url  = esc_url( admin_url( 'admin-post.php' ) );
-		$base      = admin_url( 'admin.php?page=' . self::SETTINGS_SLUG );
 		$sections  = ANPA_Socios_Admin_Nav::settings_sections( 'contenido' );
 		$active    = in_array( $section, array_keys( $sections ), true ) ? $section : 'transporte';
 		$config    = ANPA_Socios_Config::contenido_admin( $active );
@@ -1171,19 +1170,9 @@ final class ANPA_Socios_Admin_Settings {
 		printf( '<h2>%s</h2>', esc_html__( 'Contido Administrativo', 'anpa-socios' ) );
 		echo '<p class="description">' . esc_html__( 'Xestiona o contido das categorías públicas: transporte, libros e servizos.', 'anpa-socios' ) . '</p>';
 
-		// Vertical category nav
-		echo '<nav class="anpa-section-nav anpa-section-nav-vertical" aria-label="' . esc_attr__( 'Categorías de contido', 'anpa-socios' ) . '">';
-		foreach ( $sections as $slug => $label ) {
-			$is_active = ( $active === $slug );
-			printf(
-				'<a href="%s" class="anpa-section-link%s"%s>%s</a>',
-				esc_url( add_query_arg( array( 'tab' => 'contenido', 'section' => $slug ), $base ) ),
-				$is_active ? ' current' : '',
-				$is_active ? ' aria-current="page"' : '',
-				esc_html( $label )
-			);
-		}
-		echo '</nav>';
+		// The category row is already printed by render_tabs() → render_section_nav()
+		// for every tab; printing it again here showed two identical rows.
+		printf( '<h3>%s</h3>', esc_html( $sections[ $active ] ?? $active ) );
 
 		// Form
 		echo '<form method="post" action="' . $post_url . '" class="anpa-form">';
