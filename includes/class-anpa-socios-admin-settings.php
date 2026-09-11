@@ -2883,6 +2883,7 @@ final class ANPA_Socios_Admin_Settings {
 		$li( __( 'Axustes → Cursos → Curso escolar: crea o curso (formato AAAA/AAAA+1), pon as datas de inicio e peche e os peches operativos do 1º e 2º trimestre, actívao e inicializa os trimestres. As matrículas abren coa ventá do trimestre actual (ver «Ciclo anual»).', 'anpa-socios' ) );
 		$li( __( 'Axustes → Cursos → Estrutura escolar: niveis (1º a 6º, con «Idade alumnado» 7 a 12) e aulas (A, B…). Ao crear un curso novo pódese copiar a estrutura do anterior.', 'anpa-socios' ) );
 		$li( __( 'Plantillas de Email: revisa os dez textos automáticos (por defecto en galego). «Restaurar» devolve o texto orixinal dunha plantilla.', 'anpa-socios' ) );
+		$li( __( 'Axustes → Contido: textos, documentos e ligazóns de transporte, libros, bos días, comedor e tardes divertidas. Amósanse nas páxinas públicas co shortcode [anpa_contenido categoria="comedor"] (unha categoría por shortcode).', 'anpa-socios' ) );
 		$li( __( 'Proba final: entra na área de socios cun correo teu, comproba que chega o código de seis díxitos e que a acción queda rexistrada en Xestión → Auditoría.', 'anpa-socios' ) );
 		echo '</ol>';
 		echo '<p>' . esc_html__( 'A área de socios amósase na páxina configurada en Axustes → Xeral co shortcode canónico:', 'anpa-socios' ) . ' <code>[anpa_socios_area]</code></p>';
