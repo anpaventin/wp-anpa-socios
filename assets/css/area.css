@@ -465,6 +465,12 @@
 
 
 /* Fase 8b: field-level validation errors */
+#anpa-area input.anpa-invalid,
+#anpa-area select.anpa-invalid {
+	border-color: #c62828;
+	box-shadow: 0 0 0 2px rgba(198, 40, 40, 0.2);
+}
+
 #anpa-area .anpa-field-error {
 	display: block;
 	color: #b42318;

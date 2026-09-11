@@ -314,6 +314,13 @@
 }
 
 /* Fase 8b: field-level validation errors */
+#anpa-asociarse .anpa-fillo-field .anpa-field-error {
+	display: block;
+	margin-top: 0.2rem;
+	font-size: 0.85em;
+	color: #c62828;
+}
+
 #anpa-asociarse .anpa-field-error {
 	display: block;
 	color: #b42318;

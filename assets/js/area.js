@@ -64,10 +64,31 @@
 		box.dataset.type = type || 'info';
 		box.hidden = !text;
 		if (text) {
-			// The notice sits at the top of the widget and is sticky; nudging it
-			// into view guarantees the user sees errors even deep inside a panel.
-			box.scrollIntoView({ block: 'nearest' });
+			// The notice sits at the top of the widget; bring it to the middle of
+			// the screen so it is seen even when the user is far down a panel (E8).
+			try { box.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) { box.scrollIntoView(); }
 		}
+	}
+
+	/**
+	 * Marks the inputs named by a server `fields` map (E8). Field keys map to
+	 * the area's ids (#anpa-fillo-nome, #anpa-fillo-data…); unknown keys are ignored.
+	 */
+	function applyFieldErrors(root, fields) {
+		root.querySelectorAll('.anpa-invalid').forEach(function (el) { el.classList.remove('anpa-invalid'); el.removeAttribute('title'); });
+		if (!fields || typeof fields !== 'object') { return; }
+		var idMap = { data_nacemento: 'anpa-fillo-data' };
+		var first = null;
+		Object.keys(fields).forEach(function (key) {
+			var bare = key.replace(/^fillo_\d+_/, '');
+			var el = root.querySelector('[data-field="' + key + '"]') || root.querySelector('#' + (idMap[bare] || ('anpa-fillo-' + bare)));
+			if (el) {
+				el.classList.add('anpa-invalid');
+				el.title = fields[key];
+				if (!first) { first = el; }
+			}
+		});
+		if (first) { try { first.focus({ preventScroll: true }); } catch (_) {} }
 	}
 
 	// Working-overlay control (shared across all area fetches). A depth counter
@@ -104,6 +125,7 @@
 			}
 
 			if (!response.ok) {
+				applyFieldErrors(root, body && body.data ? body.data.fields : null);
 				showMessage(root, body.message || __( 'Non foi posible completar a operación.', 'anpa-socios' ), 'error');
 				return null;
 			}
@@ -1380,7 +1402,11 @@
 
 			const data = readFilloForm();
 			if (!data.nome || !data.apelidos || !data.data_nacemento || !data.curso || !data.aula) {
-				showMessage(root, __( 'Completa todos os campos do fillo/a.', 'anpa-socios' ), 'error');
+				var faltan = {};
+				var etiquetas = { nome: __( 'Escribe o nome.', 'anpa-socios' ), apelidos: __( 'Escribe os apelidos.', 'anpa-socios' ), data_nacemento: __( 'Indica a data de nacemento.', 'anpa-socios' ), curso: __( 'Escolle o curso.', 'anpa-socios' ), aula: __( 'Escolle a aula.', 'anpa-socios' ) };
+				Object.keys(etiquetas).forEach(function (k) { if (!data[k]) { faltan[k] = etiquetas[k]; } });
+				applyFieldErrors(root, faltan);
+				showMessage(root, __( 'Completa todos os campos do fillo/a:', 'anpa-socios' ) + ' ' + Object.keys(faltan).map(function (k) { return etiquetas[k]; }).join(' '), 'error');
 				return;
 			}
 

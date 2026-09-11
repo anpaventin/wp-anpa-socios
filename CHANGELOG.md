@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.52.0] - 2026-09-11
+
+### Changed
+
+- **Erros dos formularios das familias, por campo e á vista (E8).**
+  `ANPA_Socios_Admin_Payload::validar_fillo_con_erros()` explica cada campo rexeitado dun fillo/a (nome,
+  apelidos, data de nacemento con formato esperado, curso ou aula inexistentes no ano escolar). A alta pública
+  devolve eses erros como `fields` (`fillo_<n>_<campo>` + resumo `fillos`) co texto «Corrixe os campos
+  marcados»; o formulario marca o campo en vermello dentro da fila do fillo/a, escribe a mensaxe debaixo e
+  despraza e pon o foco no primeiro campo inválido. Os endpoints da área `POST/PATCH /fillos` devolven os
+  mesmos `fields`; a área marca os campos e centra o aviso na pantalla en todos os fluxos. A matrícula sen
+  actividade ou grupo di «Escolle a actividade e o grupo» en vez de «Datos inválidos».
+  `validar_fillo()` mantén o seu contrato (devolve o fillo ou `null`).
 ## [1.51.2] - 2026-09-11
 
 ### Fixed

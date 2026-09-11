@@ -101,13 +101,13 @@ class Test_ANPA_Socios_Fillos_Dinamicos extends TestCase {
     public function test_fillos_rest_passes_curso_escolar(): void {
         $d = dirname( __DIR__ );
         $src = file_get_contents( $d . '/includes/class-anpa-socios-fillos-rest.php' );
-        $this->assertStringContainsString( 'validar_fillo( $body, $curso_escolar )', $src );
+        $this->assertStringContainsString( 'validar_fillo_con_erros( $body, $curso_escolar )', $src );
     }
 
     /** @testdox Callers pass curso_escolar: alta-payload */
     public function test_alta_payload_passes_curso_escolar(): void {
         $d = dirname( __DIR__ );
         $src = file_get_contents( $d . '/includes/lib/class-anpa-socios-alta-payload.php' );
-        $this->assertStringContainsString( 'validar_fillo( $raw_fillo, $fillo_curso_escolar )', $src );
+        $this->assertStringContainsString( 'validar_fillo_con_erros( $raw_fillo, $fillo_curso_escolar )', $src );
     }
 }
