@@ -120,6 +120,7 @@
       <file>tests/Test_ANPA_Socios_Admin_URL_Correctness.php</file>
       <file>tests/Test_ANPA_Socios_Member_Audit_Events.php</file>
       <file>tests/Test_ANPA_Socios_Grupo_Estado_Deshabilitado.php</file>
+      <file>tests/Test_ANPA_Socios_Matricula_Gate.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

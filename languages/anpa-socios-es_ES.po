@@ -1490,3 +1490,39 @@ msgid "Non se pode deshabilitar: o grupo ten %d matrícula vixente (activa, en l
 msgid_plural "Non se pode deshabilitar: o grupo ten %d matrículas vixentes (activas, en lista de espera, con oferta ou con baixa solicitada). Pásao a «pechado» ou move as matrículas antes."
 msgstr[0] "No se puede deshabilitar: el grupo tiene %d matrícula vigente (activa, en lista de espera, con oferta o con baja solicitada). Pásalo a «cerrado» o mueve la matrícula antes."
 msgstr[1] "No se puede deshabilitar: el grupo tiene %d matrículas vigentes (activas, en lista de espera, con oferta o con baja solicitada). Pásalo a «cerrado» o mueve las matrículas antes."
+
+msgid "Matrículas ABERTAS (ventá do %dº trimestre aberta)"
+msgstr "Matrículas ABIERTAS (ventana del %dº trimestre abierta)"
+
+msgid "Matrículas PECHADAS (ventá do %dº trimestre pechada)"
+msgstr "Matrículas CERRADAS (ventana del %dº trimestre cerrada)"
+
+msgid "Matrículas PECHADAS: o %dº trimestre non está inicializado"
+msgstr "Matrículas CERRADAS: el %dº trimestre no está inicializado"
+
+msgid "Matrículas PECHADAS: o curso non está activo"
+msgstr "Matrículas CERRADAS: el curso no está activo"
+
+msgid "Matrículas PECHADAS: curso sen configurar"
+msgstr "Matrículas CERRADAS: curso sin configurar"
+
+msgid "Regra única: as matrículas están abertas cando o curso está activo e a ventá do trimestre actual (segundo as datas operativas de abaixo) está aberta. Ábrense e péchanse en «Estado dos trimestres», máis abaixo; xa non hai unha casilla independente."
+msgstr "Regla única: las matrículas están abiertas cuando el curso está activo y la ventana del trimestre actual (según las fechas operativas de abajo) está abierta. Se abren y cierran en «Estado dos trimestres», más abajo; ya no hay una casilla independiente."
+
+msgid "Matrículas pechadas (ventá pechada)"
+msgstr "Matrículas cerradas (ventana cerrada)"
+
+msgid "Matrículas abertas (ventá aberta)"
+msgstr "Matrículas abiertas (ventana abierta)"
+
+msgid "Matrículas (ventá do trimestre)"
+msgstr "Matrículas (ventana del trimestre)"
+
+msgid "Abrir matrículas (ventá)"
+msgstr "Abrir matrículas (ventana)"
+
+msgid "Pechar matrículas (ventá)"
+msgstr "Cerrar matrículas (ventana)"
+
+msgid "Aquí está o único interruptor das matrículas. Cada trimestre ten dous estados independentes: o estado lectivo (pendente, activo, pechado) é informativo e serve para o calendario e os avisos; a ventá do trimestre é a que abre ou pecha as matrículas, baixas e solicitudes das familias. O trimestre actual derívase das datas operativas do curso. As transicións son manuais e quedan rexistradas (quen, cando, orixe); o sistema avisa cando chega unha data operativa pero nunca cambia un estado por si só."
+msgstr "Aquí está el único interruptor de las matrículas. Cada trimestre tiene dos estados independientes: el estado lectivo (pendiente, activo, cerrado) es informativo y sirve para el calendario y los avisos; la ventana del trimestre es la que abre o cierra las matrículas, bajas y solicitudes de las familias. El trimestre actual se deriva de las fechas operativas del curso. Las transiciones son manuales y quedan registradas (quién, cuándo, origen); el sistema avisa cuando llega una fecha operativa pero nunca cambia un estado por sí solo."

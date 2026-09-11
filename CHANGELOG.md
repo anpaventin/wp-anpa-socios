@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.51.0] - 2026-09-11
+
+### Changed
+
+- **Regra única de matrículas (E3).** As matrículas, baixas e solicitudes das familias están abertas **só**
+  cando o curso está `activo` **e** a ventá do trimestre actual está `aberta`. O trimestre actual derívase
+  das datas operativas do curso (con recurso ao modelo por meses se non están configuradas). Desaparece a
+  casilla «Matrículas abertas» de Axustes → Cursos: o formulario amosa o estado derivado en só lectura e o
+  único interruptor son os botóns «Abrir/Pechar matrículas (ventá)» do panel «Estado dos trimestres»
+  (renomeado e explicado: estado lectivo informativo vs. ventá que abre as matrículas). O «Estado» da
+  pestana Xeral e a listaxe de cursos (`GET /admin/cursos`) devolven o estado derivado
+  (`matriculas_abertas`, `matriculas_motivo`, `matriculas_etiqueta`).
+- A área de socios comproba a regra nas dúas gardas (lectura e baixo bloqueo): a fila do trimestre actual
+  bloquéase `FOR UPDATE` xunto coa do curso, así unha directiva que pecha a ventá non pode cruzarse cunha
+  matrícula. Sen filas de trimestre → pechado (fail-closed).
+- `PUT /admin/curso` ignora `matriculas_abertas` do corpo; o asistente de posta en marcha, se se marca
+  «abrir matrículas», inicializa os trimestres e abre a ventá do trimestre actual (transición auditada).
+- A columna `cursos.matriculas_abertas` queda como caché derivada (listaxes/exportacións) e sincronízase
+  en cada transición de ventá e cambio de ciclo. Ningún código decide sobre ela.
+
+### Added
+
+- `ANPA_Socios_Matricula_Gate` (regra pura) e `ANPA_Socios_Matricula_Gate_Repo` (lectura/bloqueo/sincronización).
+- **Migración de datos 1.41.0**: cada curso activo coa casilla antiga marcada inicializa os trimestres e abre
+  a ventá do trimestre actual (orixe `migracion`, rexistrada), de modo que as familias seguen podendo
+  matricularse exactamente igual; despois reescríbese a caché para todos os cursos. Idempotente.
+- Test `Test_ANPA_Socios_Matricula_Gate`.
 ## [1.50.0] - 2026-09-11
 
 ### Added
