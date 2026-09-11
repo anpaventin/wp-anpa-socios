@@ -392,11 +392,12 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 		);
 
 		$this->assertSame(
-			array( 'anpa-socios-management', 'anpa-socios-comunicacions', 'anpa-socios-settings', 'anpa-socios-docs' ),
+			// Since 1.49.1 the email templates page (fase36) sits between Comunicacións and Axustes.
+			array( 'anpa-socios-management', 'anpa-socios-comunicacions', 'anpa-socios-templates', 'anpa-socios-settings', 'anpa-socios-docs' ),
 			array_column( $GLOBALS['anpa_socios_admin_nav_submenu_calls'], 4 )
 		);
 		$this->assertSame(
-			array( 'Xestión', 'Comunicacións', 'Axustes', 'Documentación' ),
+			array( 'Xestión', 'Comunicacións', 'Plantillas de Email', 'Axustes', 'Documentación' ),
 			array_column( $GLOBALS['anpa_socios_admin_nav_submenu_calls'], 2 )
 		);
 		$this->assertNotContains( 'ANPA Socios', array_column( $GLOBALS['anpa_socios_admin_nav_submenu_calls'], 2 ) );

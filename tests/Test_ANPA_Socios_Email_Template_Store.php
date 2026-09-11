@@ -65,6 +65,9 @@ final class Test_ANPA_Socios_Email_Template_Store extends TestCase {
 	}
 
 	public function test_save_fails_without_capability(): void {
+		if ( function_exists( 'current_user_can' ) && current_user_can( 'manage_options' ) ) {
+			$this->markTestSkipped( 'current_user_can() was already defined by another test as granting the capability; PHP cannot redefine it.' );
+		}
 		if ( ! function_exists( 'current_user_can' ) ) {
 			function current_user_can( $cap ) {
 				return false;

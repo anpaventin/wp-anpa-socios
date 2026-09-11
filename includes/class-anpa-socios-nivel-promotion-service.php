@@ -14,9 +14,12 @@ final class ANPA_Socios_Nivel_Promotion_Service {
 	/**
 	 * Recalculates active children's levels for the operational school year.
 	 *
+	 * @param  bool   $dry_run              True = simulate only (adds 'fingerprint' to the summary).
+	 * @param  string $expected_fingerprint Optional fingerprint from a previous simulation; the
+	 *                                      run aborts without writing if the plan no longer matches.
 	 * @return array|WP_Error Result summary or an operational error.
 	 */
-	public static function run( bool $dry_run = false ) {
+	public static function run( bool $dry_run = false, string $expected_fingerprint = '' ) {
 		global $wpdb;
 
 		$school_year = ANPA_Socios_Curso_Activo::get();
@@ -31,9 +34,16 @@ final class ANPA_Socios_Nivel_Promotion_Service {
 
 		if ( $dry_run ) {
 			// Simulation: same validation and plan as the real run, nothing written.
-			$summary               = self::summarize( $school_year, $preflight );
-			$summary['dry_run']    = true;
+			// The fingerprint lets the admin screen apply exactly this plan later.
+			$summary                = self::summarize( $school_year, $preflight );
+			$summary['dry_run']     = true;
+			$summary['fingerprint'] = self::fingerprint( $preflight );
 			return $summary;
+		}
+
+		// Two-step UI: the apply step must match the plan the admin reviewed.
+		if ( '' !== $expected_fingerprint && ! hash_equals( $expected_fingerprint, self::fingerprint( $preflight ) ) ) {
+			return new WP_Error( 'anpa_nivel_promotion_plan_changed', __( 'Os datos cambiaron despois da simulación. Non se modificou ningún fillo; volve simular e revisa o novo resultado.', 'anpa-socios' ) );
 		}
 
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {

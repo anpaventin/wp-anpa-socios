@@ -501,6 +501,14 @@ class ANPA_Socios_REST {
 		// Single-use enforcement: consume the token only after commit.
 		delete_transient( 'anpa_token_' . $token );
 
+		// Audit trail (fase E2): every self-service alta is recorded, whether or
+		// not the junta must approve it. Never stores personal data beyond the
+		// actor email already present in the audit row.
+		ANPA_Socios_Admin_Shared::write_audit_actor( strtolower( $email ), 'socio', 'socio', strtolower( $email ), $needs_approval ? 'alta_pendente' : 'alta_activa' );
+		if ( null !== $clean['parent2'] && ! empty( $clean['parent2']['email'] ) && strtolower( (string) $clean['parent2']['email'] ) !== strtolower( $email ) ) {
+			ANPA_Socios_Admin_Shared::write_audit_actor( strtolower( $email ), 'socio', 'socio', strtolower( (string) $clean['parent2']['email'] ), 'alta_segundo_proxenitor' );
+		}
+
 		if ( $needs_approval ) {
 			// Notify the master (best-effort) with a link to the pending
 			// approvals in the plugin settings, and tell the applicant they

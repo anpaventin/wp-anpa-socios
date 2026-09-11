@@ -10,14 +10,21 @@ declare(strict_types=1);
 
 if ( ! function_exists( 'get_option' ) ) {
 	/**
-	 * Minimal get_option stub for pure PHPUnit tests.
+	 * Minimal get_option stub for standalone runs (the suite bootstrap
+	 * normally provides get_option/update_option backed by $wp_options).
 	 *
 	 * @param  string $key     Option key.
 	 * @param  mixed  $default  Default fallback.
 	 * @return mixed
 	 */
 	function get_option( $key, $default = false ) {
-		return $GLOBALS['anpa_socios_config_menu_name_options'][ $key ] ?? $default;
+		return $GLOBALS['wp_options'][ $key ] ?? $default;
+	}
+}
+if ( ! function_exists( 'update_option' ) ) {
+	function update_option( $key, $value ) {
+		$GLOBALS['wp_options'][ $key ] = $value;
+		return true;
 	}
 }
 
@@ -35,28 +42,28 @@ if ( ! function_exists( 'wp_strip_all_tags' ) ) {
 
 final class Test_ANPA_Socios_Config_Menu_Name extends \PHPUnit\Framework\TestCase {
 	protected function setUp(): void {
-		$GLOBALS['anpa_socios_config_menu_name_options'] = array();
+		$GLOBALS['wp_options'] = array();
 	}
 
 	protected function tearDown(): void {
-		unset( $GLOBALS['anpa_socios_config_menu_name_options'] );
+		$GLOBALS['wp_options'] = array();
 	}
 
 	public function test_menu_name_defaults_when_missing_or_blank(): void {
 		$this->assertSame( 'Xestión ANPA', ANPA_Socios_Config::menu_name() );
 
-		$GLOBALS['anpa_socios_config_menu_name_options'][ ANPA_Socios_Config::OPTION_MENU_NAME ] = '';
+		update_option( ANPA_Socios_Config::OPTION_MENU_NAME, '' );
 		$this->assertSame( 'Xestión ANPA', ANPA_Socios_Config::menu_name() );
 
-		$GLOBALS['anpa_socios_config_menu_name_options'][ ANPA_Socios_Config::OPTION_MENU_NAME ] = '   ';
+		update_option( ANPA_Socios_Config::OPTION_MENU_NAME, '   ' );
 		$this->assertSame( 'Xestión ANPA', ANPA_Socios_Config::menu_name() );
 	}
 
 	public function test_menu_name_strips_tags_trims_and_caps_length(): void {
-		$GLOBALS['anpa_socios_config_menu_name_options'][ ANPA_Socios_Config::OPTION_MENU_NAME ] = '   <strong>Meu menú</strong>   ';
+		update_option( ANPA_Socios_Config::OPTION_MENU_NAME, '   <strong>Meu menú</strong>   ' );
 		$this->assertSame( 'Meu menú', ANPA_Socios_Config::menu_name() );
 
-		$GLOBALS['anpa_socios_config_menu_name_options'][ ANPA_Socios_Config::OPTION_MENU_NAME ] = '<em>' . str_repeat( 'x', 31 ) . '</em>';
+		update_option( ANPA_Socios_Config::OPTION_MENU_NAME, '<em>' . str_repeat( 'x', 31 ) . '</em>' );
 		$this->assertSame( str_repeat( 'x', 30 ), ANPA_Socios_Config::menu_name() );
 		$this->assertSame( 30, strlen( ANPA_Socios_Config::menu_name() ) );
 	}

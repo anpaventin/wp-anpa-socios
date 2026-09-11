@@ -113,6 +113,12 @@
       <file>tests/Test_ANPA_Socios_Email_Template_Render_Provider.php</file>
       <file>tests/Test_ANPA_Socios_Email_Fase36_Integration.php</file>
       <file>tests/Test_ANPA_Socios_Email_Templates_Galego.php</file>
+      <file>tests/Test_ANPA_Socios_Waitlist.php</file>
+      <file>tests/Test_ANPA_Socios_Season.php</file>
+      <file>tests/Test_ANPA_Socios_Preseason_Gate.php</file>
+      <file>tests/Test_ANPA_Socios_Curso_Fit.php</file>
+      <file>tests/Test_ANPA_Socios_Admin_URL_Correctness.php</file>
+      <file>tests/Test_ANPA_Socios_Member_Audit_Events.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

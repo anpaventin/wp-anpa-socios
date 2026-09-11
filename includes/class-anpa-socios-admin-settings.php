@@ -44,7 +44,7 @@ final class ANPA_Socios_Admin_Settings {
 		add_action( 'admin_post_anpa_socios_inicializar_trimestres', array( __CLASS__, 'handle_inicializar_trimestres' ) );
 		add_action( 'admin_post_anpa_socios_run_season', array( __CLASS__, 'handle_run_season' ) );
 		add_action( 'admin_post_anpa_socios_update_child_levels', array( __CLASS__, 'handle_update_child_levels' ) );
-		add_action( 'admin_post_anpa_socios_preview_child_levels', array( __CLASS__, 'handle_preview_child_levels' ) );
+		add_action( 'admin_post_anpa_socios_apply_child_levels', array( __CLASS__, 'handle_apply_child_levels' ) );
 		add_action( 'admin_post_anpa_socios_check_updates', array( __CLASS__, 'handle_check_updates' ) );
 		add_action( 'admin_post_anpa_socios_backup', array( __CLASS__, 'handle_backup' ) );
 		add_action( 'admin_post_anpa_socios_wipe', array( __CLASS__, 'handle_wipe' ) );
@@ -1136,24 +1136,14 @@ final class ANPA_Socios_Admin_Settings {
 		echo '<hr>';
 		echo '<h3>' . esc_html__( 'Actualizar niveis dos fillos', 'anpa-socios' ) . '</h3>';
 		echo '<p class="description">' . esc_html__( 'Recalcula o nivel de cada fillo activo a partir da súa data de nacemento: asígnalle o nivel cuxa «Idade alumnado» (en Estrutura escolar) coincide coa idade que cumpre no ano final do curso activo. Quen pola idade xa superaría o último nivel mantense nel (6º) ata que a familia o dea de baixa. Conserva a letra da aula e non modifica cursos anteriores nin matrículas.', 'anpa-socios' ) . '</p>';
-		echo '<p class="description"><strong>' . esc_html__( 'Consello:', 'anpa-socios' ) . '</strong> ' . esc_html__( 'usa primeiro «Simular» para ver que fillos cambiarían de nivel e a que curso, sen gardar nada. Se algún dato impide o cálculo con seguridade, a operación pararase sen cambios.', 'anpa-socios' ) . '</p>';
-		echo '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">';
+		echo '<p class="description"><strong>' . esc_html__( 'Como funciona:', 'anpa-socios' ) . '</strong> ' . esc_html__( 'o botón calcula sempre primeiro sen gardar nada e amosa que fillos cambiarían de nivel e a que curso. Só despois, se estás de acordo, poderás aplicar exactamente eses cambios cun segundo botón. Se algún dato impide o cálculo con seguridade, a operación pararase sen cambios.', 'anpa-socios' ) . '</p>';
 		echo '<form method="post" action="' . $post_url . '">';
-		echo '<input type="hidden" name="action" value="anpa_socios_preview_child_levels">';
-		echo '<input type="hidden" name="tab" value="xeral">';
-		echo '<input type="hidden" name="section" value="mantemento">';
-		wp_nonce_field( 'anpa_socios_preview_child_levels' );
-		submit_button( __( 'Simular (non garda cambios)', 'anpa-socios' ), 'secondary', 'submit', false );
-		echo '</form>';
-		$confirm = __( 'Actualizar agora os niveis de todos os fillos activos? Recoméndase simular antes. A operación pararase sen cambios se detecta calquera inconsistencia.', 'anpa-socios' );
-		echo '<form method="post" action="' . $post_url . '" onsubmit="return confirm(\'' . esc_js( $confirm ) . '\');">';
 		echo '<input type="hidden" name="action" value="anpa_socios_update_child_levels">';
 		echo '<input type="hidden" name="tab" value="xeral">';
 		echo '<input type="hidden" name="section" value="mantemento">';
 		wp_nonce_field( 'anpa_socios_update_child_levels' );
 		submit_button( __( 'Actualizar niveis dos fillos', 'anpa-socios' ), 'primary', 'submit', false );
 		echo '</form>';
-		echo '</div>';
 	}
 
 	/**
@@ -1838,26 +1828,42 @@ final class ANPA_Socios_Admin_Settings {
 	}
 
 	/**
-	 * admin-post: recalculate active children's levels for the active course.
+	 * admin-post: step 1 of the level update. Always a simulation: the notice
+	 * shows the plan and offers the «Aplicar» button bound to the plan fingerprint.
 	 *
 	 * @return void
 	 */
-	public static function handle_preview_child_levels(): void {
-		self::guard( 'anpa_socios_preview_child_levels' );
+	public static function handle_update_child_levels(): void {
+		self::guard( 'anpa_socios_update_child_levels' );
 		$result = ANPA_Socios_Nivel_Promotion_Service::run( true );
 		set_transient(
 			self::promotion_result_key(),
 			is_wp_error( $result )
 				? array( 'type' => 'error', 'message' => $result->get_error_message() )
 				: array( 'type' => 'preview', 'result' => $result ),
-			5 * MINUTE_IN_SECONDS
+			15 * MINUTE_IN_SECONDS
 		);
 		self::redirect_msg( 'child_levels_result' );
 	}
 
-	public static function handle_update_child_levels(): void {
-		self::guard( 'anpa_socios_update_child_levels' );
-		$result = ANPA_Socios_Nivel_Promotion_Service::run();
+	/**
+	 * admin-post: step 2. Applies the plan only if it still matches the
+	 * simulation the admin reviewed (fingerprint checked by the service).
+	 *
+	 * @return void
+	 */
+	public static function handle_apply_child_levels(): void {
+		self::guard( 'anpa_socios_apply_child_levels' );
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- guard() verified the nonce.
+		$fingerprint = isset( $_POST['plan_fingerprint'] ) ? preg_replace( '/[^a-f0-9]/', '', (string) wp_unslash( $_POST['plan_fingerprint'] ) ) : '';
+		if ( 64 !== strlen( $fingerprint ) ) {
+			set_transient( self::promotion_result_key(),
+				array( 'type' => 'error', 'message' => __( 'Falta a simulación previa. Pulsa primeiro «Actualizar niveis dos fillos» para calcular os cambios.', 'anpa-socios' ) ),
+				5 * MINUTE_IN_SECONDS
+			);
+			self::redirect_msg( 'child_levels_result' );
+		}
+		$result = ANPA_Socios_Nivel_Promotion_Service::run( false, $fingerprint );
 		if ( is_wp_error( $result ) ) {
 			set_transient( self::promotion_result_key(),
 				array( 'type' => 'error', 'message' => $result->get_error_message() ),
@@ -2227,7 +2233,7 @@ final class ANPA_Socios_Admin_Settings {
 			if ( $preview ) {
 				printf(
 					'<div class="notice notice-info"><p><strong>%s</strong> %s</p>',
-					esc_html__( 'Simulación: non se gardou ningún cambio.', 'anpa-socios' ),
+					esc_html__( 'Simulación: aínda non se gardou ningún cambio.', 'anpa-socios' ),
 					esc_html( sprintf( __( 'Curso %1$s: %2$d fillos cambiarían de nivel, %3$d xa están no nivel correcto e %4$d quedan no último nivel por idade.', 'anpa-socios' ), $curso, $actualizados, $sen_cambios, $ultimo ) )
 				);
 			} elseif ( 0 === $actualizados ) {
@@ -2268,6 +2274,25 @@ final class ANPA_Socios_Admin_Settings {
 					);
 				}
 				echo '</tbody></table></details>';
+			}
+			if ( $preview ) {
+				$fingerprint = preg_replace( '/[^a-f0-9]/', '', (string) ( $result['fingerprint'] ?? '' ) );
+				if ( 0 === $actualizados ) {
+					echo '<p>' . esc_html__( 'Non hai nada que aplicar: todos os fillos xa están no nivel que lles corresponde.', 'anpa-socios' ) . '</p>';
+				} elseif ( 64 === strlen( $fingerprint ) ) {
+					/* translators: %d: number of children whose level would change */
+					$confirm = sprintf( __( 'Aplicar agora os %d cambios amosados? Os niveis actualízanse nunha soa operación; se os datos cambiaron desde a simulación, pararase sen escribir nada.', 'anpa-socios' ), $actualizados );
+					echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" style="margin:8px 0" onsubmit="return confirm(\'' . esc_js( $confirm ) . '\');">';
+					echo '<input type="hidden" name="action" value="anpa_socios_apply_child_levels">';
+					echo '<input type="hidden" name="tab" value="xeral">';
+					echo '<input type="hidden" name="section" value="mantemento">';
+					echo '<input type="hidden" name="plan_fingerprint" value="' . esc_attr( $fingerprint ) . '">';
+					wp_nonce_field( 'anpa_socios_apply_child_levels' );
+					/* translators: %d: number of children whose level would change */
+					submit_button( sprintf( _n( 'Aplicar este cambio', 'Aplicar estes %d cambios', $actualizados, 'anpa-socios' ), $actualizados ), 'primary', 'submit', false );
+					echo ' <span class="description">' . esc_html__( 'Se prefires non aplicalos, non pulses nada: non se gardou ningún cambio.', 'anpa-socios' ) . '</span>';
+					echo '</form>';
+				}
 			}
 			$emails = is_array( $result['emails_cco'] ?? null ) ? array_filter( array_map( 'sanitize_email', $result['emails_cco'] ) ) : array();
 			if ( array() !== $emails ) {

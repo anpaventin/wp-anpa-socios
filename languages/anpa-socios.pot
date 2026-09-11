@@ -1795,3 +1795,125 @@ msgstr ""
 
 msgid "nome@exemplo.com"
 msgstr ""
+
+msgid "Accede á túa área de socio:"
+msgstr ""
+
+msgid "Accede á túa área de socio: %%s"
+msgstr ""
+
+msgid "Actualización da solicitude de socio — %s"
+msgstr ""
+
+msgid "Benvido/a a %%s! O teu rexistro está completo."
+msgstr ""
+
+msgid "Benvido/a a %s! O teu rexistro está completo."
+msgstr ""
+
+msgid "Este código caduca en 15 minutos."
+msgstr ""
+
+msgid "O teu código de verificación é: %s"
+msgstr ""
+
+msgid "O teu código de verificación para %s"
+msgstr ""
+
+msgid "Oferta de praza — %s"
+msgstr ""
+
+msgid "Ola %s,"
+msgstr ""
+
+msgid "Ola, hai unha praza dispoñible para %%s."
+msgstr ""
+
+msgid "Ola, hai unha praza dispoñible para %s."
+msgstr ""
+
+msgid "Parabéns! A túa solicitude de socio foi aprobada."
+msgstr ""
+
+msgid "Pendente de aprobación — %s"
+msgstr ""
+
+msgid "Podes acceder á tua área aquí:"
+msgstr ""
+
+msgid "Podes acceder á túa área aquí: %%s"
+msgstr ""
+
+msgid "Revisar no panel de administración"
+msgstr ""
+
+msgid "Revisar no panel de administración:"
+msgstr ""
+
+msgid "Sentimos informar que a túa solicitude de socio non foi aceptada neste momento. Por favor, contacta con %%s se tes preguntas."
+msgstr ""
+
+msgid "Sentimos informar que a túa solicitude de socio non foi aceptada neste momento. Por favor, contacta con %s se tes preguntas."
+msgstr ""
+
+msgid "Solicitouse a baixa dunha actividade:"
+msgstr ""
+
+msgid "Solicitude aprobada — %s"
+msgstr ""
+
+msgid "Solicitude de baixa de actividade — %s"
+msgstr ""
+
+msgid "Solicitude de baixa de socio — %s"
+msgstr ""
+
+msgid "Solicitude de reactivación — %s"
+msgstr ""
+
+msgid "Tes %%d días para aceptar esta oferta."
+msgstr ""
+
+msgid "Tes %d días para aceptar esta oferta."
+msgstr ""
+
+msgid "Un novo socio está pendente de aprobación:"
+msgstr ""
+
+msgid "Un socio (%%s) solicitou a reactivación."
+msgstr ""
+
+msgid "Un socio (%s) solicitou a reactivación."
+msgstr ""
+
+msgid "Un socio solicitou a baixa:"
+msgstr ""
+
+msgid "Como funciona:"
+msgstr ""
+
+msgid "o botón calcula sempre primeiro sen gardar nada e amosa que fillos cambiarían de nivel e a que curso. Só despois, se estás de acordo, poderás aplicar exactamente eses cambios cun segundo botón. Se algún dato impide o cálculo con seguridade, a operación pararase sen cambios."
+msgstr ""
+
+msgid "Simulación: aínda non se gardou ningún cambio."
+msgstr ""
+
+msgid "Non hai nada que aplicar: todos os fillos xa están no nivel que lles corresponde."
+msgstr ""
+
+msgid "Aplicar agora os %d cambios amosados? Os niveis actualízanse nunha soa operación; se os datos cambiaron desde a simulación, pararase sen escribir nada."
+msgstr ""
+
+msgid "Se prefires non aplicalos, non pulses nada: non se gardou ningún cambio."
+msgstr ""
+
+msgid "Falta a simulación previa. Pulsa primeiro «Actualizar niveis dos fillos» para calcular os cambios."
+msgstr ""
+
+msgid "Os datos cambiaron despois da simulación. Non se modificou ningún fillo; volve simular e revisa o novo resultado."
+msgstr ""
+
+msgid "Aplicar este cambio"
+msgid_plural "Aplicar estes %d cambios"
+msgstr[0] ""
+msgstr[1] ""

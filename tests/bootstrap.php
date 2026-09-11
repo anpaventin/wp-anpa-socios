@@ -2,7 +2,10 @@
 /**
  * PHPUnit bootstrap for anpa-socios tests.
  *
- * Loads the pure-logic library class with full WordPress function stubs.
+ * Loads WordPress function stubs plus every pure-logic class under
+ * includes/lib (and the few WP-coupled classes the tests inspect).
+ * Rebuilt in 1.49.6: the fase36 rewrite had dropped ~35 require_once
+ * lines, leaving most of the suite failing with "class is missing".
  *
  * @since  1.0.0
  * @package ANPA_Socios
@@ -176,7 +179,49 @@ if ( ! defined( 'ANPA_SOCIOS_PLUGIN_URL' ) ) {
 	define( 'ANPA_SOCIOS_PLUGIN_URL', 'http://example.org/wp-content/plugins/anpa-socios/' );
 }
 
-// Autoloader classes and lib.
+// ============ Plugin classes ============
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-payload.php';
+require_once __DIR__ . '/../includes/class-anpa-socios-config.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-sepa.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-crypto.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-codigo-generator.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-rate-limiter.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-area-session.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-roles.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-flow.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-admin-payload.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-actividade-options.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-curso-fit.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-grupo-niveis.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-grupo-serie.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-prazas.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-disponibilidade-horaria.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-estrutura-escolar.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-curso-escolar.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-grupos-horarios.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-curso-lifecycle.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-course-settings.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-season.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-preseason-gate.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-horario-builder.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-waitlist.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-calendario.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-trimestre-estado.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-ventana-estado.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-trimestre.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-alta-payload.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-actividades-collapse.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-empresa-view.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-csv.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-antibot.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-alumnos-export.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-admin-nav.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-verificacion-guard.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-admin-auth.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-normalize.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-familia.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-csv-import.php';
+require_once __DIR__ . '/../includes/class-anpa-socios-db.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-store.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-renderer.php';
 require_once __DIR__ . '/../includes/class-anpa-socios-email-templates-page.php';
@@ -184,8 +229,23 @@ require_once __DIR__ . '/../includes/class-anpa-socios-email-template-actions.ph
 require_once __DIR__ . '/../includes/class-anpa-socios-email-template-migration.php';
 require_once __DIR__ . '/trait-anpa-socios-inspection.php';
 require_once __DIR__ . '/../includes/class-anpa-socios-email.php';
+// Fase 36 email queue (pure domain classes + the communications admin page).
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-retention.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-recipients.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-backoff.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-batch-planner.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-campaign-state.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-recipient-state.php';
+require_once __DIR__ . '/../includes/class-anpa-socios-email-communications-page.php';
 
-// ANPA_Socios_Config stub for tests.
+// Minimal $wpdb so table-name helpers (ANPA_Socios_DB::tabela_*) work in pure
+// tests. Tests that need query behaviour install their own fake and override it.
+if ( ! isset( $GLOBALS['wpdb'] ) ) {
+	$GLOBALS['wpdb']         = new stdClass();
+	$GLOBALS['wpdb']->prefix = 'wp_';
+}
+
+// ANPA_Socios_Config stub for tests (only if the real class was not loaded).
 if ( ! class_exists( 'ANPA_Socios_Config' ) ) {
 	class ANPA_Socios_Config {
 		public static function association_name() { return 'ANPA Test'; }

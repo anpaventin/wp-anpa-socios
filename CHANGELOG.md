@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.49.6] - 2026-09-11
+
+### Changed
+
+- **Axustes → Mantemento → «Actualizar niveis dos fillos»: un só botón.** Pulsalo calcula sempre primeiro
+  sen gardar nada e amosa a distribución por curso e a lista de cambios. Só entón aparece o botón
+  «Aplicar estes N cambios», ligado a unha pegada (`fingerprint`) do plan simulado: se algún dato cambiou
+  desde a simulación, a aplicación párase sen escribir e pídese simular de novo. Desaparece o botón
+  «Simular (non garda cambios)» separado (`ANPA_Socios_Nivel_Promotion_Service::run( false, $fingerprint )`).
+
+### Added
+
+- **Auditoría dos eventos iniciados polas familias**, independentemente de que estea activada ou non a
+  aprobación de altas pola directiva. Rexístranse en `anpa_audit_log` con actor tipo `socio` (o correo da
+  persoa que actúa) e sen ningún dato persoal adicional: `alta_activa` / `alta_pendente` /
+  `alta_segundo_proxenitor`, `reactivacion_solicitada`, `baixa_solicitada` / `baixa_cancelada`,
+  `iban_actualizado` (só o feito, nunca os datos bancarios), `fillo_engadido` / `fillo_actualizado` /
+  `fillo_eliminado`, `matricula_creada_<estado>`, `matricula_baixa_solicitada` / `matricula_baixa` /
+  `matricula_baixa_cancelada` e `oferta_aceptada`. Test de contrato `Test_ANPA_Socios_Member_Audit_Events`.
+
+### Fixed
+
+- Plantilla «Oferta de praza»: corrixido «Offerta» → «Oferta» no asunto por defecto (as instalacións que xa
+  sementaran as plantillas deben pulsar «Restaurar» ou executar `restore_all()`).
+- Tradución `es_ES` de 31 cadeas das plantillas de correo (só o texto por defecto en galego existía).
+- Suite PHPUnit: `tests/bootstrap.php` rexistra as clases da cola de correo (fase 36) e un `$wpdb` mínimo;
+  5 tests orfos engadidos a `phpunit.xml`; 4 tests dependentes do entorno (menú, capacidades, asunto do
+  código de verificación) actualizados. Resultado: 0 erros, 0 fallos.
+
 ## [1.49.5] - 2026-09-11
 
 ### Fixed

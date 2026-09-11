@@ -95,7 +95,7 @@ final class ANPA_Socios_Email_Template_Store {
 			),
 			'oferta_extraescolar' => array(
 				'subject' => array(
-					__( 'Offerta de praza — %s', 'anpa-socios' ),
+					__( 'Oferta de praza — %s', 'anpa-socios' ),
 					array( 'actividade' ),
 				),
 				'html' => array(

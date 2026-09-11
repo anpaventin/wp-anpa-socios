@@ -239,6 +239,7 @@ class ANPA_Socios_Area_REST {
 		if ( is_int( $updated ) && $updated > 0 ) {
 			set_transient( $cooldown_key, 1, DAY_IN_SECONDS );
 			ANPA_Socios_Email::enviar_aviso_reactivacion( $email );
+			ANPA_Socios_Admin_Shared::write_audit_actor( strtolower( $email ), 'socio', 'socio', strtolower( $email ), 'reactivacion_solicitada' );
 		}
 
 		return self::reactivar_generic();
@@ -370,6 +371,8 @@ class ANPA_Socios_Area_REST {
 		if ( is_wp_error( $saved ) ) {
 			return $saved;
 		}
+		// Audit: the fact that banking data changed, never the data itself.
+		ANPA_Socios_Admin_Shared::write_audit_actor( strtolower( (string) $profile['email'] ), 'socio', 'domiciliacion', (string) $fam['familia_id'], 'iban_actualizado' );
 
 		return new WP_REST_Response( array( 'success' => true, 'message' => __( 'Datos bancarios actualizados', 'anpa-socios' ) ), 200 );
 	}
@@ -473,6 +476,7 @@ class ANPA_Socios_Area_REST {
 
 		// Notify the junta. Best-effort: a mail failure must not fail the request.
 		ANPA_Socios_Email::enviar_aviso_baixa_socio( $email, (string) $profile['nome'], (string) $profile['apelidos'] );
+		ANPA_Socios_Admin_Shared::write_audit_actor( strtolower( $email ), 'socio', 'socio', strtolower( $email ), 'baixa_solicitada' );
 
 		return new WP_REST_Response(
 			array(
@@ -527,6 +531,9 @@ class ANPA_Socios_Area_REST {
 		$message = ( 0 === (int) $updated )
 			? 'Non tiñas ningunha solicitude de baixa pendente.'
 			: 'Solicitude de baixa anulada. Segues sendo socio/a.';
+		if ( (int) $updated > 0 ) {
+			ANPA_Socios_Admin_Shared::write_audit_actor( strtolower( $email ), 'socio', 'socio', strtolower( $email ), 'baixa_cancelada' );
+		}
 
 		return new WP_REST_Response(
 			array(
