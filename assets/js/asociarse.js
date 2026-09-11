@@ -67,6 +67,9 @@
 						: __( 'Erro', 'anpa-socios' );
 			}
 			errEl.parentElement.hidden = false;
+			// Make sure the notice is on screen (1.51.2): the user just pressed a
+			// button and may be far from where the message renders.
+			try { errEl.parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
 			return null;
 		}
 
@@ -574,7 +577,7 @@
 			// Legacy fallback: only reached when no dynamic structure is localized
 			// via anpaAltaEstrutura. Primary source is wp_localize_script in
 			// ANPA_Socios_Unified_Page (niveis/aulas from DB per curso_escolar).
-			buildOptions(curso, ['1', '2', '3', '4', '5', '6'], ['1º', '2º', '3º', '4º', '5º', '6º']);
+			buildOptions(curso, ['1º', '2º', '3º', '4º', '5º', '6º'], ['1º', '2º', '3º', '4º', '5º', '6º']);
 		}
 
 			const aula = document.createElement('select');
@@ -585,7 +588,6 @@
 				// Will be populated on curso change
 				curso.addEventListener('change', function () {
 					aula.textContent = '';
-					aula.appendChild(document.createElement('option')); // placeholder re-added
 					const ph2b = document.createElement('option'); ph2b.value = ''; ph2b.textContent = '-- Selecciona --';
 					aula.appendChild(ph2b);
 					let nid = null;
@@ -721,6 +723,8 @@
 					data_nacemento: get('data_nacemento'),
 					curso: get('curso'),
 					aula: get('aula'),
+					// 1.51.2: the server validates against this year's real levels/classrooms.
+					curso_escolar: String((window.anpaAltaEstrutura || {}).curso_escolar || ''),
 					image_consent: !!(consentEl && consentEl.checked),
 				});
 			});

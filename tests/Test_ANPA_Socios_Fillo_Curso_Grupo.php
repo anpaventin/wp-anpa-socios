@@ -71,7 +71,7 @@ class Test_ANPA_Socios_Fillo_Curso_Grupo extends TestCase {
 			'out of range 7'   => array( '7' ),
 			'out of range 0'   => array( '0' ),
 			'free text'        => array( 'tercero' ),
-			'ordinal suffix'   => array( '3º' ),
+			// 1.51.2: canonical codes (1º…6º) are accepted by the static fallback; see Test_ANPA_Socios_Alta_Fillo_Curso.
 			'full text'        => array( '3º EP' ),
 			'negative'         => array( '-1' ),
 			'empty string'     => array( '' ),

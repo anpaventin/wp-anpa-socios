@@ -267,7 +267,7 @@ class ANPA_Socios_Unified_Page {
 		wp_set_script_translations( 'anpa-socios-asociarse', 'anpa-socios', ANPA_SOCIOS_PLUGIN_DIR . 'languages' );
 
 		// Localize: dynamic estrutura data for fillo level/aula dropdowns.
-		$curso_escolar = ANPA_Socios_Curso_Escolar::current();
+		$curso_escolar = ANPA_Socios_Curso_Activo::get() ?? ANPA_Socios_Curso_Escolar::current();
 		$niveis = ANPA_Socios_DB::get_niveis_for_curso( $curso_escolar );
 		$nivel_ids = array();
 		foreach ( $niveis as $n ) {
@@ -275,8 +275,9 @@ class ANPA_Socios_Unified_Page {
 		}
 		$aulas = ANPA_Socios_DB::get_aulas_for_niveis( $nivel_ids );
 		wp_localize_script( 'anpa-socios-asociarse', 'anpaAltaEstrutura', array(
-			'niveis' => $niveis,
-			'aulas'  => $aulas,
+			'niveis'        => $niveis,
+			'aulas'         => $aulas,
+			'curso_escolar' => $curso_escolar,
 		) );
 		wp_enqueue_style(
 			'anpa-socios-asociarse',
