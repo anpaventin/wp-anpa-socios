@@ -41,8 +41,8 @@ final class ANPA_Socios_Email_Communications_Page {
 	public static function register_menu( string $parent_slug, string $capability ): void {
 		add_submenu_page(
 			$parent_slug,
-			esc_html__( 'Comunicacións', 'anpa-socios' ),
-			esc_html__( 'Comunicacións', 'anpa-socios' ),
+			esc_html__( 'Rexistro de envíos', 'anpa-socios' ),
+			esc_html__( 'Rexistro de envíos', 'anpa-socios' ),
 			$capability,
 			self::SLUG,
 			array( __CLASS__, 'render_page' )
@@ -66,7 +66,9 @@ final class ANPA_Socios_Email_Communications_Page {
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		echo '<div class="wrap anpa-comms-wrap">';
-		echo '<h1>' . esc_html__( 'Comunicacións', 'anpa-socios' ) . '</h1>';
+		echo '<h1>' . esc_html__( 'Rexistro de envíos', 'anpa-socios' ) . '</h1>';
+		// E4 (1.51.x): explain what this screen is, because it stays empty most of the year.
+		echo '<p class="description" style="max-width:760px">' . esc_html__( 'Esta pantalla é o monitor da cola de correo: amosa as campañas de envío masivo lanzadas desde «Enviar desde a directiva» (destinatarios, intentos, resultado) e permite procesalas, pausalas ou reintentalas. Os correos automáticos dun só destinatario (códigos de verificación, benvidas, avisos de baixa ou de praza) envíanse ao momento e non aparecen aquí; as súas plantillas edítanse en «Plantillas de Email». É normal que estea baleira se non se fixo ningún envío masivo.', 'anpa-socios' ) . '</p>';
 
 		self::render_result_notice();
 		self::render_cron_notice();

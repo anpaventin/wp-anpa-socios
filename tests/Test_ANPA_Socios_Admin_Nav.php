@@ -329,8 +329,8 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 				),
 				'communications' => array(
 					'slug'       => 'anpa-socios-comunicacions',
-					'menu_label' => 'Comunicacións',
-					'page_title' => 'Comunicacións',
+					'menu_label' => 'Rexistro de envíos',
+					'page_title' => 'Rexistro de envíos',
 				),
 				'settings' => array(
 					'slug'       => 'anpa-socios-settings',
@@ -399,7 +399,7 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 			array_column( $GLOBALS['anpa_socios_admin_nav_submenu_calls'], 4 )
 		);
 		$this->assertSame(
-			array( 'Xestión', 'Comunicacións', 'Plantillas de Email', 'Axustes', 'Documentación' ),
+			array( 'Xestión', 'Rexistro de envíos', 'Plantillas de Email', 'Axustes', 'Documentación' ),
 			array_column( $GLOBALS['anpa_socios_admin_nav_submenu_calls'], 2 )
 		);
 		$this->assertNotContains( 'ANPA Socios', array_column( $GLOBALS['anpa_socios_admin_nav_submenu_calls'], 2 ) );
@@ -452,10 +452,13 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 			array(
 				'posta-en-marcha',
 				'ciclo-curso',
-				'paxinas-shortcodes',
+				'socios',
 				'extraescolares',
+				'comunicacions',
 				'exportacions-copias',
 				'privacidade-seguridade',
+				'manual-familias',
+				'checklist-admins',
 			),
 			array_keys( ANPA_Socios_Admin_Nav::docs_sections() )
 		);

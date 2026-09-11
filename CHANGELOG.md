@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.51.1] - 2026-09-11
+
+### Changed
+
+- **«Comunicacións» → «Rexistro de envíos»** (E4). A pantalla é o monitor da cola de correo dos envíos masivos
+  («Enviar desde a directiva»); agora dío na propia páxina e aclara que os correos automáticos dun só
+  destinatario non pasan por aquí (as súas plantillas están en «Plantillas de Email»). O slug do menú non cambia.
+- **Documentación reescrita** (E7) en nove seccións: posta en marcha (con shortcodes); ciclo anual con regra
+  única de matrículas, checklist de setembro e de fin de curso; socios/as (alta e aprobación, segundo
+  proxenitor, baixas e reactivacións, auditoría, importación CSV); extraescolares (estados dos grupos con
+  cores, eliminar, comedor, lista de espera e ofertas de tres días); comunicacións; exportacións e copias;
+  privacidade e seguridade; **manual das familias** (texto reutilizable da entrada do blog); e **checklist
+  para administradores/as novos**. Retirados os textos obsoletos («Importar listados é só unha guía»,
+  «casilla Matrículas abertas», «lista CCO»).
+
 ## [1.51.0] - 2026-09-11
 
 ### Changed
