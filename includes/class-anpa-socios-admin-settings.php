@@ -1599,7 +1599,7 @@ final class ANPA_Socios_Admin_Settings {
 
 		echo '<hr>';
 		echo '<h3>' . esc_html__( 'Actualizar niveis dos fillos', 'anpa-socios' ) . '</h3>';
-		echo '<p class="description">' . esc_html__( 'Recalcula o nivel de cada fillo activo a partir da súa data de nacemento: asígnalle o nivel cuxa «Idade alumnado» (en Estrutura escolar) coincide coa idade que cumpre no ano final do curso activo. Quen pola idade xa superaría o último nivel mantense nel (6º) ata que a familia o dea de baixa. Conserva a letra da aula e non modifica cursos anteriores nin matrículas.', 'anpa-socios' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Recalcula o nivel de cada fillo activo a partir da súa data de nacemento: asígnalle o nivel cuxa «Idade alumnado» (en Estrutura escolar) coincide coa idade que cumpre no ano final do curso activo. Quen pola idade xa superaría o último nivel mantense nel (6º) ata que a familia o dea de baixa. Aos fillos que cambian de nivel bórraselles a letra da aula: a familia terá que indicala na área antes de poder matricular. Non modifica cursos anteriores nin matrículas.', 'anpa-socios' ) . '</p>';
 		echo '<p class="description"><strong>' . esc_html__( 'Como funciona:', 'anpa-socios' ) . '</strong> ' . esc_html__( 'o botón calcula sempre primeiro sen gardar nada e amosa que fillos cambiarían de nivel e a que curso. Só despois, se estás de acordo, poderás aplicar exactamente eses cambios cun segundo botón. Se algún dato impide o cálculo con seguridade, a operación pararase sen cambios.', 'anpa-socios' ) . '</p>';
 		echo '<form method="post" action="' . $post_url . '">';
 		echo '<input type="hidden" name="action" value="anpa_socios_update_child_levels">';
@@ -2734,7 +2734,7 @@ final class ANPA_Socios_Admin_Settings {
 						esc_html( '' === (string) $ch['curso_anterior'] ? '—' : (string) $ch['curso_anterior'] ),
 						esc_html( (string) $ch['curso_novo'] ),
 						$nota,
-						esc_html( (string) $ch['aula'] )
+						esc_html( '' === (string) $ch['aula'] ? __( '— (a familia indicará a letra)', 'anpa-socios' ) : (string) $ch['aula'] )
 					);
 				}
 				echo '</tbody></table></details>';
@@ -2906,7 +2906,7 @@ final class ANPA_Socios_Admin_Settings {
 		$li( __( 'Copia de seguridade con UpdraftPlus antes de empezar.', 'anpa-socios' ) );
 		$li( __( 'Axustes → Cursos: activa o curso novo, comproba as datas e inicializa os trimestres.', 'anpa-socios' ) );
 		$li( __( 'Estrutura escolar: copia niveis e aulas do curso anterior e revisa a «Idade alumnado» de cada nivel.', 'anpa-socios' ) );
-		$li( __( 'Axustes → Mantemento → «Actualizar niveis dos fillos»: o botón simula primeiro; revisa a lista e pulsa «Aplicar». Copia a lista CCO das familias de 6º que rematan e pregúntalles se seguen no centro ou queren a baixa.', 'anpa-socios' ) );
+		$li( __( 'Axustes → Mantemento → «Actualizar niveis dos fillos»: o botón simula primeiro; revisa a lista e pulsa «Aplicar». Copia a lista CCO das familias de 6º que rematan e pregúntalles se seguen no centro ou queren a baixa. Os fillos que cambian de nivel quedan sen letra de aula: a área pídelle á familia que a indique antes de matricular.', 'anpa-socios' ) );
 		$li( __( 'Extraescolares: revisa empresas, actividades e grupos do curso novo (niveis, horarios, prazas, comedor) e pon en «aberto» os que se ofertan.', 'anpa-socios' ) );
 		$li( __( 'Abre as matrículas coa ventá do 1º trimestre e comproba na páxina pública que aparecen a oferta e o horario.', 'anpa-socios' ) );
 		$li( __( 'Plantillas de Email: le os textos de benvida e oferta de praza e fai un envío de proba.', 'anpa-socios' ) );

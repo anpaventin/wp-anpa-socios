@@ -616,6 +616,13 @@
 }
 
 /* Mandatory-data warning (red) shown when banking details are missing. */
+#anpa-area .anpa-fillo-sen-aula {
+	display: block;
+	flex-basis: 100%;
+	margin: 0.25rem 0 0;
+	font-size: 0.9em;
+}
+
 #anpa-area .anpa-area-required-warning {
 	color: var(--anpa-danger, #b42318);
 	background: #fdecea;

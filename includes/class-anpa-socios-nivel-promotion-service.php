@@ -170,9 +170,7 @@ final class ANPA_Socios_Nivel_Promotion_Service {
 		$wpdb->last_error = '';
 		$sql = $wpdb->prepare(
 			"SELECT f.id AS fillo_id, f.data_nacemento,
-			        COALESCE(NULLIF(fc.aula, ''),
-			          NULLIF((SELECT previous.aula FROM {$annual} previous WHERE previous.fillo_id = f.id AND previous.aula <> '' ORDER BY previous.curso_escolar DESC, previous.id DESC LIMIT 1), ''),
-			          NULLIF(f.aula, '')) AS aula,
+			        COALESCE(fc.aula, f.aula, '') AS aula,
 			        principals.principal_email,
 			        COALESCE(principals.principal_count, 0) AS principal_count,
 			        COALESCE(fc.nivel_id, 0) AS nivel_id, COALESCE(fc.curso, '') AS curso

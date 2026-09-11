@@ -121,7 +121,8 @@ final class Test_ANPA_Socios_Nivel_Promotion extends TestCase {
 		$this->assertSame( 'ready', $plan['status'] );
 		$this->assertSame( 71, $plan['items'][0]['nivel_id'] );
 		$this->assertSame( '3º', $plan['items'][0]['curso'] );
-		$this->assertSame( 'B', $plan['items'][0]['aula'] );
+		// 1.54.0: a level change clears the classroom letter; the family re-enters it.
+		$this->assertSame( '', $plan['items'][0]['aula'] );
 		$this->assertSame( 'update', $plan['items'][0]['action'] );
 	}
 
@@ -178,7 +179,8 @@ final class Test_ANPA_Socios_Nivel_Promotion extends TestCase {
 
 		$this->assertSame( array( 'alfa@example.test', 'zeta@example.test' ), $plan['emails_cco'] );
 		$this->assertSame( array( 'unchanged_capped', 'capped', 'unchanged_capped' ), array_column( $plan['items'], 'action' ) );
-		$this->assertSame( array( 'B', 'A', 'D' ), array_column( $plan['items'], 'aula' ) );
+		// Only the child whose level actually changes (capped) loses the letter.
+		$this->assertSame( array( 'B', '', 'D' ), array_column( $plan['items'], 'aula' ) );
 		$this->assertSame( array( '6º', '6º', '6º' ), array_column( $plan['items'], 'curso' ) );
 		$this->assertSame( array( 82, 82, 82 ), array_column( $plan['items'], 'nivel_id' ) );
 	}

@@ -150,9 +150,6 @@ final class ANPA_Socios_Nivel_Promotion {
 			if ( $fillo_id < 1 || null === $age ) {
 				return array( 'status' => 'error', 'code' => 'invalid_birth_date', 'fillo_id' => $fillo_id );
 			}
-			if ( '' === $aula ) {
-				return array( 'status' => 'error', 'code' => 'missing_classroom', 'fillo_id' => $fillo_id );
-			}
 			if ( false === filter_var( $email, FILTER_VALIDATE_EMAIL ) ) {
 				return array( 'status' => 'error', 'code' => 'invalid_principal_email', 'fillo_id' => $fillo_id );
 			}
@@ -177,7 +174,9 @@ final class ANPA_Socios_Nivel_Promotion {
 			} else {
 				$action = $same ? 'unchanged' : 'update';
 			}
-			$items[] = array( 'fillo_id' => $fillo_id, 'age' => $age, 'nivel_id' => $level_id, 'curso' => $course, 'curso_anterior' => $current_course, 'aula' => $aula, 'action' => $action );
+			// 1.54.0: a child that changes level loses the classroom letter (the old
+			// letter belongs to the old level); the family re-enters it in the area.
+			$items[] = array( 'fillo_id' => $fillo_id, 'age' => $age, 'nivel_id' => $level_id, 'curso' => $course, 'curso_anterior' => $current_course, 'aula' => $same ? $aula : '', 'action' => $action );
 		}
 
 		$emails = array_keys( $emails_cco );

@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.54.0] - 2026-09-11
+
+### Changed
+
+- **A letra da aula pode estar vacía.** A asignación anual (`upsert_fillo_curso_assignment`) acepta aula
+  vacía e o plan de niveis xa non falla por «fillo sen aula». **«Actualizar niveis dos fillos» borra a letra
+  aos fillos que cambian de nivel** (a letra antiga era doutro curso); os que non cambian conservan a súa.
+  A táboa de cambios e a descrición de Mantemento explícano.
+- **Área de socios:** a lista de fillos marca en vermello os que non teñen aula, o resumo do panel avisa
+  á familia, e o formulario de matrícula non deixa escoller un fillo sen aula (o servidor tamén o rexeita
+  con `anpa_extra_sen_aula`, 409). A familia arránxao en Fillos/as → Editar → curso e aula → Gardar.
+- Operación única en produción (2026-09-11): baleiráronse as letras de aula de todos os fillos activos do
+  curso 2026/2027 (a migración asignara letras provisionais), con copia previa (`scripts/remote-clear-aulas.php`).
 ## [1.53.0] - 2026-09-11
 
 ### Added

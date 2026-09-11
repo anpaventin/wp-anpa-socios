@@ -298,6 +298,11 @@ final class ANPA_Socios_Extraescolares_REST {
 			if ( $nivel_id <= 0 || ! in_array( $nivel_id, ANPA_Socios_DB::get_niveis_for_grupo( $grupo_id ), true ) ) {
 				return self::err( 'anpa_extra_curso', 'O curso do alumno/a non encaixa neste grupo', 400 );
 			}
+			// 1.54.0: the classroom letter is mandatory to enrol (it was cleared for
+			// every child on 2026-09-11 and after each level change).
+			if ( '' === trim( (string) ( $fc_row['aula'] ?? '' ) ) ) {
+				return self::err( 'anpa_extra_sen_aula', 'Este alumno/a non ten indicada a aula (letra da clase) do curso actual. Vai a «Fillos/as», pulsa «Editar», escolle o curso e a aula e garda antes de matricular.', 409 );
+			}
 		} else {
 			// R-H1: no assignment for this course → reject with specific error.
 			return self::err(
