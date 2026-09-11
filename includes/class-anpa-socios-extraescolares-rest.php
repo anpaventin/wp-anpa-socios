@@ -259,7 +259,7 @@ final class ANPA_Socios_Extraescolares_REST {
 		$actividad_id = isset( $body['actividad_id'] ) ? (int) $body['actividad_id'] : 0;
 		$grupo_id     = isset( $body['grupo_id'] ) ? (int) $body['grupo_id'] : 0;
 		if ( $actividad_id <= 0 || $grupo_id <= 0 ) {
-			return self::err( 'anpa_extra_invalid_payload', 'Datos inválidos', 400 );
+			return self::err( 'anpa_extra_invalid_payload', 'Escolle a actividade e o grupo (día e hora) antes de confirmar.', 400 );
 		}
 
 		$gru_t = ANPA_Socios_DB::tabela_grupos();

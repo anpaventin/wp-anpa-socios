@@ -123,9 +123,10 @@ final class ANPA_Socios_Fillos_REST {
 		if ( '' === $curso_escolar ) {
 			$curso_escolar = ANPA_Socios_Curso_Activo::get() ?? '';
 		}
-		$payload = ANPA_Socios_Admin_Payload::validar_fillo( $body, $curso_escolar );
+		$checked = ANPA_Socios_Admin_Payload::validar_fillo_con_erros( $body, $curso_escolar );
+		$payload = $checked['fillo'];
 		if ( null === $payload ) {
-			return self::invalid_payload_error();
+			return self::invalid_payload_error( $checked['errors'] );
 		}
 
 		// data_nacemento is required for new fillos.
@@ -189,9 +190,10 @@ final class ANPA_Socios_Fillos_REST {
 		if ( '' === $curso_escolar ) {
 			$curso_escolar = ANPA_Socios_Curso_Activo::get() ?? '';
 		}
-		$payload = ANPA_Socios_Admin_Payload::validar_fillo( $body, $curso_escolar );
+		$checked = ANPA_Socios_Admin_Payload::validar_fillo_con_erros( $body, $curso_escolar );
+		$payload = $checked['fillo'];
 		if ( null === $payload ) {
-			return self::invalid_payload_error();
+			return self::invalid_payload_error( $checked['errors'] );
 		}
 
 		// Socio cannot change estado via update; ownership column is immutable.
@@ -412,7 +414,10 @@ final class ANPA_Socios_Fillos_REST {
 	 * @since  1.4.0
 	 * @return WP_Error
 	 */
-	private static function invalid_payload_error(): WP_Error {
+	private static function invalid_payload_error( array $fields = array() ): WP_Error {
+		if ( array() !== $fields ) {
+			return new WP_Error( 'anpa_fillos_invalid_payload', implode( ' ', $fields ), array( 'status' => 400, 'fields' => $fields ) );
+		}
 		return new WP_Error( 'anpa_fillos_invalid_payload', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 	}
 

@@ -32,7 +32,7 @@ class Test_ANPA_Socios_Fillos_Handlers_ES4 extends TestCase {
     public function test_fillos_rest_passes_curso_escolar(): void {
         $src = file_get_contents( $this->fillos_rest_file );
         $this->assertStringContainsString( 'curso_escolar', $src );
-        $this->assertStringContainsString( "validar_fillo( \$body, \$curso_escolar )", $src );
+        $this->assertStringContainsString( "validar_fillo_con_erros( \$body, \$curso_escolar )", $src );
     }
 
     /** @testdox Admin_Payload::validar_fillo accepts curso_escolar parameter */

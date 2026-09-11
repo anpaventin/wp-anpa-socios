@@ -101,13 +101,19 @@ final class ANPA_Socios_Alta_Payload {
 		if ( count( $raw_fillos ) > self::MAX_FILLOS ) {
 			return null;
 		}
-		foreach ( $raw_fillos as $raw_fillo ) {
+		foreach ( array_values( $raw_fillos ) as $i => $raw_fillo ) {
 			if ( ! is_array( $raw_fillo ) ) {
 				return null;
 			}
 			$fillo_curso_escolar = isset( $raw_fillo['curso_escolar'] ) ? (string) $raw_fillo['curso_escolar'] : '';
-			$fillo = ANPA_Socios_Admin_Payload::validar_fillo( $raw_fillo, $fillo_curso_escolar );
+			// E8 (1.52.0): explain every rejected child field (keys fillo_<n>_<campo>).
+			$checked = ANPA_Socios_Admin_Payload::validar_fillo_con_erros( $raw_fillo, $fillo_curso_escolar );
+			$fillo   = $checked['fillo'];
 			if ( null === $fillo ) {
+				foreach ( $checked['errors'] as $campo => $msg ) {
+					self::$errors[ 'fillo_' . $i . '_' . $campo ] = $msg;
+				}
+				self::$errors['fillos'] = 'Revisa os datos do fillo/a ' . ( $i + 1 ) . ': ' . implode( ' ', $checked['errors'] );
 				return null;
 			}
 			$fillo['image_consent'] = filter_var( $raw_fillo['image_consent'] ?? false, FILTER_VALIDATE_BOOLEAN ) ? 1 : 0;

@@ -244,6 +244,21 @@ final class ANPA_Socios_Admin_Payload {
 	 * @return array<string,string>|null
 	 */
 	public static function validar_fillo( array $input, string $curso_escolar = '' ): ?array {
+		return self::validar_fillo_con_erros( $input, $curso_escolar )['fillo'];
+	}
+
+	/**
+	 * Same rules as validar_fillo() but explains every rejected field (E8, 1.52.0).
+	 * Keys: nome, apelidos, data_nacemento, curso, aula, estado. Messages are the
+	 * user-facing Galician texts shown next to the field.
+	 *
+	 * @since  1.52.0
+	 * @param  array<string,mixed> $input         Raw fillo input.
+	 * @param  string              $curso_escolar Course year for dynamic level/aula validation ('' = static lists).
+	 * @return array{fillo:?array<string,mixed>,errors:array<string,string>}
+	 */
+	public static function validar_fillo_con_erros( array $input, string $curso_escolar = '' ): array {
+		$errors = array();
 		$raw_nome     = $input['nome'] ?? null;
 		$raw_apelidos = $input['apelidos'] ?? null;
 		// Normalize names before sanitisation (Fase 18 — RF-7 consistency).
@@ -261,53 +276,60 @@ final class ANPA_Socios_Admin_Payload {
 		$aula           = self::sanitise_optional_string( $input['aula'] ?? null, 10 );
 		$estado         = isset( $input['estado'] ) ? (string) $input['estado'] : 'activo';
 		if ( ! in_array( $estado, self::FILLOS_ESTADO, true ) ) {
-			return null;
+			$errors['estado'] = 'Estado do fillo/a non válido.';
 		}
 
-		if ( null === $nome || null === $apelidos || null === $curso || null === $aula ) {
-			return null;
+		if ( null === $nome || '' === $nome ) {
+			$errors['nome'] = null === ( $input['nome'] ?? null ) || '' === trim( (string) $input['nome'] ) ? 'Escribe o nome do fillo/a.' : 'O nome é demasiado longo (máximo ' . self::NOME_MAX_LEN . ' caracteres).';
 		}
-		if ( '' === $nome || '' === $apelidos || '' === $curso || '' === $aula ) {
-			return null;
-		}
-		if ( strlen( $nome ) < 1 || strlen( $apelidos ) < 1 ) {
-			return null;
+		if ( null === $apelidos || '' === $apelidos ) {
+			$errors['apelidos'] = null === ( $input['apelidos'] ?? null ) || '' === trim( (string) $input['apelidos'] ) ? 'Escribe os apelidos do fillo/a.' : 'Os apelidos son demasiado longos (máximo ' . self::APELIDOS_MAX_LEN . ' caracteres).';
 		}
 		if ( null !== $data_nacemento && '' !== $data_nacemento ) {
 			if ( ! self::data_nacemento_valida( $data_nacemento ) ) {
-				return null;
+				$errors['data_nacemento'] = 'A data de nacemento debe ter o formato ano-mes-día (por exemplo 2019-03-12). Usa o calendario do campo.';
 			}
 		} else {
 			$data_nacemento = null;
 		}
 
-		// Dynamic validation with DB fallback when curso_escolar is provided.
-		if ( '' !== $curso_escolar ) {
+		if ( null === $curso || '' === $curso ) {
+			$errors['curso'] = 'Escolle o curso do fillo/a.';
+		} elseif ( '' !== $curso_escolar ) {
+			// Dynamic validation with DB fallback when curso_escolar is provided.
 			if ( ! self::curso_valido_db( $curso, $curso_escolar ) ) {
-				return null;
+				$errors['curso'] = 'O curso «' . $curso . '» non existe no ano escolar ' . $curso_escolar . '. Escolle un da lista.';
 			}
-			if ( ! self::aula_valida_db( $aula, $curso_escolar ) ) {
-				return null;
-			}
-		} else {
+		} elseif ( ! in_array( $curso, self::CURSO_VALIDOS, true ) && ! in_array( $curso, self::CURSO_VALIDOS_CANONICOS, true ) ) {
 			// Enforce the curso enum (legacy digits or canonical 1º…6º codes).
-			if ( ! in_array( $curso, self::CURSO_VALIDOS, true ) && ! in_array( $curso, self::CURSO_VALIDOS_CANONICOS, true ) ) {
-				return null;
-			}
+			$errors['curso'] = 'O curso «' . $curso . '» non é válido. Escolle un da lista (1º a 6º).';
+		}
 
-			// Enforce canonical grupo/aula enum (case-sensitive).
-			if ( ! in_array( $aula, self::GRUPO_VALIDOS, true ) ) {
-				return null;
+		if ( null === $aula || '' === $aula ) {
+			$errors['aula'] = 'Escolle a aula (a letra da clase). A lista aparece despois de escoller o curso.';
+		} elseif ( '' !== $curso_escolar ) {
+			if ( ! self::aula_valida_db( $aula, $curso_escolar ) ) {
+				$errors['aula'] = 'A aula «' . $aula . '» non existe para ese curso. Escolle unha da lista.';
 			}
+		} elseif ( ! in_array( $aula, self::GRUPO_VALIDOS, true ) ) {
+			// Enforce canonical grupo/aula enum (case-sensitive).
+			$errors['aula'] = 'A aula «' . $aula . '» non é válida. Escolle unha da lista.';
+		}
+
+		if ( array() !== $errors ) {
+			return array( 'fillo' => null, 'errors' => $errors );
 		}
 
 		return array(
-			'nome'           => $nome,
-			'apelidos'       => $apelidos,
-			'data_nacemento' => $data_nacemento,
-			'curso'          => $curso,
-			'aula'           => $aula,
-			'estado'         => $estado,
+			'fillo'  => array(
+				'nome'           => $nome,
+				'apelidos'       => $apelidos,
+				'data_nacemento' => $data_nacemento,
+				'curso'          => $curso,
+				'aula'           => $aula,
+				'estado'         => $estado,
+			),
+			'errors' => array(),
 		);
 	}
 

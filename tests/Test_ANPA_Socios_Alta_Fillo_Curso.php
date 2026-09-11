@@ -68,4 +68,41 @@ final class Test_ANPA_Socios_Alta_Fillo_Curso extends TestCase {
 		$this->assertStringContainsString( "'curso_escolar' => \$curso_escolar,", $page );
 		$this->assertStringContainsString( 'ANPA_Socios_Curso_Activo::get() ?? ANPA_Socios_Curso_Escolar::current()', $page );
 	}
+	public function test_child_field_errors_are_explained_per_field_e8(): void {
+		$checked = ANPA_Socios_Admin_Payload::validar_fillo_con_erros( array( 'nome' => 'Uxía', 'apelidos' => '', 'data_nacemento' => '12/03/2019', 'curso' => '2º', 'aula' => '' ), '' );
+		$this->assertNull( $checked['fillo'] );
+		$this->assertSame( array( 'apelidos', 'data_nacemento', 'aula' ), array_keys( $checked['errors'] ) );
+		$this->assertStringContainsString( 'ano-mes-día', $checked['errors']['data_nacemento'] );
+		$this->assertStringContainsString( 'aula', $checked['errors']['aula'] );
+
+		$ok = ANPA_Socios_Admin_Payload::validar_fillo_con_erros( $this->fillo( '2º' ), '' );
+		$this->assertSame( array(), $ok['errors'] );
+		$this->assertSame( '2º', $ok['fillo']['curso'] );
+		// validar_fillo() keeps its contract.
+		$this->assertNull( ANPA_Socios_Admin_Payload::validar_fillo( array( 'nome' => 'X' ), '' ) );
+	}
+
+	public function test_alta_reports_child_errors_with_row_prefixed_keys(): void {
+		$body = array(
+			'rgpd'    => true,
+			'parent1' => array( 'nome' => 'Ana', 'apelidos' => 'López Vila', 'email' => 'ana@example.com', 'telefono' => '600000000', 'nif' => '12345678Z' ),
+			'fillos'  => array( $this->fillo( '2º' ), array( 'nome' => 'Brais', 'apelidos' => 'López', 'data_nacemento' => '2020-05-05', 'curso' => '1º', 'aula' => '' ) ),
+		);
+		$this->assertNull( ANPA_Socios_Alta_Payload::validar( $body ) );
+		$this->assertArrayHasKey( 'fillo_1_aula', ANPA_Socios_Alta_Payload::$errors );
+		$this->assertArrayNotHasKey( 'fillo_0_aula', ANPA_Socios_Alta_Payload::$errors );
+		$this->assertStringContainsString( 'fillo/a 2', ANPA_Socios_Alta_Payload::$errors['fillos'] );
+	}
+
+	public function test_frontends_mark_fields_and_focus_the_first_invalid_one(): void {
+		$js = $this->src( 'assets/js/asociarse.js' );
+		$this->assertStringContainsString( "/^fillo_(\d+)_(.+)$/.exec(key)", $js );
+		$this->assertStringContainsString( "first.focus({ preventScroll: true })", $js );
+		$area = $this->src( 'assets/js/area.js' );
+		$this->assertStringContainsString( 'function applyFieldErrors(root, fields)', $area );
+		$this->assertStringContainsString( "applyFieldErrors(root, body && body.data ? body.data.fields : null);", $area );
+		$rest = $this->src( 'includes/class-anpa-socios-fillos-rest.php' );
+		$this->assertSame( 2, substr_count( $rest, 'self::invalid_payload_error( $checked[' . "'errors'" . '] )' ) );
+		$this->assertStringContainsString( "'Escolle a actividade e o grupo (día e hora) antes de confirmar.'", $this->src( 'includes/class-anpa-socios-extraescolares-rest.php' ) );
+	}
 }

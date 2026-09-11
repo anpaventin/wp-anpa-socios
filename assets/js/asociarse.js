@@ -383,17 +383,43 @@
 	function applyFieldErrors(fields) {
 		if (!fields) { return; }
 		Object.keys(fields).forEach(function(key) {
+			// E8: children come as fillo_<n>_<campo>; the rows are built dynamically.
+			var m = /^fillo_(\d+)_(.+)$/.exec(key);
+			if (m) {
+				var rows = document.querySelectorAll('[data-fillo-row]');
+				var row = rows[parseInt(m[1], 10)];
+				var control = row ? row.querySelector('[data-f="' + m[2] + '"]') : null;
+				if (control) {
+					control.classList.add('anpa-invalid');
+					control.title = fields[key];
+					var wrap = control.closest('.anpa-fillo-field') || row;
+					var span = wrap.querySelector('.anpa-field-error');
+					if (!span) {
+						span = document.createElement('span');
+						span.className = 'anpa-field-error';
+						wrap.appendChild(span);
+					}
+					span.textContent = fields[key];
+					span.hidden = false;
+				}
+				return;
+			}
 			var errSpan = document.querySelector('.anpa-field-error[data-error="' + key + '"]');
 			if (errSpan) {
 				errSpan.textContent = fields[key];
 				errSpan.hidden = false;
 				// Find the associated input (previous sibling with data-validate)
 				var prev = errSpan.previousElementSibling;
-				if (prev && prev.tagName === 'INPUT') {
+				if (prev && (prev.tagName === 'INPUT' || prev.tagName === 'SELECT')) {
 					prev.classList.add('anpa-invalid');
 				}
 			}
 		});
+		// Take the user to the first problem instead of leaving them at the button.
+		var first = document.querySelector('[data-step="datos"] .anpa-invalid');
+		if (first) {
+			try { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); first.focus({ preventScroll: true }); } catch (_) {}
+		}
 	}
 
 	/**
@@ -1008,6 +1034,8 @@
 				if (filloErrors.length > 0) {
 					errEl.textContent = __( 'Faltan datos obrigatorios nos fillos/as:', 'anpa-socios' ) + '\n' + filloErrors.join('\n');
 					errEl.parentElement.hidden = false;
+					var firstInvalid = fillosContainer.querySelector('.anpa-invalid');
+					if (firstInvalid) { try { firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' }); firstInvalid.focus({ preventScroll: true }); } catch (_) {} }
 					return;
 				}
 
