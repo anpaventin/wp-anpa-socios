@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.53.0] - 2026-09-11
+
+### Added
+
+- **Contido administrativo (fase 37).** Nova pestana **Axustes → Contido** con cinco categorías fixas
+  (transporte, libros, bos días, comedor, tardes divertidas). Para cada unha a directiva edita título,
+  texto (HTML básico), icona, orde, documentos e ligazóns; comedor e libros admiten listas de elementos.
+  Todo gárdase en `wp_options` (`anpa_socios_contenido_admin`), sen cambios de esquema. Shortcode público
+  `[anpa_contenido categoria="comedor"]` que pinta a categoría en tarxetas (estilos en
+  `assets/css/contenido-shortcode.css`). Gardado con nonce por categoría e sanitización por campo.
+  Inclúe `SECURITY.md` e un workflow de release estable de execución manual. 190 tests novos.
+  Rama `feature/fase37-contenido-rebase` (Hermes, rebaseada sobre 1.52.0) + corrección da fila duplicada
+  de categorías; retirado o `package.json` de Playwright que non pertence ao plugin.
 ## [1.52.0] - 2026-09-11
 
 ### Changed
