@@ -1981,6 +1981,36 @@
 		root.appendChild(form);
 	}
 
+	// Group states (1.50.0). Kept in sync with ANPA_Socios_Grupo_Serie::ESTADOS.
+	var GRUPO_ESTADOS = [
+		['aberto', 'Aberto', 'Visible na páxina pública e no horario, ofertado na área; matrícula activa mentres haxa praza.'],
+		['pechado', 'Pechado', 'Oculto da oferta pública e da área; as matrículas existentes seguen e unha nova iría a lista de espera.'],
+		['deshabilitado', 'Deshabilitado', 'Oculto e sen matrículas; só se pode escoller cando o grupo non ten ningunha matrícula vixente. Consérvase para o histórico e para reutilizalo.']
+	];
+	function grupoEstadoLabel(v) {
+		for (var i = 0; i < GRUPO_ESTADOS.length; i++) { if (GRUPO_ESTADOS[i][0] === v) { return GRUPO_ESTADOS[i][1]; } }
+		return v || '';
+	}
+	function grupoEstadoRowClass(grupo) {
+		if (!grupo || !grupo.ten_grupo_actual) { return 'anpa-row-baixa'; }
+		var known = GRUPO_ESTADOS.some(function (e) { return e[0] === grupo.estado; });
+		return 'anpa-row-grupo-' + (known ? grupo.estado : 'pechado');
+	}
+	function grupoEstadoLegend() {
+		var legend = document.createElement('p');
+		legend.className = 'anpa-grupos-legend description';
+		GRUPO_ESTADOS.forEach(function (e) {
+			var item = document.createElement('span');
+			item.className = 'anpa-grupo-estado anpa-grupo-estado-' + e[0];
+			item.title = e[2];
+			item.textContent = e[1];
+			legend.appendChild(item);
+			legend.appendChild(document.createTextNode(' '));
+		});
+		legend.appendChild(document.createTextNode('— «Eliminar» só aparece nos grupos do curso activo sen ningunha matrícula nin histórico.'));
+		return legend;
+	}
+
 	function renderGroupSeriesList(container, actividad, opts) {
 		opts = opts || {};
 		var scope = String(opts.scope || 'panel');
@@ -2023,7 +2053,7 @@
 				if (prev.dias) { parts.push(prev.dias); }
 				if (Array.isArray(prev.nivel_ids) && prev.nivel_ids.length) { parts.push('Niveis ' + prev.nivel_ids.join(', ')); }
 				if (prev.min_pupilos != null || prev.max_pupilos != null) { parts.push((prev.min_pupilos != null ? prev.min_pupilos : '') + '-' + (prev.max_pupilos != null ? prev.max_pupilos : '')); }
-				if (prev.estado) { parts.push(prev.estado); }
+				if (prev.estado) { parts.push(grupoEstadoLabel(prev.estado)); }
 				li.textContent = parts.filter(Boolean).join(' · ');
 				ul.appendChild(li);
 			});
@@ -2038,6 +2068,7 @@
 				list.appendChild(emptyEl('Sen grupos para esta actividade.'));
 				return;
 			}
+			list.appendChild(grupoEstadoLegend());
 			var table = document.createElement('table');
 			table.className = 'anpa-mgmt-table anpa-mgmt-activity-groups-table';
 			var thead = document.createElement('thead');
@@ -2049,7 +2080,7 @@
 			var tbody = document.createElement('tbody');
 			visible.forEach(function (grupo) {
 				var tr = document.createElement('tr');
-				if (!grupo.ten_grupo_actual || grupo.estado !== 'aberto') { tr.className = 'anpa-row-baixa'; }
+				tr.className = grupoEstadoRowClass(grupo);
 				[
 					grupo.ten_grupo_actual ? (grupo.nome || 'Grupo') : 'Sen grupo actual',
 					grupo.horario_label || (grupo.horario === 'maña' ? 'Mañá' : grupo.horario === 'manha' ? 'Comedor' : 'Tarde'),
@@ -2058,9 +2089,19 @@
 					Array.isArray(grupo.nivel_ids) ? grupo.nivel_ids.join(', ') : '',
 					grupo.min_pupilos,
 					grupo.max_pupilos,
-					grupo.estado
-				].forEach(function (v) {
-					var td = document.createElement('td'); td.textContent = v != null ? String(v) : ''; tr.appendChild(td);
+					grupo.ten_grupo_actual ? grupoEstadoLabel(grupo.estado) : ''
+				].forEach(function (v, idx) {
+					var td = document.createElement('td'); td.textContent = v != null ? String(v) : '';
+					if (idx === 7 && grupo.ten_grupo_actual) {
+						td.textContent = '';
+						var badge = document.createElement('span');
+						badge.className = 'anpa-grupo-estado anpa-grupo-estado-' + (grupo.estado || 'pechado');
+						badge.textContent = grupoEstadoLabel(grupo.estado);
+						var vix = Number(grupo.matriculas_vixentes || 0);
+						badge.title = vix + ' matrícula(s) vixente(s) · ' + Number(grupo.matriculas_total || 0) + ' en total';
+						td.appendChild(badge);
+					}
+					tr.appendChild(td);
 				});
 				var tdActions = document.createElement('td'); tdActions.className = 'anpa-mgmt-actions';
 				var edit = document.createElement('button'); edit.type = 'button'; edit.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary'; edit.textContent = grupo.ten_grupo_actual ? 'Editar' : 'Crear grupo actual';
@@ -2072,6 +2113,20 @@
 					}
 				});
 				tdActions.appendChild(edit);
+				// E6 (1.50.0): the server already refuses to delete groups with history; the
+				// button only shows when the count says there is nothing to lose.
+				if (grupo.ten_grupo_actual && grupo.curso_escolar === activeCourse && Number(grupo.matriculas_total || 0) === 0) {
+					var del = document.createElement('button'); del.type = 'button'; del.className = 'anpa-mgmt-btn anpa-mgmt-btn-danger'; del.textContent = 'Eliminar';
+					del.addEventListener('click', function () {
+						if (!window.confirm('Eliminar o grupo «' + (grupo.nome || '') + '» do curso ' + activeCourse + '? Non ten matrículas nin histórico. Esta acción non se pode desfacer; se prefires conservalo, pásao a «Deshabilitado».')) { return; }
+						del.disabled = true;
+						anpaAdminFetch('grupo/' + grupo.id, { method: 'DELETE' }).then(function () {
+							showMessage('Grupo eliminado.', 'success');
+							renderGroupSeriesList(container, actividad, opts);
+						}).catch(function (e) { del.disabled = false; showMessage(e.message, 'error'); });
+					});
+					tdActions.appendChild(del);
+				}
 				tr.appendChild(tdActions);
 				tbody.appendChild(tr);
 				if (Array.isArray(grupo.cursos_anteriores) && grupo.cursos_anteriores.length) {
@@ -2194,7 +2249,7 @@
 				if (prev.dias) { bits.push(prev.dias); }
 				if (Array.isArray(prev.nivel_ids) && prev.nivel_ids.length) { bits.push('Niveis ' + prev.nivel_ids.join(', ')); }
 				if (prev.min_pupilos != null || prev.max_pupilos != null) { bits.push((prev.min_pupilos != null ? prev.min_pupilos : '') + '-' + (prev.max_pupilos != null ? prev.max_pupilos : '')); }
-				if (prev.estado) { bits.push(prev.estado); }
+				if (prev.estado) { bits.push(grupoEstadoLabel(prev.estado)); }
 				li.textContent = bits.join(' · ');
 				historyList.appendChild(li);
 			});
@@ -2219,7 +2274,20 @@
 		var daysLabel = document.createElement('label'); daysLabel.textContent = 'Días'; form.appendChild(daysLabel); form.appendChild(days);
 		var min = document.createElement('input'); min.type = 'number'; min.min = '1'; min.value = isEdit ? grupo.min_pupilos : '10'; addField('anpa-grupo-min', 'Mínimo de alumnos/as', min);
 		var max = document.createElement('input'); max.type = 'number'; max.min = '1'; max.value = isEdit ? grupo.max_pupilos : '15'; addField('anpa-grupo-max', 'Máximo de alumnos/as', max);
-		var state = document.createElement('select'); ['aberto','pechado'].forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v; o.selected = isEdit && grupo.estado === v; state.appendChild(o); }); addField('anpa-grupo-estado', 'Estado', state);
+		var vixentes = isEdit ? Number(grupo.matriculas_vixentes || 0) : 0;
+		var state = document.createElement('select');
+		GRUPO_ESTADOS.forEach(function (e) {
+			var o = document.createElement('option'); o.value = e[0]; o.textContent = e[1] + ' — ' + e[2];
+			o.selected = isEdit ? grupo.estado === e[0] : e[0] === 'aberto';
+			if (e[0] === 'deshabilitado' && vixentes > 0 && grupo.estado !== 'deshabilitado') { o.disabled = true; o.textContent = e[1] + ' — non dispoñible: ' + vixentes + ' matrícula(s) vixente(s)'; }
+			state.appendChild(o);
+		});
+		addField('anpa-grupo-estado', 'Estado', state);
+		if (isEdit && vixentes > 0) {
+			var stateHint = document.createElement('p'); stateHint.className = 'description';
+			stateHint.textContent = 'Este grupo ten ' + vixentes + ' matrícula(s) vixente(s): pódese pechar, pero non deshabilitar ata que non quede ningunha.';
+			form.appendChild(stateHint);
+		}
 
 		var actions = document.createElement('div'); actions.className = 'anpa-mgmt-form-actions'; save = document.createElement('button'); save.type = 'button'; save.className = 'anpa-mgmt-btn'; save.textContent = isEdit ? 'Gardar cambios' : 'Crear grupo'; save.disabled = pendingLevelLoads > 0;
 		save.addEventListener('click', function () {

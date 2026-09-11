@@ -336,6 +336,11 @@ final class ANPA_Socios_Extraescolares_REST {
 			$wpdb->query( 'ROLLBACK' );
 			return self::err( 'anpa_extra_grupo', 'Grupo non válido', 400 );
 		}
+		if ( ANPA_Socios_Grupo_Serie::ESTADO_DESHABILITADO === (string) $locked['estado'] ) {
+			// 1.50.0: «pechado» still queues new requests; «deshabilitado» rejects them outright.
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_grupo_deshabilitado', 'Este grupo está deshabilitado e non admite matrículas.', 409 );
+		}
 
 		$wpdb->last_error = '';
 		$locked_niveis = $wpdb->get_col( $wpdb->prepare(

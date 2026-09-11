@@ -205,6 +205,10 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			ARRAY_A
 		);
 
+		// Enrolment counts per annual group (1.50.0): the UI needs them to offer
+		// «Eliminar» (no rows at all) and to allow «deshabilitado» (no current ones).
+		$counts = self::matriculas_counts( array_map( static function ( array $r ): int { return (int) $r['id']; }, is_array( $rows ) ? $rows : array() ) );
+
 		$series = array();
 		foreach ( is_array( $rows ) ? $rows : array() as $row ) {
 			$key = '' !== (string) $row['serie_uid'] ? (string) $row['serie_uid'] : 'legacy-' . (int) $row['id'];
@@ -229,7 +233,10 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 				'min_pupilos'   => (int) $row['min_pupilos'],
 				'max_pupilos'   => (int) $row['max_pupilos'],
 				'estado'        => (string) $row['estado'],
+				'estado_label'  => ANPA_Socios_Grupo_Serie::estado_label( (string) $row['estado'] ),
 				'nivel_ids'     => ANPA_Socios_DB::get_niveis_for_grupo( (int) $row['id'] ),
+				'matriculas_vixentes' => (int) ( $counts[ (int) $row['id'] ]['vixentes'] ?? 0 ),
+				'matriculas_total'    => (int) ( $counts[ (int) $row['id'] ]['total'] ?? 0 ),
 			);
 			if ( $curso_activo === (string) $row['curso_escolar'] ) {
 				$series[ $key ] = array_merge( $series[ $key ], $annual, array( 'ten_grupo_actual' => true ) );
@@ -325,7 +332,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		$wpdb->last_error = '';
 		$refs = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$mat} WHERE grupo_id = %d ORDER BY id FOR UPDATE", $id ) );
 		if ( '' !== (string) $wpdb->last_error || ! is_array( $refs ) ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido comprobar o histórico do grupo.', 'anpa-socios' ), array( 'status' => 500 ) ); }
-		if ( array() !== $refs ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_grupo_in_use', __( 'Non se pode eliminar: o grupo ten matrículas ou histórico asociado.', 'anpa-socios' ), array( 'status' => 409 ) ); }
+		if ( array() !== $refs ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_grupo_in_use', sprintf( __( 'Non se pode eliminar: o grupo ten %d matrículas ou rexistros históricos asociados. Se xa non se usa, pásao a «deshabilitado».', 'anpa-socios' ), count( $refs ) ), array( 'status' => 409, 'matriculas_total' => count( $refs ) ) ); }
 		if ( ! ANPA_Socios_DB::delete_grupo_niveis( $id ) || false === $wpdb->delete( $table, array( 'id' => $id ), array( '%d' ) ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
@@ -366,6 +373,11 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			return new WP_Error( 'anpa_admin_grupo_not_found', __( 'Non hai grupo desta serie no curso activo.', 'anpa-socios' ), array( 'status' => 404 ) );
 		}
 		$current_id = (int) $current_row['id'];
+		if ( ANPA_Socios_Grupo_Serie::estado_requires_no_enrolments( $estado ) ) {
+			$vixentes = self::count_matriculas_vixentes_locked( $current_id );
+			if ( null === $vixentes ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_db_error', __( 'Non se puideron comprobar as matrículas do grupo.', 'anpa-socios' ), array( 'status' => 500 ) ); }
+			if ( $vixentes > 0 ) { $wpdb->query( 'ROLLBACK' ); return self::grupo_en_uso_error( $vixentes ); }
+		}
 		if ( 'aberto' === $estado ) {
 			$nivel_ids = $wpdb->get_col( $wpdb->prepare( "SELECT nivel_id FROM {$gn_t} WHERE grupo_id = %d ORDER BY nivel_id FOR UPDATE", $current_id ) );
 			if ( '' !== (string) $wpdb->last_error || ! is_array( $nivel_ids ) || array() === $nivel_ids ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_db_error', __( 'Non se puideron comprobar os niveis do grupo.', 'anpa-socios' ), array( 'status' => 500 ) ); }
@@ -683,6 +695,11 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_grupo_comedor_conflict', __( 'O grupo solapa co horario de comedor dalgún nivel seleccionado.', 'anpa-socios' ), array( 'status' => 409, 'conflicts' => $conflicts ) );
 		}
+		if ( $current_id > 0 && ANPA_Socios_Grupo_Serie::estado_requires_no_enrolments( (string) $payload['estado'] ) ) {
+			$vixentes = self::count_matriculas_vixentes_locked( $current_id );
+			if ( null === $vixentes ) { $wpdb->query( 'ROLLBACK' ); return new WP_Error( 'anpa_admin_db_error', __( 'Non se puideron comprobar as matrículas do grupo.', 'anpa-socios' ), array( 'status' => 500 ) ); }
+			if ( $vixentes > 0 ) { $wpdb->query( 'ROLLBACK' ); return self::grupo_en_uso_error( $vixentes ); }
+		}
 		$data = array(
 			'actividad_id' => $actividad_id, 'curso_escolar' => $curso_activo, 'serie_uid' => $uid,
 			'nome' => $payload['nome'], 'horario' => $payload['horario'], 'curso_range' => '',
@@ -776,4 +793,61 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		return $row;
 	}
 
+	// ──────────────────────────────────────────────
+	// 1.50.0: enrolment counts + «deshabilitado» guard
+	// ──────────────────────────────────────────────
+
+	/**
+	 * Enrolment counts per group: vixentes = any state other than baixa
+	 * (activo, lista_espera, oferta, baixa_solicitada); total = every row,
+	 * including baixas (history that blocks deletion).
+	 *
+	 * @param  int[] $grupo_ids Group ids.
+	 * @return array<int, array{vixentes:int,total:int}>
+	 */
+	private static function matriculas_counts( array $grupo_ids ): array {
+		global $wpdb;
+		$grupo_ids = array_values( array_unique( array_filter( array_map( 'intval', $grupo_ids ) ) ) );
+		if ( array() === $grupo_ids ) {
+			return array();
+		}
+		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		$in    = implode( ',', array_fill( 0, count( $grupo_ids ), '%d' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- placeholders built from ints.
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT grupo_id, SUM(estado <> 'baixa') AS vixentes, COUNT(*) AS total FROM {$mat_t} WHERE grupo_id IN ({$in}) GROUP BY grupo_id", $grupo_ids ), ARRAY_A );
+		$out = array();
+		foreach ( is_array( $rows ) ? $rows : array() as $r ) {
+			$out[ (int) $r['grupo_id'] ] = array( 'vixentes' => (int) $r['vixentes'], 'total' => (int) $r['total'] );
+		}
+		return $out;
+	}
+
+	/**
+	 * Counts current (non-baixa) enrolments of a group inside the caller's
+	 * transaction, locking them so a concurrent enrolment cannot slip in while
+	 * the group is being disabled. Returns null on DB error.
+	 */
+	private static function count_matriculas_vixentes_locked( int $grupo_id ): ?int {
+		global $wpdb;
+		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		$wpdb->last_error = '';
+		$ids = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$mat_t} WHERE grupo_id = %d AND estado <> 'baixa' ORDER BY id FOR UPDATE", $grupo_id ) );
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $ids ) ) {
+			return null;
+		}
+		return count( $ids );
+	}
+
+	/** 409 returned when a group with current enrolments is asked to become «deshabilitado». */
+	private static function grupo_en_uso_error( int $vixentes ): WP_Error {
+		return new WP_Error(
+			'anpa_admin_grupo_en_uso',
+			sprintf(
+				/* translators: %d: number of current enrolments */
+				_n( 'Non se pode deshabilitar: o grupo ten %d matrícula vixente (activa, en lista de espera, con oferta ou con baixa solicitada). Pásao a «pechado» ou move a matrícula antes.', 'Non se pode deshabilitar: o grupo ten %d matrículas vixentes (activas, en lista de espera, con oferta ou con baixa solicitada). Pásao a «pechado» ou move as matrículas antes.', $vixentes, 'anpa-socios' ),
+				$vixentes
+			),
+			array( 'status' => 409, 'matriculas_vixentes' => $vixentes )
+		);
+	}
 }

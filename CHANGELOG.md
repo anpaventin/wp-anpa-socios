@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.50.0] - 2026-09-11
+
+### Added
+
+- **Grupos de extraescolares: estado «deshabilitado»** (E5). Ademais de `aberto` (visible e con matrícula) e
+  `pechado` (oculto; as matrículas existentes seguen e unha nova iría a lista de espera), un grupo pode quedar
+  `deshabilitado`: oculto en todas partes, **non admite matrículas** (a área devolve 409) e consérvase para o
+  histórico ou para reutilizalo. Só se pode escoller cando o grupo non ten ningunha matrícula vixente
+  (activa, en lista de espera, con oferta ou con baixa solicitada); a comprobación faise dentro da
+  transacción, tanto no interruptor de estado como ao gardar o formulario (`anpa_admin_grupo_en_uso`).
+- **Cores e etiquetas** nas filas de grupos de Xestión: verde aberto, vermello pechado, amarelo deshabilitado,
+  con lenda e recontos de matrículas na etiqueta. O selector do formulario explica cada estado e bloquea
+  «deshabilitado» cando hai matrículas vixentes.
+- **Botón «Eliminar»** (E6) nas filas de grupos do curso activo sen ningunha matrícula nin histórico, con
+  confirmación. O servidor segue rexeitando o borrado de grupos con rexistros (agora indica cantos).
+- Test de contrato `Test_ANPA_Socios_Grupo_Estado_Deshabilitado`.
+
+### Changed
+
+- **Esquema 1.40.0**: `anpa_grupos.estado` pasa a `enum('aberto','pechado','deshabilitado')`. Migración
+  idempotente en liña (só metadatos; os valores existentes non cambian) con postcondición.
+- A listaxe de grupos de administración devolve `estado_label`, `matriculas_vixentes` e `matriculas_total`.
 ## [1.49.6] - 2026-09-11
 
 ### Changed

@@ -1917,3 +1917,20 @@ msgid "Aplicar este cambio"
 msgid_plural "Aplicar estes %d cambios"
 msgstr[0] ""
 msgstr[1] ""
+
+msgid "Aberto"
+msgstr ""
+
+msgid "Deshabilitado"
+msgstr ""
+
+msgid "Non se puideron comprobar as matrículas do grupo."
+msgstr ""
+
+msgid "Non se pode eliminar: o grupo ten %d matrículas ou rexistros históricos asociados. Se xa non se usa, pásao a «deshabilitado»."
+msgstr ""
+
+msgid "Non se pode deshabilitar: o grupo ten %d matrícula vixente (activa, en lista de espera, con oferta ou con baixa solicitada). Pásao a «pechado» ou move a matrícula antes."
+msgid_plural "Non se pode deshabilitar: o grupo ten %d matrículas vixentes (activas, en lista de espera, con oferta ou con baixa solicitada). Pásao a «pechado» ou move as matrículas antes."
+msgstr[0] ""
+msgstr[1] ""

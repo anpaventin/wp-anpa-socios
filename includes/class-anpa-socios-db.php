@@ -120,7 +120,7 @@ class ANPA_Socios_DB {
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.39.0';
+	const DB_VERSION = '1.40.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -356,6 +356,11 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.39.0', '<' ) && ! self::migrate_to_1_39_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.39.0 (migrate_to_1_39_0): ' . $wpdb->last_error );
+			return;
+		}
+		if ( version_compare( $installed_version, '1.40.0', '<' ) && ! self::migrate_to_1_40_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.40.0 (migrate_to_1_40_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -1586,7 +1591,7 @@ class ANPA_Socios_DB {
 			dias varchar(40) not null default '',
 			min_pupilos smallint(5) unsigned not null default 0,
 			max_pupilos smallint(5) unsigned not null default 0,
-			estado enum('aberto','pechado') not null default 'aberto',
+			estado enum('aberto','pechado','deshabilitado') not null default 'aberto',
 			creado_en datetime not null default CURRENT_TIMESTAMP,
 			actualizado_en datetime not null default CURRENT_TIMESTAMP,
 			key actividad_id (actividad_id),
@@ -3936,6 +3941,47 @@ class ANPA_Socios_DB {
 	 * @since  1.39.0
 	 * @return bool
 	 */
+	/**
+	 * 1.40.0 (E5): third group state «deshabilitado». Widens the enum in place
+	 * (online, metadata-only change for MySQL/MariaDB: existing values keep
+	 * their position). Idempotent: skipped when the column already lists it.
+	 *
+	 * @return bool
+	 */
+	private static function migrate_to_1_40_0(): bool {
+		global $wpdb;
+
+		$grupos = self::tabela_grupos();
+		if ( self::table_missing( $grupos ) ) {
+			return true; // Fresh installs create the table with the widened enum.
+		}
+		if ( ! self::grupos_estado_inclue_deshabilitado() ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$grupos} MODIFY COLUMN estado enum('aberto','pechado','deshabilitado') NOT NULL DEFAULT 'aberto'" ) ) {
+				return false;
+			}
+		}
+		if ( ! self::grupos_estado_inclue_deshabilitado() ) {
+			$wpdb->last_error = '1.40.0 grupos.estado enum postcondition failed';
+			return false;
+		}
+		return true;
+	}
+
+	/** Reads SHOW COLUMNS for anpa_grupos.estado and checks the enum lists «deshabilitado». */
+	private static function grupos_estado_inclue_deshabilitado(): bool {
+		global $wpdb;
+
+		$column = $wpdb->get_row(
+			$wpdb->prepare( 'SHOW COLUMNS FROM ' . self::tabela_grupos() . ' LIKE %s', 'estado' ),
+			ARRAY_A
+		);
+		if ( ! is_array( $column ) || ! isset( $column['Type'] ) ) {
+			return false;
+		}
+		return false !== strpos( (string) $column['Type'], 'deshabilitado' );
+	}
+
 	private static function migrate_to_1_39_0(): bool {
 		global $wpdb;
 
