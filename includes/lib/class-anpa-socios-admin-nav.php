@@ -30,6 +30,7 @@ final class ANPA_Socios_Admin_Nav {
 		'cursos'       => 'Cursos',
 		'localizacion' => 'Localización e idioma',
 		'actualizacions' => 'Actualizacións',
+		'contenido'    => 'Contido',
 	);
 
 	/**
@@ -51,6 +52,13 @@ final class ANPA_Socios_Admin_Nav {
 		),
 		'localizacion' => array(),
 		'actualizacions' => array(),
+		'contenido'    => array(
+			'transporte'      => 'Transporte',
+			'libros'          => 'Libros',
+			'bos-dias'        => 'Bos Días',
+			'comedor'         => 'Comedor',
+			'tardes-divertidas' => 'Tardes Divertidas',
+		),
 	);
 
 	/**
