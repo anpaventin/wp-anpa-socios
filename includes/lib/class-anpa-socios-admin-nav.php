@@ -127,8 +127,8 @@ final class ANPA_Socios_Admin_Nav {
 		'management'    => self::NATIVE_MANAGEMENT_PAGE,
 		'communications' => array(
 			'slug'       => 'anpa-socios-comunicacions',
-			'menu_label' => 'Comunicacións',
-			'page_title' => 'Comunicacións',
+			'menu_label' => 'Rexistro de envíos',
+			'page_title' => 'Rexistro de envíos',
 		),
 		'settings'      => array(
 			'slug'       => 'anpa-socios-settings',
@@ -208,11 +208,14 @@ final class ANPA_Socios_Admin_Nav {
 	 */
 	private const DOCS_SECTIONS = array(
 		'posta-en-marcha'        => 'Posta en marcha',
-		'ciclo-curso'            => 'Ciclo do curso escolar',
-		'paxinas-shortcodes'     => 'Páxinas automáticas e shortcodes',
-		'extraescolares'         => 'Extraescolares',
+		'ciclo-curso'            => 'Ciclo anual e checklist de setembro',
+		'socios'                 => 'Socios/as: altas, aprobación, baixas e importación',
+		'extraescolares'         => 'Extraescolares: grupos, matrículas e ofertas',
+		'comunicacions'          => 'Comunicacións: plantillas e rexistro de envíos',
 		'exportacions-copias'    => 'Exportacións e copias',
 		'privacidade-seguridade' => 'Privacidade e seguridade',
+		'manual-familias'        => 'Manual das familias',
+		'checklist-admins'       => 'Checklist para administradores/as novos',
 	);
 
 	/**

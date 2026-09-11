@@ -2401,13 +2401,16 @@ final class ANPA_Socios_Admin_Settings {
 		}
 
 		$sections = ANPA_Socios_Admin_Nav::docs_sections();
+		$li       = static function ( string $text ): void { echo '<li>' . esc_html( $text ) . '</li>'; };
+		$li_html  = static function ( string $html ): void { echo '<li>' . wp_kses_post( $html ) . '</li>'; };
+		$p        = static function ( string $text ): void { echo '<p>' . esc_html( $text ) . '</p>'; };
+		$h3       = static function ( string $text ): void { echo '<h3>' . esc_html( $text ) . '</h3>'; };
 
 		echo '<div class="wrap anpa-docs">';
 		echo self::docs_styles();
 		echo '<h1>' . esc_html__( 'Documentación', 'anpa-socios' ) . '</h1>';
-		echo '<p>' . esc_html__( 'Guía rápida para a xunta: configuración, operación diaria, páxinas públicas, exportacións e seguridade.', 'anpa-socios' ) . '</p>';
+		$p( __( 'Guía para a xunta directiva: posta en marcha, ciclo anual, socios, extraescolares, comunicacións, copias e privacidade. Ao final hai un manual para as familias e unha lista de comprobación para quen se incorpore á administración.', 'anpa-socios' ) );
 
-		// Section index navigation.
 		echo '<nav class="card anpa-docs-index" aria-label="' . esc_attr__( 'Índice de documentación', 'anpa-socios' ) . '">';
 		echo '<h2>' . esc_html__( 'Índice', 'anpa-socios' ) . '</h2><ol>';
 		foreach ( $sections as $slug => $label ) {
@@ -2417,56 +2420,160 @@ final class ANPA_Socios_Admin_Settings {
 
 		echo '<div class="anpa-docs-content">';
 
+		// 1. Posta en marcha.
 		echo '<section id="posta-en-marcha" class="card"><h2>' . esc_html( $sections['posta-en-marcha'] ) . '</h2><ol>';
-		echo '<li>' . esc_html__( 'En Axustes → Xeral revisa o email do equipo administrador, a páxina da área de socios e as páxinas públicas creadas automaticamente.', 'anpa-socios' ) . '</li>';
-		echo '<li>' . esc_html__( 'Garda a frase da clave bancaria nun lugar seguro e accesible só para a xunta.', 'anpa-socios' ) . '</li>';
-		echo '<li>' . esc_html__( 'Lanza a instalación só cando a configuración sexa correcta: créanse a clave bancaria, a páxina de socios e a configuración inicial do curso.', 'anpa-socios' ) . '</li>';
-		echo '<li>' . esc_html__( 'Accede á área de socios para comprobar que chega o código por correo electrónico.', 'anpa-socios' ) . '</li>';
-		echo '</ol></section>';
-
-		echo '<section id="ciclo-curso" class="card"><h2>' . esc_html( $sections['ciclo-curso'] ) . '</h2><ul>';
-		echo '<li>' . wp_kses_post( __( 'Cada curso vai do 1 de xullo ao 30 de xuño e usa formato <code>AAAA/AAAA+1</code>.', 'anpa-socios' ) ) . '</li>';
-		echo '<li>' . esc_html__( 'O 20 de xuño péchase o curso activo e créase o seguinte en estado pendente.', 'anpa-socios' ) . '</li>';
-		echo '<li>' . esc_html__( 'O curso seguinte créase como pendente e debe activarse manualmente desde Axustes → Cursos cando corresponda.', 'anpa-socios' ) . '</li>';
-		echo '<li>' . esc_html__( 'En Axustes → Mantemento podes actualizar os niveis dos fillos activos pola idade que cumpren no ano final do curso. A ferramenta conserva a letra, non toca o histórico e entrega unha lista CCO para os que rematan o último nivel.', 'anpa-socios' ) . '</li>';
-		echo '<li>' . esc_html__( 'En pretempada só o equipo administrador pode iniciar sesión; as familias quedan protexidas ata a apertura.', 'anpa-socios' ) . '</li>';
-		echo '<li>' . esc_html__( 'En Axustes → Cursos → Matrículas podes abrir ou pechar novas matrículas sen tocar datas nin estado do curso.', 'anpa-socios' ) . '</li>';
-		echo '<li>' . wp_kses_post( __( 'En Axustes → Cursos → <strong>Estrutura escolar</strong> configúranse os niveis (cursos) e aulas do centro para cada ano. Ao crear un novo curso escolar pódese copiar a estrutura do anterior. Os cambios nun curso non afectan aos anos xa pechados.', 'anpa-socios' ) ) . '</li>';
-		echo '</ul>';
-		echo '<p class="description">' . esc_html__( 'Nota: «aula» (clase ordinaria, ex. 4ºB) non é o mesmo que «grupo de actividade» (agrupamento por niveis dunha extraescolar, ex. 1º-2º-3º). A estrutura escolar define aulas; os grupos de actividade configúranse na ficha de cada actividade.', 'anpa-socios' ) . '</p>';
-		echo '</section>';
-
-		echo '<section id="paxinas-shortcodes" class="card"><h2>' . esc_html( $sections['paxinas-shortcodes'] ) . '</h2>';
-		echo '<p>' . esc_html__( 'A área pública principal amósase coa páxina configurada en Axustes e o shortcode:', 'anpa-socios' ) . ' <code>[anpa_socios_area]</code></p>';
-		echo '<h3>' . esc_html__( 'Shortcodes dispoñibles', 'anpa-socios' ) . '</h3>';
+		$li( __( 'Axustes → Xeral: nome do menú, correo do equipo administrador (recibe os avisos de altas, baixas e reactivacións), aprobación de altas, e páxinas públicas creadas automaticamente (área de socios, asociarse, extraescolares).', 'anpa-socios' ) );
+		$li( __( 'Axustes → Localización e idioma: país, provincia, poboación e código postal por defecto que se prefillan nos formularios das familias.', 'anpa-socios' ) );
+		$li( __( 'Clave bancaria: xérase unha soa vez desde Axustes. A frase gárdase fóra da web, accesible só á xunta; sen ela non se poden ler nin exportar os IBAN. Non a envíes por correo nin a pegues en chats.', 'anpa-socios' ) );
+		$li( __( 'Axustes → Cursos → Curso escolar: crea o curso (formato AAAA/AAAA+1), pon as datas de inicio e peche e os peches operativos do 1º e 2º trimestre, actívao e inicializa os trimestres. As matrículas abren coa ventá do trimestre actual (ver «Ciclo anual»).', 'anpa-socios' ) );
+		$li( __( 'Axustes → Cursos → Estrutura escolar: niveis (1º a 6º, con «Idade alumnado» 7 a 12) e aulas (A, B…). Ao crear un curso novo pódese copiar a estrutura do anterior.', 'anpa-socios' ) );
+		$li( __( 'Plantillas de Email: revisa os dez textos automáticos (por defecto en galego). «Restaurar» devolve o texto orixinal dunha plantilla.', 'anpa-socios' ) );
+		$li( __( 'Proba final: entra na área de socios cun correo teu, comproba que chega o código de seis díxitos e que a acción queda rexistrada en Xestión → Auditoría.', 'anpa-socios' ) );
+		echo '</ol>';
+		echo '<p>' . esc_html__( 'A área de socios amósase na páxina configurada en Axustes → Xeral co shortcode canónico:', 'anpa-socios' ) . ' <code>[anpa_socios_area]</code></p>';
+		$h3( __( 'Shortcodes dispoñibles', 'anpa-socios' ) );
 		echo '<table class="widefat striped"><tbody>';
-		echo '<tr><td><code>[anpa_socios_area]</code></td><td>' . esc_html__( 'Área principal de socios (login, perfil, fillos, extraescolares, banking).', 'anpa-socios' ) . '</td></tr>';
-		echo '<tr><td><code>[anpa_extraescolares_ofertadas]</code></td><td>' . esc_html__( 'Tarxetas coas actividades activas do curso actual.', 'anpa-socios' ) . '</td></tr>';
-		echo '<tr><td><code>[anpa_extraescolares_horario]</code></td><td>' . esc_html__( 'Grella semanal de horarios e grupos activos.', 'anpa-socios' ) . '</td></tr>';
+		echo '<tr><td><code>[anpa_socios_area]</code></td><td>' . esc_html__( 'Área de socios: identificación por código, datos, fillos/as, extraescolares e conta bancaria.', 'anpa-socios' ) . '</td></tr>';
+		echo '<tr><td><code>[anpa_extraescolares_ofertadas]</code></td><td>' . esc_html__( 'Tarxetas coas actividades activas do curso actual que teñen grupos abertos.', 'anpa-socios' ) . '</td></tr>';
+		echo '<tr><td><code>[anpa_extraescolares_horario]</code></td><td>' . esc_html__( 'Grella semanal de luns a venres cos grupos abertos.', 'anpa-socios' ) . '</td></tr>';
 		echo '</tbody></table></section>';
 
-		echo '<section id="extraescolares" class="card"><h2>' . esc_html( $sections['extraescolares'] ) . '</h2>';
-		echo '<p>' . esc_html__( 'A instalación crea automaticamente unha páxina de extraescolares. As actividades visibles dependen do curso actual, do estado activo e dos grupos configurados.', 'anpa-socios' ) . '</p>';
+		// 2. Ciclo anual.
+		echo '<section id="ciclo-curso" class="card"><h2>' . esc_html( $sections['ciclo-curso'] ) . '</h2><ul>';
+		$li_html( __( 'Cada curso vai do 1 de xullo ao 30 de xuño e usa o formato <code>AAAA/AAAA+1</code>. Só pode haber un curso activo.', 'anpa-socios' ) );
+		$li( __( 'O 20 de xuño o sistema pecha o curso activo e crea o seguinte como pendente. Nunca activa un curso por si só: faino a xunta en Axustes → Cursos cando corresponda.', 'anpa-socios' ) );
+		$li_html( __( '<strong>Regra única de matrículas:</strong> as familias poden matricular, dar de baixa ou solicitar praza só se o curso está activo <strong>e</strong> a ventá do trimestre actual está aberta (Axustes → Cursos → Estado dos trimestres). O trimestre actual derívase das datas operativas. O «estado lectivo» de cada trimestre é informativo; a ventá é o interruptor.', 'anpa-socios' ) );
+		$li( __( 'En pretempada (curso pendente) só o equipo administrador pode iniciar sesión na área; as familias quedan protexidas ata a apertura.', 'anpa-socios' ) );
+		echo '</ul>';
+		$h3( __( 'Checklist de setembro', 'anpa-socios' ) );
+		echo '<ol>';
+		$li( __( 'Copia de seguridade con UpdraftPlus antes de empezar.', 'anpa-socios' ) );
+		$li( __( 'Axustes → Cursos: activa o curso novo, comproba as datas e inicializa os trimestres.', 'anpa-socios' ) );
+		$li( __( 'Estrutura escolar: copia niveis e aulas do curso anterior e revisa a «Idade alumnado» de cada nivel.', 'anpa-socios' ) );
+		$li( __( 'Axustes → Mantemento → «Actualizar niveis dos fillos»: o botón simula primeiro; revisa a lista e pulsa «Aplicar». Copia a lista CCO das familias de 6º que rematan e pregúntalles se seguen no centro ou queren a baixa.', 'anpa-socios' ) );
+		$li( __( 'Extraescolares: revisa empresas, actividades e grupos do curso novo (niveis, horarios, prazas, comedor) e pon en «aberto» os que se ofertan.', 'anpa-socios' ) );
+		$li( __( 'Abre as matrículas coa ventá do 1º trimestre e comproba na páxina pública que aparecen a oferta e o horario.', 'anpa-socios' ) );
+		$li( __( 'Plantillas de Email: le os textos de benvida e oferta de praza e fai un envío de proba.', 'anpa-socios' ) );
+		$li( __( 'Anuncia ás familias (blog e WhatsApp) que revisen curso, aula e data de nacemento dos fillos/as antes de matricular.', 'anpa-socios' ) );
+		echo '</ol>';
+		$h3( __( 'Fin de curso', 'anpa-socios' ) );
+		echo '<ol>';
+		$li( __( 'Pecha a ventá do 3º trimestre cando remate o prazo de baixas.', 'anpa-socios' ) );
+		$li( __( 'Confirma en Xestión as baixas solicitadas (socios e matrículas) e exporta os listados que necesite a tesourería.', 'anpa-socios' ) );
+		$li( __( 'Fai unha copia completa (UpdraftPlus e o ficheiro cifrado .anpabak) antes do 20 de xuño.', 'anpa-socios' ) );
+		echo '</ol>';
+		echo '<p class="description">' . esc_html__( 'Nota: «aula» (clase ordinaria, por exemplo 4ºB) non é o mesmo que «grupo de actividade» (agrupamento por niveis dunha extraescolar, por exemplo 1º-2º-3º). A estrutura escolar define aulas; os grupos configúranse na ficha de cada actividade.', 'anpa-socios' ) . '</p>';
+		echo '</section>';
+
+		// 3. Socios.
+		echo '<section id="socios" class="card"><h2>' . esc_html( $sections['socios'] ) . '</h2>';
+		$h3( __( 'Alta e aprobación', 'anpa-socios' ) );
 		echo '<ul>';
-		echo '<li>' . esc_html__( 'O icono da tarxeta pública escóllese no formulario de alta ou edición da actividade.', 'anpa-socios' ) . '</li>';
-		echo '<li>' . esc_html__( 'O comedor ou avisos fixos deben manterse como contido editorial separado, non como actividade automática.', 'anpa-socios' ) . '</li>';
-		echo '<li>' . esc_html__( 'Recoméndase engadir FAQ con prazos, prezos, autorizacións, baixas e contacto.', 'anpa-socios' ) . '</li>';
+		$li( __( 'A familia dáse de alta na páxina «Asociarse»: código por correo, datos do titular (e opcionalmente do segundo proxenitor/a), fillos/as con curso e aula, e conta bancaria (gárdase cifrada).', 'anpa-socios' ) );
+		$li( __( 'Con «Aprobación de altas» activada en Axustes → Xeral a alta queda pendente e a xunta acéptaa ou rexéitaa en Xestión → Aprobacións; a familia recibe un correo en cada caso. Coa opción desactivada, a alta é activa ao momento e chega a benvida.', 'anpa-socios' ) );
+		$li( __( 'En ambos os casos a alta queda na Auditoría (accións alta_activa ou alta_pendente, e alta_segundo_proxenitor). Así detéctanse altas non desexadas aínda coa aprobación desmarcada.', 'anpa-socios' ) );
+		$li( __( 'O correo identifica a cada persoa: é único e é a chave de entrada. Un segundo proxenitor/a necesita un correo distinto do titular; sen correo non se pode dar de alta.', 'anpa-socios' ) );
+		echo '</ul>';
+		$h3( __( 'Baixas e reactivacións', 'anpa-socios' ) );
+		echo '<ul>';
+		$li( __( 'A familia solicita a baixa desde a área (queda «baixa solicitada» e pode anulala). A xunta confírmaa en Xestión → Socios/as; é efectiva a fin de curso e a cota do curso completo mantense.', 'anpa-socios' ) );
+		$li( __( 'Unha familia dada de baixa pode pedir a reactivación desde a páxina pública; a xunta a aproba como unha alta pendente.', 'anpa-socios' ) );
+		$li( __( 'A conta do equipo administrador non pode solicitar a baixa: perdería o acceso.', 'anpa-socios' ) );
+		echo '</ul>';
+		$h3( __( 'Auditoría', 'anpa-socios' ) );
+		$p( __( 'Xestión → Auditoría rexistra o que fai cada socio/a (altas, baixas, fillos/as engadidos ou eliminados, cambios de IBAN sen os datos, matrículas, ofertas aceptadas) e o que fai a xunta (aprobacións, importacións, cambios de estrutura). Filtra polo correo para ver a historia dunha familia.', 'anpa-socios' ) );
+		$h3( __( 'Importación CSV', 'anpa-socios' ) );
+		echo '<ul>';
+		$li( __( 'Xestión → Importar listados admite socios, fillos, socios_iban, actividades, grupos e matrículas, coas cabeceiras exactas que amosa a pantalla.', 'anpa-socios' ) );
+		$li( __( 'Executa sempre primeiro a simulación (non escribe nada) e le os erros por fila. Os niveis van como 1º…6º e o correo de cada socio/a ten que ser único.', 'anpa-socios' ) );
+		$li( __( 'Os IBAN impórtanse cifrados: hai que ter a clave bancaria configurada e a frase a man. Despois, comproba unha familia na área para ver que os datos bancarios están completos.', 'anpa-socios' ) );
 		echo '</ul></section>';
 
+		// 4. Extraescolares.
+		echo '<section id="extraescolares" class="card"><h2>' . esc_html( $sections['extraescolares'] ) . '</h2>';
+		$p( __( 'Cadea de configuración: Empresas → Actividades → Grupos (por curso escolar) → Matrículas. A páxina pública e o horario amosan só actividades activas con grupos abertos do curso activo.', 'anpa-socios' ) );
+		$h3( __( 'Estados dos grupos (cores en Xestión)', 'anpa-socios' ) );
+		echo '<ul>';
+		$li( __( 'Aberto (verde): visible na páxina pública e no horario, ofertado na área; matrícula activa mentres haxa praza.', 'anpa-socios' ) );
+		$li( __( 'Pechado (vermello): oculto da oferta pública e da área; as matrículas existentes seguen e unha nova iría a lista de espera.', 'anpa-socios' ) );
+		$li( __( 'Deshabilitado (amarelo): oculto e sen matrículas; só se pode escoller cando o grupo non ten ningunha matrícula vixente. Consérvase para o histórico.', 'anpa-socios' ) );
+		$li( __( '«Eliminar» só aparece nos grupos do curso activo sen ningunha matrícula nin histórico. Se un grupo xa non se usa pero ten historial, deshabilítao.', 'anpa-socios' ) );
+		$li( __( 'Os horarios de comedor por nivel (Estrutura escolar) impiden abrir grupos que se solapen co comedor do seu nivel.', 'anpa-socios' ) );
+		echo '</ul>';
+		$h3( __( 'Matrículas, lista de espera e ofertas', 'anpa-socios' ) );
+		echo '<ul>';
+		$li( __( 'Só matriculan socios/as activos con datos bancarios completos, co curso activo e a ventá do trimestre aberta. A área amosa só os grupos do nivel de cada fillo/a: se o curso do fillo/a está mal, non verán as actividades correctas.', 'anpa-socios' ) );
+		$li( __( 'Con praza a matrícula queda activa; sen praza (ou grupo pechado) vai a lista de espera por orde de solicitude. Cando queda unha praza, o sistema ofrécella á primeira persoa por correo e na área; ten tres días para aceptala, se non pasa á seguinte.', 'anpa-socios' ) );
+		$li( __( 'A baixa dunha matrícula sólicitaa a familia e confírmaa a xunta en Xestión → Matrículas. Desde a ficha do grupo pódese mover un alumno/a a outro grupo aberto da mesma actividade.', 'anpa-socios' ) );
+		$li( __( 'O trimestre dunha matrícula derívase da data en que se fai, segundo as datas operativas do curso.', 'anpa-socios' ) );
+		echo '</ul></section>';
+
+		// 5. Comunicacións.
+		echo '<section id="comunicacions" class="card"><h2>' . esc_html( $sections['comunicacions'] ) . '</h2><ul>';
+		$li( __( 'Plantillas de Email: dez correos automáticos (código de verificación, benvida, alta pendente, aprobación, rexeitamento, baixa, oferta de praza, aviso á xunta…). Admiten variables, teñen vista previa e envíanse ao momento. «Restaurar» volve ao texto por defecto en galego.', 'anpa-socios' ) );
+		$li( __( '«Enviar desde a directiva» (en Xestión) fai envíos masivos por cola: campañas, lotes e reintentos. Séguense en «Rexistro de envíos»: destinatarios, intentos e resultado. É normal que estea baleiro se non se fixo ningún envío masivo.', 'anpa-socios' ) );
+		$li( __( '«Aceptado» significa que o servidor de correo aceptou a mensaxe, non que chegase. Se unha campaña queda incerta, a pantalla avísao.', 'anpa-socios' ) );
+		$li( __( 'A retención do rexistro configúrase en Axustes → Comunicacións. O envío real depende de WP Mail SMTP: se falla, revisa alí a autorización da conta.', 'anpa-socios' ) );
+		echo '</ul></section>';
+
+		// 6. Exportacións e copias.
 		echo '<section id="exportacions-copias" class="card"><h2>' . esc_html( $sections['exportacions-copias'] ) . '</h2><ul>';
-		echo '<li>' . esc_html__( 'Cada táboa de Xestión ANPA ten a súa propia exportación CSV filtrada pola busca visible.', 'anpa-socios' ) . '</li>';
-		echo '<li>' . esc_html__( 'A exportación sensible “Descargar Socios IBAN” vive en Socios/as e require o contrasinal de descifrado.', 'anpa-socios' ) . '</li>';
-		echo '<li>' . esc_html__( 'As copias de seguridade deben facerse con UpdraftPlus antes de cambios importantes, importacións ou actualizacións.', 'anpa-socios' ) . '</li>';
-		echo '<li>' . wp_kses_post( __( 'O ficheiro cifrado <code>.anpabak</code> é o único transporte completo da estrutura escolar e dos horarios de comedor; tamén conserva o nome configurado do menú. Os CSV operativos non transportan a configuración de comedor.', 'anpa-socios' ) ) . '</li>';
-		echo '<li>' . esc_html__( 'A sección Importar listados é só unha guía nesta fase: non escribe CSV nin modifica a base de datos.', 'anpa-socios' ) . '</li>';
+		$li( __( 'Cada táboa de Xestión ANPA ten a súa exportación CSV filtrada pola busca visible.', 'anpa-socios' ) );
+		$li( __( 'A exportación sensible «Descargar Socios IBAN» vive en Socios/as e require a frase da clave bancaria; queda rexistrada na Auditoría. Descárgaa só cando a tesourería a necesite e bórraa despois.', 'anpa-socios' ) );
+		$li( __( 'Fai copia con UpdraftPlus antes de importacións, actualizacións do plugin ou cambios de estrutura.', 'anpa-socios' ) );
+		$li_html( __( 'O ficheiro cifrado <code>.anpabak</code> (Axustes → Copias) é o único transporte completo da estrutura escolar e dos horarios de comedor; tamén conserva o nome do menú. Os CSV operativos non transportan a configuración de comedor.', 'anpa-socios' ) );
 		echo '</ul></section>';
 
+		// 7. Privacidade e seguridade.
 		echo '<section id="privacidade-seguridade" class="card"><h2>' . esc_html( $sections['privacidade-seguridade'] ) . '</h2><ul>';
-		echo '<li>' . esc_html__( 'Os datos bancarios están cifrados e só deben exportarse cando sexa imprescindible para a domiciliación.', 'anpa-socios' ) . '</li>';
-		echo '<li>' . esc_html__( 'Non compartas o contrasinal de descifrado por correo nin o gardes en documentos públicos.', 'anpa-socios' ) . '</li>';
-		echo '<li>' . esc_html__( 'A Xestión ANPA require sesión de administración válida; se caduca, hai que volver autenticarse.', 'anpa-socios' ) . '</li>';
-		echo '<li>' . esc_html__( 'Antes de importar ou arquivar datos persoais, debe existir unha subfase con validación, vista previa, confirmación e auditoría.', 'anpa-socios' ) . '</li>';
+		$li( __( 'Os datos bancarios e os NIF dos titulares gárdanse cifrados; só se descifran para a exportación de domiciliacións e sempre coa frase.', 'anpa-socios' ) );
+		$li( __( 'Non compartas a frase da clave nin listados con datos persoais por correo, WhatsApp ou chats de asistentes; se o fas por erro, avisa á xunta.', 'anpa-socios' ) );
+		$li( __( 'A Xestión ANPA só a ven as persoas con permiso de administración en WordPress. As sesións da área de socios caducan soas e pódense pechar desde a propia área.', 'anpa-socios' ) );
+		$li( __( 'A Auditoría é a proba de quen fixo que e cando. Antes de importar ou borrar datos persoais, fai a simulación, revisa e só entón confirma.', 'anpa-socios' ) );
+		$li( __( 'Actualiza o plugin cando Axustes → Actualizacións o avise; le o historial de cambios e fai copia antes.', 'anpa-socios' ) );
 		echo '</ul></section>';
+
+		// 8. Manual das familias.
+		echo '<section id="manual-familias" class="card"><h2>' . esc_html( $sections['manual-familias'] ) . '</h2>';
+		$p( __( 'Texto pensado para copiar nunha entrada do blog ou nun correo ás familias. Adáptao co nome da asociación e a cota.', 'anpa-socios' ) );
+		$h3( __( 'Sen contrasinais', 'anpa-socios' ) );
+		$p( __( 'Para entrar na área persoal só tes que escribir o teu correo e recibirás un código de seis díxitos. Escríbelo e xa estás dentro; cada vez repítese o mesmo paso.', 'anpa-socios' ) );
+		$h3( __( 'Como facerse socio/a', 'anpa-socios' ) );
+		echo '<ol>';
+		$li( __( 'Ten a man: nome, apelidos, NIF/NIE e teléfono; un correo ao que teñas acceso; por cada fillo/a nome, apelidos, data de nacemento, curso e aula; e os datos da conta (IBAN, titular e o seu NIF/NIE, enderezo, poboación, código postal e banco).', 'anpa-socios' ) );
+		$li( __( 'Entra en «Asociarse», escribe o correo e pulsa «Enviar código». Copia o código do correo (mira tamén o spam) e pulsa «Verificar».', 'anpa-socios' ) );
+		$li( __( 'Cubre os teus datos e, se queres, os do outro proxenitor/a con un correo distinto para que tamén poida entrar.', 'anpa-socios' ) );
+		$li( __( 'Engade cada fillo/a con curso e aula deste ano e indica se autorizas a toma de imaxes.', 'anpa-socios' ) );
+		$li( __( 'Cubre a conta bancaria e marca «Autorizo a domiciliación». Os datos gárdanse cifrados.', 'anpa-socios' ) );
+		$li( __( 'Acepta a política de protección de datos e pulsa «Completar alta». Se a xunta aproba as altas, recibirás un correo cando estea aprobada.', 'anpa-socios' ) );
+		echo '</ol>';
+		$h3( __( 'Xa eras socio/a? Revisa tres cousas', 'anpa-socios' ) );
+		echo '<ol>';
+		$li( __( 'Fillos/as → curso e aula: as extraescolares que verás dependen do curso do teu fillo/a. Corrixe e pulsa «Gardar».', 'anpa-socios' ) );
+		$li( __( 'Fillos/as → data de nacemento: pon a data real se aparece unha aproximada.', 'anpa-socios' ) );
+		$li( __( 'Conta / IBAN: comproba titular e enderezo; se cambiaches de banco, actualízao aí e marca «Autorizo a domiciliación».', 'anpa-socios' ) );
+		echo '</ol>';
+		$h3( __( 'Extraescolares', 'anpa-socios' ) );
+		echo '<ol>';
+		$li( __( 'A oferta e o horario semanal están na páxina pública de extraescolares, sen identificarse.', 'anpa-socios' ) );
+		$li( __( 'Na área persoal → Extraescolares → Nova matrícula escolle fillo/a, actividade e grupo (só aparecen os do seu curso) e indica as autorizacións que se piden.', 'anpa-socios' ) );
+		$li( __( 'Estados: «Activa» hai praza; «En lista de espera» o grupo está completo: se queda praza, recibirás unha oferta e terás tres días para pulsar «Aceptar praza».', 'anpa-socios' ) );
+		$li( __( 'Para deixar unha actividade pulsa «Baixa»: queda «Baixa solicitada» ata que a xunta a tramite; podes anulala mentres tanto.', 'anpa-socios' ) );
+		echo '</ol>';
+		$p( __( 'Se ao entrar non recoñece o teu correo, escribe ao correo de contacto da asociación.', 'anpa-socios' ) );
+		echo '</section>';
+
+		// 9. Checklist para administradores/as novos.
+		echo '<section id="checklist-admins" class="card"><h2>' . esc_html( $sections['checklist-admins'] ) . '</h2><ol>';
+		$li( __( 'Pide unha conta de administración de WordPress propia (nunca compartida). A Xestión ANPA aparece no menú lateral co nome configurado.', 'anpa-socios' ) );
+		$li( __( 'Le esta documentación enteira e o historial de cambios do plugin (Axustes → Actualizacións).', 'anpa-socios' ) );
+		$li( __( 'Axustes → Xeral → Estado: comproba versión, base de datos, clave bancaria configurada, curso activo e estado das matrículas, e correo de saída.', 'anpa-socios' ) );
+		$li( __( 'Localiza onde garda a xunta a frase da clave bancaria e quen ten acceso. Nunca a pidas nin a envíes por correo.', 'anpa-socios' ) );
+		$li( __( 'Entra na área de socios cun correo de proba para ver o que ven as familias.', 'anpa-socios' ) );
+		$li( __( 'Abre Xestión → Auditoría e mira as últimas accións: é o rexistro de quen fixo que.', 'anpa-socios' ) );
+		$li( __( 'Antes de importar, borrar ou aplicar cambios masivos: copia de seguridade e simulación. Se hai unha web de probas, usa esa primeiro.', 'anpa-socios' ) );
+		$li( __( 'Anota a data das accións do ciclo anual (setembro e xuño) no calendario da xunta.', 'anpa-socios' ) );
+		echo '</ol></section>';
 
 		echo '</div></div>';
 	}
