@@ -419,10 +419,21 @@ final class ANPA_Socios_Admin_Settings {
 		$activate->set_body_params( array(
 			'curso_escolar'      => $curso,
 			'estado'             => ANPA_Socios_Season::ESTADO_ACTIVO,
-			'matriculas_abertas' => ! empty( $_POST['abrir_matriculas'] ),
 			'replace_active'     => true,
 		) );
 		ANPA_Socios_Admin_Cursos_Handler::update_curso( $activate );
+		// 1.51.0 (E3): «abrir matrículas» means opening the current trimester's
+		// window — the only enrolment switch. Audited like a manual transition.
+		if ( ! empty( $_POST['abrir_matriculas'] ) ) {
+			$wizard_user  = wp_get_current_user();
+			$wizard_actor = ( $wizard_user instanceof WP_User && is_email( $wizard_user->user_email ) ) ? strtolower( $wizard_user->user_email ) : 'admin';
+			ANPA_Socios_Trimestre_Repo::ensure_seeded( $curso, ANPA_Socios_Trimestre_Repo::ORIXE_ACTIVACION, $wizard_actor );
+			$wizard_gate = ANPA_Socios_Matricula_Gate_Repo::para_curso( $curso );
+			if ( ! $wizard_gate['abertas'] && $wizard_gate['trimestre'] > 0 ) {
+				ANPA_Socios_Trimestre_Repo::transicionar_ventana( $curso, $wizard_gate['trimestre'], ANPA_Socios_Ventana_Estado::ABERTA, $wizard_actor, ANPA_Socios_Trimestre_Repo::ORIXE_MANUAL, function_exists( 'wp_generate_uuid4' ) ? wp_generate_uuid4() : uniqid( 'wz_', true ), 'Asistente de posta en marcha: abrir matrículas' );
+			}
+			ANPA_Socios_Matricula_Gate_Repo::sincronizar_flag( $curso );
+		}
 
 		// 2d) Seed the default school structure (levels + classrooms) if asked.
 		if ( ! empty( $_POST['seed_structure'] ) && isset( $_POST['niveis'] ) && is_array( $_POST['niveis'] ) ) {
@@ -619,15 +630,12 @@ final class ANPA_Socios_Admin_Settings {
 			if ( null === $active_course ) {
 				echo '<tr><td><strong>' . esc_html__( 'Curso activo', 'anpa-socios' ) . '</strong></td><td>⚠️ ' . esc_html__( 'ningún curso activo', 'anpa-socios' ) . '</td></tr>';
 			} else {
-				global $wpdb;
-				$course_table = ANPA_Socios_DB::tabela_cursos();
-				$course_row   = $wpdb->get_row( $wpdb->prepare( "SELECT estado, matriculas_abertas FROM {$course_table} WHERE curso_escolar = %s", $active_course ), ARRAY_A );
-				$course_open  = is_array( $course_row ) && ! empty( $course_row['matriculas_abertas'] );
+				$course_gate = ANPA_Socios_Matricula_Gate_Repo::para_curso( $active_course );
 				printf(
 					'<tr><td><strong>%s</strong></td><td>%s · %s</td></tr>',
 					esc_html__( 'Curso activo', 'anpa-socios' ),
 					esc_html( $active_course ),
-					$course_open ? esc_html__( 'matrículas abertas', 'anpa-socios' ) : esc_html__( 'matrículas pechadas', 'anpa-socios' )
+					esc_html( ANPA_Socios_Matricula_Gate::etiqueta( $course_gate ) )
 				);
 			}
 
@@ -845,12 +853,13 @@ final class ANPA_Socios_Admin_Settings {
 			printf( '<option value="%1$s"%2$s>%3$s</option>', esc_attr( $value ), selected( $value, (string) $srow['estado'], false ), esc_html( $label ) );
 		}
 		echo '</select><p class="description">' . esc_html__( 'Só pode existir un curso activo: ao activar este curso, o curso activo anterior pecharase automaticamente (coas súas matrículas).', 'anpa-socios' ) . '</p></td></tr>';
+		// 1.51.0 (E3): read-only. The only switch is the trimester window below.
+		$sel_gate = ANPA_Socios_Matricula_Gate_Repo::para_curso( $sel );
 		printf(
-			'<tr><th scope="row">%s</th><td><label><input type="checkbox" name="matriculas_abertas" value="1" %s> %s</label><p class="description">%s</p></td></tr>',
+			'<tr><th scope="row">%s</th><td><strong>%s</strong><p class="description" style="max-width:720px">%s</p></td></tr>',
 			esc_html__( 'Matrículas', 'anpa-socios' ),
-			checked( ! empty( $srow['matriculas_abertas'] ), true, false ),
-			esc_html__( 'Matrículas abertas', 'anpa-socios' ),
-			esc_html__( 'Só se poden abrir no curso activo.', 'anpa-socios' )
+			esc_html( ANPA_Socios_Matricula_Gate::etiqueta( $sel_gate ) ),
+			esc_html__( 'Regra única: as matrículas están abertas cando o curso está activo e a ventá do trimestre actual (segundo as datas operativas de abaixo) está aberta. Ábrense e péchanse en «Estado dos trimestres», máis abaixo; xa non hai unha casilla independente.', 'anpa-socios' )
 		);
 		echo '<tr><th scope="row">' . esc_html__( 'Substituír curso activo', 'anpa-socios' ) . '</th><td><div class="notice notice-warning inline" style="margin:0"><p>' . esc_html__( 'Ao activar este curso, se hai outro curso activo pecharase automaticamente coas súas matrículas. Non é opcional: só pode haber un curso activo á vez.', 'anpa-socios' ) . '</p></div></td></tr>';
 		printf( '<tr><th scope="row"><label for="cfg-inicio">%s</label></th><td><input name="data_inicio" id="cfg-inicio" type="date" value="%s"></td></tr>', esc_html__( 'Comeza (data_inicio)', 'anpa-socios' ), esc_attr( (string) $srow['data_inicio'] ) );
@@ -1469,7 +1478,6 @@ final class ANPA_Socios_Admin_Settings {
 		$t1     = sanitize_text_field( (string) wp_unslash( $_POST['t1_peche_operativo'] ?? '' ) );
 		$t2     = sanitize_text_field( (string) wp_unslash( $_POST['t2_peche_operativo'] ?? '' ) );
 		$estado = sanitize_key( (string) wp_unslash( $_POST['estado'] ?? ANPA_Socios_Season::ESTADO_PENDENTE ) );
-		$open   = isset( $_POST['matriculas_abertas'] ) && '1' === (string) wp_unslash( $_POST['matriculas_abertas'] );
 		// Mejora 1: replacing the active course on activation is NOT optional —
 		// only one course can be active at a time, so always close the previous
 		// active course (and its matrículas). The UI shows an informative note
@@ -1516,7 +1524,6 @@ final class ANPA_Socios_Admin_Settings {
 			$request->set_body_params( array(
 				'curso_escolar'      => $curso,
 				'estado'             => $estado,
-				'matriculas_abertas' => $open,
 				'replace_active'      => $replace_active,
 			) );
 			$result = ANPA_Socios_Admin_Cursos_Handler::update_curso( $request );
@@ -1649,6 +1656,8 @@ final class ANPA_Socios_Admin_Settings {
 
 		if ( ANPA_Socios_Trimestre_Repo::AMBITO_VENTANA === $ambito ) {
 			$res = ANPA_Socios_Trimestre_Repo::transicionar_ventana( $curso, $trimestre, $a_estado, $actor, ANPA_Socios_Trimestre_Repo::ORIXE_MANUAL, $correlacion );
+			// 1.51.0 (E3): the window IS the enrolment switch; refresh the derived cache.
+			ANPA_Socios_Matricula_Gate_Repo::sincronizar_flag( $curso );
 		} else {
 			$res = ANPA_Socios_Trimestre_Repo::transicionar_trimestre( $curso, $trimestre, $a_estado, $actor, ANPA_Socios_Trimestre_Repo::ORIXE_MANUAL, $correlacion );
 			// Once a trimester is closed (managed), clear its pending end-of-term
@@ -1719,8 +1728,8 @@ final class ANPA_Socios_Admin_Settings {
 			ANPA_Socios_Trimestre_Estado::PECHADO  => '🔒',
 		);
 		$ven_label = array(
-			ANPA_Socios_Ventana_Estado::PECHADA => __( 'Ventá de solicitudes pechada', 'anpa-socios' ),
-			ANPA_Socios_Ventana_Estado::ABERTA  => __( 'Ventá de solicitudes aberta', 'anpa-socios' ),
+			ANPA_Socios_Ventana_Estado::PECHADA => __( 'Matrículas pechadas (ventá pechada)', 'anpa-socios' ),
+			ANPA_Socios_Ventana_Estado::ABERTA  => __( 'Matrículas abertas (ventá aberta)', 'anpa-socios' ),
 		);
 		$ven_icon  = array(
 			ANPA_Socios_Ventana_Estado::PECHADA => '⛔',
@@ -1728,7 +1737,7 @@ final class ANPA_Socios_Admin_Settings {
 		);
 
 		echo '<h2>' . esc_html__( 'Estado dos trimestres', 'anpa-socios' ) . '</h2>';
-		echo '<p class="description" style="max-width:720px">' . esc_html__( 'Estado lectivo de cada trimestre e da súa ventá de solicitudes (dous conceptos distintos: o trimestre lectivo non abre por si só a ventá de solicitudes, nin os grupos, nin acepta matrículas). As transicións son manuais e quedan rexistradas (quen, cando, orixe). O sistema avisa cando chega unha data operativa, pero nunca cambia o estado por si só.', 'anpa-socios' ) . '</p>';
+		echo '<p class="description" style="max-width:720px">' . esc_html__( 'Aquí está o único interruptor das matrículas. Cada trimestre ten dous estados independentes: o estado lectivo (pendente, activo, pechado) é informativo e serve para o calendario e os avisos; a ventá do trimestre é a que abre ou pecha as matrículas, baixas e solicitudes das familias. O trimestre actual derívase das datas operativas do curso. As transicións son manuais e quedan rexistradas (quen, cando, orixe); o sistema avisa cando chega unha data operativa pero nunca cambia un estado por si só.', 'anpa-socios' ) . '</p>';
 
 		// Fail-closed: if any trimester row is missing, do NOT fabricate an
 		// "activo" state — surface it and offer an explicit, audited repair.
@@ -1745,7 +1754,7 @@ final class ANPA_Socios_Admin_Settings {
 		echo '<table class="widefat striped" style="max-width:760px"><thead><tr>';
 		echo '<th>' . esc_html__( 'Trimestre', 'anpa-socios' ) . '</th>';
 		echo '<th>' . esc_html__( 'Estado lectivo', 'anpa-socios' ) . '</th>';
-		echo '<th>' . esc_html__( 'Ventá de solicitudes', 'anpa-socios' ) . '</th>';
+		echo '<th>' . esc_html__( 'Matrículas (ventá do trimestre)', 'anpa-socios' ) . '</th>';
 		echo '<th>' . esc_html__( 'Accións', 'anpa-socios' ) . '</th>';
 		echo '</tr></thead><tbody>';
 
@@ -1781,9 +1790,9 @@ final class ANPA_Socios_Admin_Settings {
 			}
 			// Application-window transition buttons.
 			if ( ANPA_Socios_Ventana_Estado::PECHADA === $ventana ) {
-				self::render_transicion_button( $post_url, $curso, ANPA_Socios_Trimestre_Repo::AMBITO_VENTANA, $tri, ANPA_Socios_Ventana_Estado::ABERTA, __( 'Abrir ventá', 'anpa-socios' ) );
+				self::render_transicion_button( $post_url, $curso, ANPA_Socios_Trimestre_Repo::AMBITO_VENTANA, $tri, ANPA_Socios_Ventana_Estado::ABERTA, __( 'Abrir matrículas (ventá)', 'anpa-socios' ) );
 			} else {
-				self::render_transicion_button( $post_url, $curso, ANPA_Socios_Trimestre_Repo::AMBITO_VENTANA, $tri, ANPA_Socios_Ventana_Estado::PECHADA, __( 'Pechar ventá', 'anpa-socios' ) );
+				self::render_transicion_button( $post_url, $curso, ANPA_Socios_Trimestre_Repo::AMBITO_VENTANA, $tri, ANPA_Socios_Ventana_Estado::PECHADA, __( 'Pechar matrículas (ventá)', 'anpa-socios' ) );
 			}
 			echo '</td>';
 			echo '</tr>';

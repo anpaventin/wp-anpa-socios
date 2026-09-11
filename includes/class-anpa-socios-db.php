@@ -120,7 +120,7 @@ class ANPA_Socios_DB {
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.40.0';
+	const DB_VERSION = '1.41.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -361,6 +361,11 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.40.0', '<' ) && ! self::migrate_to_1_40_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.40.0 (migrate_to_1_40_0): ' . $wpdb->last_error );
+			return;
+		}
+		if ( version_compare( $installed_version, '1.41.0', '<' ) && ! self::migrate_to_1_41_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.41.0 (migrate_to_1_41_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -3964,6 +3969,50 @@ class ANPA_Socios_DB {
 		if ( ! self::grupos_estado_inclue_deshabilitado() ) {
 			$wpdb->last_error = '1.40.0 grupos.estado enum postcondition failed';
 			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * 1.41.0 (E3): single enrolment rule. Data-only migration:
+	 *  - every active course whose legacy flag says «abertas» gets its trimester
+	 *    rows seeded and the CURRENT trimester's window opened (audited, origin
+	 *    «migracion») so families keep enrolling exactly as before;
+	 *  - the legacy column is then rewritten as a derived cache for all courses.
+	 * Idempotent; never closes a window that an admin opened.
+	 *
+	 * @return bool
+	 */
+	private static function migrate_to_1_41_0(): bool {
+		global $wpdb;
+
+		$cursos = self::tabela_cursos();
+		if ( self::table_missing( $cursos ) || self::table_missing( self::tabela_curso_trimestres() ) ) {
+			return true; // Nothing to migrate (fresh install: 1.38.0 creates them empty).
+		}
+		if ( ! class_exists( 'ANPA_Socios_Trimestre_Repo' ) || ! class_exists( 'ANPA_Socios_Matricula_Gate_Repo' ) ) {
+			$wpdb->last_error = '1.41.0 requires ANPA_Socios_Trimestre_Repo and ANPA_Socios_Matricula_Gate_Repo to be loaded';
+			return false;
+		}
+		$wpdb->last_error = '';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- migration read.
+		$rows = $wpdb->get_results( "SELECT curso_escolar, estado, matriculas_abertas FROM {$cursos}", ARRAY_A );
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $rows ) ) {
+			return false;
+		}
+		foreach ( $rows as $row ) {
+			$curso = (string) $row['curso_escolar'];
+			if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
+				continue;
+			}
+			if ( 'activo' === (string) $row['estado'] && 1 === (int) $row['matriculas_abertas'] ) {
+				ANPA_Socios_Trimestre_Repo::ensure_seeded( $curso, ANPA_Socios_Trimestre_Repo::ORIXE_MIGRACION, 'sistema' );
+				$gate = ANPA_Socios_Matricula_Gate_Repo::para_curso( $curso );
+				if ( ! $gate['abertas'] && $gate['trimestre'] > 0 ) {
+					ANPA_Socios_Trimestre_Repo::transicionar_ventana( $curso, (int) $gate['trimestre'], ANPA_Socios_Ventana_Estado::ABERTA, 'sistema', ANPA_Socios_Trimestre_Repo::ORIXE_MIGRACION, 'e3-1.41.0', 'Regra única de matrículas (1.51.0): conserva as matrículas abertas do curso activo' );
+				}
+			}
+			ANPA_Socios_Matricula_Gate_Repo::sincronizar_flag( $curso );
 		}
 		return true;
 	}

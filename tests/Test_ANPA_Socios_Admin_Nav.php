@@ -267,7 +267,9 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 		$this->assertStringContainsString( "'xeral' === \$requested_tab && 'actualizacions' === \$requested_section", $settings, 'legacy xeral section must be recognised' );
 		$this->assertStringContainsString( 'ANPA_Socios_Curso_Activo::get()', $settings, 'Xeral Estado must show the canonical active course' );
 		$this->assertStringContainsString( 'name="estado"', $settings );
-		$this->assertStringContainsString( 'name="matriculas_abertas"', $settings );
+		// 1.51.0 (E3): the checkbox is gone; the course form shows the derived state read-only.
+		$this->assertStringNotContainsString( 'name="matriculas_abertas"', $settings );
+		$this->assertStringContainsString( 'ANPA_Socios_Matricula_Gate::etiqueta(', $settings );
 		$this->assertStringContainsString( 'ANPA_Socios_Admin_Cursos_Handler::update_curso', $settings, 'admin-post must delegate to the canonical lifecycle service' );
 		$this->assertStringContainsString( 'Horario de comedor', $settings );
 		$this->assertStringNotContainsString( 'Xestión ANPA → Cursos e matrículas', $settings );

@@ -75,8 +75,12 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 		);
 		$rows = is_array( $rows ) ? $rows : array();
 		foreach ( $rows as &$row ) {
-			$row['matriculas_abertas'] = (bool) (int) $row['matriculas_abertas'];
-			$row['actual']             = ( $row['curso_escolar'] === $active );
+			// 1.51.0 (E3): derived from course state + current trimester window.
+			$gate                       = ANPA_Socios_Matricula_Gate_Repo::para_curso( (string) $row['curso_escolar'] );
+			$row['matriculas_abertas']  = $gate['abertas'];
+			$row['matriculas_motivo']   = $gate['motivo'];
+			$row['matriculas_etiqueta'] = ANPA_Socios_Matricula_Gate::etiqueta( $gate );
+			$row['actual']              = ( $row['curso_escolar'] === $active );
 		}
 		unset( $row );
 
@@ -105,7 +109,7 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 
 		$table   = ANPA_Socios_DB::tabela_cursos();
 		$estado  = isset( $body['estado'] ) ? sanitize_key( (string) $body['estado'] ) : 'activo';
-		$open    = ! empty( $body['matriculas_abertas'] );
+		$open    = false; // 1.51.0 (E3): derived from the trimester window after the write; the body flag is ignored.
 		$replace = ! empty( $body['replace_active'] );
 		if ( ! in_array( $estado, array( 'pendente', 'activo', 'pechado' ), true ) ) {
 			return new WP_Error( 'anpa_admin_curso_estado_invalid', __( 'Estado do curso inválido', 'anpa-socios' ), array( 'status' => 400 ) );
@@ -201,6 +205,8 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 		if ( 'activo' === $plan['target_estado'] && class_exists( 'ANPA_Socios_Trimestre_Repo' ) ) {
 			ANPA_Socios_Trimestre_Repo::ensure_seeded( $curso, ANPA_Socios_Trimestre_Repo::ORIXE_ACTIVACION, 'sistema' );
 		}
+		// 1.51.0 (E3): the enrolment state follows the single rule; refresh the cache and report it.
+		$plan['target_open'] = (bool) ANPA_Socios_Matricula_Gate_Repo::sincronizar_flag( $curso );
 
 		$action = 'activo' === $plan['target_estado'] ? ( $plan['target_open'] ? 'activar_abrir' : 'activar_pechado' ) : 'desactivar_pechar';
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'curso', $curso, $action );

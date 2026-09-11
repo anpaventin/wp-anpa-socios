@@ -1076,21 +1076,18 @@ final class ANPA_Socios_Extraescolares_REST {
 		$table = ANPA_Socios_DB::tabela_cursos();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only course gate lookup.
 		$wpdb->last_error = '';
-		$row = $wpdb->get_row( $wpdb->prepare( "SELECT matriculas_abertas, estado FROM {$table} WHERE curso_escolar = %s", $curso ), ARRAY_A );
+		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT ' . ANPA_Socios_Matricula_Gate_Repo::CURSO_COLUMNS . " FROM {$table} WHERE curso_escolar = %s", $curso ), ARRAY_A );
 		if ( '' !== (string) $wpdb->last_error || ! is_array( $row ) ) {
 			return false;
 		}
 
-		// A course only accepts enrolment changes while its season is active.
-		// The coarse lifecycle estado (pendente/pechado) overrides the finer
-		// matriculas_abertas flag: a course that has not started or has finished
-		// is never open, regardless of the flag.
-		$estado = isset( $row['estado'] ) ? (string) $row['estado'] : ANPA_Socios_Season::ESTADO_PENDENTE;
-		if ( ANPA_Socios_Season::ESTADO_ACTIVO !== $estado ) {
-			return false;
-		}
+		// 1.51.0 (E3) single rule: active course AND the current trimester's
+		// window (derived from the operative dates) is open. Fails closed when
+		// the trimester rows are missing. The legacy matriculas_abertas column is
+		// only a derived cache and is never consulted here.
+		$gate = ANPA_Socios_Matricula_Gate_Repo::avaliar_fila( $row );
 
-		return 1 === (int) $row['matriculas_abertas'];
+		return $gate['abertas'];
 	}
 
 	/**
@@ -1108,15 +1105,34 @@ final class ANPA_Socios_Extraescolares_REST {
 		$table = ANPA_Socios_DB::tabela_cursos();
 		$wpdb->last_error = '';
 		$row = $wpdb->get_row(
-			$wpdb->prepare( "SELECT matriculas_abertas, estado FROM {$table} WHERE curso_escolar = %s FOR UPDATE", $curso ),
+			$wpdb->prepare( 'SELECT ' . ANPA_Socios_Matricula_Gate_Repo::CURSO_COLUMNS . " FROM {$table} WHERE curso_escolar = %s FOR UPDATE", $curso ),
 			ARRAY_A
 		);
 		if ( '' !== (string) $wpdb->last_error ) {
 			return self::err( 'anpa_extra_db', 'Non se puido comprobar o estado do curso', 500 );
 		}
-		if ( ! is_array( $row )
-			|| ANPA_Socios_Season::ESTADO_ACTIVO !== (string) ( $row['estado'] ?? '' )
-			|| 1 !== (int) ( $row['matriculas_abertas'] ?? 0 ) ) {
+		if ( ! is_array( $row ) || ANPA_Socios_Season::ESTADO_ACTIVO !== (string) ( $row['estado'] ?? '' ) ) {
+			return self::err( 'anpa_extra_curso_pechado', 'Este curso está pechado para novas matrículas ou baixas.', 409 );
+		}
+
+		// 1.51.0 (E3): lock the current trimester's window row too, so an admin
+		// closing the window cannot race a family enrolment.
+		$trimestre        = ANPA_Socios_Trimestre::actual_por_datas( ANPA_Socios_Matricula_Gate::datas_de_fila( $row ) );
+		$ct               = ANPA_Socios_DB::tabela_curso_trimestres();
+		$wpdb->last_error = '';
+		$win = $wpdb->get_row(
+			$wpdb->prepare( "SELECT estado, ventana_estado FROM {$ct} WHERE curso_escolar = %s AND trimestre = %d FOR UPDATE", $curso, $trimestre ),
+			ARRAY_A
+		);
+		if ( '' !== (string) $wpdb->last_error ) {
+			return self::err( 'anpa_extra_db', 'Non se puido comprobar a ventá de matrícula do trimestre', 500 );
+		}
+		$gate = ANPA_Socios_Matricula_Gate::avaliar( $row, array( $trimestre => array(
+			'presente'       => is_array( $win ),
+			'estado'         => (string) ( $win['estado'] ?? '' ),
+			'ventana_estado' => (string) ( $win['ventana_estado'] ?? ANPA_Socios_Ventana_Estado::PECHADA ),
+		) ) );
+		if ( ! $gate['abertas'] ) {
 			return self::err( 'anpa_extra_curso_pechado', 'Este curso está pechado para novas matrículas ou baixas.', 409 );
 		}
 

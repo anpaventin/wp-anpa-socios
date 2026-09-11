@@ -196,7 +196,8 @@ final class Test_ANPA_Socios_PR_ES8_Second_Half extends TestCase {
 			$this->assertSame( 'anpa_extra_curso_pechado', $missing->get_error_code() );
 			$this->assertStringContainsString( 'FOR UPDATE', $fake->last_query );
 
-			$fake->row = array( 'estado' => 'activo', 'matriculas_abertas' => '1' );
+			// The fake returns the same row for the course read and the window read (E3, 1.51.0).
+			$fake->row = array( 'curso_escolar' => '2026/2027', 'estado' => 'activo', 'matriculas_abertas' => '1', 'ventana_estado' => 'aberta' );
 			$this->assertNull( $method->invoke( null, '2026/2027' ) );
 
 			$fake->error_on_read = true;
