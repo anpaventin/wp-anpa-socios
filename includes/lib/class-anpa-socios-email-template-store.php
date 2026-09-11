@@ -21,158 +21,158 @@ final class ANPA_Socios_Email_Template_Store {
 		return array(
 			'verification_code' => array(
 				'subject' => array(
-					__( 'Your verification code for %s', 'anpa-socios' ),
+					__( 'O teu código de verificación para %s', 'anpa-socios' ),
 					array( 'association_name' ),
 				),
 				'html' => array(
-					'<p>' . __( 'Hello %s,', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Your verification code is:', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Ola %s,', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'O teu código de verificación é:', 'anpa-socios' ) . '</p>' .
 					'<p><strong>%s</strong></p>' .
-					'<p>' . __( 'This code expires in 15 minutes.', 'anpa-socios' ) . '</p>',
+					'<p>' . __( 'Este código caduca en 15 minutos.', 'anpa-socios' ) . '</p>',
 					array( 'nome', 'codigo' ),
 				),
 				'text' => array(
-					__( 'Hello %s,', 'anpa-socios' ) . "\n\n" .
-					__( 'Your verification code is: %s', 'anpa-socios' ) . "\n\n" .
-					__( 'This code expires in 15 minutes.', 'anpa-socios' ),
+					__( 'Ola %s,', 'anpa-socios' ) . "\n\n" .
+					__( 'O teu código de verificación é: %s', 'anpa-socios' ) . "\n\n" .
+					__( 'Este código caduca en 15 minutos.', 'anpa-socios' ),
 					array( 'nome', 'codigo' ),
 				),
 			),
 			'baixa_socio' => array(
 				'subject' => array(
-					__( 'Membership cancellation request — %s', 'anpa-socios' ),
+					__( 'Solicitude de baixa de socio — %s', 'anpa-socios' ),
 					array( 'association_name' ),
 				),
 				'html' => array(
-					'<p>' . __( 'A member has requested cancellation:', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Un socio solicitou a baixa:', 'anpa-socios' ) . '</p>' .
 					'<ul>' .
-					'<li><strong>' . __( 'Name:', 'anpa-socios' ) . '</strong> %s %s</li>' .
+					'<li><strong>' . __( 'Nome:', 'anpa-socios' ) . '</strong> %s %s</li>' .
 					'<li><strong>' . __( 'Email:', 'anpa-socios' ) . '</strong> %s</li>' .
 					'</ul>',
 					array( 'nome', 'apelidos', 'email_socio' ),
 				),
 				'text' => array(
-					__( 'A member has requested cancellation:', 'anpa-socios' ) . "\n\n" .
-					__( 'Name:', 'anpa-socios' ) . ' %s %s' . "\n" .
+					__( 'Un socio solicitou a baixa:', 'anpa-socios' ) . "\n\n" .
+					__( 'Nome:', 'anpa-socios' ) . ' %s %s' . "\n" .
 					__( 'Email:', 'anpa-socios' ) . ' %s',
 					array( 'nome', 'apelidos', 'email_socio' ),
 				),
 			),
 			'reactivacion' => array(
 				'subject' => array(
-					__( 'Reactivation request — %s', 'anpa-socios' ),
+					__( 'Solicitude de reactivación — %s', 'anpa-socios' ),
 					array( 'association_name' ),
 				),
 				'html' => array(
-					'<p>' . sprintf( __( 'A member (%%s) has requested reactivation.', 'anpa-socios' ), '%s' ) . '</p>',
+					'<p>' . sprintf( __( 'Un socio (%%s) solicitou a reactivación.', 'anpa-socios' ), '%s' ) . '</p>',
 					array( 'email_socio' ),
 				),
 				'text' => array(
-					__( 'A member (%s) has requested reactivation.', 'anpa-socios' ),
+					__( 'Un socio (%s) solicitou a reactivación.', 'anpa-socios' ),
 					array( 'email_socio' ),
 				),
 			),
 			'baixa_extraescolar' => array(
 				'subject' => array(
-					__( 'Activity cancellation — %s', 'anpa-socios' ),
+					__( 'Solicitude de baixa de actividade — %s', 'anpa-socios' ),
 					array( 'association_name' ),
 				),
 				'html' => array(
-					'<p>' . __( 'An activity cancellation has been requested:', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Solicitouse a baixa dunha actividade:', 'anpa-socios' ) . '</p>' .
 					'<ul>' .
-					'<li><strong>' . __( 'Student:', 'anpa-socios' ) . '</strong> %s</li>' .
-					'<li><strong>' . __( 'Activity:', 'anpa-socios' ) . '</strong> %s</li>' .
-					'<li><strong>' . __( 'Requested by:', 'anpa-socios' ) . '</strong> %s</li>' .
+					'<li><strong>' . __( 'Alumno/a:', 'anpa-socios' ) . '</strong> %s</li>' .
+					'<li><strong>' . __( 'Actividade:', 'anpa-socios' ) . '</strong> %s</li>' .
+					'<li><strong>' . __( 'Solicitado por:', 'anpa-socios' ) . '</strong> %s</li>' .
 					'</ul>',
 					array( 'alumno', 'actividade', 'email_socio' ),
 				),
 				'text' => array(
-					__( 'An activity cancellation has been requested:', 'anpa-socios' ) . "\n\n" .
+					__( 'Solicitouse a baixa dunha actividade:', 'anpa-socios' ) . "\n\n" .
 					'%s - %s' . "\n" .
-					__( 'Requested by:', 'anpa-socios' ) . ' %s',
+					__( 'Solicitado por:', 'anpa-socios' ) . ' %s',
 					array( 'alumno', 'actividade', 'email_socio' ),
 				),
 			),
 			'oferta_extraescolar' => array(
 				'subject' => array(
-					__( 'Waitlist offer — %s', 'anpa-socios' ),
+					__( 'Offerta de praza — %s', 'anpa-socios' ),
 					array( 'actividade' ),
 				),
 				'html' => array(
-					'<p>' . sprintf( __( 'Hello, a place is available for %%s.', 'anpa-socios' ), '<strong>%s</strong>' ) . '</p>' .
-					'<p>' . sprintf( __( 'You have %%d days to accept this offer.', 'anpa-socios' ), '%s' ) . '</p>',
+					'<p>' . sprintf( __( 'Ola, hai unha praza dispoñible para %%s.', 'anpa-socios' ), '<strong>%s</strong>' ) . '</p>' .
+					'<p>' . sprintf( __( 'Tes %%d días para aceptar esta oferta.', 'anpa-socios' ), '%s' ) . '</p>',
 					array( 'actividade', 'dias_prazo' ),
 				),
 				'text' => array(
-					__( 'Hello, a place is available for %s.', 'anpa-socios' ) . "\n\n" .
-					__( 'You have %d days to accept this offer.', 'anpa-socios' ),
+					__( 'Ola, hai unha praza dispoñible para %s.', 'anpa-socios' ) . "\n\n" .
+					__( 'Tes %d días para aceptar esta oferta.', 'anpa-socios' ),
 					array( 'actividade', 'dias_prazo' ),
 				),
 			),
 			'pendente_aprobacion' => array(
 				'subject' => array(
-					__( 'Pending approval — %s', 'anpa-socios' ),
+					__( 'Pendente de aprobación — %s', 'anpa-socios' ),
 					array( 'association_name' ),
 				),
 				'html' => array(
-					'<p>' . __( 'A new member is pending approval:', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Un novo socio está pendente de aprobación:', 'anpa-socios' ) . '</p>' .
 					'<ul>' .
-					'<li><strong>' . __( 'Name:', 'anpa-socios' ) . '</strong> %s</li>' .
+					'<li><strong>' . __( 'Nome:', 'anpa-socios' ) . '</strong> %s</li>' .
 					'<li><strong>' . __( 'Email:', 'anpa-socios' ) . '</strong> %s</li>' .
 					'</ul>' .
-					'<p><a href="%s">' . __( 'Review in the admin panel', 'anpa-socios' ) . '</a></p>',
+					'<p><a href="%s">' . __( 'Revisar no panel de administración', 'anpa-socios' ) . '</a></p>',
 					array( 'nome', 'email_socio', 'login_url' ),
 				),
 				'text' => array(
-					__( 'A new member is pending approval:', 'anpa-socios' ) . "\n\n" .
+					__( 'Un novo socio está pendente de aprobación:', 'anpa-socios' ) . "\n\n" .
 					'%s (%s)' . "\n\n" .
-					__( 'Review in the admin panel:', 'anpa-socios' ) . "\n%s",
+					__( 'Revisar no panel de administración:', 'anpa-socios' ) . "\n%s",
 					array( 'nome', 'email_socio', 'login_url' ),
 				),
 			),
 			'aprobacion' => array(
 				'subject' => array(
-					__( 'Membership approved — %s', 'anpa-socios' ),
+					__( 'Solicitude aprobada — %s', 'anpa-socios' ),
 					array( 'association_name' ),
 				),
 				'html' => array(
-					'<p>' . __( 'Congratulations! Your membership has been approved.', 'anpa-socios' ) . '</p>' .
-					'<p>' . sprintf( __( 'You can access your area here: %%s', 'anpa-socios' ), '<a href="%s">%s</a>' ) . '</p>',
+					'<p>' . __( 'Parabéns! A túa solicitude de socio foi aprobada.', 'anpa-socios' ) . '</p>' .
+					'<p>' . sprintf( __( 'Podes acceder á túa área aquí: %%s', 'anpa-socios' ), '<a href="%s">%s</a>' ) . '</p>',
 					array( 'login_url', 'login_url' ),
 				),
 				'text' => array(
-					__( 'Congratulations! Your membership has been approved.', 'anpa-socios' ) . "\n\n" .
-					__( 'You can access your area here:', 'anpa-socios' ) . "\n%s",
+					__( 'Parabéns! A túa solicitude de socio foi aprobada.', 'anpa-socios' ) . "\n\n" .
+					__( 'Podes acceder á tua área aquí:', 'anpa-socios' ) . "\n%s",
 					array( 'login_url' ),
 				),
 			),
 			'benvida_alta' => array(
 				'subject' => array(
-					__( 'Welcome to %s', 'anpa-socios' ),
+					__( 'Benvido/a a %s', 'anpa-socios' ),
 					array( 'association_name' ),
 				),
 				'html' => array(
-					'<p>' . sprintf( __( 'Welcome to %%s! Your registration is complete.', 'anpa-socios' ), '<strong>%s</strong>' ) . '</p>' .
-					'<p>' . sprintf( __( 'Access your member area: %%s', 'anpa-socios' ), '<a href="%s">%s</a>' ) . '</p>',
+					'<p>' . sprintf( __( 'Benvido/a a %%s! O teu rexistro está completo.', 'anpa-socios' ), '<strong>%s</strong>' ) . '</p>' .
+					'<p>' . sprintf( __( 'Accede á túa área de socio: %%s', 'anpa-socios' ), '<a href="%s">%s</a>' ) . '</p>',
 					array( 'association_name', 'login_url', 'login_url' ),
 				),
 				'text' => array(
-					__( 'Welcome to %s! Your registration is complete.', 'anpa-socios' ) . "\n\n" .
-					__( 'Access your member area:', 'anpa-socios' ) . "\n%s",
+					__( 'Benvido/a a %s! O teu rexistro está completo.', 'anpa-socios' ) . "\n\n" .
+					__( 'Accede á túa área de socio:', 'anpa-socios' ) . "\n%s",
 					array( 'association_name', 'login_url' ),
 				),
 			),
 			'rexeitamento' => array(
 				'subject' => array(
-					__( 'Membership application update — %s', 'anpa-socios' ),
+					__( 'Actualización da solicitude de socio — %s', 'anpa-socios' ),
 					array( 'association_name' ),
 				),
 				'html' => array(
-					'<p>' . sprintf( __( 'We regret to inform you that your membership application has not been accepted at this time. Please contact %%s if you have questions.', 'anpa-socios' ), '%s' ) . '</p>',
+					'<p>' . sprintf( __( 'Sentimos informar que a túa solicitude de socio non foi aceptada neste momento. Por favor, contacta con %%s se tes preguntas.', 'anpa-socios' ), '%s' ) . '</p>',
 					array( 'contact_email' ),
 				),
 				'text' => array(
-					__( 'We regret to inform you that your membership application has not been accepted at this time. Please contact %s if you have questions.', 'anpa-socios' ),
+					__( 'Sentimos informar que a túa solicitude de socio non foi aceptada neste momento. Por favor, contacta con %s se tes preguntas.', 'anpa-socios' ),
 					array( 'contact_email' ),
 				),
 			),

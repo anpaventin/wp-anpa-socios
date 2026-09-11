@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.49.5] - 2026-09-11
+
+### Fixed
+
+- **Plantillas de email en galego.** Os textos por defecto das 10 plantillas transaccionais (código de
+  verificación, benvida, aprobación, rexeitamento, baixas, oferta de praza, envío desde a directiva…)
+  estaban en inglés en todas as releases publicadas: a tradución ao galego fixérase o 2026-09-05 no commit
+  `6ccb39e` da rama `feature/fase36-plantillas-email` pero nunca chegou a `main`. Recupérase só ese cambio
+  (46 cadeas) co seu test (`Test_ANPA_Socios_Email_Templates_Galego`, 10 tests). As instalacións que xa
+  sementaran as plantillas en inglés deben pulsar «Restaurar» en cada plantilla (ou executar
+  `ANPA_Socios_Email_Template_Store::restore_all()`) para recoller os textos galegos.
+
 ## [1.49.4] - 2026-09-10
 
 ### Fixed
