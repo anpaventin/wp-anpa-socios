@@ -320,6 +320,10 @@ class ANPA_Socios_REST {
 		if ( ! is_array( $body ) ) {
 			$body = array();
 		}
+		// 1.51.2: children are validated against the ACTIVE course's real levels
+		// and classrooms (1º…6º, A…), never against the legacy static list. The
+		// public form used to omit curso_escolar, so every alta with a child failed.
+		$body = self::normalizar_fillos_alta( $body );
 
 		// Pure validation of the entire payload (parents + fillos + RGPD).
 		$clean = ANPA_Socios_Alta_Payload::validar( $body );
@@ -559,6 +563,35 @@ class ANPA_Socios_REST {
 		}
 
 		return new WP_REST_Response( $response, 200 );
+	}
+
+	/**
+	 * Fills in `curso_escolar` for every child of a raw alta body when the
+	 * client did not send it (or sent an invalid one), using the active course
+	 * (fallback: the date-derived current course). Pure apart from that lookup.
+	 *
+	 * @since  1.51.2
+	 * @param  array<string,mixed> $body Raw decoded JSON body.
+	 * @return array<string,mixed>
+	 */
+	public static function normalizar_fillos_alta( array $body ): array {
+		if ( ! isset( $body['fillos'] ) || ! is_array( $body['fillos'] ) ) {
+			return $body;
+		}
+		$curso = class_exists( 'ANPA_Socios_Curso_Activo' ) ? ANPA_Socios_Curso_Activo::get() : null;
+		if ( null === $curso ) {
+			$curso = ANPA_Socios_Curso_Escolar::current();
+		}
+		foreach ( $body['fillos'] as $i => $fillo ) {
+			if ( ! is_array( $fillo ) ) {
+				continue;
+			}
+			$ce = trim( (string) ( $fillo['curso_escolar'] ?? '' ) );
+			if ( '' === $ce || ! ANPA_Socios_Curso_Escolar::is_valid( $ce ) ) {
+				$body['fillos'][ $i ]['curso_escolar'] = $curso;
+			}
+		}
+		return $body;
 	}
 
 	/**

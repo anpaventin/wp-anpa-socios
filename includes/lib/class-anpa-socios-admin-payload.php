@@ -82,6 +82,15 @@ final class ANPA_Socios_Admin_Payload {
 	const CURSO_VALIDOS = array( '1', '2', '3', '4', '5', '6' );
 
 	/**
+	 * Canonical level codes as stored in anpa_niveis since 1.35.0. Accepted by
+	 * the static fallback so a form that sends the real code never fails when
+	 * no school year is available (1.51.2).
+	 *
+	 * @var string[]
+	 */
+	const CURSO_VALIDOS_CANONICOS = array( '1º', '2º', '3º', '4º', '5º', '6º' );
+
+	/**
 	 * Valid grupo/aula values for fillos (A–H). Case-sensitive.
 	 *
 	 * Fallback ONLY — do not use as primary source. Primary source is
@@ -281,8 +290,8 @@ final class ANPA_Socios_Admin_Payload {
 				return null;
 			}
 		} else {
-			// Enforce canonical curso enum (case-sensitive).
-			if ( ! in_array( $curso, self::CURSO_VALIDOS, true ) ) {
+			// Enforce the curso enum (legacy digits or canonical 1º…6º codes).
+			if ( ! in_array( $curso, self::CURSO_VALIDOS, true ) && ! in_array( $curso, self::CURSO_VALIDOS_CANONICOS, true ) ) {
 				return null;
 			}
 

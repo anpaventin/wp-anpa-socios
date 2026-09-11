@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.51.2] - 2026-09-11
+
+### Fixed
+
+- **Alta pública con fillos: fallaba sempre con «Datos inválidos».** O formulario de alta non enviaba o
+  `curso_escolar` de cada fillo e o servidor validaba entón o curso contra a lista fixa antiga (`1`…`6`),
+  mentres o desplegable envía os códigos reais (`1º`…`6º`). Dende a estrea da web (2026-09-10) ningunha
+  familia nova con fillos podía completar a alta. Agora `ANPA_Socios_REST::normalizar_fillos_alta()` asigna
+  a cada fillo o curso escolar activo antes de validar (contra os niveis e aulas reais, como fai a área),
+  a lista fixa acepta tamén os códigos canónicos (`CURSO_VALIDOS_CANONICOS`), a páxina unificada localiza
+  `curso_escolar` e o formulario envíao. O desplegable de reserva usa os códigos canónicos.
+- Formulario de alta: o aviso de erro desprázase á vista ao aparecer; eliminada unha opción en branco
+  duplicada no desplegable de aula.
 ## [1.51.1] - 2026-09-11
 
 ### Changed
