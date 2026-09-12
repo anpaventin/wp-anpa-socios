@@ -472,7 +472,7 @@
 						}
 					});
 					tokenRequest('GET', root.dataset.extraMatriculasUrl, areaToken, null, root).then(function (mats) {
-						renderMatriculas(host, Array.isArray(mats) ? mats : []);
+						renderMatriculas(host, matriculasList(mats));
 					});
 				});
 			}
@@ -939,6 +939,16 @@
 			return String(csv || '').split(',').filter(Boolean).map((d) => EXTRA_DIA_LABELS[d] || d).join(', ');
 		}
 
+		/**
+		 * 1.56.1: GET /area/me/matriculas returns { matriculas, current, available_courses }
+		 * (a bare array in very old builds). Reading it as an array hid every enrolment
+		 * behind «Aínda non tes ningunha matrícula».
+		 */
+		function matriculasList(mats) {
+			if (Array.isArray(mats)) { return mats; }
+			return mats && Array.isArray(mats.matriculas) ? mats.matriculas : [];
+		}
+
 		async function loadExtraescolares() {
 			const matsEl = root.querySelector('[data-extra-matriculas]');
 			const enrolEl = root.querySelector('[data-extra-enrol]');
@@ -947,7 +957,7 @@
 			enrolEl.textContent = '';
 
 			const mats = await tokenRequest('GET', root.dataset.extraMatriculasUrl, areaToken, null, root);
-			renderMatriculas(matsEl, Array.isArray(mats) ? mats : []);
+			renderMatriculas(matsEl, matriculasList(mats));
 
 			// Banking gate: without COMPLETE SEPA details the family cannot enrol
 			// (the backend enforces this too). Show a red notice + CTA instead of
@@ -991,7 +1001,7 @@
 				const li = document.createElement('li');
 				const who = ((m.fillo_nome || '') + ' ' + (m.fillo_apelidos || '')).trim();
 				const estado = EXTRA_ESTADO_LABELS[m.estado] || m.estado;
-				let txt = who + ' — ' + (m.actividade || '') ;
+				let txt = who + ' — ' + (m.actividade || '') + (m.curso_escolar ? ' [' + m.curso_escolar + ']' : '');
 				if (m.grupo_nome) { txt += ' (' + m.grupo_nome + (m.horario ? ' — ' + (m.horario === 'maña' ? 'Mañá' : m.horario === 'manha' ? 'Comedor' : 'Tarde') : '') + ')'; }
 				txt += ' · ' + estado;
 				if (m.estado === 'lista_espera' && m.posicion) { txt += ' (posición ' + m.posicion + ')'; }

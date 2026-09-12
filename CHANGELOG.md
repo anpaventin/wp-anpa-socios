@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.56.1] - 2026-09-12
+
+### Fixed
+
+- **As matrículas da familia non se vían na área.** `GET /area/me/matriculas` devolve
+  `{ matriculas, current, available_courses }` desde a importación inicial, pero `area.js` lía a resposta
+  como se fose un array, polo que «Extraescolares» e o panel amosaban sempre «Aínda non tes ningunha
+  matrícula» aínda que o fillo/a estivese matriculado (e a actividade xa non aparecía na oferta). Nova
+  `matriculasList()` nos dous puntos de lectura; cada matrícula amosa o curso escolar. Incidencia
+  comunicada por unha familia o 2026-09-12.
+- **Conta do comedor:** a descarga do CSV devolvía 500 porque o gardián do export rexeitaba o id 0 da
+  conta sintética.
 ## [1.56.0] - 2026-09-12
 
 ### Added
