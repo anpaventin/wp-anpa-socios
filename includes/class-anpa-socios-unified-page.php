@@ -79,6 +79,10 @@ class ANPA_Socios_Unified_Page {
 		// the [anpa_socios_asociarse] shortcode, wherever it currently lives.
 		$alta_page_url = ANPA_Socios_Hub_Page::find_page_url( 'anpa_socios_asociarse' );
 
+		// 1.55.1: company emails enter through this same form and land on the company panel.
+		$empresa_request_code_url = rest_url( 'anpa-socios/v1/empresa/solicitar-codigo' );
+		$empresa_session_url      = rest_url( 'anpa-socios/v1/empresa/session' );
+
 		ob_start();
 		?>
 		<div id="anpa-unified"
@@ -103,7 +107,9 @@ class ANPA_Socios_Unified_Page {
 			data-preseason-date="<?php echo esc_attr( $preseason_date ); ?>"
 			data-area-page-url="<?php echo esc_attr( $area_page_url ); ?>"
 			data-alta-page-url="<?php echo esc_attr( (string) $alta_page_url ); ?>"
-			data-landing-url="<?php echo esc_attr( ANPA_Socios_Admin_Settings::landing_page_url() ); ?>">
+			data-landing-url="<?php echo esc_attr( ANPA_Socios_Admin_Settings::landing_page_url() ); ?>"
+			data-empresa-request-code-url="<?php echo esc_attr( $empresa_request_code_url ); ?>"
+			data-empresa-session-url="<?php echo esc_attr( $empresa_session_url ); ?>">
 
 			<?php if ( $is_preseason ) : ?>
 			<!-- PRE-SEASON: course not started yet; only admins can log in. -->

@@ -45,6 +45,8 @@
 			areaPageUrl: root.dataset.areaPageUrl,
 			altaPageUrl: root.dataset.altaPageUrl || '',
 			landingUrl: root.dataset.landingUrl || '',
+			empresaRequestCodeUrl: root.dataset.empresaRequestCodeUrl || '',
+			empresaSessionUrl: root.dataset.empresaSessionUrl || '',
 		};
 	}
 
@@ -266,6 +268,42 @@
 		return true;
 	}
 
+	/**
+	 * 1.55.1: company flow. Exchanges the verified code for a company session
+	 * and opens the company panel inside the shared area shell on this page.
+	 *
+	 * @param {object} cfg
+	 * @param {string} verificationToken
+	 * @returns {Promise<boolean>}
+	 */
+	async function exchangeVerifiedEmpresaSession(cfg, verificationToken) {
+		if (!verificationToken || !cfg.empresaSessionUrl) { return false; }
+
+		var session = await apiPost(cfg.empresaSessionUrl, { token: verificationToken });
+		if (!session || !session.session_token) { return false; }
+
+		try { localStorage.removeItem('anpa_unified_flow'); } catch (_) {}
+		showNotice(cfg, __( 'Código verificado. Abrindo o panel da empresa...', 'anpa-socios' ));
+
+		var host = document.getElementById('anpa-area-host');
+		var areaRoot = host ? host.querySelector('#anpa-area') : null;
+		if (!host || !areaRoot || !window.AnpaArea || typeof window.AnpaArea.openEmpresa !== 'function') {
+			return false;
+		}
+		var altaHost = document.getElementById('anpa-alta-form-host');
+		if (altaHost) { altaHost.hidden = true; }
+		cfg.root.hidden = true;
+		host.hidden = false;
+
+		var opened = await window.AnpaArea.openEmpresa(areaRoot, session.session_token);
+		if (!opened) {
+			host.hidden = true;
+			cfg.root.hidden = false;
+			return false;
+		}
+		return true;
+	}
+
 	async function exchangeVerifiedAreaSession(cfg, verificationToken) {
 		if (!verificationToken) { return false; }
 
@@ -345,6 +383,38 @@
 				? __( 'Enviouse un código para acceder e xestionar a túa solicitude de baixa.', 'anpa-socios' )
 				: __( 'Enviouse un código de acceso a ', 'anpa-socios' ) + email;
 			showNotice(cfg, loginMessage);
+			return;
+		}
+
+		if (next === 'empresa') {
+			// 1.55.1: activities company. Never show the alta form; send the
+			// company code (checks the empresas table) and open the panel after
+			// verification.
+			try { localStorage.setItem('anpa_unified_flow', 'empresa'); } catch (_) {}
+			var hpEmpresa = cfg.root.querySelector('#anpa-unified-website');
+			var empresaResult = await apiPost(cfg.empresaRequestCodeUrl || cfg.requestCodeUrl, {
+				email: email,
+				_ts: ts,
+				website: hpEmpresa ? hpEmpresa.value : '',
+			});
+			if (!empresaResult) {
+				requestBtn.disabled = false;
+				showNotice(cfg, 'Non se puido enviar o código. Téntao de novo.', true);
+				return;
+			}
+			if (empresaResult.error) {
+				requestBtn.disabled = false;
+				showNotice(cfg, empresaResult.error, true);
+				return;
+			}
+			savePendingEmail(email);
+			showStep(cfg, 'code');
+			var codeInputEmpresa = cfg.root.querySelector('#anpa-unified-code');
+			if (codeInputEmpresa) {
+				codeInputEmpresa.value = '';
+				codeInputEmpresa.focus();
+			}
+			showNotice(cfg, __( 'Este correo é dunha empresa de actividades. Enviouse un código de acceso ao panel da empresa a ', 'anpa-socios' ) + email);
 			return;
 		}
 
@@ -474,6 +544,15 @@
 
 				var flow;
 				try { flow = localStorage.getItem('anpa_unified_flow'); } catch (_) {}
+				if (flow === 'empresa') {
+					// 1.55.1: company session, never the socio session nor the alta form.
+					if (!await exchangeVerifiedEmpresaSession(cfg, result.token)) {
+						showNotice(cfg, __( 'Non se puido abrir o panel da empresa. Téntao de novo.', 'anpa-socios' ), true);
+					}
+					verifyBtn.disabled = false;
+					return;
+				}
+
 				if (await exchangeVerifiedAreaSession(cfg, result.token)) {
 					verifyBtn.disabled = false;
 					return;

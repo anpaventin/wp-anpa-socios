@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.55.1] - 2026-09-12
+
+### Fixed
+
+- **Correo de empresa na entrada unificada.** O formulario de entrada de «Socios → Área persoal»
+  (`[anpa_socios_area]` / unified.js) só coñecía os fluxos de socio/a e alta: un correo de empresa
+  recibía o código de alta e acababa no formulario de alta de socio/a. Agora, cando o preflight devolve
+  `empresa`, pídese o código polo endpoint da empresa (`/empresa/solicitar-codigo`), tras verificalo
+  intercámbiase pola sesión de empresa (`/empresa/session`) e ábrese o panel da empresa no shell da
+  área (`window.AnpaArea.openEmpresa`). Nunca se amosa o formulario de alta a un correo de empresa.
+  Ensaiado no LXC103 cunha empresa sintética con dúas matrículas (activa + baixa).
 ## [1.55.0] - 2026-09-12
 
 ### Added
