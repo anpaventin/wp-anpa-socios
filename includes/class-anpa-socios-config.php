@@ -45,6 +45,15 @@ final class ANPA_Socios_Config {
 	const CONST_NAME = 'ANPA_SOCIOS_MASTER_EMAIL';
 
 	/**
+	 * Option: email of the person in charge of the school canteen (1.56.0).
+	 * That address logs in through the company flow and sees every active
+	 * enrolment of the course with the families' options and authorisations.
+	 *
+	 * @var string
+	 */
+	const OPTION_COMEDOR_EMAIL = 'anpa_socios_comedor_email';
+
+	/**
 	 * Returns the resolved master email.
 	 *
 	 * Precedence: wp-config constant > WP option > default constant.
@@ -173,6 +182,29 @@ final class ANPA_Socios_Config {
 		$value = trim( $value );
 
 		return '' !== $value ? $value : self::DEFAULT_MENU_NAME;
+	}
+
+	/**
+	 * Email of the canteen account (Axustes), lower-cased; '' when disabled.
+	 *
+	 * @since  1.56.0
+	 * @return string
+	 */
+	public static function comedor_email(): string {
+		return strtolower( trim( (string) get_option( self::OPTION_COMEDOR_EMAIL, '' ) ) );
+	}
+
+	/**
+	 * Whether the email is the configured canteen account.
+	 *
+	 * @since  1.56.0
+	 * @param  string $email Email to compare (any case).
+	 * @return bool
+	 */
+	public static function is_comedor_email( string $email ): bool {
+		$comedor = self::comedor_email();
+
+		return '' !== $comedor && $comedor === strtolower( trim( $email ) );
 	}
 
 	/**

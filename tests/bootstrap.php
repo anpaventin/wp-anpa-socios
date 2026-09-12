@@ -216,6 +216,7 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-empresa-view.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-csv.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-antibot.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-alumnos-export.php';
+require_once __DIR__ . '/../includes/class-anpa-socios-empresa-rest.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-admin-nav.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-verificacion-guard.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-admin-auth.php';

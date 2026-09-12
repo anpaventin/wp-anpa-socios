@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.56.0] - 2026-09-12
+
+### Added
+
+- **Conta do comedor.** En Axustes → Configuración, campo «Correo da persoa responsable do comedor»
+  (`anpa_socios_comedor_email`, `ANPA_Socios_Config::comedor_email()`). Ese correo entra pola entrada
+  unificada como conta de empresa sintética (`ANPA_Socios_Empresa_REST::comedor_profile()`, id 0 =
+  todas as empresas): o preflight devolve `empresa`, o código pídese por `/empresa/solicitar-codigo` e
+  a sesión por `/empresa/session`. O panel («Panel do comedor») lista o alumnado con matrícula activa en
+  todas as actividades do curso, clasificado por actividade e empresa, coas opcións e autorizacións das
+  familias (autorización ao persoal de comedor, transición tras o comedor, Tardes divertidas, recollida,
+  cesión de datos) e o contacto da familia; a descarga é sempre o listado completo sen baixas
+  (`alumnos-comedor.csv`, columnas `columns_panel_comedor()`, auditada como `export_alumnos_comedor`).
+- **Exclusividade do correo:** o correo do comedor non pode ser o dun socio/a nin dunha empresa
+  (Axustes rexeita o cambio cun aviso e garda o resto), e a alta, a área, Xestión → Empresas e as
+  importacións rexeitan o correo do comedor (`ANPA_Socios_Email_Ownership`, 409).
+- **Panel da empresa e CSV:** nova columna «Opcións e autorizacións» (e as columnas
+  `autorizacion_comedor`, `tarde_transicion`, `tardes_divertidas_continua`, `recollida_autorizada`,
+  `cesion_datos_empresa` no CSV).
 ## [1.55.1] - 2026-09-12
 
 ### Fixed

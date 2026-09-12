@@ -748,6 +748,13 @@ final class ANPA_Socios_Admin_Settings {
 			checked( ANPA_Socios_Config::require_approval(), true, false ),
 			esc_html__( 'Os socios novos precisan aprobación do equipo administrador antes de acceder.', 'anpa-socios' )
 		);
+		// 1.56.0: canteen account.
+		printf(
+			'<tr><th scope="row"><label for="cfg-comedor">%s</label></th><td><input name="comedor_email" id="cfg-comedor" type="email" class="regular-text" value="%s"><p class="description">%s</p></td></tr>',
+			esc_html__( 'Correo da persoa responsable do comedor', 'anpa-socios' ),
+			esc_attr( ANPA_Socios_Config::comedor_email() ),
+			esc_html__( 'Con este correo pódese entrar en «Socios → Área persoal» como conta do comedor: ve o alumnado matriculado en todas as actividades do curso actual, clasificado por actividade e coas opcións e autorizacións das familias, e descarga o listado completo sen baixas. Non pode ser o correo dun socio/a nin dunha empresa. Déixao baleiro para desactivar a conta.', 'anpa-socios' )
+		);
 
 		echo '</tbody></table>';
 		submit_button( __( 'Gardar configuración', 'anpa-socios' ) );
@@ -1878,6 +1885,22 @@ final class ANPA_Socios_Admin_Settings {
 			}
 		}
 
+		$msg = 'settings_saved';
+		// 1.56.0: canteen account email — exclusive with socios and companies.
+		if ( array_key_exists( 'comedor_email', $_POST ) ) {
+			$comedor = strtolower( sanitize_email( (string) wp_unslash( $_POST['comedor_email'] ) ) );
+			if ( '' === $comedor ) {
+				delete_option( ANPA_Socios_Config::OPTION_COMEDOR_EMAIL );
+			} elseif ( ! is_email( $comedor ) ) {
+				$msg = 'comedor_email_invalid';
+			} elseif ( null !== ANPA_Socios_Email_Ownership::socio_por_email( $comedor )
+				|| ( null !== ANPA_Socios_Email_Ownership::empresa_por_email( $comedor ) && ! ANPA_Socios_Config::is_comedor_email( $comedor ) ) ) {
+				$msg = 'comedor_email_conflict';
+			} else {
+				update_option( ANPA_Socios_Config::OPTION_COMEDOR_EMAIL, $comedor );
+			}
+		}
+
 		if ( array_key_exists( 'landing_page_id', $_POST ) ) {
 			$landing = (int) $_POST['landing_page_id'];
 			update_option( self::LANDING_OPTION, $landing > 0 ? $landing : 0 );
@@ -1913,7 +1936,7 @@ final class ANPA_Socios_Admin_Settings {
 			update_option( ANPA_Socios_Config::OPTION_USE_PRERELEASES, ! empty( $_POST['use_prereleases'] ) ? '1' : '0' );
 		}
 
-		self::redirect_msg( 'settings_saved' );
+		self::redirect_msg( $msg );
 	}
 
 	/**
@@ -2805,6 +2828,8 @@ final class ANPA_Socios_Admin_Settings {
 		}
 		$map = array(
 			'settings_saved' => array( 'success', __( 'Configuración gardada.', 'anpa-socios' ) ),
+			'comedor_email_invalid'  => array( 'error', __( 'O correo do comedor non é válido; o resto da configuración gardouse.', 'anpa-socios' ) ),
+			'comedor_email_conflict' => array( 'error', __( 'O correo do comedor xa pertence a un socio/a ou a unha empresa e non se gardou; o resto da configuración gardouse. Un mesmo correo só pode ter un rol.', 'anpa-socios' ) ),
 			'pw_ok'          => array( 'success', __( 'Contrasinal de admin actualizado.', 'anpa-socios' ) ),
 			'pw_bad'         => array( 'error', __( 'O contrasinal non cumpre os requisitos (mín. 8 caracteres, unha maiúscula e un símbolo).', 'anpa-socios' ) ),
 			'updates_checked' => array( 'success', __( 'Comprobación de actualizacións executada. Se hai unha versión nova, aparecerá en Plugins.', 'anpa-socios' ) ),

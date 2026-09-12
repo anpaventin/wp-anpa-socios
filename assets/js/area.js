@@ -1565,8 +1565,36 @@
 
 		const EMPRESA_ESTADO_LABELS = { activo: 'Activa', lista_espera: 'Lista de espera', oferta: 'Oferta de praza', baixa_solicitada: 'Baixa solicitada', baixa: 'Baixa' };
 
+		/** Human summary of the options and authorisations chosen by the family (1.56.0). */
+		function opcionsLabel(r) {
+			const parts = [];
+			if (r.autorizacion_comedor === 'si') { parts.push(__( 'Comedor: autoriza ao persoal', 'anpa-socios' )); }
+			else if (r.autorizacion_comedor === 'non') { parts.push(__( 'Comedor: NON autoriza ao persoal', 'anpa-socios' )); }
+			if (r.tarde_transicion === 'comedor') { parts.push(__( 'Tras o comedor pasa á actividade', 'anpa-socios' )); }
+			else if (r.tarde_transicion === 'familia') { parts.push(__( 'A familia lévao á actividade', 'anpa-socios' )); }
+			if (Number(r.tardes_divertidas_continua)) { parts.push(__( 'Continúa en Tardes divertidas', 'anpa-socios' )); }
+			if (Number(r.recollida_autorizada)) { parts.push(__( 'Recollida por persoa autorizada', 'anpa-socios' )); }
+			parts.push(Number(r.cesion_datos_empresa) ? __( 'Cesión de datos: si', 'anpa-socios' ) : __( 'Cesión de datos: non', 'anpa-socios' ));
+			return parts.join(' · ');
+		}
+
 		function renderEmpresaProfile(profile) {
 			const set = function (sel, val) { const el = root.querySelector(sel); if (el) { el.textContent = val || '—'; } };
+			// 1.56.0: the canteen account shares this panel; it sees every company and only active enrolments.
+			const comedor = profile.tipo === 'comedor';
+			const titulo = root.querySelector('[data-empresa-titulo]');
+			if (titulo) { titulo.textContent = comedor ? __( 'Panel do comedor', 'anpa-socios' ) : __( 'Panel da empresa', 'anpa-socios' ); }
+			const descricion = root.querySelector('[data-empresa-descricion]');
+			if (descricion) {
+				descricion.textContent = comedor
+					? __( 'Alumnado matriculado nas actividades extraescolares do curso actual, clasificado por actividade, coas opcións e autorizacións indicadas polas familias. Só se amosan as matrículas activas (sen baixas).', 'anpa-socios' )
+					: __( 'Datos da empresa, actividades ofertadas e alumnado matriculado no curso actual. Para cambiar os datos da empresa, escribe á directiva da ANPA.', 'anpa-socios' );
+			}
+			root.querySelectorAll('[data-empresa-so-empresa]').forEach(function (el) { el.hidden = comedor; });
+			const btnTodos = root.querySelector('[data-action="empresa-export"][data-ambito="todos"]');
+			if (btnTodos) { btnTodos.hidden = comedor; }
+			const btnActivos = root.querySelector('[data-action="empresa-export"][data-ambito="activos"]');
+			if (btnActivos) { btnActivos.textContent = comedor ? __( 'Descargar listado completo sen baixas (CSV)', 'anpa-socios' ) : __( 'Descargar só activos (CSV)', 'anpa-socios' ); }
 			set('[data-empresa-nome]', profile.nome);
 			set('[data-empresa-email]', profile.email);
 			set('[data-empresa-responsable]', profile.responsable);
@@ -1589,7 +1617,7 @@
 					const p = document.createElement('p'); p.className = 'anpa-area-muted'; p.textContent = __( 'Non hai actividades da empresa con grupos neste curso.', 'anpa-socios' ); actHost.appendChild(p);
 				}
 				acts.forEach(function (a) {
-					const h4 = document.createElement('h4'); h4.textContent = a.nome + (a.estado === 'inactivo' ? ' (' + __( 'inactiva', 'anpa-socios' ) + ')' : ''); actHost.appendChild(h4);
+					const h4 = document.createElement('h4'); h4.textContent = a.nome + (comedor && a.empresa ? ' — ' + a.empresa : '') + (a.estado === 'inactivo' ? ' (' + __( 'inactiva', 'anpa-socios' ) + ')' : ''); actHost.appendChild(h4);
 					const ul = document.createElement('ul'); ul.className = 'anpa-extra-mine';
 					(a.grupos || []).forEach(function (g) {
 						const li = document.createElement('li');
@@ -1617,12 +1645,18 @@
 				const wrap = document.createElement('div'); wrap.className = 'anpa-empresa-table-wrap';
 				const table = document.createElement('table'); table.className = 'anpa-empresa-alumnos';
 				const thead = document.createElement('thead'); const trh = document.createElement('tr');
-				[__( 'Actividade', 'anpa-socios' ), __( 'Grupo', 'anpa-socios' ), __( 'Alumno/a', 'anpa-socios' ), __( 'Curso', 'anpa-socios' ), __( 'Estado', 'anpa-socios' ), __( 'Contacto familia', 'anpa-socios' )].forEach(function (t) { const th = document.createElement('th'); th.textContent = t; trh.appendChild(th); });
+				const headers = [__( 'Actividade', 'anpa-socios' )];
+				if (comedor) { headers.push(__( 'Empresa', 'anpa-socios' )); }
+				headers.push(__( 'Grupo', 'anpa-socios' ), __( 'Alumno/a', 'anpa-socios' ), __( 'Curso', 'anpa-socios' ), __( 'Estado', 'anpa-socios' ), __( 'Opcións e autorizacións', 'anpa-socios' ), __( 'Contacto familia', 'anpa-socios' ));
+				headers.forEach(function (t) { const th = document.createElement('th'); th.textContent = t; trh.appendChild(th); });
 				thead.appendChild(trh); table.appendChild(thead);
 				const tbody = document.createElement('tbody');
 				rows.forEach(function (r) {
 					const tr = document.createElement('tr'); tr.className = 'anpa-empresa-estado-' + (r.estado || '');
-					[r.actividade, (r.grupo || '') + (r.horario ? ' · ' + r.horario + ' ' + (r.franxa || '') : ''), ((r.nome || '') + ' ' + (r.apelidos || '')).trim(), (r.curso || '') + (r.aula ? ' ' + r.aula : ''), EMPRESA_ESTADO_LABELS[r.estado] || r.estado, r.socio_email || ''].forEach(function (v) { const td = document.createElement('td'); td.textContent = v || ''; tr.appendChild(td); });
+					const cells = [r.actividade];
+					if (comedor) { cells.push(r.empresa || ''); }
+					cells.push((r.grupo || '') + (r.horario ? ' · ' + r.horario + ' ' + (r.franxa || '') : ''), ((r.nome || '') + ' ' + (r.apelidos || '')).trim(), (r.curso || '') + (r.aula ? ' ' + r.aula : ''), EMPRESA_ESTADO_LABELS[r.estado] || r.estado, opcionsLabel(r), r.socio_email || '');
+					cells.forEach(function (v) { const td = document.createElement('td'); td.textContent = v || ''; tr.appendChild(td); });
 					tbody.appendChild(tr);
 				});
 				table.appendChild(tbody); wrap.appendChild(table); alHost.appendChild(wrap);

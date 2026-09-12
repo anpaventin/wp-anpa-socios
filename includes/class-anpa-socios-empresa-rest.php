@@ -174,6 +174,11 @@ class ANPA_Socios_Empresa_REST {
 	public static function load_active_empresa( string $email ) {
 		global $wpdb;
 
+		// 1.56.0: the canteen account is not a row in anpa_empresas; it is the email set in Axustes.
+		if ( ANPA_Socios_Config::is_comedor_email( $email ) ) {
+			return self::comedor_profile( $email );
+		}
+
 		$table_name = ANPA_Socios_DB::tabela_empresas();
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- direct lookup by email checks authoritative empresa state.
@@ -195,6 +200,33 @@ class ANPA_Socios_Empresa_REST {
 		}
 
 		return $row;
+	}
+
+	/**
+	 * Synthetic principal for the canteen account (1.56.0). id 0 = every company.
+	 *
+	 * @param  string $email Configured canteen email.
+	 * @return array<string,mixed>
+	 */
+	public static function comedor_profile( string $email ): array {
+		return array(
+			'id'          => 0,
+			'nome'        => __( 'Comedor escolar', 'anpa-socios' ),
+			'email'       => strtolower( trim( $email ) ),
+			'responsable' => '',
+			'telefono'    => '',
+			'url_web'     => '',
+			'estado'      => 'activo',
+			'tipo'        => 'comedor',
+		);
+	}
+
+	/**
+	 * @param  array<string,mixed>|null $profile Authenticated principal.
+	 * @return bool True for the canteen account.
+	 */
+	public static function is_comedor_profile( $profile ): bool {
+		return is_array( $profile ) && 'comedor' === (string) ( $profile['tipo'] ?? '' );
 	}
 
 	// ──────────────────────────────────────────────
@@ -281,6 +313,11 @@ class ANPA_Socios_Empresa_REST {
 				'activo'
 			)
 		);
+
+		if ( ! $empresa && ANPA_Socios_Config::is_comedor_email( $email ) ) {
+			// 1.56.0: canteen account (Axustes) — same code path as a company.
+			$empresa = (object) array( 'id' => 0 );
+		}
 
 		if ( $empresa ) {
 			// Step 4: real path — active empresa found.
@@ -406,28 +443,34 @@ class ANPA_Socios_Empresa_REST {
 		$out['actividades']   = array();
 		$out['alumnos']       = array();
 		$out['totais']        = array( 'activo' => 0, 'lista_espera' => 0, 'oferta' => 0, 'baixa_solicitada' => 0, 'baixa' => 0 );
-		if ( $empresa_id > 0 && null !== $curso ) {
+		// 1.56.0: the canteen account sees every company (empresa_id 0) and only active enrolments.
+		$comedor       = self::is_comedor_profile( $profile );
+		$out['tipo']   = $comedor ? 'comedor' : 'empresa';
+		if ( ( $empresa_id > 0 || $comedor ) && null !== $curso ) {
 			$act_t = ANPA_Socios_DB::tabela_actividades();
 			$gru_t = ANPA_Socios_DB::tabela_grupos();
 			$mat_t = ANPA_Socios_DB::tabela_matriculas();
+			$emp_t = ANPA_Socios_DB::tabela_empresas();
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- scoped to the authenticated company.
 			$grupos = $wpdb->get_results( $wpdb->prepare(
-				"SELECT a.id AS actividad_id, a.nome AS actividade, a.estado AS actividade_estado, g.id AS grupo_id, g.nome AS grupo, g.horario, g.franxa, g.dias, g.estado AS grupo_estado, g.min_pupilos, g.max_pupilos,
+				"SELECT a.id AS actividad_id, a.nome AS actividade, a.estado AS actividade_estado, COALESCE(e.nome, '') AS empresa_nome, g.id AS grupo_id, g.nome AS grupo, g.horario, g.franxa, g.dias, g.estado AS grupo_estado, g.min_pupilos, g.max_pupilos,
 				        SUM(m.estado = 'activo') AS activos, SUM(m.estado = 'lista_espera') AS lista_espera, SUM(m.estado = 'oferta') AS ofertas, SUM(m.estado = 'baixa_solicitada') AS baixas_solicitadas, SUM(m.estado = 'baixa') AS baixas
 				 FROM {$act_t} a
 				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = %s
 				 LEFT JOIN {$mat_t} m ON m.grupo_id = g.id
-				 WHERE a.empresa_id = %d
+				 LEFT JOIN {$emp_t} e ON e.id = a.empresa_id
+				 WHERE ( %d = 0 OR a.empresa_id = %d )
 				 GROUP BY a.id, g.id
 				 ORDER BY a.nome, g.nome",
 				$curso,
+				$empresa_id,
 				$empresa_id
 			), ARRAY_A );
 			$acts = array();
 			foreach ( is_array( $grupos ) ? $grupos : array() as $g ) {
 				$aid = (int) $g['actividad_id'];
 				if ( ! isset( $acts[ $aid ] ) ) {
-					$acts[ $aid ] = array( 'id' => $aid, 'nome' => (string) $g['actividade'], 'estado' => (string) $g['actividade_estado'], 'grupos' => array() );
+					$acts[ $aid ] = array( 'id' => $aid, 'nome' => (string) $g['actividade'], 'estado' => (string) $g['actividade_estado'], 'empresa' => (string) $g['empresa_nome'], 'grupos' => array() );
 				}
 				$acts[ $aid ]['grupos'][] = array(
 					'id'            => (int) $g['grupo_id'],
@@ -447,7 +490,7 @@ class ANPA_Socios_Empresa_REST {
 				);
 			}
 			$out['actividades'] = array_values( $acts );
-			$rows = ANPA_Socios_Alumnos_Export::rows_panel_empresa( $empresa_id, $curso, false );
+			$rows = ANPA_Socios_Alumnos_Export::rows_panel_empresa( $empresa_id, $curso, $comedor );
 			foreach ( is_array( $rows ) ? $rows : array() as $r ) {
 				$estado = (string) $r['estado'];
 				if ( isset( $out['totais'][ $estado ] ) ) {
@@ -466,6 +509,13 @@ class ANPA_Socios_Empresa_REST {
 					'estado'     => $estado,
 					'trimestre'  => (int) $r['trimestre'],
 					'socio_email' => (string) $r['socio_email'],
+					// 1.56.0: options and authorisations chosen by the family.
+					'empresa'                    => (string) ( $r['empresa_nome'] ?? '' ),
+					'autorizacion_comedor'       => (string) ( $r['autorizacion_comedor'] ?? 'na' ),
+					'tarde_transicion'           => (string) ( $r['tarde_transicion'] ?? 'na' ),
+					'tardes_divertidas_continua' => (int) ( $r['tardes_divertidas_continua'] ?? 0 ),
+					'recollida_autorizada'       => (int) ( $r['recollida_autorizada'] ?? 0 ),
+					'cesion_datos_empresa'       => (int) ( $r['cesion_datos_empresa'] ?? 0 ),
 				);
 			}
 		}
@@ -513,16 +563,18 @@ class ANPA_Socios_Empresa_REST {
 		}
 
 		// 1.55.0: ?ambito=activos (default) | todos — the current course's groups only.
-		$ambito = sanitize_key( (string) $request->get_param( 'ambito' ) );
-		$todos  = ( 'todos' === $ambito );
-		$rows   = ANPA_Socios_Alumnos_Export::rows_panel_empresa( $empresa_id, ANPA_Socios_Curso_Activo::get(), ! $todos );
+		$ambito  = sanitize_key( (string) $request->get_param( 'ambito' ) );
+		$comedor = self::is_comedor_profile( $profile );
+		// 1.56.0: the canteen list is always the full active list (never baixas), across every company.
+		$todos   = ! $comedor && ( 'todos' === $ambito );
+		$rows    = ANPA_Socios_Alumnos_Export::rows_panel_empresa( $empresa_id, ANPA_Socios_Curso_Activo::get(), ! $todos );
 		if ( null === $rows ) {
 			return new WP_Error( 'anpa_empresa_db_error', 'Erro interno ao exportar', array( 'status' => 500 ) );
 		}
 
-		$columns  = ANPA_Socios_Alumnos_Export::columns_panel_empresa();
+		$columns  = $comedor ? ANPA_Socios_Alumnos_Export::columns_panel_comedor() : ANPA_Socios_Alumnos_Export::columns_panel_empresa();
 		$csv      = ANPA_Socios_Csv::document( $columns, $rows );
-		$filename = $todos ? 'alumnos-empresa-todos.csv' : 'alumnos-empresa-activos.csv';
+		$filename = $comedor ? 'alumnos-comedor.csv' : ( $todos ? 'alumnos-empresa-todos.csv' : 'alumnos-empresa-activos.csv' );
 
 		// Audit the export action.
 		$empresa_email = is_array( $profile ) && isset( $profile['email'] ) ? (string) $profile['email'] : '';
@@ -531,7 +583,7 @@ class ANPA_Socios_Empresa_REST {
 			'empresa',
 			'export',
 			(string) count( $rows ),
-			$todos ? 'export_alumnos_empresa_todos' : 'export_alumnos_empresa'
+			$comedor ? 'export_alumnos_comedor' : ( $todos ? 'export_alumnos_empresa_todos' : 'export_alumnos_empresa' )
 		);
 
 		$response = new WP_REST_Response( null, 200 );
