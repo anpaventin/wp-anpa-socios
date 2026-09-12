@@ -72,6 +72,27 @@ final class Test_ANPA_Socios_Email_Ownership extends TestCase {
 		$this->assertStringContainsString( 'const EMPRESA_ESTADO_LABELS', $js );
 	}
 
+	public function test_unified_entry_routes_company_emails_to_the_company_panel(): void {
+		$tpl = $this->src( 'includes/class-anpa-socios-unified-page.php' );
+		$this->assertStringContainsString( 'data-empresa-request-code-url=', $tpl );
+		$this->assertStringContainsString( 'data-empresa-session-url=', $tpl );
+		$this->assertStringContainsString( "rest_url( 'anpa-socios/v1/empresa/solicitar-codigo' )", $tpl );
+		$this->assertStringContainsString( "rest_url( 'anpa-socios/v1/empresa/session' )", $tpl );
+
+		$unified = $this->src( 'assets/js/unified.js' );
+		$this->assertStringContainsString( "if (next === 'empresa') {", $unified );
+		$this->assertStringContainsString( "localStorage.setItem('anpa_unified_flow', 'empresa')", $unified );
+		$this->assertStringContainsString( 'async function exchangeVerifiedEmpresaSession(cfg, verificationToken)', $unified );
+		$this->assertStringContainsString( "if (flow === 'empresa') {", $unified );
+		// The company branch is decided before the socio session exchange and before the alta hand-off.
+		$this->assertLessThan( strpos( $unified, 'if (await exchangeVerifiedAreaSession(cfg, result.token))' ), strpos( $unified, "if (flow === 'empresa') {" ) );
+		$this->assertLessThan( strpos( $unified, "if (next === 'inactivo') {" ), strpos( $unified, "if (next === 'empresa') {" ) );
+
+		$area = $this->src( 'assets/js/area.js' );
+		$this->assertStringContainsString( 'root.anpaOpenEmpresa = async function (sessionToken)', $area );
+		$this->assertStringContainsString( 'openEmpresa: function (root, sessionToken)', $area );
+	}
+
 	public function test_area_navigation_scrolls_to_sections_and_cesion_is_prechecked(): void {
 		$js = $this->src( 'assets/js/area.js' );
 		$this->assertStringContainsString( 'function scrollToStep(root, step)', $js );

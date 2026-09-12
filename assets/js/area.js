@@ -1778,6 +1778,22 @@
 			return attempt;
 		}
 
+		/**
+		 * 1.55.1: opens the company panel with a session token obtained by the
+		 * unified entry form (window.AnpaArea.openEmpresa). Resolves true when
+		 * the panel is showing.
+		 */
+		root.anpaOpenEmpresa = async function (sessionToken) {
+			if (!sessionToken) { return false; }
+			clearAreaToken();
+			areaToken = '';
+			fase1Token = '';
+			root.dataset.empresaFlow = '';
+			empresaToken = String(sessionToken);
+			await loadEmpresaPanel();
+			var panel = root.querySelector('[data-step="empresa"]');
+			return !!(empresaToken && panel && !panel.hidden);
+		};
 		root.anpaRestoreSession = restoreSession;
 		return root.anpaRestoreSession();
 	}
@@ -1801,6 +1817,15 @@
 		init: init,
 		showMessage: showMessage,
 		showStep: showStep,
+		openEmpresa: function (root, sessionToken) {
+			if (!root) { return Promise.resolve(false); }
+			var ready = initializedRoots.has(root) ? Promise.resolve(false) : init(root);
+			return Promise.resolve(ready).then(function () {
+				return typeof root.anpaOpenEmpresa === 'function' ? root.anpaOpenEmpresa(sessionToken) : false;
+			}, function () {
+				return typeof root.anpaOpenEmpresa === 'function' ? root.anpaOpenEmpresa(sessionToken) : false;
+			});
+		},
 		getSessionToken: loadAreaToken,
 		saveSessionToken: saveAreaToken,
 		clearSessionToken: clearAreaToken,
