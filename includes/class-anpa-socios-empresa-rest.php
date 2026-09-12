@@ -394,11 +394,83 @@ class ANPA_Socios_Empresa_REST {
 	 */
 	public static function handle_get_me( WP_REST_Request $request ): WP_REST_Response {
 		$profile = $request->get_param( '_anpa_empresa_profile' );
+		$profile = is_array( $profile ) ? $profile : array();
+		$out     = ANPA_Socios_Empresa_View::public_empresa( $profile );
 
-		return new WP_REST_Response(
-			ANPA_Socios_Empresa_View::public_empresa( is_array( $profile ) ? $profile : array() ),
-			200
-		);
+		// 1.55.0: the panel shows the company's offer and pupils for the active course.
+		global $wpdb;
+		$empresa_id = (int) ( $profile['id'] ?? 0 );
+		$curso      = ANPA_Socios_Curso_Activo::get();
+		$out['url_web']       = (string) ( $profile['url_web'] ?? '' );
+		$out['curso_escolar'] = (string) $curso;
+		$out['actividades']   = array();
+		$out['alumnos']       = array();
+		$out['totais']        = array( 'activo' => 0, 'lista_espera' => 0, 'oferta' => 0, 'baixa_solicitada' => 0, 'baixa' => 0 );
+		if ( $empresa_id > 0 && null !== $curso ) {
+			$act_t = ANPA_Socios_DB::tabela_actividades();
+			$gru_t = ANPA_Socios_DB::tabela_grupos();
+			$mat_t = ANPA_Socios_DB::tabela_matriculas();
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- scoped to the authenticated company.
+			$grupos = $wpdb->get_results( $wpdb->prepare(
+				"SELECT a.id AS actividad_id, a.nome AS actividade, a.estado AS actividade_estado, g.id AS grupo_id, g.nome AS grupo, g.horario, g.franxa, g.dias, g.estado AS grupo_estado, g.min_pupilos, g.max_pupilos,
+				        SUM(m.estado = 'activo') AS activos, SUM(m.estado = 'lista_espera') AS lista_espera, SUM(m.estado = 'oferta') AS ofertas, SUM(m.estado = 'baixa_solicitada') AS baixas_solicitadas, SUM(m.estado = 'baixa') AS baixas
+				 FROM {$act_t} a
+				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = %s
+				 LEFT JOIN {$mat_t} m ON m.grupo_id = g.id
+				 WHERE a.empresa_id = %d
+				 GROUP BY a.id, g.id
+				 ORDER BY a.nome, g.nome",
+				$curso,
+				$empresa_id
+			), ARRAY_A );
+			$acts = array();
+			foreach ( is_array( $grupos ) ? $grupos : array() as $g ) {
+				$aid = (int) $g['actividad_id'];
+				if ( ! isset( $acts[ $aid ] ) ) {
+					$acts[ $aid ] = array( 'id' => $aid, 'nome' => (string) $g['actividade'], 'estado' => (string) $g['actividade_estado'], 'grupos' => array() );
+				}
+				$acts[ $aid ]['grupos'][] = array(
+					'id'            => (int) $g['grupo_id'],
+					'nome'          => (string) $g['grupo'],
+					'horario_label' => ANPA_Socios_Grupo_Serie::horario_label( (string) $g['horario'] ),
+					'franxa'        => (string) $g['franxa'],
+					'dias'          => (string) $g['dias'],
+					'estado'        => (string) $g['grupo_estado'],
+					'estado_label'  => ANPA_Socios_Grupo_Serie::estado_label( (string) $g['grupo_estado'] ),
+					'min_pupilos'   => (int) $g['min_pupilos'],
+					'max_pupilos'   => (int) $g['max_pupilos'],
+					'activos'       => (int) $g['activos'],
+					'lista_espera'  => (int) $g['lista_espera'],
+					'ofertas'       => (int) $g['ofertas'],
+					'baixas_solicitadas' => (int) $g['baixas_solicitadas'],
+					'baixas'        => (int) $g['baixas'],
+				);
+			}
+			$out['actividades'] = array_values( $acts );
+			$rows = ANPA_Socios_Alumnos_Export::rows_panel_empresa( $empresa_id, $curso, false );
+			foreach ( is_array( $rows ) ? $rows : array() as $r ) {
+				$estado = (string) $r['estado'];
+				if ( isset( $out['totais'][ $estado ] ) ) {
+					$out['totais'][ $estado ]++;
+				}
+				$out['alumnos'][] = array(
+					'actividade' => (string) $r['actividade_nome'],
+					'grupo'      => (string) $r['grupo_nome'],
+					'horario'    => ANPA_Socios_Grupo_Serie::horario_label( (string) $r['horario'] ),
+					'franxa'     => (string) $r['franxa'],
+					'dias'       => (string) $r['dias'],
+					'nome'       => (string) $r['nome'],
+					'apelidos'   => (string) $r['apelidos'],
+					'curso'      => (string) $r['curso'],
+					'aula'       => (string) $r['aula'],
+					'estado'     => $estado,
+					'trimestre'  => (int) $r['trimestre'],
+					'socio_email' => (string) $r['socio_email'],
+				);
+			}
+		}
+
+		return new WP_REST_Response( $out, 200 );
 	}
 
 	/**
@@ -440,14 +512,17 @@ class ANPA_Socios_Empresa_REST {
 			return new WP_Error( 'anpa_empresa_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
-		$rows = ANPA_Socios_Alumnos_Export::rows( $empresa_id );
+		// 1.55.0: ?ambito=activos (default) | todos — the current course's groups only.
+		$ambito = sanitize_key( (string) $request->get_param( 'ambito' ) );
+		$todos  = ( 'todos' === $ambito );
+		$rows   = ANPA_Socios_Alumnos_Export::rows_panel_empresa( $empresa_id, ANPA_Socios_Curso_Activo::get(), ! $todos );
 		if ( null === $rows ) {
 			return new WP_Error( 'anpa_empresa_db_error', 'Erro interno ao exportar', array( 'status' => 500 ) );
 		}
 
-		$columns  = ANPA_Socios_Alumnos_Export::columns( false );
+		$columns  = ANPA_Socios_Alumnos_Export::columns_panel_empresa();
 		$csv      = ANPA_Socios_Csv::document( $columns, $rows );
-		$filename = 'alumnos-empresa.csv';
+		$filename = $todos ? 'alumnos-empresa-todos.csv' : 'alumnos-empresa-activos.csv';
 
 		// Audit the export action.
 		$empresa_email = is_array( $profile ) && isset( $profile['email'] ) ? (string) $profile['email'] : '';
@@ -456,7 +531,7 @@ class ANPA_Socios_Empresa_REST {
 			'empresa',
 			'export',
 			(string) count( $rows ),
-			'export_alumnos_empresa'
+			$todos ? 'export_alumnos_empresa_todos' : 'export_alumnos_empresa'
 		);
 
 		$response = new WP_REST_Response( null, 200 );

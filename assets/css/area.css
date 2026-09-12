@@ -616,6 +616,15 @@
 }
 
 /* Mandatory-data warning (red) shown when banking details are missing. */
+#anpa-area .anpa-empresa-datos { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; margin: 0 0 1rem; }
+#anpa-area .anpa-empresa-datos dt { font-weight: 600; }
+#anpa-area .anpa-empresa-datos dd { margin: 0; }
+#anpa-area .anpa-empresa-table-wrap { overflow-x: auto; }
+#anpa-area .anpa-empresa-alumnos { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+#anpa-area .anpa-empresa-alumnos th, #anpa-area .anpa-empresa-alumnos td { padding: 0.35rem 0.5rem; border-bottom: 1px solid #e0e0e0; text-align: left; vertical-align: top; }
+#anpa-area .anpa-empresa-alumnos tr.anpa-empresa-estado-baixa td, #anpa-area .anpa-empresa-alumnos tr.anpa-empresa-estado-baixa_solicitada td { color: #8a1c1c; }
+#anpa-area .anpa-empresa-alumnos tr.anpa-empresa-estado-lista_espera td, #anpa-area .anpa-empresa-alumnos tr.anpa-empresa-estado-oferta td { color: #6d4c00; }
+
 #anpa-area .anpa-fillo-sen-aula {
 	display: block;
 	flex-basis: 100%;

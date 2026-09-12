@@ -103,4 +103,55 @@ final class ANPA_Socios_Alumnos_Export {
 
 		return is_array( $rows ) ? $rows : null;
 	}
+
+	/**
+	 * Columns of the company panel listing / export (1.55.0). Superset of
+	 * columns( false ) with the group, the enrolment state and the trimester.
+	 *
+	 * @return string[]
+	 */
+	public static function columns_panel_empresa(): array {
+		return array( 'actividade_nome', 'grupo_nome', 'horario', 'franxa', 'dias', 'nome', 'apelidos', 'curso', 'aula', 'estado', 'trimestre', 'comedor', 'tarde', 'socio_email' );
+	}
+
+	/**
+	 * Enrolments of one company for a school year, with their state (1.55.0).
+	 *
+	 * @param  int         $empresa_id    Company id.
+	 * @param  string|null $curso_escolar Groups' school year; null = all years.
+	 * @param  bool        $so_activos    True = only estado 'activo'; false = every state incl. baixa.
+	 * @return array<int,array<string,string>>|null Rows or null on DB error.
+	 */
+	public static function rows_panel_empresa( int $empresa_id, ?string $curso_escolar, bool $so_activos ): ?array {
+		global $wpdb;
+		$matriculas  = ANPA_Socios_DB::tabela_matriculas();
+		$fillos      = ANPA_Socios_DB::tabela_fillos();
+		$actividades = ANPA_Socios_DB::tabela_actividades();
+		$grupos      = ANPA_Socios_DB::tabela_grupos();
+		$fc          = ANPA_Socios_DB::tabela_fillos_cursos();
+		$params      = array( $empresa_id );
+		$where       = 'a.empresa_id = %d';
+		if ( null !== $curso_escolar && '' !== $curso_escolar ) {
+			$where   .= ' AND g.curso_escolar = %s';
+			$params[] = $curso_escolar;
+		}
+		$where .= $so_activos ? " AND m.estado = 'activo'" : " AND m.estado IN ('activo','lista_espera','oferta','baixa_solicitada','baixa')";
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table names from DB helper; where built from placeholders.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT a.nome AS actividade_nome, COALESCE(g.nome, '') AS grupo_nome, COALESCE(g.horario, '') AS horario, COALESCE(g.franxa, '') AS franxa, COALESCE(g.dias, '') AS dias, "
+				. "f.nome, f.apelidos, COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula, '') AS aula, m.estado, m.trimestre, m.comedor, m.tarde, f.socio_email "
+				. "FROM {$matriculas} m "
+				. "JOIN {$fillos} f ON f.id = m.fillo_id "
+				. "JOIN {$actividades} a ON a.id = m.activitad_id "
+				. "LEFT JOIN {$grupos} g ON g.id = m.grupo_id "
+				. "LEFT JOIN {$fc} fc ON fc.fillo_id = f.id AND fc.curso_escolar = g.curso_escolar "
+				. "WHERE {$where} "
+				. "ORDER BY a.nome, g.nome, FIELD(m.estado, 'activo', 'oferta', 'lista_espera', 'baixa_solicitada', 'baixa'), f.apelidos, f.nome",
+				$params
+			),
+			ARRAY_A
+		);
+		return is_array( $rows ) ? $rows : null;
+	}
 }

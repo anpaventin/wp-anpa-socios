@@ -310,11 +310,24 @@ class ANPA_Socios_Area_Page {
 
 			<div class="anpa-area-card" data-step="empresa" hidden>
 				<h2><?php esc_html_e( 'Panel da empresa', 'anpa-socios' ); ?></h2>
-				<p class="anpa-area-muted"><strong>Empresa:</strong> <span data-empresa-nome></span></p>
-				<p class="anpa-area-muted"><strong>Email:</strong> <span data-empresa-email></span></p>
+				<p class="anpa-area-muted"><?php esc_html_e( 'Datos da empresa, actividades ofertadas e alumnado matriculado no curso actual. Para cambiar os datos da empresa, escribe á directiva da ANPA.', 'anpa-socios' ); ?></p>
+				<dl class="anpa-empresa-datos">
+					<dt><?php esc_html_e( 'Empresa', 'anpa-socios' ); ?></dt><dd data-empresa-nome></dd>
+					<dt><?php esc_html_e( 'Email', 'anpa-socios' ); ?></dt><dd data-empresa-email></dd>
+					<dt><?php esc_html_e( 'Responsable', 'anpa-socios' ); ?></dt><dd data-empresa-responsable></dd>
+					<dt><?php esc_html_e( 'Teléfono', 'anpa-socios' ); ?></dt><dd data-empresa-telefono></dd>
+					<dt><?php esc_html_e( 'Web', 'anpa-socios' ); ?></dt><dd data-empresa-web></dd>
+					<dt><?php esc_html_e( 'Curso escolar', 'anpa-socios' ); ?></dt><dd data-empresa-curso></dd>
+				</dl>
+				<h3><?php esc_html_e( 'Actividades ofertadas', 'anpa-socios' ); ?></h3>
+				<div data-empresa-actividades></div>
+				<h3><?php esc_html_e( 'Alumnado matriculado e baixas', 'anpa-socios' ); ?></h3>
+				<p class="anpa-area-muted" data-empresa-totais></p>
+				<div data-empresa-alumnos></div>
 				<div class="anpa-area-actions">
-					<button type="button" data-action="empresa-export">Descargar CSV dos alumnos</button>
-					<button type="button" class="anpa-area-secondary" data-action="empresa-logout">Pechar sesión</button>
+					<button type="button" data-action="empresa-export" data-ambito="activos"><?php esc_html_e( 'Descargar só activos (CSV)', 'anpa-socios' ); ?></button>
+					<button type="button" data-action="empresa-export" data-ambito="todos"><?php esc_html_e( 'Descargar listado completo (CSV)', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary" data-action="empresa-logout"><?php esc_html_e( 'Pechar sesión', 'anpa-socios' ); ?></button>
 				</div>
 			</div>
 		</section>

@@ -402,6 +402,11 @@ final class ANPA_Socios_Admin_Import_Handler {
 				continue;
 			}
 
+			// 1.55.0: one email, one role.
+			if ( '' !== $email && null !== ANPA_Socios_Email_Ownership::empresa_por_email( (string) $email ) ) {
+				$errors[] = array( 'row' => $idx, 'msg' => ANPA_Socios_Email_Ownership::MSG_EMAIL_DE_EMPRESA );
+				continue;
+			}
 			// Also skip if email already exists (UNIQUE constraint).
 			if ( '' !== $email ) {
 				$email_exists = $wpdb->get_var( $wpdb->prepare(
@@ -692,6 +697,11 @@ final class ANPA_Socios_Admin_Import_Handler {
 			) );
 			if ( $exists ) {
 				$skipped++;
+				continue;
+			}
+			// 1.55.0: one email, one role.
+			if ( null !== ANPA_Socios_Email_Ownership::socio_por_email( (string) $email ) ) {
+				$errors[] = array( 'row' => $idx, 'msg' => ANPA_Socios_Email_Ownership::MSG_EMAIL_DE_SOCIO );
 				continue;
 			}
 

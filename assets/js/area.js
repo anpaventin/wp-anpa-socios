@@ -58,6 +58,19 @@
 		});
 	}
 
+	/**
+	 * Scrolls an element to the top of the viewport (1.55.0 navigation). Used
+	 * after every user-triggered section change so the person lands at the
+	 * beginning of what they asked for, not wherever the page was scrolled.
+	 */
+	function scrollToEl(el) {
+		if (!el) { return; }
+		try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) { try { el.scrollIntoView(); } catch (__) {} }
+	}
+	function scrollToStep(root, step) {
+		scrollToEl(root.querySelector('[data-step="' + step + '"]'));
+	}
+
 	function showMessage(root, text, type) {
 		const box = root.querySelector('[data-area-message]');
 		box.textContent = text || '';
@@ -489,8 +502,9 @@
 			var heading = root.querySelector('[data-step="' + step + '"] h2');
 			if (heading) {
 				heading.setAttribute('tabindex', '-1');
-				try { heading.focus(); } catch (_) {}
+				try { heading.focus({ preventScroll: true }); } catch (_) { try { heading.focus(); } catch (__) {} }
 			}
+			scrollToStep(root, step);
 		}
 
 		root.querySelectorAll('[data-nav]').forEach(function (btn) {
@@ -1164,11 +1178,12 @@
 				l.appendChild(document.createTextNode(' ' + label));
 				authHost.appendChild(l);
 			}
-			function addCheckbox(name, label) {
+			function addCheckbox(name, label, checked) {
 				const l = document.createElement('label');
 				const input = document.createElement('input');
 				input.type = 'checkbox';
 				input.name = name;
+				input.checked = !!checked;
 				l.appendChild(input);
 				l.appendChild(document.createTextNode(' ' + label));
 				authHost.appendChild(l);
@@ -1195,7 +1210,8 @@
 					addCheckbox('tardes_divertidas_continua', 'O meu neno/a fai uso do servizo de tardes divertidas e quero que cando finalice a actividade continúe en tardes divertidas.');
 					addCheckbox('recollida_autorizada', 'Cando finalice a actividade eu ou unha persoa autorizada recollerá ao neno/a.');
 				}
-				addCheckbox('cesion_datos_empresa', 'Autorizo a que se cedan á empresa de actividades os datos necesarios para a correcta xestión da actividade extraescolar.');
+				// 1.55.0: pre-checked (it is mandatory to enrol); the family can still untick it and will be told why it is needed.
+				addCheckbox('cesion_datos_empresa', 'Autorizo a que se cedan á empresa de actividades os datos necesarios para a correcta xestión da actividade extraescolar.', true);
 			}
 			filloSel.addEventListener('change', async () => {
 				const sep = String(root.dataset.extraOfertaUrl || '').indexOf('?') === -1 ? '?' : '&';
@@ -1265,6 +1281,7 @@
 		cancelEditBtn.addEventListener('click', () => {
 			resetFilloForm();
 			showMessage(root, '', 'info');
+			scrollToStep(root, 'fillos');
 		});
 
 		// ── Proxenitor2 (fase 1.20.0 → inline edit in profile, fase 20) ───
@@ -1296,6 +1313,7 @@
 				return;
 			}
 			showStep(root, 'banking');
+			scrollToStep(root, 'banking');
 
 			// Load provincia/poboacion dropdowns
 			await loadBankingReferencias();
@@ -1456,6 +1474,7 @@
 				resetFilloForm();
 				showMessage(root, 'Datos do fillo/a gardados.', 'success');
 				await loadFillos();
+				scrollToStep(root, 'fillos');
 			}
 		});
 
@@ -1473,6 +1492,9 @@
 					if (fillo) {
 						fillFilloForm(fillo);
 						showMessage(root, '', 'info');
+						// 1.55.0: take the user to the edit form, not the list.
+						scrollToEl(root.querySelector('[data-fillos-form-title]'));
+						try { root.querySelector('#anpa-fillo-nome').focus({ preventScroll: true }); } catch (_) {}
 					}
 				}
 				return;
@@ -1541,9 +1563,70 @@
 			return data;
 		}
 
+		const EMPRESA_ESTADO_LABELS = { activo: 'Activa', lista_espera: 'Lista de espera', oferta: 'Oferta de praza', baixa_solicitada: 'Baixa solicitada', baixa: 'Baixa' };
+
 		function renderEmpresaProfile(profile) {
-			root.querySelector('[data-empresa-nome]').textContent = profile.nome || '';
-			root.querySelector('[data-empresa-email]').textContent = profile.email || '';
+			const set = function (sel, val) { const el = root.querySelector(sel); if (el) { el.textContent = val || '—'; } };
+			set('[data-empresa-nome]', profile.nome);
+			set('[data-empresa-email]', profile.email);
+			set('[data-empresa-responsable]', profile.responsable);
+			set('[data-empresa-telefono]', profile.telefono);
+			set('[data-empresa-curso]', profile.curso_escolar);
+			const web = root.querySelector('[data-empresa-web]');
+			if (web) {
+				web.textContent = '';
+				if (profile.url_web) {
+					const a = document.createElement('a'); a.href = profile.url_web; a.target = '_blank'; a.rel = 'noopener'; a.textContent = profile.url_web; web.appendChild(a);
+				} else { web.textContent = '—'; }
+			}
+
+			// Activities and groups offered this course, with seat counts.
+			const actHost = root.querySelector('[data-empresa-actividades]');
+			if (actHost) {
+				actHost.textContent = '';
+				const acts = Array.isArray(profile.actividades) ? profile.actividades : [];
+				if (!acts.length) {
+					const p = document.createElement('p'); p.className = 'anpa-area-muted'; p.textContent = __( 'Non hai actividades da empresa con grupos neste curso.', 'anpa-socios' ); actHost.appendChild(p);
+				}
+				acts.forEach(function (a) {
+					const h4 = document.createElement('h4'); h4.textContent = a.nome + (a.estado === 'inactivo' ? ' (' + __( 'inactiva', 'anpa-socios' ) + ')' : ''); actHost.appendChild(h4);
+					const ul = document.createElement('ul'); ul.className = 'anpa-extra-mine';
+					(a.grupos || []).forEach(function (g) {
+						const li = document.createElement('li');
+						li.textContent = (g.nome || 'Grupo') + ' · ' + (g.horario_label || '') + ' ' + (g.franxa || '') + ' · ' + (g.dias || '') + ' · ' + (g.estado_label || g.estado) + ' · ' + __( 'activos', 'anpa-socios' ) + ' ' + g.activos + '/' + g.max_pupilos + (g.lista_espera ? ' · ' + __( 'en espera', 'anpa-socios' ) + ' ' + g.lista_espera : '') + (g.baixas ? ' · ' + __( 'baixas', 'anpa-socios' ) + ' ' + g.baixas : '');
+						ul.appendChild(li);
+					});
+					actHost.appendChild(ul);
+				});
+			}
+
+			// Pupils table (all states) + totals.
+			const totais = profile.totais || {};
+			const totEl = root.querySelector('[data-empresa-totais]');
+			if (totEl) {
+				totEl.textContent = __( 'Activos', 'anpa-socios' ) + ': ' + (totais.activo || 0) + ' · ' + __( 'Lista de espera', 'anpa-socios' ) + ': ' + (totais.lista_espera || 0) + ' · ' + __( 'Ofertas pendentes', 'anpa-socios' ) + ': ' + (totais.oferta || 0) + ' · ' + __( 'Baixas solicitadas', 'anpa-socios' ) + ': ' + (totais.baixa_solicitada || 0) + ' · ' + __( 'Baixas', 'anpa-socios' ) + ': ' + (totais.baixa || 0);
+			}
+			const alHost = root.querySelector('[data-empresa-alumnos]');
+			if (alHost) {
+				alHost.textContent = '';
+				const rows = Array.isArray(profile.alumnos) ? profile.alumnos : [];
+				if (!rows.length) {
+					const p = document.createElement('p'); p.className = 'anpa-area-muted'; p.textContent = __( 'Aínda non hai alumnado matriculado nas vosas actividades.', 'anpa-socios' ); alHost.appendChild(p);
+					return;
+				}
+				const wrap = document.createElement('div'); wrap.className = 'anpa-empresa-table-wrap';
+				const table = document.createElement('table'); table.className = 'anpa-empresa-alumnos';
+				const thead = document.createElement('thead'); const trh = document.createElement('tr');
+				[__( 'Actividade', 'anpa-socios' ), __( 'Grupo', 'anpa-socios' ), __( 'Alumno/a', 'anpa-socios' ), __( 'Curso', 'anpa-socios' ), __( 'Estado', 'anpa-socios' ), __( 'Contacto familia', 'anpa-socios' )].forEach(function (t) { const th = document.createElement('th'); th.textContent = t; trh.appendChild(th); });
+				thead.appendChild(trh); table.appendChild(thead);
+				const tbody = document.createElement('tbody');
+				rows.forEach(function (r) {
+					const tr = document.createElement('tr'); tr.className = 'anpa-empresa-estado-' + (r.estado || '');
+					[r.actividade, (r.grupo || '') + (r.horario ? ' · ' + r.horario + ' ' + (r.franxa || '') : ''), ((r.nome || '') + ' ' + (r.apelidos || '')).trim(), (r.curso || '') + (r.aula ? ' ' + r.aula : ''), EMPRESA_ESTADO_LABELS[r.estado] || r.estado, r.socio_email || ''].forEach(function (v) { const td = document.createElement('td'); td.textContent = v || ''; tr.appendChild(td); });
+					tbody.appendChild(tr);
+				});
+				table.appendChild(tbody); wrap.appendChild(table); alHost.appendChild(wrap);
+			}
 		}
 
 		async function loadEmpresaPanel() {
@@ -1554,12 +1637,14 @@
 			}
 			renderEmpresaProfile(profile);
 			showStep(root, 'empresa');
+			scrollToStep(root, 'empresa');
 			startIdleTimers();
 			showSessionHeader(profile.email || '');
 		}
 
-		// Empresa export: download CSV via authenticated fetch.
-		bind('[data-action="empresa-export"]', 'click', async () => {
+		// Empresa export: download CSV via authenticated fetch (two scopes: activos | todos).
+		root.querySelectorAll('[data-action="empresa-export"]').forEach(function (exportBtn) { exportBtn.addEventListener('click', async () => {
+			const ambito = exportBtn.dataset.ambito === 'todos' ? 'todos' : 'activos';
 			showMessage(root, '', 'info');
 			if (!empresaToken) {
 				showStep(root, 'email');
@@ -1569,7 +1654,8 @@
 
 			let response;
 			try {
-				response = await fetch(root.dataset.empresaExportUrl, {
+				const sepx = String(root.dataset.empresaExportUrl || '').indexOf('?') === -1 ? '?' : '&';
+				response = await fetch(root.dataset.empresaExportUrl + sepx + 'ambito=' + ambito, {
 					method: 'GET',
 					headers: { 'X-Anpa-Empresa-Token': empresaToken },
 				});
@@ -1594,12 +1680,12 @@
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement('a');
 			a.href = url;
-			a.download = 'alumnos-empresa.csv';
+			a.download = 'alumnos-empresa-' + ambito + '.csv';
 			document.body.appendChild(a);
 			a.click();
 			document.body.removeChild(a);
 			URL.revokeObjectURL(url);
-		});
+		}); });
 
 		// Empresa logout
 		bind('[data-action="empresa-logout"]', 'click', async () => {

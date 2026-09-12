@@ -345,6 +345,15 @@ class ANPA_Socios_REST {
 			return new WP_Error( 'anpa_socios_invalid_token', __( 'Token inválido ou caducado', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
+		// 1.55.0: one email, one role — a company address can never become a socio/a.
+		$reservado = ANPA_Socios_Email_Ownership::conflito_para_socio( $email, 'p1_email' );
+		if ( null === $reservado && null !== $clean['parent2'] && ! empty( $clean['parent2']['email'] ) ) {
+			$reservado = ANPA_Socios_Email_Ownership::conflito_para_socio( (string) $clean['parent2']['email'], 'p2_email' );
+		}
+		if ( null !== $reservado ) {
+			return $reservado;
+		}
+
 		$socios       = $wpdb->prefix . 'anpa_socios';
 		$fillos_table = $wpdb->prefix . 'anpa_fillos';
 

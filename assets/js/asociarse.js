@@ -508,7 +508,9 @@
 			if (!bridgeEl) { return; }
 			bridgeEl.textContent = (next === 'baixa_pendente')
 				? 'Este correo xa é socio/a (cunha baixa pendente). '
-				: 'Este correo xa é socio/a. ';
+				: (next === 'empresa')
+					? 'Este correo pertence a unha empresa de actividades e non pode usarse para darse de alta como socio/a. '
+					: 'Este correo xa é socio/a. ';
 			if (areaUrl) {
 				const a = document.createElement('a');
 				a.href = areaUrl;
@@ -918,7 +920,7 @@
 				if (preflightUrl) {
 					const pf = await callRest(preflightUrl, { email, website, _ts }, errEl);
 					if (!pf) { return; }
-					if (pf.next === 'area' || pf.next === 'baixa_pendente') {
+					if (pf.next === 'area' || pf.next === 'baixa_pendente' || pf.next === 'empresa') {
 						errEl.parentElement.hidden = true;
 						showLoginBridge(pf.next);
 						return;

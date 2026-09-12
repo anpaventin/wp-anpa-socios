@@ -960,6 +960,11 @@ class ANPA_Socios_Area_REST {
 			}
 			// Only process if actually different from current.
 			if ( $new_email !== strtolower( (string) $profile['email'] ) ) {
+				// 1.55.0: one email, one role.
+				$reservado = ANPA_Socios_Email_Ownership::conflito_para_socio( $new_email, 'email' );
+				if ( null !== $reservado ) {
+					return $reservado;
+				}
 				// Check UNIQUE constraint before attempting update.
 				$existing = $wpdb->get_var(
 					$wpdb->prepare(
@@ -1133,6 +1138,10 @@ class ANPA_Socios_Area_REST {
 					if ( null !== $dup ) {
 						return new WP_Error( 'anpa_area_email_taken', __( 'Ese email xa está rexistrado por outro socio/a', 'anpa-socios' ), array( 'status' => 409 ) );
 					}
+					$reservado = ANPA_Socios_Email_Ownership::conflito_para_socio( (string) $email, 'p2_email' );
+					if ( null !== $reservado ) {
+						return $reservado;
+					}
 				}
 				$p2_update['email'] = $email;
 				$p2_format[]        = '%s';
@@ -1159,6 +1168,10 @@ class ANPA_Socios_Area_REST {
 				);
 				if ( null !== $dup ) {
 					return new WP_Error( 'anpa_area_email_taken', __( 'Ese email xa está rexistrado por outro socio/a', 'anpa-socios' ), array( 'status' => 409 ) );
+				}
+				$reservado = ANPA_Socios_Email_Ownership::conflito_para_socio( (string) $email, 'p2_email' );
+				if ( null !== $reservado ) {
+					return $reservado;
 				}
 			}
 
