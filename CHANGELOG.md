@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.56.2] - 2026-09-12
+
+### Fixed
+
+- **«3ººD» en Xestión.** As columnas «Curso/Aula» do listado de matrículas (Xestión → Matrículas) e do
+  alumnado por grupo engadían «º» a un curso que xa é canónico («3º» desde 1.51.x), e quedaban en
+  branco (NULL) cando o fillo/a aínda non ten letra (1.54.0). O SQL retira o «º» final antes de engadilo
+  e trata a letra baleira como cadea vacía: «3ºD» ou «3º». Non hai máis puntos afectados (os demais
+  listados e CSV amosan curso e aula en columnas separadas).
 ## [1.56.1] - 2026-09-12
 
 ### Fixed
