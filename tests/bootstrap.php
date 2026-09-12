@@ -224,6 +224,7 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-familia.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-csv-import.php';
 require_once __DIR__ . '/../includes/class-anpa-socios-db.php';
 require_once __DIR__ . '/../includes/class-anpa-socios-matricula-gate-repo.php';
+require_once __DIR__ . '/../includes/class-anpa-socios-email-ownership.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-store.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-email-template-renderer.php';
 require_once __DIR__ . '/../includes/class-anpa-socios-email-templates-page.php';

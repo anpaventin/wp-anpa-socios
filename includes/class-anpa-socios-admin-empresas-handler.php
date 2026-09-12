@@ -73,6 +73,11 @@ final class ANPA_Socios_Admin_Empresas_Handler {
 		if ( null === $payload ) {
 			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
+		// 1.55.0: one email, one role.
+		$reservado = ANPA_Socios_Email_Ownership::conflito_para_empresa( (string) $payload['email'] );
+		if ( null !== $reservado ) {
+			return $reservado;
+		}
 
 		$inserted = $wpdb->insert(
 			$wpdb->prefix . 'anpa_empresas',
@@ -115,6 +120,11 @@ final class ANPA_Socios_Admin_Empresas_Handler {
 		$payload = ANPA_Socios_Admin_Payload::validar_empresa( $body );
 		if ( null === $payload ) {
 			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
+		}
+		// 1.55.0: one email, one role.
+		$reservado = ANPA_Socios_Email_Ownership::conflito_para_empresa( (string) $payload['email'] );
+		if ( null !== $reservado ) {
+			return $reservado;
 		}
 		$payload['actualizado_en'] = current_time( 'mysql' );
 		$table = ANPA_Socios_DB::tabela_empresas();

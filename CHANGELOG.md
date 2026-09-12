@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.55.0] - 2026-09-12
+
+### Added
+
+- **Un correo, un rol.** `ANPA_Socios_Email_Ownership`: un correo asignado a un socio/a non pode usarse para
+  unha empresa nin ao revés. Compróbase ao crear ou editar empresas (Xestión), na importación CSV de empresas
+  e socios, na alta pública (titular e segundo proxenitor), no cambio de correo do perfil e do segundo
+  proxenitor na área. Mensaxe clara nos dous sentidos (409 `anpa_email_reservado_socio` /
+  `anpa_email_reservado_empresa`). O formulario de alta público, se o correo é de empresa, amosa a ponte
+  «Este correo pertence a unha empresa…» co acceso á área en vez do formulario.
+- **Panel da empresa ampliado.** Ao entrar cun correo de empresa (o fluxo xa o detectaba) móstranse os
+  datos da empresa e o curso escolar activo, as actividades ofertadas cos seus grupos (horario, días, estado,
+  prazas activas/máximo, lista de espera, baixas) e a táboa de alumnado con estado (activo, lista de espera,
+  oferta, baixa solicitada, baixa) e contacto da familia. Dúas descargas CSV: só activos ou listado completo
+  (`GET /empresa/me/export?ambito=activos|todos`, columnas `columns_panel_empresa()`, auditadas).
+- **Navegación da área.** Ao pulsar unha sección (Inicio, Extraescolares, Fillos/as, Os meus datos,
+  Conta / IBAN, atallos do panel) a páxina despraza ao inicio dese apartado; «Editar» un fillo/a leva ao
+  formulario e pon o foco no nome; gardar ou cancelar volve ao inicio da lista; o panel da empresa tamén.
+- **Matrícula:** a autorización de cesión de datos á empresa vén marcada por defecto (segue sendo
+  obrigatoria).
 ## [1.54.0] - 2026-09-11
 
 ### Changed
