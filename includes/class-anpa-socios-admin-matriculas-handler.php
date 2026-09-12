@@ -151,7 +151,7 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 				        m.recollida_autorizada, m.cesion_datos_empresa,
 				        f.id AS fillo_id, f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
 				        COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula) AS aula,
-				        CONCAT(COALESCE(fc.curso, f.curso), 'º', COALESCE(fc.aula, f.aula)) AS curso_completo,
+				        CONCAT(TRIM(TRAILING 'º' FROM COALESCE(fc.curso, f.curso, '')), 'º', COALESCE(fc.aula, f.aula, '')) AS curso_completo,
 				        a.id AS actividade_id, a.nome AS actividade, g.curso_escolar, g.franxa,
 				        g.curso_range, g.dias
 				 FROM {$mat_t} m

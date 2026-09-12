@@ -416,7 +416,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 				"SELECT m.id, m.estado, m.posicion, m.trimestre, m.activitad_id,
 				        f.id AS fillo_id, f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
 				        COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula) AS aula,
-				        CONCAT(COALESCE(fc.curso, f.curso), 'º', COALESCE(fc.aula, f.aula)) AS curso_completo
+				        CONCAT(TRIM(TRAILING 'º' FROM COALESCE(fc.curso, f.curso, '')), 'º', COALESCE(fc.aula, f.aula, '')) AS curso_completo
 				 FROM {$mat_t} m
 				 INNER JOIN {$fil_t} f ON f.id = m.fillo_id
 				 LEFT JOIN {$wpdb->prefix}anpa_grupos g ON g.id = m.grupo_id
