@@ -309,14 +309,14 @@ class ANPA_Socios_Area_Page {
 			</div>
 
 			<div class="anpa-area-card" data-step="empresa" hidden>
-				<h2><?php esc_html_e( 'Panel da empresa', 'anpa-socios' ); ?></h2>
-				<p class="anpa-area-muted"><?php esc_html_e( 'Datos da empresa, actividades ofertadas e alumnado matriculado no curso actual. Para cambiar os datos da empresa, escribe á directiva da ANPA.', 'anpa-socios' ); ?></p>
+				<h2 data-empresa-titulo><?php esc_html_e( 'Panel da empresa', 'anpa-socios' ); ?></h2>
+				<p class="anpa-area-muted" data-empresa-descricion><?php esc_html_e( 'Datos da empresa, actividades ofertadas e alumnado matriculado no curso actual. Para cambiar os datos da empresa, escribe á directiva da ANPA.', 'anpa-socios' ); ?></p>
 				<dl class="anpa-empresa-datos">
 					<dt><?php esc_html_e( 'Empresa', 'anpa-socios' ); ?></dt><dd data-empresa-nome></dd>
 					<dt><?php esc_html_e( 'Email', 'anpa-socios' ); ?></dt><dd data-empresa-email></dd>
-					<dt><?php esc_html_e( 'Responsable', 'anpa-socios' ); ?></dt><dd data-empresa-responsable></dd>
-					<dt><?php esc_html_e( 'Teléfono', 'anpa-socios' ); ?></dt><dd data-empresa-telefono></dd>
-					<dt><?php esc_html_e( 'Web', 'anpa-socios' ); ?></dt><dd data-empresa-web></dd>
+					<dt data-empresa-so-empresa><?php esc_html_e( 'Responsable', 'anpa-socios' ); ?></dt><dd data-empresa-so-empresa data-empresa-responsable></dd>
+					<dt data-empresa-so-empresa><?php esc_html_e( 'Teléfono', 'anpa-socios' ); ?></dt><dd data-empresa-so-empresa data-empresa-telefono></dd>
+					<dt data-empresa-so-empresa><?php esc_html_e( 'Web', 'anpa-socios' ); ?></dt><dd data-empresa-so-empresa data-empresa-web></dd>
 					<dt><?php esc_html_e( 'Curso escolar', 'anpa-socios' ); ?></dt><dd data-empresa-curso></dd>
 				</dl>
 				<h3><?php esc_html_e( 'Actividades ofertadas', 'anpa-socios' ); ?></h3>

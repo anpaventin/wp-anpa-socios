@@ -144,6 +144,12 @@ class ANPA_Socios_Preflight_REST {
 
 		$flags = array();
 
+		// 1.56.0: the canteen account (Axustes) uses the company flow. Flow::next()
+		// still prioritises a socio flag, but the ownership guard keeps them apart.
+		if ( ANPA_Socios_Config::is_comedor_email( $email ) ) {
+			$flags['empresa'] = 'activo';
+		}
+
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
 				"SELECT id, estado, baixa_estado, familia_id, rol FROM {$wpdb->prefix}anpa_socios WHERE email = %s LIMIT 1",

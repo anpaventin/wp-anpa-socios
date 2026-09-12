@@ -20,6 +20,7 @@ final class ANPA_Socios_Email_Ownership {
 
 	const MSG_EMAIL_DE_EMPRESA = 'Ese correo pertence a unha empresa de actividades. Un mesmo correo non pode usarse para un socio/a e para unha empresa.';
 	const MSG_EMAIL_DE_SOCIO   = 'Ese correo xa pertence a un socio/a. Un mesmo correo non pode usarse para un socio/a e para unha empresa.';
+	const MSG_EMAIL_DE_COMEDOR = 'Ese correo é o da conta do comedor escolar (Axustes). Un mesmo correo non pode usarse para o comedor e para un socio/a ou unha empresa.';
 
 	/** Lower-cases and trims for the UNIQUE comparisons (both tables store lower-case). */
 	public static function normalizar( string $email ): string {
@@ -44,6 +45,10 @@ final class ANPA_Socios_Email_Ownership {
 		if ( '' === $email ) {
 			return null;
 		}
+		// 1.56.0: the canteen account (Axustes) behaves as a company for login; id 0 marks it.
+		if ( ANPA_Socios_Config::is_comedor_email( $email ) ) {
+			return 0;
+		}
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- ownership lookup.
 		$id = $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM ' . ANPA_Socios_DB::tabela_empresas() . ' WHERE email = %s LIMIT 1', $email ) );
@@ -56,6 +61,9 @@ final class ANPA_Socios_Email_Ownership {
 	 * @return WP_Error|null 409 when reserved.
 	 */
 	public static function conflito_para_empresa( string $email ): ?WP_Error {
+		if ( ANPA_Socios_Config::is_comedor_email( $email ) ) {
+			return new WP_Error( 'anpa_email_reservado_comedor', __( self::MSG_EMAIL_DE_COMEDOR, 'anpa-socios' ), array( 'status' => 409, 'fields' => array( 'email' => __( self::MSG_EMAIL_DE_COMEDOR, 'anpa-socios' ) ) ) );
+		}
 		if ( null === self::socio_por_email( $email ) ) {
 			return null;
 		}
@@ -73,6 +81,7 @@ final class ANPA_Socios_Email_Ownership {
 		if ( null === self::empresa_por_email( $email ) ) {
 			return null;
 		}
-		return new WP_Error( 'anpa_email_reservado_empresa', __( self::MSG_EMAIL_DE_EMPRESA, 'anpa-socios' ), array( 'status' => 409, 'fields' => array( $field => __( self::MSG_EMAIL_DE_EMPRESA, 'anpa-socios' ) ) ) );
+		$msg = ANPA_Socios_Config::is_comedor_email( $email ) ? self::MSG_EMAIL_DE_COMEDOR : self::MSG_EMAIL_DE_EMPRESA;
+		return new WP_Error( 'anpa_email_reservado_empresa', __( $msg, 'anpa-socios' ), array( 'status' => 409, 'fields' => array( $field => __( $msg, 'anpa-socios' ) ) ) );
 	}
 }
