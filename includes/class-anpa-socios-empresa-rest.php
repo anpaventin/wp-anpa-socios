@@ -558,7 +558,8 @@ class ANPA_Socios_Empresa_REST {
 		$profile    = $request->get_param( '_anpa_empresa_profile' );
 		$empresa_id = is_array( $profile ) && isset( $profile['id'] ) ? (int) $profile['id'] : 0;
 
-		if ( $empresa_id <= 0 ) {
+		// 1.56.1: the canteen account has id 0 on purpose (every company).
+		if ( $empresa_id <= 0 && ! self::is_comedor_profile( $profile ) ) {
 			return new WP_Error( 'anpa_empresa_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
