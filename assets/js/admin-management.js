@@ -2762,10 +2762,11 @@
 					wireSearchInput(bar, matSt, renderMat);
 					if (!sorted.length) { matHost.appendChild(emptyEl('Sen matr\u00EDculas.')); return; }
 					var paged = tbl.pageSlice(sorted, matSt.page, matSt.size || 0);
-					// 1.60.0: baixas in red, pending baixas in amber, so they stand out from the active pupils.
+					// 1.60.0: baixas in red, pending baixas in amber; 1.60.1: waiting list in yellow.
 					var matTable = buildTable(paged, MAT_COLS, matSt.sort, renderMat, function (tr, row) {
 						if (row.estado === 'baixa') { tr.classList.add('anpa-row-matricula-baixa'); }
 						else if (row.estado === 'baixa_solicitada') { tr.classList.add('anpa-row-baixa-pending'); }
+						else if (row.estado === 'lista_espera') { tr.classList.add('anpa-row-matricula-espera'); }
 					});
 					matHost.appendChild(matTable);
 					if (matSt.size > 0 && sorted.length > matSt.size) {

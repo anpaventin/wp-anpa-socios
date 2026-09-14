@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.60.1] - 2026-09-14
+
+### Changed
+
+- **Lista de espera en amarelo nos listados de matrículas.** En Xestión → Matrículas as filas en «lista de espera»
+  píntanse en amarelo (fondo e texto), xunto ás baixas en vermello e as baixas solicitadas en ámbar da 1.60.0. No
+  panel da empresa e do comedor a fila de lista de espera leva o mesmo fondo amarelo (o texto xa ía en ámbar).
+
 ## [1.60.0] - 2026-09-14
 
 ### Added
