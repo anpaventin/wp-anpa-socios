@@ -42,6 +42,7 @@ final class ANPA_Socios_Admin_REST {
 	public static function register_routes(): void {
 		ANPA_Socios_Admin_Socios_Handler::register_routes();
 		ANPA_Socios_Admin_Approvals_Handler::register_routes();
+		ANPA_Socios_Admin_Baixas_Handler::register_routes();
 		ANPA_Socios_Admin_Fillos_Handler::register_routes();
 		ANPA_Socios_Admin_Empresas_Handler::register_routes();
 		ANPA_Socios_Admin_Actividades_Handler::register_routes();

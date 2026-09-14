@@ -1151,6 +1151,119 @@
 		}
 	}
 
+	// ── Section: Baixas solicitadas (1.57.0) ─────────────────────────
+	// Both queues the families can open from the area: leaving the association
+	// (socio.baixa_estado = 'solicitada') and leaving an activity
+	// (matricula.estado = 'baixa_solicitada'). Confirm/reject call the admin
+	// endpoints; confirming a matrícula frees the seat for the waitlist.
+	function loadBaixas() {
+		showLoading();
+		anpaAdminFetch('baixas-pendentes').then(function (data) { renderBaixas(data); }).catch(sectionError);
+	}
+
+	function renderBaixas(data) {
+		root.textContent = '';
+		document.title = 'Baixas solicitadas — Xestión ANPA';
+		var socios = data && Array.isArray(data.socios) ? data.socios : [];
+		var mats = data && Array.isArray(data.matriculas) ? data.matriculas : [];
+
+		var intro = document.createElement('p');
+		intro.className = 'description';
+		intro.textContent = 'Solicitudes abertas polas familias desde a área de socios. Confirmar fai efectiva a baixa; rexeitar deixa todo como estaba (a familia non recibe correo automático: avísaa se procede).';
+		root.appendChild(intro);
+
+		function actionCell(onConfirm, onReject, confirmLabel) {
+			var td = document.createElement('td');
+			var ok = document.createElement('button');
+			ok.type = 'button'; ok.className = 'anpa-mgmt-btn anpa-mgmt-btn-danger'; ok.textContent = confirmLabel;
+			ok.addEventListener('click', onConfirm);
+			var no = document.createElement('button');
+			no.type = 'button'; no.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary'; no.textContent = 'Rexeitar';
+			no.style.marginLeft = '0.4rem';
+			no.addEventListener('click', onReject);
+			td.appendChild(ok); td.appendChild(no);
+			return td;
+		}
+		function simpleTable(labels) {
+			var table = document.createElement('table');
+			table.className = 'anpa-mgmt-table';
+			var thead = document.createElement('thead');
+			var hr = document.createElement('tr');
+			labels.forEach(function (l) { var th = document.createElement('th'); th.textContent = l; hr.appendChild(th); });
+			thead.appendChild(hr); table.appendChild(thead);
+			var tbody = document.createElement('tbody');
+			table.appendChild(tbody);
+			table._tbody = tbody;
+			return table;
+		}
+		function cell(text) { var td = document.createElement('td'); td.textContent = text == null ? '' : String(text); return td; }
+		function act(path, okMsg) {
+			anpaAdminFetch(path, { method: 'POST' }).then(function () {
+				showMessage(okMsg, 'success');
+				loadBaixas();
+			}).catch(function (e) { showMessage(e.message, 'error'); loadBaixas(); });
+		}
+
+		// ── Socios ──
+		var h3s = document.createElement('h3');
+		h3s.textContent = 'Baixas de socios/as pendentes (' + socios.length + ')';
+		root.appendChild(h3s);
+		if (!socios.length) {
+			root.appendChild(emptyEl('Non hai solicitudes de baixa de socios/as.'));
+		} else {
+			var ts = simpleTable(['Data da solicitude', 'Email', 'Nome', 'Apelidos', 'Teléfono', 'Fillos/as activos', 'Matrículas vixentes', 'Accións']);
+			socios.forEach(function (s) {
+				var tr = document.createElement('tr');
+				tr.className = 'anpa-row-baixa-pending';
+				tr.appendChild(cell(formatAdminDate(s.baixa_solicitada_en)));
+				tr.appendChild(cell(s.email)); tr.appendChild(cell(s.nome)); tr.appendChild(cell(s.apelidos)); tr.appendChild(cell(s.telefono));
+				tr.appendChild(cell(s.fillos_activos)); tr.appendChild(cell(s.matriculas_vixentes));
+				var path = 'socio/' + encodeURIComponent(s.email || '') + '/baixa/';
+				tr.appendChild(actionCell(function () {
+					if (!window.confirm('Confirmar a baixa de ' + (s.email || '') + '? O socio/a pasa a estado «baixa» e perde o acceso á área.')) { return; }
+					act(path + 'confirm', 'Baixa de socio/a confirmada.');
+				}, function () {
+					if (!window.confirm('Rexeitar a solicitude de ' + (s.email || '') + '? Segue sendo socio/a activo/a.')) { return; }
+					act(path + 'reject', 'Solicitude rexeitada; o socio/a segue activo/a.');
+				}, 'Confirmar baixa'));
+				ts._tbody.appendChild(tr);
+			});
+			root.appendChild(ts);
+		}
+
+		// ── Matrículas ──
+		var h3m = document.createElement('h3');
+		h3m.style.marginTop = '1.5rem';
+		h3m.textContent = 'Baixas de actividades pendentes (' + mats.length + ')';
+		root.appendChild(h3m);
+		if (!mats.length) {
+			root.appendChild(emptyEl('Non hai solicitudes de baixa de actividades.'));
+		} else {
+			var tm = simpleTable(['Data da solicitude', 'Alumno/a', 'Curso/Aula', 'Actividade', 'Grupo', 'Curso escolar', 'Familia (email)', 'Accións']);
+			mats.forEach(function (m) {
+				var tr = document.createElement('tr');
+				tr.className = 'anpa-row-baixa-pending';
+				tr.appendChild(cell(formatAdminDate(m.solicitada_en)));
+				tr.appendChild(cell(((m.fillo_apelidos || '') + ', ' + (m.fillo_nome || '')).replace(/^, /, '')));
+				tr.appendChild(cell(m.curso_completo));
+				tr.appendChild(cell(m.actividade));
+				tr.appendChild(cell([m.grupo, m.dias, m.franxa].filter(Boolean).join(' · ')));
+				tr.appendChild(cell(m.curso_escolar));
+				tr.appendChild(cell(m.socio_email));
+				var path = 'matricula/' + m.id + '/baixa/';
+				tr.appendChild(actionCell(function () {
+					if (!window.confirm('Confirmar a baixa de ' + (m.fillo_nome || '') + ' en ' + (m.actividade || '') + '? A praza oférecese ao seguinte da lista de espera.')) { return; }
+					act(path + 'confirm', 'Baixa da actividade confirmada.');
+				}, function () {
+					if (!window.confirm('Rexeitar a solicitude? A matrícula volve a estar activa.')) { return; }
+					act(path + 'reject', 'Solicitude rexeitada; a matrícula segue activa.');
+				}, 'Confirmar baixa'));
+				tm._tbody.appendChild(tr);
+			});
+			root.appendChild(tm);
+		}
+	}
+
 	// ── Section: Fillos ──────────────────────────────────────────────
 	var FILLOS_COLS = ['proxenitor_apelidos', 'proxenitor_nome', 'socio_email', 'apelidos', 'nome', 'data_nacemento', 'curso', 'aula', 'estado'];
 
@@ -3255,6 +3368,7 @@
 	var SECTION_MAP = {
 		'socios': loadSocios,
 		'aprobacions': loadApprovals,
+		'baixas': loadBaixas,
 		'fillos': loadFillos,
 		'empresas': loadEmpresas,
 		'actividades': loadActividades,

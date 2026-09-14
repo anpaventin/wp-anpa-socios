@@ -2940,7 +2940,7 @@ final class ANPA_Socios_Admin_Settings {
 		$h3( __( 'Fin de curso', 'anpa-socios' ) );
 		echo '<ol>';
 		$li( __( 'Pecha a ventá do 3º trimestre cando remate o prazo de baixas.', 'anpa-socios' ) );
-		$li( __( 'Confirma en Xestión as baixas solicitadas (socios e matrículas) e exporta os listados que necesite a tesourería.', 'anpa-socios' ) );
+		$li( __( 'Confirma en Xestión → Socios → Baixas solicitadas as baixas pendentes (socios e matrículas) e exporta os listados que necesite a tesourería.', 'anpa-socios' ) );
 		$li( __( 'Fai unha copia completa (UpdraftPlus e o ficheiro cifrado .anpabak) antes do 20 de xuño.', 'anpa-socios' ) );
 		echo '</ol>';
 		echo '<p class="description">' . esc_html__( 'Nota: «aula» (clase ordinaria, por exemplo 4ºB) non é o mesmo que «grupo de actividade» (agrupamento por niveis dunha extraescolar, por exemplo 1º-2º-3º). A estrutura escolar define aulas; os grupos configúranse na ficha de cada actividade.', 'anpa-socios' ) . '</p>';
@@ -2957,7 +2957,7 @@ final class ANPA_Socios_Admin_Settings {
 		echo '</ul>';
 		$h3( __( 'Baixas e reactivacións', 'anpa-socios' ) );
 		echo '<ul>';
-		$li( __( 'A familia solicita a baixa desde a área (queda «baixa solicitada» e pode anulala). A xunta confírmaa en Xestión → Socios/as; é efectiva a fin de curso e a cota do curso completo mantense.', 'anpa-socios' ) );
+		$li( __( 'A familia solicita a baixa desde a área (queda «baixa solicitada» e pode anulala). A xunta confírmaa ou rexéitaa en Xestión → Socios → Baixas solicitadas, onde tamén aparecen as baixas de actividades pedidas polas familias; é efectiva a fin de curso e a cota do curso completo mantense.', 'anpa-socios' ) );
 		$li( __( 'Unha familia dada de baixa pode pedir a reactivación desde a páxina pública; a xunta a aproba como unha alta pendente.', 'anpa-socios' ) );
 		$li( __( 'A conta do equipo administrador non pode solicitar a baixa: perdería o acceso.', 'anpa-socios' ) );
 		echo '</ul>';
