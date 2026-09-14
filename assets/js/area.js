@@ -10,7 +10,7 @@
 
 (function () {
 	'use strict';
-	const { __ } = wp.i18n;
+	const { __, sprintf } = wp.i18n;
 
 	// Idle session timeout: end an inactive session and return to login.
 	// 30 min is a sensible balance for a member/admin area handling sensitive
@@ -1646,31 +1646,123 @@
 			}
 			const alHost = root.querySelector('[data-empresa-alumnos]');
 			if (alHost) {
-				alHost.textContent = '';
-				const rows = Array.isArray(profile.alumnos) ? profile.alumnos : [];
-				if (!rows.length) {
-					const p = document.createElement('p'); p.className = 'anpa-area-muted'; p.textContent = __( 'Aínda non hai alumnado matriculado nas vosas actividades.', 'anpa-socios' ); alHost.appendChild(p);
+				renderEmpresaAlumnos(alHost, Array.isArray(profile.alumnos) ? profile.alumnos : [], comedor);
+			}
+		}
+
+		// ── Pupils list: search box + sortable columns ──────────────────
+		// Same building blocks as the Xestión listings: admin-table.js
+		// (window.AnpaAdminTable) sorts locale-aware and numeric, anpa-utils.js
+		// (window.AnpaUtils) runs the case-insensitive "contains" search over
+		// the visible columns. Both are pure and enqueued as dependencies of
+		// area.js (ANPA_Socios_Area_Page::area_script_deps()); the fallbacks
+		// only keep the table rendering if a theme drops a dependency.
+		const listTbl = window.AnpaAdminTable || { sortRows: function (r) { return Array.isArray(r) ? r.slice() : []; } };
+		const listUtils = window.AnpaUtils || { filterRows: function (r) { return r; } };
+		// Sort/search state survives a panel reload; an empty key keeps the
+		// server order (activity, company, group, state, surname).
+		const empresaListSt = { sort: { key: '', dir: 'asc' }, searchQuery: '' };
+
+		/** Flattens a REST row into the display columns; the keys double as sort keys and search fields. */
+		function empresaAlumnoRow(r) {
+			return {
+				actividade: r.actividade || '',
+				empresa: r.empresa || '',
+				grupo: (r.grupo || '') + (r.horario ? ' · ' + r.horario + ' ' + (r.franxa || '') : ''),
+				alumno: ((r.nome || '') + ' ' + (r.apelidos || '')).trim(),
+				curso: (r.curso || '') + (r.aula ? ' ' + r.aula : ''),
+				estado: EMPRESA_ESTADO_LABELS[r.estado] || r.estado || '',
+				opcions: opcionsLabel(r),
+				contacto: r.socio_email || '',
+				// Raw state for the row colour; leading underscore = not a column.
+				_estado: r.estado || '',
+			};
+		}
+
+		function renderEmpresaAlumnos(alHost, rawRows, comedor) {
+			alHost.textContent = '';
+			if (!rawRows.length) {
+				const p = document.createElement('p'); p.className = 'anpa-area-muted'; p.textContent = __( 'Aínda non hai alumnado matriculado nas vosas actividades.', 'anpa-socios' ); alHost.appendChild(p);
+				return;
+			}
+			const cols = [{ key: 'actividade', label: __( 'Actividade', 'anpa-socios' ) }];
+			if (comedor) { cols.push({ key: 'empresa', label: __( 'Empresa', 'anpa-socios' ) }); }
+			cols.push(
+				{ key: 'grupo', label: __( 'Grupo', 'anpa-socios' ) },
+				{ key: 'alumno', label: __( 'Alumno/a', 'anpa-socios' ) },
+				{ key: 'curso', label: __( 'Curso', 'anpa-socios' ) },
+				{ key: 'estado', label: __( 'Estado', 'anpa-socios' ) },
+				{ key: 'opcions', label: __( 'Opcións e autorizacións', 'anpa-socios' ) },
+				{ key: 'contacto', label: __( 'Contacto familia', 'anpa-socios' ) }
+			);
+			const keys = cols.map(function (c) { return c.key; });
+			const rows = rawRows.map(empresaAlumnoRow);
+			const st = empresaListSt;
+
+			// Filter bar (count + search). The bar is built once and the table
+			// re-renders underneath it, so typing never loses the focus.
+			const bar = document.createElement('div'); bar.className = 'anpa-empresa-filter-bar';
+			const count = document.createElement('span'); count.className = 'anpa-area-muted anpa-empresa-count';
+			const search = document.createElement('input');
+			search.type = 'search';
+			search.placeholder = __( 'Buscar…', 'anpa-socios' );
+			search.setAttribute('aria-label', __( 'Buscar na listaxe', 'anpa-socios' ));
+			search.value = st.searchQuery || '';
+			bar.appendChild(count); bar.appendChild(search);
+			alHost.appendChild(bar);
+			const listHost = document.createElement('div');
+			alHost.appendChild(listHost);
+
+			function renderList() {
+				listHost.textContent = '';
+				const filtered = listUtils.filterRows(rows, st.searchQuery || '', keys);
+				const sorted = listTbl.sortRows(filtered, st.sort.key, st.sort.dir);
+				count.textContent = sprintf( __( '%1$s de %2$s', 'anpa-socios' ), sorted.length, rows.length );
+				if (!sorted.length) {
+					const p = document.createElement('p'); p.className = 'anpa-area-muted'; p.textContent = __( 'Sen resultados.', 'anpa-socios' ); listHost.appendChild(p);
 					return;
 				}
 				const wrap = document.createElement('div'); wrap.className = 'anpa-empresa-table-wrap';
 				const table = document.createElement('table'); table.className = 'anpa-empresa-alumnos';
 				const thead = document.createElement('thead'); const trh = document.createElement('tr');
-				const headers = [__( 'Actividade', 'anpa-socios' )];
-				if (comedor) { headers.push(__( 'Empresa', 'anpa-socios' )); }
-				headers.push(__( 'Grupo', 'anpa-socios' ), __( 'Alumno/a', 'anpa-socios' ), __( 'Curso', 'anpa-socios' ), __( 'Estado', 'anpa-socios' ), __( 'Opcións e autorizacións', 'anpa-socios' ), __( 'Contacto familia', 'anpa-socios' ));
-				headers.forEach(function (t) { const th = document.createElement('th'); th.textContent = t; trh.appendChild(th); });
+				cols.forEach(function (c) {
+					const th = document.createElement('th');
+					th.className = 'anpa-sortable';
+					th.scope = 'col';
+					let label = c.label;
+					if (st.sort.key === c.key) {
+						label += st.sort.dir === 'asc' ? ' ▲' : ' ▼';
+						th.setAttribute('aria-sort', st.sort.dir === 'asc' ? 'ascending' : 'descending');
+					}
+					th.textContent = label;
+					th.addEventListener('click', function () {
+						if (st.sort.key === c.key) {
+							st.sort.dir = st.sort.dir === 'asc' ? 'desc' : 'asc';
+						} else {
+							st.sort.key = c.key;
+							st.sort.dir = 'asc';
+						}
+						renderList();
+					});
+					trh.appendChild(th);
+				});
 				thead.appendChild(trh); table.appendChild(thead);
 				const tbody = document.createElement('tbody');
-				rows.forEach(function (r) {
-					const tr = document.createElement('tr'); tr.className = 'anpa-empresa-estado-' + (r.estado || '');
-					const cells = [r.actividade];
-					if (comedor) { cells.push(r.empresa || ''); }
-					cells.push((r.grupo || '') + (r.horario ? ' · ' + r.horario + ' ' + (r.franxa || '') : ''), ((r.nome || '') + ' ' + (r.apelidos || '')).trim(), (r.curso || '') + (r.aula ? ' ' + r.aula : ''), EMPRESA_ESTADO_LABELS[r.estado] || r.estado, opcionsLabel(r), r.socio_email || '');
-					cells.forEach(function (v) { const td = document.createElement('td'); td.textContent = v || ''; tr.appendChild(td); });
+				sorted.forEach(function (row) {
+					const tr = document.createElement('tr'); tr.className = 'anpa-empresa-estado-' + row._estado;
+					keys.forEach(function (k) { const td = document.createElement('td'); td.textContent = row[k] || ''; tr.appendChild(td); });
 					tbody.appendChild(tr);
 				});
-				table.appendChild(tbody); wrap.appendChild(table); alHost.appendChild(wrap);
+				table.appendChild(tbody); wrap.appendChild(table); listHost.appendChild(wrap);
 			}
+
+			let timer = null;
+			search.addEventListener('input', function () {
+				st.searchQuery = this.value;
+				if (timer) { clearTimeout(timer); }
+				timer = setTimeout(renderList, 300);
+			});
+			renderList();
 		}
 
 		async function loadEmpresaPanel() {

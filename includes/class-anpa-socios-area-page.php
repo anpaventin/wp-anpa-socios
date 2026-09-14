@@ -311,6 +311,12 @@ class ANPA_Socios_Area_Page {
 			<div class="anpa-area-card" data-step="empresa" hidden>
 				<h2 data-empresa-titulo><?php esc_html_e( 'Panel da empresa', 'anpa-socios' ); ?></h2>
 				<p class="anpa-area-muted" data-empresa-descricion><?php esc_html_e( 'Datos da empresa, actividades ofertadas e alumnado matriculado no curso actual. Para cambiar os datos da empresa, escribe á directiva da ANPA.', 'anpa-socios' ); ?></p>
+				<?php // Downloads first: the buttons must be visible as soon as the panel opens, before the (long) pupils list. ?>
+				<div class="anpa-area-actions anpa-empresa-toolbar">
+					<button type="button" data-action="empresa-export" data-ambito="activos"><?php esc_html_e( 'Descargar só activos (CSV)', 'anpa-socios' ); ?></button>
+					<button type="button" data-action="empresa-export" data-ambito="todos"><?php esc_html_e( 'Descargar listado completo (CSV)', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary" data-action="empresa-logout"><?php esc_html_e( 'Pechar sesión', 'anpa-socios' ); ?></button>
+				</div>
 				<dl class="anpa-empresa-datos">
 					<dt><?php esc_html_e( 'Empresa', 'anpa-socios' ); ?></dt><dd data-empresa-nome></dd>
 					<dt><?php esc_html_e( 'Email', 'anpa-socios' ); ?></dt><dd data-empresa-email></dd>
@@ -319,16 +325,12 @@ class ANPA_Socios_Area_Page {
 					<dt data-empresa-so-empresa><?php esc_html_e( 'Web', 'anpa-socios' ); ?></dt><dd data-empresa-so-empresa data-empresa-web></dd>
 					<dt><?php esc_html_e( 'Curso escolar', 'anpa-socios' ); ?></dt><dd data-empresa-curso></dd>
 				</dl>
-				<h3><?php esc_html_e( 'Actividades ofertadas', 'anpa-socios' ); ?></h3>
-				<div data-empresa-actividades></div>
 				<h3><?php esc_html_e( 'Alumnado matriculado e baixas', 'anpa-socios' ); ?></h3>
 				<p class="anpa-area-muted" data-empresa-totais></p>
 				<div data-empresa-alumnos></div>
-				<div class="anpa-area-actions">
-					<button type="button" data-action="empresa-export" data-ambito="activos"><?php esc_html_e( 'Descargar só activos (CSV)', 'anpa-socios' ); ?></button>
-					<button type="button" data-action="empresa-export" data-ambito="todos"><?php esc_html_e( 'Descargar listado completo (CSV)', 'anpa-socios' ); ?></button>
-					<button type="button" class="anpa-area-secondary" data-action="empresa-logout"><?php esc_html_e( 'Pechar sesión', 'anpa-socios' ); ?></button>
-				</div>
+				<?php // The offer comes after the pupils list: the canteen staff and the companies come here for the enrolments. ?>
+				<h3><?php esc_html_e( 'Actividades ofertadas', 'anpa-socios' ); ?></h3>
+				<div data-empresa-actividades></div>
 			</div>
 		</section>
 		<?php
@@ -359,7 +361,7 @@ class ANPA_Socios_Area_Page {
 		wp_enqueue_script(
 			'anpa-socios-area',
 			plugins_url( 'assets/js/area.js', ANPA_SOCIOS_PLUGIN_FILE ),
-			array( 'wp-i18n' ),
+			self::area_script_deps(),
 			$js_version,
 			true
 		);
@@ -371,6 +373,35 @@ class ANPA_Socios_Area_Page {
 			array(),
 			$css_version
 		);
+	}
+
+	/**
+	 * Registers the pure list helpers shared with Xestión (admin-table.js: sort +
+	 * pagination; anpa-utils.js: labels, search filter, CSV) and returns the
+	 * dependency list for area.js.
+	 *
+	 * The company/canteen panel sorts and searches its pupils table with the very
+	 * same helpers the admin listings use, so the behaviour (locale-aware, numeric
+	 * sort; case-insensitive "contains" search over the visible columns) is
+	 * identical on both sides. Registering is idempotent, so the admin page (which
+	 * enqueues the same handles itself) and the unified page can both call it.
+	 *
+	 * @since  1.59.0
+	 * @return array<string>
+	 */
+	public static function area_script_deps(): array {
+		$plugin_url = plugins_url( '', ANPA_SOCIOS_PLUGIN_FILE );
+		foreach ( array( 'anpa-socios-admin-table' => 'admin-table.js', 'anpa-socios-utils' => 'anpa-utils.js' ) as $handle => $file ) {
+			$path = ANPA_SOCIOS_PLUGIN_DIR . 'assets/js/' . $file;
+			wp_register_script(
+				$handle,
+				$plugin_url . '/assets/js/' . $file,
+				array(),
+				file_exists( $path ) ? (string) filemtime( $path ) : ANPA_SOCIOS_VERSION,
+				true
+			);
+		}
+		return array( 'wp-i18n', 'anpa-socios-admin-table', 'anpa-socios-utils' );
 	}
 
 	/**

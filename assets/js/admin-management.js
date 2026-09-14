@@ -419,6 +419,9 @@
 		input._anpaSearchWired = true;
 		if (st._searchFocused) {
 			// The panel was just rebuilt due to typing — return focus + caret.
+			// Consume the flag: a later re-render caused by a sort click or the
+			// pagination must not steal the focus back into the search box.
+			st._searchFocused = false;
 			input.focus();
 			try { var v = input.value; input.setSelectionRange(v.length, v.length); } catch (e) {}
 		}
@@ -576,17 +579,9 @@
 			var query = bar._searchInput.value || '';
 			var filtered = filterRows(visible, query, SOCIOS_COLS);
 			var sorted = tbl.sortRows(filtered, st.sort.key, st.sort.dir);
-			var paged = tbl.pageSlice(sorted, st.page, st.size || 0);
-
 			wireSearchInput(bar, st, render);
-			if (!sorted.length) {
-				var emptyP = document.createElement('p');
-				emptyP.className = 'anpa-mgmt-empty';
-				emptyP.textContent = 'Sen resultados.';
-				root.appendChild(emptyP);
-				return;
-			}
-
+			if (!sorted.length) { root.appendChild(emptyEl('Sen resultados.')); return; }
+			var paged = tbl.pageSlice(sorted, st.page, st.size || 0);
 			var table = buildTable(paged, SOCIOS_COLS, st.sort, render, function (tr, row) {
 				if (row.estado === 'baixa') { tr.classList.add('anpa-row-baixa'); }
 				else if (row.estado === 'pendiente_alta') { tr.classList.add('anpa-row-pendente'); }
@@ -612,8 +607,6 @@
 					st.page = p; st.size = s; render();
 				}));
 			}
-
-			wireSearchInput(bar, st, render);
 		}
 		render();
 	}
@@ -1322,8 +1315,6 @@
 					st.page = p; st.size = s; render();
 				}));
 			}
-
-			wireSearchInput(bar, st, render);
 		}
 		render();
 	}
@@ -1594,8 +1585,6 @@
 					st.page = p; st.size = s; render();
 				}));
 			}
-
-			wireSearchInput(bar, st, render);
 		}
 		render();
 	}
@@ -1921,8 +1910,6 @@
 					st.page = p; st.size = s; render();
 				}));
 			}
-
-			wireSearchInput(bar, st, render);
 		}
 		render();
 	}
@@ -2618,7 +2605,6 @@
 							matSt.page = p; matSt.size = s; renderMat();
 						}));
 					}
-					wireSearchInput(bar, matSt, renderMat);
 				}
 				renderMat();
 			}).catch(function (e) { matHost.textContent = ''; showMessage(e.message, 'error'); });
@@ -2657,8 +2643,6 @@
 					st.page = p; st.size = s; render();
 				}));
 			}
-
-			wireSearchInput(bar, st, render);
 		}
 		render();
 	}

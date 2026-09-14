@@ -739,3 +739,30 @@
 	opacity: 1;
 	font-style: normal;
 }
+
+/* ── Company / canteen panel: pupils list toolbar (search + sortable columns) ──
+   Same conventions as the Xestión listings (admin-management.css): the search
+   box sits at the right of the bar, sortable headers show a pointer and the
+   active column carries a ▲/▼ mark appended by area.js. */
+#anpa-area .anpa-empresa-toolbar { margin: 0 0 1rem; }
+#anpa-area .anpa-empresa-filter-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75rem;
+	margin: 0 0 0.75rem;
+}
+#anpa-area .anpa-empresa-filter-bar input[type="search"] {
+	margin-left: auto;
+	max-width: 260px;
+	padding: 0.4rem 0.6rem;
+	border: 1px solid #8c8f94;
+	border-radius: 6px;
+	font-size: 0.95em;
+}
+#anpa-area .anpa-empresa-filter-bar .anpa-empresa-count { font-size: 0.9em; }
+#anpa-area .anpa-empresa-alumnos th { background: #f6f7f7; font-weight: 600; white-space: nowrap; }
+#anpa-area .anpa-empresa-alumnos th.anpa-sortable { cursor: pointer; user-select: none; }
+#anpa-area .anpa-empresa-alumnos th.anpa-sortable:hover { background: #e8eaec; }
+#anpa-area .anpa-empresa-alumnos th.anpa-sortable[aria-sort="ascending"],
+#anpa-area .anpa-empresa-alumnos th.anpa-sortable[aria-sort="descending"] { background: #e8eaec; }
