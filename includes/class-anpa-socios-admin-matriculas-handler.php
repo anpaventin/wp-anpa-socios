@@ -151,7 +151,6 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 				        m.recollida_autorizada, m.cesion_datos_empresa,
 				        f.id AS fillo_id, f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
 				        COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula) AS aula,
-				        CONCAT(TRIM(TRAILING 'º' FROM COALESCE(fc.curso, f.curso, '')), 'º', COALESCE(fc.aula, f.aula, '')) AS curso_completo,
 				        a.id AS actividade_id, a.nome AS actividade, g.curso_escolar, g.franxa,
 				        g.curso_range, g.dias
 				 FROM {$mat_t} m
@@ -168,8 +167,10 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 
 		$rows = is_array( $rows ) ? $rows : array();
 
-		// Enrich each row with computed trimester range.
+		// Enrich each row with the «Curso/Aula» label and the computed trimester range.
+		// The label is built in PHP (1.56.3): keep this SQL pure ASCII — see ANPA_Socios_Admin_Shared::curso_completo().
 		foreach ( $rows as &$row ) {
+			$row['curso_completo'] = ANPA_Socios_Admin_Shared::curso_completo( $row['curso'] ?? null, $row['aula'] ?? null );
 			$tri_alta  = ANPA_Socios_Trimestre::actual( (int) gmdate( 'n', strtotime( (string) $row['creado_en'] ) ) );
 			$tri_baixa = ! empty( $row['baixa_en'] )
 				? ANPA_Socios_Trimestre::actual( (int) gmdate( 'n', strtotime( (string) $row['baixa_en'] ) ) )

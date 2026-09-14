@@ -415,8 +415,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			$wpdb->prepare(
 				"SELECT m.id, m.estado, m.posicion, m.trimestre, m.activitad_id,
 				        f.id AS fillo_id, f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
-				        COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula) AS aula,
-				        CONCAT(TRIM(TRAILING 'º' FROM COALESCE(fc.curso, f.curso, '')), 'º', COALESCE(fc.aula, f.aula, '')) AS curso_completo
+				        COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula) AS aula
 				 FROM {$mat_t} m
 				 INNER JOIN {$fil_t} f ON f.id = m.fillo_id
 				 LEFT JOIN {$wpdb->prefix}anpa_grupos g ON g.id = m.grupo_id
@@ -428,7 +427,14 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			ARRAY_A
 		);
 
-		return new WP_REST_Response( is_array( $rows ) ? $rows : array(), 200 );
+		$rows = is_array( $rows ) ? $rows : array();
+		// «Curso/Aula» label built in PHP (1.56.3): keep the SQL above pure ASCII — see ANPA_Socios_Admin_Shared::curso_completo().
+		foreach ( $rows as &$row ) {
+			$row['curso_completo'] = ANPA_Socios_Admin_Shared::curso_completo( $row['curso'] ?? null, $row['aula'] ?? null );
+		}
+		unset( $row );
+
+		return new WP_REST_Response( $rows, 200 );
 	}
 
 	/**

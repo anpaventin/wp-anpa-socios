@@ -166,6 +166,30 @@ final class ANPA_Socios_Admin_Shared {
 	}
 
 	/**
+	 * Builds the «Curso/Aula» label shown in Xestión: «3ºD», or «3º» when the pupil has no letter yet.
+	 *
+	 * Deliberately computed in PHP (1.56.3). The 1.56.2 SQL version carried the literal 'º' plus a
+	 * `TRIM(TRAILING 'º' FROM …)`: a non-ASCII query makes wpdb run its invalid-text check, whose
+	 * table parser (`get_table_from_query()`) took that inner FROM as the main one, resolved the
+	 * table as «COALESCE», failed `SHOW FULL COLUMNS` and rejected the whole query with «datos non
+	 * válidos» — both admin lists came back empty with HTTP 200. Keeping the SQL pure ASCII skips
+	 * that machinery entirely.
+	 *
+	 * @since  1.56.3
+	 * @param  string|null $curso Canonical level («3º») or a legacy bare number («3»).
+	 * @param  string|null $aula  Class letter; may be empty or NULL (1.54.0).
+	 * @return string Empty string when there is no level.
+	 */
+	public static function curso_completo( ?string $curso, ?string $aula ): string {
+		$curso = (string) preg_replace( '/[º°]+$/u', '', trim( (string) $curso ) );
+		if ( '' === $curso ) {
+			return '';
+		}
+
+		return $curso . 'º' . trim( (string) $aula );
+	}
+
+	/**
 	 * Returns the stored rol for the given email, or '' if not found.
 	 *
 	 * @since  1.3.0
