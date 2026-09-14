@@ -156,7 +156,7 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 		$this->assertSame( 'Extraescolares', $sections['extraescolares']['label'] );
 		$this->assertSame( 'Operacións', $sections['operacions']['label'] );
 
-		$this->assertSame( array( 'socios', 'aprobacions', 'baixas', 'fillos', 'empresas' ), array_keys( $sections['socios']['sections'] ) );
+		$this->assertSame( array( 'socios', 'aprobacions', 'baixas', 'lista-gmail', 'fillos', 'empresas' ), array_keys( $sections['socios']['sections'] ) );
 		$this->assertSame( array( 'actividades', 'grupos-horarios', 'matriculas' ), array_keys( $sections['extraescolares']['sections'] ) );
 		$this->assertSame( array( 'importar-listados', 'auditoria' ), array_keys( $sections['operacions']['sections'] ) );
 
@@ -166,7 +166,7 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 		}
 
 		$this->assertSame(
-			array( 'socios', 'aprobacions', 'baixas', 'fillos', 'empresas', 'actividades', 'grupos-horarios', 'matriculas', 'importar-listados', 'auditoria' ),
+			array( 'socios', 'aprobacions', 'baixas', 'lista-gmail', 'fillos', 'empresas', 'actividades', 'grupos-horarios', 'matriculas', 'importar-listados', 'auditoria' ),
 			$visible_slugs
 		);
 		$this->assertNotContains( 'inicio', $visible_slugs );
