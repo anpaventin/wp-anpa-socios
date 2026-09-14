@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.56.3] - 2026-09-14
+
+### Fixed
+
+- **Listas de matrículas baleiras en Xestión (regresión de 1.56.2).** Xestión → Matrículas e o alumnado por
+  grupo devolvían 0 filas con HTTP 200. O SQL de 1.56.2 levaba o literal «º» e un `TRIM(TRAILING 'º' FROM …)`:
+  ao non ser ASCII, `wpdb` executa a súa comprobación de texto inválido e o seu analizador de táboas
+  (`get_table_from_query()`) tomaba ese FROM interior como o principal, resolvía a táboa como «COALESCE» e
+  rexeitaba a consulta enteira («non se puido realizar a consulta porque contén datos non válidos»). A etiqueta
+  «Curso/Aula» calcúlase agora en PHP (`ANPA_Socios_Admin_Shared::curso_completo()`, «3ºD» ou «3º»; baleira
+  sen nivel) e as dúas consultas quedan en ASCII puro, de xeito que `wpdb` nin sequera entra nese camiño.
+  Test de contrato: o SQL dos dous handlers debe seguir sendo ASCII. Reproducido e verificado en LXC103
+  (WP 7.1) con `wpdb` real.
+
 ## [1.56.2] - 2026-09-12
 
 ### Fixed
