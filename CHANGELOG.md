@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.57.0] - 2026-09-14
+
+### Added
+
+- **Xestión → Socios → Baixas solicitadas.** Panel novo coas dúas colas que as familias abren desde a área:
+  baixas de socio/a (`baixa_estado = solicitada`, con fillos activos e matrículas vixentes da familia) e baixas de
+  actividade (`matriculas.estado = baixa_solicitada`, con alumno/a, curso/aula, actividade, grupo e correo da familia),
+  ordenadas pola data da solicitude e con botóns «Confirmar baixa» e «Rexeitar». Ata agora só chegaba o correo á
+  xunta e os endpoints de confirmación existían sen botón; a documentación remitía a un paso que non estaba na
+  interface.
+- REST admin: `GET /baixas-pendentes`, `POST /socio/<email>/baixa/reject` e `POST /matricula/<id>/baixa/reject`
+  (novo handler `ANPA_Socios_Admin_Baixas_Handler`). Rexeitar devolve a matrícula a «activo» ou limpa a solicitude do
+  socio/a; ambos quedan na auditoría (`baixa_reject`). A confirmación segue nos handlers existentes (garda do
+  administrador raíz; liberación da praza para a lista de espera).
+
+### Changed
+
+- Documentación: os pasos de fin de curso e de «Baixas e reactivacións» apuntan á nova sección.
+
 ## [1.56.4] - 2026-09-14
 
 ### Fixed
