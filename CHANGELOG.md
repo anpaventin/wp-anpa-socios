@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.56.4] - 2026-09-14
+
+### Fixed
+
+- **«O curso do alumno/a non encaixa neste grupo» para fillos engadidos pola familia.** A vía do área
+  (POST /fillos e PATCH /fillo/<id>) escribía `fillos_cursos` só con curso e aula, sen `nivel_id`/`aula_id`.
+  Como o filtro de grupos non se aplica con nivel 0 pero a matrícula exixe un nivel enlazado ao grupo, todo
+  intento de matrícula dun fillo engadido ou editado dende o área fallaba (13 fillos en produción dende o
+  12-09). A corrección D94 (fase 23) aplicárase só ao handler de Xestión; agora o área usa o mesmo
+  `upsert_fillo_curso_assignment()`, que resolve `nivel_id`/`aula_id`, e alta/edición son atómicas
+  (transacción, fallo pechado). Un cambio de curso dende o área xa non deixa un `nivel_id` desfasado.
+- Auditoría «fillo_engadido»: gardaba o id da fila de `fillos_cursos` en vez do id do fillo.
+- Script de reparación de datos (monorepo `scripts/remote-repair-fillos-cursos-nivel.php`, dry-run por
+  defecto) que resolve o nivel das filas do curso activo sen nivel ou co nivel desfasado.
+
 ## [1.56.3] - 2026-09-14
 
 ### Fixed

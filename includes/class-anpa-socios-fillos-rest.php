@@ -148,6 +148,12 @@ final class ANPA_Socios_Fillos_REST {
 		global $wpdb;
 		$table = $wpdb->prefix . 'anpa_fillos';
 
+		// 1.56.4: the child row and its annual assignment (fillos_cursos with nivel_id/aula_id)
+		// are written atomically; a child without a resolved level cannot enrol in any group.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- transaction around the socio's own child.
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return self::db_error();
+		}
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- insert of the authenticated socio's own child.
 		$inserted = $wpdb->insert(
 			$table,
@@ -155,14 +161,19 @@ final class ANPA_Socios_Fillos_REST {
 			self::fillo_insert_formats( $payload )
 		);
 		if ( false === $inserted ) {
+			$wpdb->query( 'ROLLBACK' );
 			return self::db_error();
 		}
-
-		$row = self::fetch_owned_fillo( (int) $wpdb->insert_id, $familia_id );
-		if ( null !== $row ) {
-			self::sync_current_course_assignment( (int) $row['id'], (string) $row['curso'], (string) $row['aula'] );
+		// Capture the child id now: later INSERTs (annual row, audit) overwrite $wpdb->insert_id.
+		$fillo_id = (int) $wpdb->insert_id;
+		if ( ! self::sync_current_course_assignment( $fillo_id, (string) $payload['curso'], (string) $payload['aula'] ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::db_error();
 		}
-		ANPA_Socios_Admin_Shared::write_audit_actor( $email, 'socio', 'fillo', (string) (int) $wpdb->insert_id, 'fillo_engadido' );
+		$wpdb->query( 'COMMIT' );
+
+		$row = self::fetch_owned_fillo( $fillo_id, $familia_id );
+		ANPA_Socios_Admin_Shared::write_audit_actor( $email, 'socio', 'fillo', (string) $fillo_id, 'fillo_engadido' );
 
 		return new WP_REST_Response( null === $row ? array() : $row, 201 );
 	}
@@ -212,6 +223,10 @@ final class ANPA_Socios_Fillos_REST {
 		global $wpdb;
 		$table = $wpdb->prefix . 'anpa_fillos';
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- transaction around the socio's own child.
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return self::db_error();
+		}
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- update scoped to id AND owning family.
 		$updated = $wpdb->update(
 			$table,
@@ -224,13 +239,17 @@ final class ANPA_Socios_Fillos_REST {
 			array( '%d', '%d' )
 		);
 		if ( false === $updated ) {
+			$wpdb->query( 'ROLLBACK' );
 			return self::db_error();
 		}
+		// 1.56.4: re-resolve nivel_id/aula_id for the active year (a level change must not leave a stale nivel_id).
+		if ( ! self::sync_current_course_assignment( $id, (string) $payload['curso'], (string) $payload['aula'] ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::db_error();
+		}
+		$wpdb->query( 'COMMIT' );
 
 		$row = self::fetch_owned_fillo( $id, $familia_id );
-		if ( null !== $row ) {
-			self::sync_current_course_assignment( (int) $row['id'], (string) $row['curso'], (string) $row['aula'] );
-		}
 		ANPA_Socios_Admin_Shared::write_audit_actor( self::current_email( $request ), 'socio', 'fillo', (string) $id, 'fillo_actualizado' );
 
 		return new WP_REST_Response( null === $row ? array() : $row, 200 );
@@ -351,38 +370,25 @@ final class ANPA_Socios_Fillos_REST {
 	 * @param  int    $fillo_id Fillo id.
 	 * @param  string $curso    Curso 1-6.
 	 * @param  string $aula     Aula A-H.
-	 * @return void
+	 * @return bool True when the annual row (with resolved nivel_id/aula_id) was written.
 	 */
-	private static function sync_current_course_assignment( int $fillo_id, string $curso, string $aula ): void {
+	private static function sync_current_course_assignment( int $fillo_id, string $curso, string $aula ): bool {
 		if ( $fillo_id <= 0 ) {
-			return;
+			return false;
 		}
 
-		global $wpdb;
-		$table         = ANPA_Socios_DB::tabela_fillos_cursos();
 		$curso_escolar = ANPA_Socios_Curso_Activo::get();
 		if ( null === $curso_escolar ) {
-			return;
+			return false;
 		}
 
-		// Validate against dynamic per-curso_escolar structure.
-		if ( ! ANPA_Socios_Admin_Payload::curso_valido_db( $curso, $curso_escolar ) || ! ANPA_Socios_Admin_Payload::aula_valida_db( $aula, $curso_escolar ) ) {
-			return;
-		}
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- idempotent upsert of authenticated socio's own fillo active-course assignment.
-		$wpdb->query(
-			$wpdb->prepare(
-				"INSERT INTO {$table} (fillo_id, curso_escolar, curso, aula)
-				VALUES (%d, %s, %s, %s)
-				ON DUPLICATE KEY UPDATE curso = VALUES(curso), aula = VALUES(aula), actualizado_en = %s",
-				$fillo_id,
-				$curso_escolar,
-				$curso,
-				$aula,
-				current_time( 'mysql' )
-			)
-		);
+		// 1.56.4: until now this wrote fillos_cursos with curso/aula only, so every child added or
+		// edited by a family from the area had nivel_id NULL and every enrolment was refused with
+		// «O curso do alumno/a non encaixa neste grupo» (the group list is not filtered for nivel 0,
+		// the enrolment check requires a linked nivel). The admin handler got this fix in fase23 (D94);
+		// the area path did not. The payload is already validated by validar_fillo_con_erros(), and the
+		// shared upsert resolves nivel_id/aula_id (NULL only when unmapped) and mirrors anpa_fillos.
+		return ANPA_Socios_DB::upsert_fillo_curso_assignment( $fillo_id, $curso_escolar, $curso, $aula );
 	}
 
 	/**
