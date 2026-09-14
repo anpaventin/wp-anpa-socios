@@ -63,7 +63,7 @@ final class Test_ANPA_Socios_Lista_Gmail extends TestCase {
 		$this->assertStringContainsString( "WHERE estado = 'activo' AND baixa_estado = 'solicitada' AND rol <> 'master'", $h );
 		$this->assertStringContainsString( "'baixas_sen_confirmar' => \$pendentes,", $h );
 		$this->assertStringContainsString( "update_option(\n			self::OPTION_SNAPSHOT,", $h );
-		$this->assertStringContainsString( "write_audit( \$request, 'export', 'contactos-google', 'export_csv' )", $h );
+		$this->assertStringContainsString( "write_audit( \$request, 'export', 'contactos-google', \$so_novas ? 'export_csv_novas' : 'export_csv' )", $h );
 		// SQL literals stay ASCII (wpdb invalid-text parser, see 1.56.3).
 		preg_match_all( '/"\s*SELECT\b.*?"/s', $h, $m );
 		foreach ( $m[0] as $sql ) {

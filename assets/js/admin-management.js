@@ -1299,7 +1299,8 @@
 		var ul = document.createElement('ul');
 		ul.appendChild(el('li', 'Socios/as activos agora: ' + (d.total_actuais || 0)));
 		if (ultima) {
-			ul.appendChild(el('li', 'Última exportación: ' + fmtDateTime(ultima.exportado_en) + (ultima.por ? ' por ' + ultima.por : '') + ' (' + (ultima.total || 0) + ' correos)'));
+			// 1.61.0: a "novas" export only added members to the label; the total is what Google holds.
+			ul.appendChild(el('li', 'Última exportación: ' + fmtDateTime(ultima.exportado_en) + (ultima.por ? ' por ' + ultima.por : '') + (ultima.tipo === 'novas' ? ' · só altas novas (' + (ultima.exportados || 0) + ' correos engadidos; ' + (ultima.total || 0) + ' na etiqueta)' : ' (' + (ultima.total || 0) + ' correos)')));
 			ul.appendChild(el('li', 'Altas novas desde entón: ' + altas.length));
 			ul.appendChild(el('li', 'Baixas desde entón: ' + baixas.length));
 		} else {
@@ -1340,10 +1341,31 @@
 				loadListaGmail();
 			}).catch(function (e) { dl.disabled = false; showMessage(e.message, 'error'); });
 		});
+		// 1.61.0: only the members that joined since the last export, to add them to
+		// the existing label without deleting it (the baixas stay in Google until the
+		// full procedure is run; the panel keeps listing them).
+		var dlNovas = el('button', 'Descargar só as altas novas (' + altas.length + ') (CSV)', 'anpa-mgmt-btn anpa-mgmt-btn-secondary');
+		dlNovas.type = 'button';
+		dlNovas.disabled = !ultima || !altas.length;
+		dlNovas.title = !ultima ? 'Primeiro fai unha exportación completa.' : (!altas.length ? 'Non hai altas novas desde a última exportación.' : 'Só os ' + altas.length + ' correos novos; impórtaos SEN eliminar a etiqueta.');
+		dlNovas.addEventListener('click', function () {
+			dlNovas.disabled = true;
+			anpaAdminFetch('contactos-google/export?ambito=novas').then(function (blob) {
+				if (blob instanceof Blob) {
+					downloadBlob(blob, 'socios-web-anpa-google-novas-' + new Date().toISOString().slice(0, 10) + '.csv');
+					showMessage('CSV coas altas novas descargado. Impórtao en Google Contactos SEN eliminar a etiqueta (salta o paso 4): os correos novos súmanse á etiqueta «' + etiqueta + '».', 'success');
+				}
+				loadListaGmail();
+			}).catch(function (e) { dlNovas.disabled = false; showMessage(e.message, 'error'); });
+		});
 		var open = el('button', 'Abrir Google Contactos', 'anpa-mgmt-btn anpa-mgmt-btn-secondary');
 		open.type = 'button';
 		open.addEventListener('click', function () { window.open(d.google_url || 'https://contacts.google.com/', '_blank', 'noopener'); });
-		acts.appendChild(dl); acts.appendChild(open);
+		acts.appendChild(dl); acts.appendChild(dlNovas); acts.appendChild(open);
+		card.appendChild(acts);
+		card.appendChild(el('p', '«Descargar CSV para Google Contactos» leva todos os socios/as activos (para refacer a etiqueta enteira, quitando as baixas). «Descargar só as altas novas» leva só os correos dados de alta desde a última exportación, para engadilos á etiqueta que xa existe sen tocar o resto; as baixas seguen en Google ata facer o proceso completo.', 'description'));
+		acts = el('div', null, 'anpa-mgmt-form-actions');
+		acts.hidden = true;
 		card.appendChild(acts);
 		root.appendChild(card);
 
@@ -1360,6 +1382,7 @@
 			'Pulsa «Importar» → «Seleccionar ficheiro» → escolle o CSV descargado → «Importar». A etiqueta «' + etiqueta + '» créase de novo cos socios/as activos. Google engade ademais unha etiqueta «Importado o …» que podes eliminar (só a etiqueta, mantendo os contactos).'
 		].forEach(function (t) { ol.appendChild(el('li', t)); });
 		steps.appendChild(ol);
+		steps.appendChild(el('p', 'Só altas novas (1.61.0): se desde a última exportación só houbo altas (ou as baixas poden esperar), pulsa «Descargar só as altas novas», salta o paso 4 (NON elimines a etiqueta) e importa o CSV: os correos novos engádense á etiqueta «' + etiqueta + '» que xa existe. Para quitar as baixas fai falta o proceso completo.', 'description'));
 		steps.appendChild(el('p', 'Aviso: o paso 4 borra da conta de Google os contactos que estaban nesa etiqueta. Se a xunta gardou nesa mesma conta outros datos deses contactos, escolle «Manter os contactos e eliminar a etiqueta» e quita a man da lista os correos que aparecen abaixo en «Baixas».', 'description'));
 		steps.appendChild(el('p', 'Gmail limita os envíos a 500 destinatarios ao día e marca como sospeitosos os correos con moitos destinatarios: usa a etiqueta en CCO e, para avisos a toda a asociación, a cola de envíos da web.', 'description'));
 		root.appendChild(steps);
