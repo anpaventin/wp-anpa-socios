@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.57.0-blue">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.58.0-blue">
   <img alt="WordPress" src="https://img.shields.io/badge/WordPress-6.0%2B-21759b">
   <img alt="PHP" src="https://img.shields.io/badge/PHP-7.4%2B-777bb4">
   <img alt="Tests" src="https://img.shields.io/badge/PHPUnit-strict%20TDD-2eac68">
