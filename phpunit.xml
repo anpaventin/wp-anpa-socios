@@ -129,6 +129,7 @@
       <file>tests/Test_ANPA_Socios_Area_Matriculas_List.php</file>
       <file>tests/Test_ANPA_Socios_Area_Fillos_Nivel.php</file>
       <file>tests/Test_ANPA_Socios_Admin_Baixas_Panel.php</file>
+      <file>tests/Test_ANPA_Socios_Lista_Gmail.php</file>
       <file>tests/Test_ANPA_Socios_Contenido_Config.php</file>
       <file>tests/Test_ANPA_Socios_Contenido_Admin.php</file>
       <file>tests/Test_ANPA_Socios_Contenido_Libros.php</file>

@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.59.0] - 2026-09-14
 
 ### Changed
 
@@ -24,6 +24,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   con `emptyEl()` → paxinar → táboa → paxinación. Elimínase a segunda chamada redundante a `wireSearchInput()`
   ao final de cada render e o restablecemento do foco na caixa de busca é dun só uso: ordenar por unha columna ou
   cambiar de páxina xa non devolve o foco á caixa despois de ter buscado algo.
+
+## [1.58.0] - 2026-09-14
+
+### Added
+
+- **Xestión → Socios → Lista Gmail.** Procedemento manual, sen credenciais de Google nin tarefas en segundo plano,
+  para manter en Gmail a etiqueta de contactos «Socios Web ANPA» cos socios/as activos: botón «Descargar CSV para
+  Google Contactos» (formato CSV de Google, columnas `First Name`, `Last Name`, `E-mail 1 - Value` e `Labels` con
+  `Socios Web ANPA ::: * myContacts`; UTF-8 sen BOM), botón «Abrir Google Contactos» (con `authuser=` cando se
+  configura a conta da xunta), instrucións paso a paso (confirmar baixas → descargar → abrir → eliminar etiqueta cos
+  seus contactos → importar) e aviso explícito de que as baixas sen confirmar en Baixas solicitadas seguen na lista.
+- A exportación gárdase como referencia (`anpa_socios_contactos_google_snapshot`): o panel amosa a última exportación,
+  as altas e baixas desde entón (con nome e correo) e se fai falta importar de novo. Queda na auditoría.
+- REST admin: `GET /contactos-google/estado`, `GET /contactos-google/export` (`ANPA_Socios_Admin_Contactos_Google_Handler`).
+- Axustes → Xeral → Configuración: «Conta de Google da xunta (Lista Gmail)», opcional.
+
+### Changed
+
+- Documentación: nova entrada «Lista de correo en Gmail» na sección Socios.
 
 ## [1.57.0] - 2026-09-14
 
