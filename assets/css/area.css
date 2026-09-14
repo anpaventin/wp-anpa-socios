@@ -800,3 +800,6 @@
 	background: var(--anpa-warning-bg, #fffbeb);
 	color: var(--anpa-warning-text, #7c2d12);
 }
+
+/* 1.60.1: company/canteen panel — waiting-list rows in yellow. */
+#anpa-area .anpa-empresa-alumnos tr.anpa-empresa-estado-lista_espera td { background: #fff9c4; }

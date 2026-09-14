@@ -1076,3 +1076,9 @@
 	background: #fdecea;
 	color: #7a271a;
 }
+
+/* 1.60.1: Xestión → Matrículas — waiting list in yellow. */
+.anpa-mgmt-table .anpa-row-matricula-espera td {
+	background: #fff9c4;
+	color: #6b5300;
+}

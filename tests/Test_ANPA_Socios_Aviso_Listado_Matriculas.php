@@ -137,4 +137,18 @@ final class Test_ANPA_Socios_Aviso_Listado_Matriculas extends TestCase {
 		$css = $this->src( 'assets/css/admin-management.css' );
 		$this->assertMatchesRegularExpression( '/\.anpa-mgmt-table \.anpa-row-matricula-baixa td \{[^}]*background: #fdecea;[^}]*color: #7a271a;/s', $css );
 	}
+
+	/** 1.60.1: waiting list in yellow, in Xestión → Matrículas and in the company/canteen panel. */
+	public function test_waiting_list_rows_are_yellow_in_both_listings(): void {
+		$js = $this->src( 'assets/js/admin-management.js' );
+		$this->assertStringContainsString( "else if (row.estado === 'lista_espera') { tr.classList.add('anpa-row-matricula-espera'); }", $js );
+
+		$css = $this->src( 'assets/css/admin-management.css' );
+		$this->assertMatchesRegularExpression( '/\.anpa-mgmt-table \.anpa-row-matricula-espera td \{[^}]*background: #fff9c4;/s', $css );
+
+		$area_js = $this->src( 'assets/js/area.js' );
+		$this->assertStringContainsString( 'anpa-empresa-estado-', $area_js, 'panel rows carry an estado class' );
+		$area_css = $this->src( 'assets/css/area.css' );
+		$this->assertStringContainsString( 'tr.anpa-empresa-estado-lista_espera td { background: #fff9c4; }', $area_css );
+	}
 }
