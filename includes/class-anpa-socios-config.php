@@ -54,6 +54,14 @@ final class ANPA_Socios_Config {
 	const OPTION_COMEDOR_EMAIL = 'anpa_socios_comedor_email';
 
 	/**
+	 * Google account of the junta used for the «Lista Gmail» (Google Contacts) procedure. Optional.
+	 *
+	 * @since 1.58.0
+	 * @var string
+	 */
+	const OPTION_GOOGLE_CONTACTS_EMAIL = 'anpa_socios_google_contacts_email';
+
+	/**
 	 * Returns the resolved master email.
 	 *
 	 * Precedence: wp-config constant > WP option > default constant.
@@ -192,6 +200,16 @@ final class ANPA_Socios_Config {
 	 */
 	public static function comedor_email(): string {
 		return strtolower( trim( (string) get_option( self::OPTION_COMEDOR_EMAIL, '' ) ) );
+	}
+
+	/**
+	 * Google account for the Google Contacts list («Lista Gmail»), '' when not set.
+	 *
+	 * @since  1.58.0
+	 * @return string
+	 */
+	public static function google_contacts_email(): string {
+		return strtolower( trim( (string) get_option( self::OPTION_GOOGLE_CONTACTS_EMAIL, '' ) ) );
 	}
 
 	/**

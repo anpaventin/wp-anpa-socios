@@ -756,6 +756,14 @@ final class ANPA_Socios_Admin_Settings {
 			esc_html__( 'Con este correo pódese entrar en «Socios → Área persoal» como conta do comedor: ve o alumnado matriculado en todas as actividades do curso actual, clasificado por actividade e coas opcións e autorizacións das familias, e descarga o listado completo sen baixas. Non pode ser o correo dun socio/a nin dunha empresa. Déixao baleiro para desactivar a conta.', 'anpa-socios' )
 		);
 
+		// 1.58.0: Google account for the Gmail contacts list.
+		printf(
+			'<tr><th scope="row"><label for="cfg-google">%s</label></th><td><input name="google_contacts_email" id="cfg-google" type="email" class="regular-text" value="%s"><p class="description">%s</p></td></tr>',
+			esc_html__( 'Conta de Google da xunta (Lista Gmail)', 'anpa-socios' ),
+			esc_attr( ANPA_Socios_Config::google_contacts_email() ),
+			esc_html__( 'Opcional. Correo da conta de Gmail onde se mantén a etiqueta «Socios Web ANPA». Só serve para que o botón «Abrir Google Contactos» de Xestión → Socios → Lista Gmail abra esa conta cando hai varias sesións de Google iniciadas; a web nunca escribe en Google.', 'anpa-socios' )
+		);
+
 		echo '</tbody></table>';
 		submit_button( __( 'Gardar configuración', 'anpa-socios' ) );
 		echo '</form>';
@@ -1901,6 +1909,18 @@ final class ANPA_Socios_Admin_Settings {
 			}
 		}
 
+		// 1.58.0: Google account for the Gmail contacts list (optional, no exclusivity rule).
+		if ( array_key_exists( 'google_contacts_email', $_POST ) ) {
+			$google = strtolower( sanitize_email( (string) wp_unslash( $_POST['google_contacts_email'] ) ) );
+			if ( '' === $google ) {
+				delete_option( ANPA_Socios_Config::OPTION_GOOGLE_CONTACTS_EMAIL );
+			} elseif ( ! is_email( $google ) ) {
+				$msg = 'google_email_invalid';
+			} else {
+				update_option( ANPA_Socios_Config::OPTION_GOOGLE_CONTACTS_EMAIL, $google );
+			}
+		}
+
 		if ( array_key_exists( 'landing_page_id', $_POST ) ) {
 			$landing = (int) $_POST['landing_page_id'];
 			update_option( self::LANDING_OPTION, $landing > 0 ? $landing : 0 );
@@ -2830,6 +2850,7 @@ final class ANPA_Socios_Admin_Settings {
 			'settings_saved' => array( 'success', __( 'Configuración gardada.', 'anpa-socios' ) ),
 			'comedor_email_invalid'  => array( 'error', __( 'O correo do comedor non é válido; o resto da configuración gardouse.', 'anpa-socios' ) ),
 			'comedor_email_conflict' => array( 'error', __( 'O correo do comedor xa pertence a un socio/a ou a unha empresa e non se gardou; o resto da configuración gardouse. Un mesmo correo só pode ter un rol.', 'anpa-socios' ) ),
+			'google_email_invalid'   => array( 'error', __( 'A conta de Google da xunta non é un correo válido; o resto da configuración gardouse.', 'anpa-socios' ) ),
 			'pw_ok'          => array( 'success', __( 'Contrasinal de admin actualizado.', 'anpa-socios' ) ),
 			'pw_bad'         => array( 'error', __( 'O contrasinal non cumpre os requisitos (mín. 8 caracteres, unha maiúscula e un símbolo).', 'anpa-socios' ) ),
 			'updates_checked' => array( 'success', __( 'Comprobación de actualizacións executada. Se hai unha versión nova, aparecerá en Plugins.', 'anpa-socios' ) ),
@@ -2960,6 +2981,12 @@ final class ANPA_Socios_Admin_Settings {
 		$li( __( 'A familia solicita a baixa desde a área (queda «baixa solicitada» e pode anulala). A xunta confírmaa ou rexéitaa en Xestión → Socios → Baixas solicitadas, onde tamén aparecen as baixas de actividades pedidas polas familias; é efectiva a fin de curso e a cota do curso completo mantense.', 'anpa-socios' ) );
 		$li( __( 'Unha familia dada de baixa pode pedir a reactivación desde a páxina pública; a xunta a aproba como unha alta pendente.', 'anpa-socios' ) );
 		$li( __( 'A conta do equipo administrador non pode solicitar a baixa: perdería o acceso.', 'anpa-socios' ) );
+		echo '</ul>';
+		$h3( __( 'Lista de correo en Gmail («Socios Web ANPA»)', 'anpa-socios' ) );
+		echo '<ul>';
+		$li( __( 'Xestión → Socios → Lista Gmail exporta os socios/as activos nun CSV co formato de Google Contactos (etiqueta «Socios Web ANPA» incluída) e lembra a última exportación: amosa cantas altas e baixas houbo desde entón e se fai falta importar de novo.', 'anpa-socios' ) );
+		$li( __( 'Pasos: confirmar as baixas pendentes en Baixas solicitadas (se non se confirman, eses correos seguen na lista) → Descargar CSV → Abrir Google Contactos coa conta da xunta → eliminar a etiqueta «Socios Web ANPA» cos seus contactos → Importar o CSV. A web non escribe en Google: é un proceso manual de tres pulsacións.', 'anpa-socios' ) );
+		$li( __( 'Gmail limita os envíos a 500 destinatarios ao día: usa a etiqueta en CCO e, para avisos a toda a asociación, o Rexistro de envíos da web.', 'anpa-socios' ) );
 		echo '</ul>';
 		$h3( __( 'Auditoría', 'anpa-socios' ) );
 		$p( __( 'Xestión → Auditoría rexistra o que fai cada socio/a (altas, baixas, fillos/as engadidos ou eliminados, cambios de IBAN sen os datos, matrículas, ofertas aceptadas) e o que fai a xunta (aprobacións, importacións, cambios de estrutura). Filtra polo correo para ver a historia dunha familia.', 'anpa-socios' ) );

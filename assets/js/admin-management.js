@@ -1257,6 +1257,134 @@
 		}
 	}
 
+	// ── Section: Lista Gmail (1.58.0) ────────────────────────────────
+	// Manual three-click procedure: download the Google Contacts CSV, open Google
+	// Contacts, import. The server remembers the last export so the panel can say
+	// how many members joined/left since then and whether a new import is needed.
+	function loadListaGmail() {
+		showLoading();
+		anpaAdminFetch('contactos-google/estado').then(function (data) { renderListaGmail(data); }).catch(sectionError);
+	}
+
+	function renderListaGmail(data) {
+		root.textContent = '';
+		document.title = 'Lista Gmail — Xestión ANPA';
+		var d = data || {};
+		var etiqueta = d.etiqueta || 'Socios Web ANPA';
+		var altas = Array.isArray(d.altas) ? d.altas : [];
+		var baixas = Array.isArray(d.baixas) ? d.baixas : [];
+		var ultima = d.ultima_exportacion || null;
+		var pendentes = parseInt(d.baixas_sen_confirmar, 10) || 0;
+
+		function el(tag, text, cls) {
+			var e = document.createElement(tag);
+			if (text != null) { e.textContent = text; }
+			if (cls) { e.className = cls; }
+			return e;
+		}
+		function fmtDateTime(v) {
+			var s = String(v || '');
+			return s ? formatAdminDate(s.slice(0, 10)) + (s.length > 16 ? ' ' + s.slice(11, 16) : '') : '';
+		}
+
+		root.appendChild(el('p', 'Etiqueta de Google Contactos «' + etiqueta + '»: os correos de todos os socios/as activos (cada proxenitor/a coa súa alta). A web non pode escribir na conta de Google; o proceso é manual e leva tres pulsacións.', 'description'));
+
+		// ── Estado ──
+		var card = el('div', null, 'anpa-mgmt-form');
+		card.style.maxWidth = '760px';
+		card.appendChild(el('h3', 'Estado'));
+		var ul = document.createElement('ul');
+		ul.appendChild(el('li', 'Socios/as activos agora: ' + (d.total_actuais || 0)));
+		if (ultima) {
+			ul.appendChild(el('li', 'Última exportación: ' + fmtDateTime(ultima.exportado_en) + (ultima.por ? ' por ' + ultima.por : '') + ' (' + (ultima.total || 0) + ' correos)'));
+			ul.appendChild(el('li', 'Altas novas desde entón: ' + altas.length));
+			ul.appendChild(el('li', 'Baixas desde entón: ' + baixas.length));
+		} else {
+			ul.appendChild(el('li', 'Aínda non se exportou nunca esta lista.'));
+		}
+		card.appendChild(ul);
+		var status = el('p', null);
+		status.style.fontWeight = '600';
+		if (d.precisa_exportar) {
+			status.textContent = 'Fai falta exportar de novo e importar o CSV en Google Contactos.';
+			status.style.color = '#b32d2e';
+		} else {
+			status.textContent = 'A lista de Gmail está ao día coa última exportación.';
+			status.style.color = '#1e7e34';
+		}
+		card.appendChild(status);
+		if (pendentes > 0) {
+			var warn = el('p', 'Atención: hai ' + pendentes + ' solicitude(s) de baixa de socio/a sen confirmar en Xestión → Socios → Baixas solicitadas. Mentres non se confirmen, eses correos seguen sendo socios activos e IRÁN na lista exportada. Confirma primeiro as baixas e exporta despois.');
+			warn.style.color = '#8a6d00'; warn.style.fontWeight = '600';
+			card.appendChild(warn);
+		}
+		if (!d.conta_google) {
+			card.appendChild(el('p', 'Consello: en Axustes → Xeral → Configuración podes indicar o correo da conta de Google da xunta; así o botón «Abrir Google Contactos» abre directamente esa conta cando hai varias sesións iniciadas.', 'description'));
+		}
+
+		// ── Botóns ──
+		var acts = el('div', null, 'anpa-mgmt-form-actions');
+		acts.style.display = 'flex'; acts.style.gap = '0.5rem'; acts.style.flexWrap = 'wrap';
+		var dl = el('button', 'Descargar CSV para Google Contactos', 'anpa-mgmt-btn');
+		dl.type = 'button';
+		dl.addEventListener('click', function () {
+			dl.disabled = true;
+			anpaAdminFetch('contactos-google/export').then(function (blob) {
+				if (blob instanceof Blob) {
+					downloadBlob(blob, 'socios-web-anpa-google-' + new Date().toISOString().slice(0, 10) + '.csv');
+					showMessage('CSV descargado. Agora impórtao en Google Contactos seguindo os pasos de abaixo.', 'success');
+				}
+				loadListaGmail();
+			}).catch(function (e) { dl.disabled = false; showMessage(e.message, 'error'); });
+		});
+		var open = el('button', 'Abrir Google Contactos', 'anpa-mgmt-btn anpa-mgmt-btn-secondary');
+		open.type = 'button';
+		open.addEventListener('click', function () { window.open(d.google_url || 'https://contacts.google.com/', '_blank', 'noopener'); });
+		acts.appendChild(dl); acts.appendChild(open);
+		card.appendChild(acts);
+		root.appendChild(card);
+
+		// ── Instrucións ──
+		var steps = el('div', null, 'anpa-mgmt-form');
+		steps.style.maxWidth = '760px';
+		steps.appendChild(el('h3', 'Pasos para actualizar a lista en Gmail'));
+		var ol = document.createElement('ol');
+		[
+			'Confirma primeiro as baixas pendentes en Xestión → Socios → Baixas solicitadas. Se unha baixa non se confirma, esa persoa segue sendo socio/a activo/a e o seu correo NON sae da lista.',
+			'Pulsa «Descargar CSV para Google Contactos». Gárdase o ficheiro socios-web-anpa-google-<data>.csv e a web anota esta exportación para comparar coa seguinte.',
+			'Pulsa «Abrir Google Contactos». Ten a sesión iniciada coa conta de Google da xunta' + (d.conta_google ? ' (' + d.conta_google + ')' : '') + '.',
+			'En Google Contactos, no menú da esquerda, abre a etiqueta «' + etiqueta + '», pulsa o menú de tres puntos → «Eliminar etiqueta» → «Eliminar todos os contactos e a etiqueta». Así desaparecen as baixas. Se a etiqueta aínda non existe, salta este paso.',
+			'Pulsa «Importar» → «Seleccionar ficheiro» → escolle o CSV descargado → «Importar». A etiqueta «' + etiqueta + '» créase de novo cos socios/as activos. Google engade ademais unha etiqueta «Importado o …» que podes eliminar (só a etiqueta, mantendo os contactos).'
+		].forEach(function (t) { ol.appendChild(el('li', t)); });
+		steps.appendChild(ol);
+		steps.appendChild(el('p', 'Aviso: o paso 4 borra da conta de Google os contactos que estaban nesa etiqueta. Se a xunta gardou nesa mesma conta outros datos deses contactos, escolle «Manter os contactos e eliminar a etiqueta» e quita a man da lista os correos que aparecen abaixo en «Baixas».', 'description'));
+		steps.appendChild(el('p', 'Gmail limita os envíos a 500 destinatarios ao día e marca como sospeitosos os correos con moitos destinatarios: usa a etiqueta en CCO e, para avisos a toda a asociación, a cola de envíos da web.', 'description'));
+		root.appendChild(steps);
+
+		// ── Diferenzas ──
+		function diffTable(title, rows, empty) {
+			root.appendChild(el('h3', title + ' (' + rows.length + ')'));
+			if (!rows.length) { root.appendChild(emptyEl(empty)); return; }
+			var table = document.createElement('table');
+			table.className = 'anpa-mgmt-table';
+			var thead = document.createElement('thead'); var hr = document.createElement('tr');
+			['Apelidos', 'Nome', 'Email'].forEach(function (l) { hr.appendChild(el('th', l)); });
+			thead.appendChild(hr); table.appendChild(thead);
+			var tbody = document.createElement('tbody');
+			rows.forEach(function (r) {
+				var tr = document.createElement('tr');
+				tr.appendChild(el('td', r.apelidos)); tr.appendChild(el('td', r.nome)); tr.appendChild(el('td', r.email));
+				tbody.appendChild(tr);
+			});
+			table.appendChild(tbody);
+			root.appendChild(table);
+		}
+		if (ultima) {
+			diffTable('Altas desde a última exportación', altas, 'Ningunha alta nova.');
+			diffTable('Baixas desde a última exportación', baixas, 'Ningunha baixa.');
+		}
+	}
+
 	// ── Section: Fillos ──────────────────────────────────────────────
 	var FILLOS_COLS = ['proxenitor_apelidos', 'proxenitor_nome', 'socio_email', 'apelidos', 'nome', 'data_nacemento', 'curso', 'aula', 'estado'];
 
@@ -3353,6 +3481,7 @@
 		'socios': loadSocios,
 		'aprobacions': loadApprovals,
 		'baixas': loadBaixas,
+		'lista-gmail': loadListaGmail,
 		'fillos': loadFillos,
 		'empresas': loadEmpresas,
 		'actividades': loadActividades,
