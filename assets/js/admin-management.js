@@ -480,21 +480,24 @@
 	}
 
 	// ── CSV export button ─────────────────────────────────────────────
-	function addCsvExportBtn(container, section) {
+	// `onDone` (optional, 1.60.0) runs after a successful download — used by
+	// Matrículas to warn that the list may still change while enrolments are open.
+	function addCsvExportBtn(container, section, _rows, _cols, onDone) {
 		var btn = document.createElement('button');
 		btn.type = 'button';
 		btn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
 		btn.textContent = 'Exportar CSV';
 		btn.addEventListener('click', function () {
-			exportServerCsv(section, 'anpa-' + section + '.csv');
+			exportServerCsv(section, 'anpa-' + section + '.csv', onDone);
 		});
 		container.appendChild(btn);
 	}
 
 	// ── Server CSV export (via REST) ──────────────────────────────────
-	function exportServerCsv(entity, filename) {
+	function exportServerCsv(entity, filename, onDone) {
 		anpaAdminFetch('export/' + entity).then(function (blob) {
 			downloadBlob(blob, filename || ('anpa-' + entity + '.csv'));
+			if (typeof onDone === 'function') { onDone(); }
 		}).catch(function (e) {
 			showMessage(e.message || 'Erro ao exportar', 'error');
 		});
@@ -2661,11 +2664,43 @@
 		courseNotice.appendChild(document.createTextNode('. Aquí só se consulta e xestiona a operativa das matrículas.'));
 		root.appendChild(courseNotice);
 
-		if (active) {
-			var status = document.createElement('p');
-			status.className = 'anpa-mgmt-summary';
-			status.textContent = 'Curso activo: ' + active.curso_escolar + ' · Matrículas ' + (active.matriculas_abertas ? 'abertas' : 'pechadas');
-			root.appendChild(status);
+		// 1.60.0: trimester + enrolment window of the active course, coloured so
+		// the reader knows whether the listing below can still change.
+		var activeAviso = active && active.matriculas_aviso && typeof active.matriculas_aviso === 'object' ? active.matriculas_aviso : null;
+		var avisoHost = document.createElement('div');
+		root.appendChild(avisoHost);
+		function renderAviso(cursoSel) {
+			avisoHost.textContent = '';
+			var box = document.createElement('div');
+			box.className = 'anpa-mgmt-aviso-matriculas';
+			box.setAttribute('role', 'status');
+			var strong = document.createElement('strong');
+			var span = document.createElement('span');
+			if (!active) {
+				box.className += ' anpa-mgmt-aviso-matriculas--outro';
+				strong.textContent = 'Sen curso activo';
+				span.textContent = 'Matrículas PECHADAS: activa un curso en Axustes → Cursos.';
+			} else if (cursoSel && cursoSel !== active.curso_escolar) {
+				box.className += ' anpa-mgmt-aviso-matriculas--outro';
+				strong.textContent = 'Curso ' + cursoSel + ' (non é o activo)';
+				span.textContent = 'Este listado é doutro curso escolar e non varía. O curso activo é ' + active.curso_escolar + '.';
+			} else {
+				var abertas = activeAviso ? activeAviso.estado === 'abertas' : !!active.matriculas_abertas;
+				box.className += abertas ? ' anpa-mgmt-aviso-matriculas--abertas' : ' anpa-mgmt-aviso-matriculas--pechadas';
+				strong.textContent = 'Curso activo ' + active.curso_escolar + ' · ' + (activeAviso && activeAviso.titulo ? activeAviso.titulo : ('Matrículas ' + (abertas ? 'ABERTAS' : 'PECHADAS')));
+				span.textContent = activeAviso && activeAviso.texto ? activeAviso.texto : '';
+			}
+			box.appendChild(strong);
+			box.appendChild(span);
+			avisoHost.appendChild(box);
+		}
+		renderAviso(current);
+		// After a CSV download: warn only while enrolments are open (the file may go stale).
+		function avisoDescarga() {
+			if (activeAviso && activeAviso.estado === 'abertas') {
+				var tri = parseInt(activeAviso.trimestre, 10) || 0;
+				showMessage('CSV descargado. Aviso: as matrículas' + (tri ? ' do ' + tri + 'º trimestre' : '') + ' están abertas; este listado pode cambiar por altas e baixas.', 'warning');
+			}
 		}
 
 		if (!list.length) { return; }
@@ -2705,6 +2740,7 @@
 		var MAT_COLS = ['fillo_apelidos', 'fillo_nome', 'actividade', 'curso_completo', 'estado', 'franxa', 'dias', 'trimestres', 'creado_en', 'posicion'];
 
 		function loadMat(curso) {
+			renderAviso(curso);
 			matHost.textContent = '';
 			matHost.innerHTML = '<p class="anpa-mgmt-loading">Cargando\u2026</p>';
 			anpaAdminFetch('matriculas?curso=' + encodeURIComponent(curso)).then(function (rows) {
@@ -2718,7 +2754,7 @@
 					var bar = buildFilterBar('matriculas', { onRefresh: renderMat });
 					matHost.appendChild(bar);
 					bar._searchInput.value = currentSearch;
-					addCsvExportBtn(bar, 'matriculas', matRows, MAT_COLS);
+					addCsvExportBtn(bar, 'matriculas', matRows, MAT_COLS, avisoDescarga);
 					addCsvImportBtn(bar, 'matriculas');
 					var query = bar._searchInput.value || '';
 					var filtered = filterRows(matRows, query, MAT_COLS);
@@ -2726,7 +2762,11 @@
 					wireSearchInput(bar, matSt, renderMat);
 					if (!sorted.length) { matHost.appendChild(emptyEl('Sen matr\u00EDculas.')); return; }
 					var paged = tbl.pageSlice(sorted, matSt.page, matSt.size || 0);
-					var matTable = buildTable(paged, MAT_COLS, matSt.sort, renderMat, null);
+					// 1.60.0: baixas in red, pending baixas in amber, so they stand out from the active pupils.
+					var matTable = buildTable(paged, MAT_COLS, matSt.sort, renderMat, function (tr, row) {
+						if (row.estado === 'baixa') { tr.classList.add('anpa-row-matricula-baixa'); }
+						else if (row.estado === 'baixa_solicitada') { tr.classList.add('anpa-row-baixa-pending'); }
+					});
 					matHost.appendChild(matTable);
 					if (matSt.size > 0 && sorted.length > matSt.size) {
 						matHost.appendChild(buildPagination(sorted.length, matSt.page, matSt.size, function (p, s) {

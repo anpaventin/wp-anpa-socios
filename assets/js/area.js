@@ -1588,8 +1588,28 @@
 			return parts.join(' · ');
 		}
 
+		// 1.60.0: trimester + enrolment window of the active course, as served by
+		// /empresa/me (matriculas: {estado, trimestre, titulo, texto}). Kept for
+		// the download notice: while enrolments are open the CSV may go stale.
+		let empresaAvisoMatriculas = null;
+
+		function renderEmpresaAviso(aviso) {
+			const box = root.querySelector('[data-empresa-aviso-matriculas]');
+			if (!box) { return; }
+			empresaAvisoMatriculas = aviso && typeof aviso === 'object' ? aviso : null;
+			box.classList.remove('anpa-empresa-aviso--abertas', 'anpa-empresa-aviso--pechadas');
+			if (!empresaAvisoMatriculas || !empresaAvisoMatriculas.titulo) { box.hidden = true; return; }
+			box.classList.add(empresaAvisoMatriculas.estado === 'abertas' ? 'anpa-empresa-aviso--abertas' : 'anpa-empresa-aviso--pechadas');
+			const t = box.querySelector('[data-empresa-aviso-titulo]');
+			if (t) { t.textContent = empresaAvisoMatriculas.titulo; }
+			const x = box.querySelector('[data-empresa-aviso-texto]');
+			if (x) { x.textContent = empresaAvisoMatriculas.texto || ''; }
+			box.hidden = false;
+		}
+
 		function renderEmpresaProfile(profile) {
 			const set = function (sel, val) { const el = root.querySelector(sel); if (el) { el.textContent = val || '—'; } };
+			renderEmpresaAviso(profile.matriculas);
 			// 1.56.0: the canteen account shares this panel; it sees every company and only active enrolments.
 			const comedor = profile.tipo === 'comedor';
 			const titulo = root.querySelector('[data-empresa-titulo]');
@@ -1821,6 +1841,13 @@
 			a.click();
 			document.body.removeChild(a);
 			URL.revokeObjectURL(url);
+			// 1.60.0: only while enrolments are open — the downloaded list may change (altas/baixas).
+			if (empresaAvisoMatriculas && empresaAvisoMatriculas.estado === 'abertas') {
+				const tri = Number(empresaAvisoMatriculas.trimestre) || 0;
+				showMessage(root, __( 'Descargado.', 'anpa-socios' ) + ' ' + (tri
+					? __( 'Aviso: as matrículas do %dº trimestre están abertas; este listado pode cambiar por altas e baixas.', 'anpa-socios' ).replace('%d', String(tri))
+					: __( 'Aviso: as matrículas están abertas; este listado pode cambiar por altas e baixas.', 'anpa-socios' )), 'warning');
+			}
 		}); });
 
 		// Empresa logout

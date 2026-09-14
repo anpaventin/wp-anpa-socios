@@ -766,3 +766,37 @@
 #anpa-area .anpa-empresa-alumnos th.anpa-sortable:hover { background: #e8eaec; }
 #anpa-area .anpa-empresa-alumnos th.anpa-sortable[aria-sort="ascending"],
 #anpa-area .anpa-empresa-alumnos th.anpa-sortable[aria-sort="descending"] { background: #e8eaec; }
+
+/* ── 1.60.0: trimester + enrolment window notice on the company/canteen panel ──
+   Amber while enrolments are OPEN (the list below may still change), soft
+   green once CLOSED (the list is stable). Same palette as the plugin notices. */
+#anpa-area .anpa-empresa-aviso {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.25rem 0.75rem;
+	margin: 0 0 1rem;
+	padding: 0.7rem 0.9rem;
+	border-radius: 8px;
+	border: 1px solid var(--anpa-border);
+	background: var(--anpa-surface-muted);
+	font-size: 0.95em;
+}
+#anpa-area .anpa-empresa-aviso strong { font-size: 1.05em; }
+#anpa-area .anpa-empresa-aviso--abertas {
+	color: var(--anpa-warning-text, #7c2d12);
+	background: var(--anpa-warning-bg, #fffbeb);
+	border-color: var(--anpa-warning-border, #d97706);
+	border-left-width: 6px;
+}
+#anpa-area .anpa-empresa-aviso--pechadas {
+	color: #1f513b;
+	background: #eef7f2;
+	border-color: #9cc6b4;
+	border-left-width: 6px;
+}
+#anpa-area .anpa-area-notice[data-type="warning"] {
+	border-color: var(--anpa-warning-border, #d97706);
+	background: var(--anpa-warning-bg, #fffbeb);
+	color: var(--anpa-warning-text, #7c2d12);
+}

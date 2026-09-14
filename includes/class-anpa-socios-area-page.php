@@ -311,6 +311,11 @@ class ANPA_Socios_Area_Page {
 			<div class="anpa-area-card" data-step="empresa" hidden>
 				<h2 data-empresa-titulo><?php esc_html_e( 'Panel da empresa', 'anpa-socios' ); ?></h2>
 				<p class="anpa-area-muted" data-empresa-descricion><?php esc_html_e( 'Datos da empresa, actividades ofertadas e alumnado matriculado no curso actual. Para cambiar os datos da empresa, escribe á directiva da ANPA.', 'anpa-socios' ); ?></p>
+				<?php // 1.60.0: trimester + enrolment window, so the reader knows whether the list below can still change. ?>
+				<div class="anpa-empresa-aviso" data-empresa-aviso-matriculas role="status" hidden>
+					<strong data-empresa-aviso-titulo></strong>
+					<span data-empresa-aviso-texto></span>
+				</div>
 				<?php // Downloads first: the buttons must be visible as soon as the panel opens, before the (long) pupils list. ?>
 				<div class="anpa-area-actions anpa-empresa-toolbar">
 					<button type="button" data-action="empresa-export" data-ambito="activos"><?php esc_html_e( 'Descargar só activos (CSV)', 'anpa-socios' ); ?></button>
