@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Panel da empresa e do comedor: descargas arriba, alumnado antes da oferta.** Os botóns «Descargar … (CSV)» e
+  «Pechar sesión» pasan ao principio do panel, xusto baixo a descrición, para que se vexan ao entrar sen ter que
+  baixar todo o listado. A sección «Actividades ofertadas» vai agora despois de «Alumnado matriculado e baixas»,
+  que é o que o persoal de comedor e as empresas veñen consultar.
+- **Listado de alumnado con busca e ordenación por columnas** nos dous paneis (empresa e comedor), igual que nos
+  listados de Xestión: caixa «Buscar…» que filtra por calquera columna visible (sen distinguir maiúsculas) e
+  cabeceiras clicables que ordenan ▲/▼ (orde alfabética local e numérica: «1º A» antes de «10º»). Reutiliza os
+  mesmos helpers puros de Xestión (`admin-table.js` e `anpa-utils.js`), que agora tamén se cargan na área e na
+  páxina unificada como dependencias de `area.js`. A busca filtra sen redibuxar a caixa, así que non se perde o
+  foco ao escribir. Sen busca, mantense a orde do servidor (actividade, empresa, grupo, estado, apelidos).
+- **Listados de Xestión homoxéneos.** Os seis listados con busca (socios, fillos, empresas, actividades,
+  matrículas, auditoría) seguen agora o mesmo esquema: filtrar → ordenar → conectar a busca → «sen resultados»
+  con `emptyEl()` → paxinar → táboa → paxinación. Elimínase a segunda chamada redundante a `wireSearchInput()`
+  ao final de cada render e o restablecemento do foco na caixa de busca é dun só uso: ordenar por unha columna ou
+  cambiar de páxina xa non devolve o foco á caixa despois de ter buscado algo.
+
 ## [1.57.0] - 2026-09-14
 
 ### Added

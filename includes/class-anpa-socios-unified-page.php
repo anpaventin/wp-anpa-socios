@@ -227,7 +227,7 @@ class ANPA_Socios_Unified_Page {
 		wp_enqueue_script(
 			'anpa-socios-area',
 			plugins_url( 'assets/js/area.js', ANPA_SOCIOS_PLUGIN_FILE ),
-			array( 'wp-i18n' ),
+			ANPA_Socios_Area_Page::area_script_deps(),
 			$area_js_version,
 			true
 		);

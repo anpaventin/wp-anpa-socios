@@ -125,6 +125,7 @@
       <file>tests/Test_ANPA_Socios_Aula_Baleira.php</file>
       <file>tests/Test_ANPA_Socios_Email_Ownership.php</file>
       <file>tests/Test_ANPA_Socios_Comedor_Account.php</file>
+      <file>tests/Test_ANPA_Socios_Empresa_Panel_Listaxe.php</file>
       <file>tests/Test_ANPA_Socios_Area_Matriculas_List.php</file>
       <file>tests/Test_ANPA_Socios_Area_Fillos_Nivel.php</file>
       <file>tests/Test_ANPA_Socios_Admin_Baixas_Panel.php</file>
