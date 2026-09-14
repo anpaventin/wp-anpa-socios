@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.60.0] - 2026-09-14
+
+### Added
+
+- **Trimestre actual e estado do prazo de matrícula nos listados.** O panel da empresa, o panel do comedor e
+  Xestión → Matrículas amosan agora, xusto enriba do listado e dos botóns de descarga, un aviso destacado co
+  trimestre en curso e se as matrículas están **ABERTAS** (ámbar: «O listado pode variar: mentres o prazo estea
+  aberto admítense altas e baixas») ou **PECHADAS** (verde: «O listado é estable: o prazo de matriculación está
+  pechado»). Cando o prazo está pechado por outro motivo (trimestre sen inicializar, curso non activo, curso sen
+  configurar) o aviso sae en verde co texto que explica a causa. En Xestión, se se escolle un curso distinto do
+  activo no selector «Mostrar matrículas de», o aviso pasa a gris e indica que ese listado é doutro curso e non
+  varía. Novo helper puro `ANPA_Socios_Matricula_Gate::aviso_listado()` sobre a regra única de matrículas
+  (1.51.0); `/empresa/me` devolve `matriculas` e `GET admin/cursos` engade `trimestre` e `matriculas_aviso` a
+  cada curso.
+- **Aviso ao descargar os listados en CSV, só se as matrículas están abertas.** Tras unha descarga correcta
+  (panel da empresa, panel do comedor e «Exportar CSV» de Xestión → Matrículas) aparece un aviso ámbar: «as
+  matrículas do Nº trimestre están abertas; este listado pode cambiar por altas e baixas». Co prazo pechado non
+  se amosa nada máis. O CSV non cambia (sen filas de aviso, para non romper importacións).
+
+### Changed
+
+- **Xestión → Matrículas: as baixas en vermello.** As filas das matrículas en estado «baixa» píntanse en vermello
+  (fondo e texto) e as «baixa solicitada» en ámbar, o mesmo esquema que xa usan os listados de socios e grupos,
+  para distinguilas de contado do alumnado activo (nas baixas a columna «Trimestre inscripción» queda en branco
+  cando a baixa cae no mesmo trimestre da alta).
+
 ## [1.59.0] - 2026-09-14
 
 ### Changed

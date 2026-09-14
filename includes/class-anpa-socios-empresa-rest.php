@@ -443,6 +443,10 @@ class ANPA_Socios_Empresa_REST {
 		$out['actividades']   = array();
 		$out['alumnos']       = array();
 		$out['totais']        = array( 'activo' => 0, 'lista_espera' => 0, 'oferta' => 0, 'baixa_solicitada' => 0, 'baixa' => 0 );
+		// 1.60.0: trimester + enrolment window, so the reader knows whether the list can still change.
+		$out['matriculas']    = ANPA_Socios_Matricula_Gate::aviso_listado(
+			null !== $curso ? ANPA_Socios_Matricula_Gate_Repo::para_curso( (string) $curso ) : ANPA_Socios_Matricula_Gate::avaliar( null, array() )
+		);
 		// 1.56.0: the canteen account sees every company (empresa_id 0) and only active enrolments.
 		$comedor       = self::is_comedor_profile( $profile );
 		$out['tipo']   = $comedor ? 'comedor' : 'empresa';

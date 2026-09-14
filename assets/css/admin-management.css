@@ -1045,3 +1045,34 @@
 		display: flex;
 	}
 }
+
+/* ── 1.60.0: Matrículas header — trimester + enrolment window notice ── */
+.anpa-mgmt-aviso-matriculas {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.25rem 0.75rem;
+	padding: 0.75rem 1rem;
+	border: 1px solid #dcdcde;
+	border-left-width: 6px;
+	border-radius: 4px;
+	margin-bottom: 1rem;
+	font-size: 14px;
+}
+.anpa-mgmt-aviso-matriculas strong { font-size: 15px; }
+.anpa-mgmt-aviso-matriculas--abertas { color: #7c2d12; background: #fffbeb; border-color: #d97706; }
+.anpa-mgmt-aviso-matriculas--pechadas { color: #1f513b; background: #eef7f2; border-color: #9cc6b4; }
+.anpa-mgmt-aviso-matriculas--outro { color: #1d2327; background: #f6f7f7; border-color: #8c8f94; }
+
+/* 1.60.0: amber notice (e.g. CSV downloaded while enrolments are open). */
+.anpa-mgmt-message[data-type="warning"] {
+	background: #fffbeb;
+	color: #7c2d12;
+	border: 1px solid #d97706;
+}
+
+/* 1.60.0: Xestión → Matrículas — baixas in red (pending baixas reuse .anpa-row-baixa-pending). */
+.anpa-mgmt-table .anpa-row-matricula-baixa td {
+	background: #fdecea;
+	color: #7a271a;
+}

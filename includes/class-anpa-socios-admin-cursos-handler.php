@@ -80,6 +80,9 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 			$row['matriculas_abertas']  = $gate['abertas'];
 			$row['matriculas_motivo']   = $gate['motivo'];
 			$row['matriculas_etiqueta'] = ANPA_Socios_Matricula_Gate::etiqueta( $gate );
+			// 1.60.0: current trimester + listing notice (Xestión → Matrículas header and CSV download).
+			$row['trimestre']           = (int) $gate['trimestre'];
+			$row['matriculas_aviso']    = ANPA_Socios_Matricula_Gate::aviso_listado( $gate );
 			$row['actual']              = ( $row['curso_escolar'] === $active );
 		}
 		unset( $row );

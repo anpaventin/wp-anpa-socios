@@ -105,4 +105,47 @@ final class ANPA_Socios_Matricula_Gate {
 				return __( 'Matrículas PECHADAS: curso sen configurar', 'anpa-socios' );
 		}
 	}
+
+	/**
+	 * Notice shown next to the enrolment listings (company/canteen panel and
+	 * Xestión → Matrículas) so the reader knows whether the list can still
+	 * change: while the current trimester window is open, families may enrol
+	 * or withdraw and the list varies; once closed it is stable.
+	 *
+	 * Pure: no DB, no dates — everything comes from avaliar().
+	 *
+	 * @since  1.60.0
+	 * @param  array<string,mixed> $gate Result of avaliar().
+	 * @return array{estado:string,trimestre:int,titulo:string,texto:string}
+	 */
+	public static function aviso_listado( array $gate ): array {
+		$tri       = (int) ( $gate['trimestre'] ?? 0 );
+		$motivo    = (string) ( $gate['motivo'] ?? '' );
+		$tri_label = $tri > 0
+			/* translators: %d: trimester number */
+			? sprintf( __( '%dº trimestre', 'anpa-socios' ), $tri )
+			: __( 'Trimestre sen determinar', 'anpa-socios' );
+
+		if ( self::MOTIVO_ABERTAS === $motivo && ! empty( $gate['abertas'] ) ) {
+			return array(
+				'estado'    => 'abertas',
+				'trimestre' => $tri,
+				/* translators: %s: trimester label ("2º trimestre") */
+				'titulo'    => sprintf( __( '%s · Matrículas ABERTAS', 'anpa-socios' ), $tri_label ),
+				'texto'     => __( 'O listado pode variar: mentres o prazo estea aberto admítense altas e baixas.', 'anpa-socios' ),
+			);
+		}
+
+		$texto = self::MOTIVO_VENTANA_PECHADA === $motivo
+			? __( 'O listado é estable: o prazo de matriculación está pechado.', 'anpa-socios' )
+			: self::etiqueta( $gate );
+
+		return array(
+			'estado'    => 'pechadas',
+			'trimestre' => $tri,
+			/* translators: %s: trimester label ("2º trimestre") */
+			'titulo'    => sprintf( __( '%s · Matrículas PECHADAS', 'anpa-socios' ), $tri_label ),
+			'texto'     => $texto,
+		);
+	}
 }
