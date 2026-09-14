@@ -122,13 +122,16 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 	 * @since  1.58.0
 	 * @return WP_REST_Response
 	 */
-	public static function estado(): WP_REST_Response {
-		global $wpdb;
-
-		$actuais  = self::socios_activos();
-		$snapshot = get_option( self::OPTION_SNAPSHOT, null );
-		$snapshot = is_array( $snapshot ) ? $snapshot : null;
-		$previos  = array();
+	/**
+	 * Members recorded by the last export (what Google Contacts holds), keyed by
+	 * lower-case email. Pure.
+	 *
+	 * @since  1.61.0
+	 * @param  array<string,mixed>|null $snapshot Stored option value.
+	 * @return array<string,array{email:string,nome:string,apelidos:string}>
+	 */
+	public static function socios_do_snapshot( ?array $snapshot ): array {
+		$previos = array();
 		if ( null !== $snapshot && isset( $snapshot['socios'] ) && is_array( $snapshot['socios'] ) ) {
 			foreach ( $snapshot['socios'] as $s ) {
 				if ( is_array( $s ) && ! empty( $s['email'] ) ) {
@@ -140,11 +143,66 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 				}
 			}
 		}
-		$actuais_map = array();
-		foreach ( $actuais as $s ) {
-			$actuais_map[ $s['email'] ] = $s;
+		return $previos;
+	}
+
+	/**
+	 * Members keyed by lower-case email. Pure.
+	 *
+	 * @since  1.61.0
+	 * @param  array<int,array{email:string,nome:string,apelidos:string}> $socios Members.
+	 * @return array<string,array{email:string,nome:string,apelidos:string}>
+	 */
+	public static function por_email( array $socios ): array {
+		$map = array();
+		foreach ( $socios as $s ) {
+			$map[ strtolower( (string) $s['email'] ) ] = $s;
 		}
-		$altas  = array_values( array_diff_key( $actuais_map, $previos ) );
+		return $map;
+	}
+
+	/**
+	 * Active members that were NOT in the last export (the "altas novas"), in the
+	 * listing order of $actuais. Pure. With no previous export everyone is new.
+	 *
+	 * @since  1.61.0
+	 * @param  array<int,array{email:string,nome:string,apelidos:string}>    $actuais Active members.
+	 * @param  array<string,array{email:string,nome:string,apelidos:string}> $previos As socios_do_snapshot() returns.
+	 * @return array<int,array{email:string,nome:string,apelidos:string}>
+	 */
+	public static function socios_novos( array $actuais, array $previos ): array {
+		return array_values( array_diff_key( self::por_email( $actuais ), $previos ) );
+	}
+
+	/**
+	 * Members the new snapshot must record after an export. The snapshot models
+	 * what Google Contacts holds: a full export replaces the label (so it is
+	 * exactly the current members), an export of the new members only ADDS them
+	 * to the label (the baixas stay in Google until the full procedure is run),
+	 * so the previous list is kept and the new ones appended. Pure.
+	 *
+	 * @since  1.61.0
+	 * @param  bool                                                          $so_novas  True for the "altas novas" export.
+	 * @param  array<int,array{email:string,nome:string,apelidos:string}>    $exportados Rows written to the CSV.
+	 * @param  array<string,array{email:string,nome:string,apelidos:string}> $previos    Members of the previous snapshot.
+	 * @return array<int,array{email:string,nome:string,apelidos:string}>
+	 */
+	public static function socios_tras_exportacion( bool $so_novas, array $exportados, array $previos ): array {
+		if ( ! $so_novas ) {
+			return array_values( $exportados );
+		}
+		return array_values( $previos + self::por_email( $exportados ) );
+	}
+
+	public static function estado(): WP_REST_Response {
+		global $wpdb;
+
+		$actuais  = self::socios_activos();
+		$snapshot = get_option( self::OPTION_SNAPSHOT, null );
+		$snapshot = is_array( $snapshot ) ? $snapshot : null;
+		$previos  = self::socios_do_snapshot( $snapshot );
+		$actuais_map = self::por_email( $actuais );
+		$altas  = self::socios_novos( $actuais, $previos );
 		$baixas = array_values( array_diff_key( $previos, $actuais_map ) );
 
 		$soc_t     = ANPA_Socios_DB::tabela_socios();
@@ -160,6 +218,9 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 					'exportado_en' => (string) ( $snapshot['exportado_en'] ?? '' ),
 					'por'          => (string) ( $snapshot['por'] ?? '' ),
 					'total'        => (int) ( $snapshot['total'] ?? count( $previos ) ),
+					// 1.61.0: 'completa' (whole label) or 'novas' (only the new members were added).
+					'tipo'         => (string) ( $snapshot['tipo'] ?? 'completa' ),
+					'exportados'   => (int) ( $snapshot['exportados'] ?? ( $snapshot['total'] ?? count( $previos ) ) ),
 				),
 				'altas'             => $altas,
 				'baixas'            => $baixas,
@@ -204,8 +265,15 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 	 * @return WP_REST_Response
 	 */
 	public static function export( WP_REST_Request $request ): WP_REST_Response {
-		$socios = self::socios_activos();
-		$csv    = self::build_csv( $socios );
+		$actuais = self::socios_activos();
+		// 1.61.0: ?ambito=novas → only the members that joined since the last export
+		// (to import them into the existing label without deleting it first).
+		$so_novas = 'novas' === sanitize_key( (string) $request->get_param( 'ambito' ) );
+		$snapshot = get_option( self::OPTION_SNAPSHOT, null );
+		$previos  = self::socios_do_snapshot( is_array( $snapshot ) ? $snapshot : null );
+		$socios   = $so_novas ? self::socios_novos( $actuais, $previos ) : $actuais;
+		$csv      = self::build_csv( $socios );
+		$gardados = self::socios_tras_exportacion( $so_novas, $socios, $previos );
 
 		$user = wp_get_current_user();
 		update_option(
@@ -213,14 +281,16 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 			array(
 				'exportado_en' => current_time( 'mysql' ),
 				'por'          => $user instanceof WP_User ? (string) $user->user_email : '',
-				'total'        => count( $socios ),
-				'socios'       => $socios,
+				'total'        => count( $gardados ),
+				'tipo'         => $so_novas ? 'novas' : 'completa',
+				'exportados'   => count( $socios ),
+				'socios'       => $gardados,
 			),
 			false
 		);
-		ANPA_Socios_Admin_Shared::write_audit( $request, 'export', 'contactos-google', 'export_csv' );
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'export', 'contactos-google', $so_novas ? 'export_csv_novas' : 'export_csv' );
 
-		$filename = 'socios-web-anpa-google-' . gmdate( 'Y-m-d' ) . '.csv';
+		$filename = 'socios-web-anpa-google-' . ( $so_novas ? 'novas-' : '' ) . gmdate( 'Y-m-d' ) . '.csv';
 		$response = new WP_REST_Response( null, 200 );
 		$response->set_headers( array(
 			'Content-Type'        => 'text/csv; charset=utf-8',

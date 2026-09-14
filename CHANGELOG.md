@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.61.0] - 2026-09-14
+
+### Added
+
+- **Lista Gmail: exportar só as altas novas.** Xestión → Socios → Lista Gmail ten un segundo botón, «Descargar só as
+  altas novas (N) (CSV)», que xera o CSV de Google Contactos só cos socios/as dados de alta desde a última
+  exportación (`GET admin/contactos-google/export?ambito=novas`), para importalos na conta de Google da xunta
+  **sen eliminar a etiqueta** «Socios Web ANPA» (os correos súmanse á que xa existe). Desactívase se aínda non
+  houbo unha exportación completa ou se non hai altas novas. A anotación da última exportación modela o que hai
+  en Google: tras unha exportación só de altas conserva os correos anteriores e engade os novos, así que as
+  baixas seguen aparecendo en «Baixas desde a última exportación» ata facer o proceso completo (eliminar a
+  etiqueta e importar todo). O estado indica se a última exportación foi completa ou só de altas. Auditoría:
+  `export_csv_novas`. Documentación (Axustes → Documentación) actualizada.
+
 ## [1.60.1] - 2026-09-14
 
 ### Changed

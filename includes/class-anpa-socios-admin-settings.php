@@ -2986,6 +2986,7 @@ final class ANPA_Socios_Admin_Settings {
 		echo '<ul>';
 		$li( __( 'Xestión → Socios → Lista Gmail exporta os socios/as activos nun CSV co formato de Google Contactos (etiqueta «Socios Web ANPA» incluída) e lembra a última exportación: amosa cantas altas e baixas houbo desde entón e se fai falta importar de novo.', 'anpa-socios' ) );
 		$li( __( 'Pasos: confirmar as baixas pendentes en Baixas solicitadas (se non se confirman, eses correos seguen na lista) → Descargar CSV → Abrir Google Contactos coa conta da xunta → eliminar a etiqueta «Socios Web ANPA» cos seus contactos → Importar o CSV. A web non escribe en Google: é un proceso manual de tres pulsacións.', 'anpa-socios' ) );
+		$li( __( 'Se desde a última exportación só houbo altas, «Descargar só as altas novas» dá un CSV cos correos novos para importalos SEN eliminar a etiqueta (súmanse á que xa existe); as baixas seguen en Google ata facer o proceso completo.', 'anpa-socios' ) );
 		$li( __( 'Gmail limita os envíos a 500 destinatarios ao día: usa a etiqueta en CCO e, para avisos a toda a asociación, o Rexistro de envíos da web.', 'anpa-socios' ) );
 		echo '</ul>';
 		$h3( __( 'Auditoría', 'anpa-socios' ) );
