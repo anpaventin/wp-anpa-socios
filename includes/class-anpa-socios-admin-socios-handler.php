@@ -364,30 +364,51 @@ final class ANPA_Socios_Admin_Socios_Handler {
 				array( 'status' => 403 ) );
 		}
 
-		// 1.62.0: the member gets a templated email once the baixa is effective.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only lookup for the email.
-		$nome = (string) $wpdb->get_var( $wpdb->prepare( "SELECT nome FROM {$wpdb->prefix}anpa_socios WHERE email = %s", $email ) );
+		// 1.62.0: the baixa covers the WHOLE family unit (principal + secondary
+		// parent, each one its own socio row): every active member goes to
+		// 'baixa' and each one gets the templated email listing the addresses
+		// that were deregistered. The requester must still have a pending request.
+		$soc_t = $wpdb->prefix . 'anpa_socios';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- precondition lookup.
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT id, familia_id, baixa_estado, estado FROM {$soc_t} WHERE email = %s", $email ), ARRAY_A );
+		if ( ! is_array( $row ) || 'solicitada' !== (string) $row['baixa_estado'] || 'activo' !== (string) $row['estado'] ) {
+			// Refuse rather than silently giving baixa to a socio who never requested it.
+			return new WP_Error(
+				'anpa_admin_no_baixa_request',
+				'Este socio/a non ten unha solicitude de baixa pendente',
+				array( 'status' => 409 )
+			);
+		}
+		$familia_id = ANPA_Socios_Familia::resolve_familia_id( isset( $row['familia_id'] ) ? (int) $row['familia_id'] : null, (int) $row['id'] );
 
-		$updated = $wpdb->update(
-			$wpdb->prefix . 'anpa_socios',
-			array(
-				'estado'         => 'baixa',
-				'baixa_estado'   => 'none',
-				'actualizado_en' => current_time( 'mysql' ),
+		// Members of the unit: the head (id = familia_id) and everyone linked to it.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- family lookup.
+		$membros = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT email, nome FROM {$soc_t} WHERE estado = 'activo' AND rol <> 'master' AND ( id = %d OR familia_id = %d ) ORDER BY id ASC",
+				$familia_id,
+				$familia_id
 			),
-			array(
-				'email'        => $email,
-				'baixa_estado' => 'solicitada',
-			),
-			array( '%s', '%s', '%s' ),
-			array( '%s', '%s' )
+			ARRAY_A
+		);
+		$membros = is_array( $membros ) ? $membros : array();
+		if ( array() === $membros ) {
+			$membros = array( array( 'email' => $email, 'nome' => '' ) );
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- the baixa itself.
+		$updated = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$soc_t} SET estado = 'baixa', baixa_estado = 'none', actualizado_en = %s WHERE estado = 'activo' AND rol <> 'master' AND ( id = %d OR familia_id = %d )",
+				current_time( 'mysql' ),
+				$familia_id,
+				$familia_id
+			)
 		);
 		if ( false === $updated ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
-		if ( 0 === $updated ) {
-			// No row matched the pending-request precondition: refuse rather than
-			// silently giving baixa to a socio who never requested it.
+		if ( 0 === (int) $updated ) {
 			return new WP_Error(
 				'anpa_admin_no_baixa_request',
 				'Este socio/a non ten unha solicitude de baixa pendente',
@@ -395,15 +416,26 @@ final class ANPA_Socios_Admin_Socios_Handler {
 			);
 		}
 
-		ANPA_Socios_Admin_Shared::write_audit( $request, 'socio', $email, 'baixa_confirm' );
+		$emails = array_values( array_unique( array_map( 'strtolower', array_column( $membros, 'email' ) ) ) );
+		foreach ( $emails as $e ) {
+			ANPA_Socios_Admin_Shared::write_audit( $request, 'socio', $e, $e === $email ? 'baixa_confirm' : 'baixa_confirm_familia' );
+		}
 
-		$correo_enviado = ANPA_Socios_Email::enviar_baixa_socio_confirmada( $email, $nome );
+		$lista    = implode( ', ', $emails );
+		$enviados = 0;
+		foreach ( $membros as $m ) {
+			if ( ANPA_Socios_Email::enviar_baixa_socio_confirmada( (string) $m['email'], (string) $m['nome'], $lista ) ) {
+				++$enviados;
+			}
+		}
 
 		$response = self::get_socio( $request );
 		if ( $response instanceof WP_REST_Response ) {
 			$data = $response->get_data();
 			if ( is_array( $data ) ) {
-				$data['correo_enviado'] = $correo_enviado;
+				$data['emails_baixa']     = $emails;
+				$data['correos_enviados'] = $enviados;
+				$data['correo_enviado']   = $enviados === count( $membros );
 				$response->set_data( $data );
 			}
 		}

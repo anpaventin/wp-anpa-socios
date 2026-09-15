@@ -516,12 +516,16 @@ class ANPA_Socios_Email {
 	 * The junta confirmed the member's baixa request (Baixas solicitadas → Confirmar).
 	 *
 	 * @since  1.62.0
-	 * @param  string $email_socio Member email.
-	 * @param  string $nome        Member first name.
+	 * The whole family unit is given baixa at once; every parent receives this
+	 * email with the list of addresses that were deregistered.
+	 *
+	 * @param  string $email_socio  Member email.
+	 * @param  string $nome         Member first name.
+	 * @param  string $emails_baixa Comma-separated addresses of the whole unit.
 	 * @return bool
 	 */
-	public static function enviar_baixa_socio_confirmada( string $email_socio, string $nome ): bool {
-		return self::send_template( $email_socio, 'baixa_socio_confirmada', array( 'nome' => $nome ) );
+	public static function enviar_baixa_socio_confirmada( string $email_socio, string $nome, string $emails_baixa = '' ): bool {
+		return self::send_template( $email_socio, 'baixa_socio_confirmada', array( 'nome' => $nome, 'emails_baixa' => '' !== $emails_baixa ? $emails_baixa : $email_socio ) );
 	}
 
 	/**
@@ -563,6 +567,32 @@ class ANPA_Socios_Email {
 	 */
 	public static function enviar_baixa_extraescolar_rexeitada( string $email_socio, string $alumno, string $actividade ): bool {
 		return self::send_template( $email_socio, 'baixa_extraescolar_rexeitada', array( 'alumno' => $alumno, 'actividade' => $actividade ) );
+	}
+
+	/**
+	 * Acknowledgement to the member who just requested baixa from the area: the
+	 * process is manual, takes a few days, and a confirmation email will follow.
+	 *
+	 * @since  1.62.0
+	 * @param  string $email_socio Member email.
+	 * @param  string $nome        Member first name.
+	 * @return bool
+	 */
+	public static function enviar_baixa_socio_solicitada( string $email_socio, string $nome ): bool {
+		return self::send_template( $email_socio, 'baixa_socio_solicitada', array( 'nome' => $nome ) );
+	}
+
+	/**
+	 * Acknowledgement to the family that just requested a pupil's activity baixa.
+	 *
+	 * @since  1.62.0
+	 * @param  string $email_socio Family email.
+	 * @param  string $alumno      Pupil full name.
+	 * @param  string $actividade  Activity name.
+	 * @return bool
+	 */
+	public static function enviar_baixa_extraescolar_solicitada( string $email_socio, string $alumno, string $actividade ): bool {
+		return self::send_template( $email_socio, 'baixa_extraescolar_solicitada', array( 'alumno' => $alumno, 'actividade' => $actividade ) );
 	}
 
 	/**
