@@ -34,9 +34,14 @@ final class Test_ANPA_Socios_Email_Communications_Ui extends TestCase {
 		$this->bootstrap = (string) file_get_contents( $root . '/anpa-socios.php' );
 	}
 
-	public function test_the_screen_is_registered_under_the_plugin_menu(): void {
+	public function test_the_screen_is_retired_from_the_plugin_menu(): void {
+		// 1.64.0: the class is still loaded (removal is a separate step) but nothing
+		// registers the screen, the retention subsection or the admin-post actions.
 		$this->assertStringContainsString( 'class-anpa-socios-email-communications-page.php', $this->bootstrap );
-		$this->assertStringContainsString( 'ANPA_Socios_Email_Communications_Page::register_menu( self::OVERVIEW_SLUG, self::CAP )', $this->settings );
+		$this->assertStringNotContainsString( 'ANPA_Socios_Email_Communications_Page::register_menu(', $this->settings );
+		$this->assertStringNotContainsString( 'self::render_subsection_comunicacions( $post_url );', $this->settings );
+		$this->assertStringNotContainsString( "add_action( 'admin_post_anpa_socios_save_comms_retention'", $this->settings );
+		$this->assertStringNotContainsString( 'ANPA_Socios_Email_Admin_Actions::register();', $this->bootstrap );
 		$this->assertStringContainsString( 'add_submenu_page(', $this->page );
 	}
 
@@ -181,7 +186,8 @@ final class Test_ANPA_Socios_Email_Communications_Ui extends TestCase {
 		// Normalised to "1"/"0" because uninstall.php requires exactly "1".
 		$this->assertStringContainsString( "? '1' : '0'", $body );
 
-		$this->assertStringContainsString( "add_action( 'admin_post_anpa_socios_save_comms_retention'", $this->settings );
+		// 1.64.0: the handler is kept but no longer registered (the subsection is retired).
+		$this->assertStringNotContainsString( "add_action( 'admin_post_anpa_socios_save_comms_retention'", $this->settings );
 		$this->assertStringContainsString( "wp_nonce_field( 'anpa_socios_save_comms_retention' )", $this->settings );
 	}
 

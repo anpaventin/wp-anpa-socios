@@ -48,8 +48,7 @@ final class ANPA_Socios_Admin_Settings {
 		add_action( 'admin_post_anpa_socios_check_updates', array( __CLASS__, 'handle_check_updates' ) );
 		add_action( 'admin_post_anpa_socios_backup', array( __CLASS__, 'handle_backup' ) );
 		add_action( 'admin_post_anpa_socios_wipe', array( __CLASS__, 'handle_wipe' ) );
-		add_action( 'admin_post_anpa_socios_save_comms_retention', array( __CLASS__, 'handle_save_comms_retention' ) );
-		add_action( 'admin_post_anpa_socios_save_comms_retention_periods', array( __CLASS__, 'handle_save_comms_retention_periods' ) );
+		// 1.64.0: retention handlers of the retired fase35 queue are not registered any more.
 		add_action( 'admin_post_anpa_socios_restore', array( __CLASS__, 'handle_restore' ) );
 		// FASE37: administrative content (transporte, libros, servizos).
 		add_action( 'admin_post_anpa_save_contenido', array( __CLASS__, 'handle_save_contenido' ) );
@@ -89,8 +88,8 @@ final class ANPA_Socios_Admin_Settings {
 			58
 		);
 		ANPA_Socios_Admin_Management_Page::register_menu( self::OVERVIEW_SLUG, self::CAP );
-		// fase35: communications queue (server rendered audit screen).
-		ANPA_Socios_Email_Communications_Page::register_menu( self::OVERVIEW_SLUG, self::CAP );
+		// 1.64.0: the fase35 «Rexistro de envíos» screen is no longer registered —
+		// no campaign was ever created (see openspec 2026-09-15-retirada-cola-comunicacions).
 		// fase36: email template management.
 		ANPA_Socios_Email_Templates_Page::register_menu( self::OVERVIEW_SLUG, self::CAP );
 		add_submenu_page(
@@ -682,7 +681,10 @@ final class ANPA_Socios_Admin_Settings {
 			self::render_subsection_contrasinais( $post_url );
 			self::render_subsection_copias( $post_url );
 			self::render_subsection_ferramentas( $post_url );
-			self::render_subsection_comunicacions( $post_url );
+			// 1.64.0: the fase35 «Rexistro de comunicacións» retention subsection is
+			// no longer shown (the queue never had a producer; see openspec
+			// 2026-09-15-retirada-cola-comunicacions). Its renderer/handlers stay
+			// until the queue code itself is removed.
 			return;
 		}
 
@@ -3017,7 +3019,7 @@ final class ANPA_Socios_Admin_Settings {
 		$li( __( 'Xestión → Socios → Lista Gmail exporta os socios/as activos nun CSV co formato de Google Contactos (etiqueta «Socios Web ANPA» incluída) e lembra a última exportación: amosa cantas altas e baixas houbo desde entón e se fai falta importar de novo.', 'anpa-socios' ) );
 		$li( __( 'Pasos: confirmar as baixas pendentes en Baixas solicitadas (se non se confirman, eses correos seguen na lista) → Descargar CSV → Abrir Google Contactos coa conta da xunta → eliminar a etiqueta «Socios Web ANPA» cos seus contactos → Importar o CSV. A web non escribe en Google: é un proceso manual de tres pulsacións.', 'anpa-socios' ) );
 		$li( __( 'Se desde a última exportación só houbo altas, «Descargar só as altas novas» dá un CSV cos correos novos para importalos SEN eliminar a etiqueta (súmanse á que xa existe); as baixas seguen en Google ata facer o proceso completo.', 'anpa-socios' ) );
-		$li( __( 'Gmail limita os envíos a 500 destinatarios ao día: usa a etiqueta en CCO e, para avisos a toda a asociación, o Rexistro de envíos da web.', 'anpa-socios' ) );
+		$li( __( 'Gmail limita os envíos a 500 destinatarios ao día (2.000 nunha conta de Google Workspace): usa a etiqueta en CCO. É o único camiño para avisos a toda a asociación; a web non fai envíos masivos.', 'anpa-socios' ) );
 		$li( __( 'Correo de inicio de curso: na mesma pantalla, «Enviar o correo de inicio de curso á conta da xunta» manda UNHA soa vez a plantilla «inicio_curso» (como entrar como socio/a, darse de alta, modificar datos e inscribirse nas extraescolares) á conta da xunta; dende Gmail reenvíase á etiqueta «Socios Web ANPA» en CCO. O texto edítase en Axustes → Plantillas de email.', 'anpa-socios' ) );
 		echo '</ul>';
 		$h3( __( 'Correos automáticos ás familias nas baixas', 'anpa-socios' ) );
@@ -3059,9 +3061,8 @@ final class ANPA_Socios_Admin_Settings {
 		// 5. Comunicacións.
 		echo '<section id="comunicacions" class="card"><h2>' . esc_html( $sections['comunicacions'] ) . '</h2><ul>';
 		$li( __( 'Plantillas de Email: dez correos automáticos (código de verificación, benvida, alta pendente, aprobación, rexeitamento, baixa, oferta de praza, aviso á xunta…). Admiten variables, teñen vista previa e envíanse ao momento. «Restaurar» volve ao texto por defecto en galego.', 'anpa-socios' ) );
-		$li( __( '«Enviar desde a directiva» (en Xestión) fai envíos masivos por cola: campañas, lotes e reintentos. Séguense en «Rexistro de envíos»: destinatarios, intentos e resultado. É normal que estea baleiro se non se fixo ningún envío masivo.', 'anpa-socios' ) );
-		$li( __( '«Aceptado» significa que o servidor de correo aceptou a mensaxe, non que chegase. Se unha campaña queda incerta, a pantalla avísao.', 'anpa-socios' ) );
-		$li( __( 'A retención do rexistro configúrase en Axustes → Comunicacións. O envío real depende de WP Mail SMTP: se falla, revisa alí a autorización da conta.', 'anpa-socios' ) );
+		$li( __( 'Envíos masivos ás familias: NON se fan desde a web. A cola de campañas da fase 35 («Rexistro de envíos») retirouse na 1.64.0 porque nunca chegou a ter unha pantalla para lanzar campañas e quedaba sempre baleira. O camiño é Xestión → Socios → Lista Gmail: exportar os socios/as á etiqueta de Google Contactos e enviar dende a conta da xunta (en CCO), onde ademais chegan as respostas das familias.', 'anpa-socios' ) );
+		$li( __( 'O envío real dos correos automáticos depende de WP Mail SMTP: se algún non chega, revisa alí a autorización da conta.', 'anpa-socios' ) );
 		echo '</ul></section>';
 
 		// 6. Exportacións e copias.

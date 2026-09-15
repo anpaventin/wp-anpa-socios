@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ANPA Socios
  * Description: Xestión de socios para asociacións de nais e pais (ANPA/AMPA): área de socios sen contrasinal, fillos e actividades extraescolares, domiciliación SEPA cifrada, ciclo de curso, panel de administración e actualizacións self-hosted. Configurable para calquera asociación.
- * Version: 1.63.1
+ * Version: 1.64.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: ANPA Socios
@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ANPA_SOCIOS_VERSION', '1.63.1' );
+define( 'ANPA_SOCIOS_VERSION', '1.64.0' );
 define( 'ANPA_SOCIOS_DB_VERSION', '1.41.0' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
@@ -155,20 +155,16 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-updater.php';
 register_activation_hook( __FILE__, array( 'ANPA_Socios_DB', 'crear_tabelas' ) );
 register_activation_hook( __FILE__, array( 'ANPA_Socios_Extraescolar_Offers', 'programar' ) );
 register_activation_hook( __FILE__, array( 'ANPA_Socios_Season_Service', 'programar' ) );
-register_activation_hook( __FILE__, array( 'ANPA_Socios_Email_Cron', 'schedule' ) );
 // fase36: seed email template defaults on activation.
 register_activation_hook( __FILE__, array( 'ANPA_Socios_Email_Template_Migration', 'migrate' ) );
 
-// fase35: custom 5-min recurrence for the email queue tick (filterable, bounded).
-add_filter( 'cron_schedules', array( 'ANPA_Socios_Email_Cron', 'add_schedule' ) );
-add_action( ANPA_Socios_Email_Cron::HOOK, array( 'ANPA_Socios_Email_Cron', 'tick' ) );
-// fase35: daily retention pass (purges payload first, then minimal metadata).
-add_action( ANPA_Socios_Email_Cron::PURGE_HOOK, array( 'ANPA_Socios_Email_Cron', 'purge_tick' ) );
-// Recover the schedule if the event disappears (idempotent).
-add_action( 'admin_init', array( 'ANPA_Socios_Email_Cron', 'ensure_scheduled' ) );
-// fase35: admin write actions (process now / pause / resume / cancel / retry).
-// Capability + nonce are checked inside every handler; no nopriv variants.
-ANPA_Socios_Email_Admin_Actions::register();
+// 1.64.0: the fase35 email queue is RETIRED from the UI. Nothing ever created a
+// campaign (the «Enviar desde a directiva» launcher was left for a fase 39 that
+// was never built), so the 5-minute tick and the daily purge only burned cron
+// slots and the «Rexistro de envíos» screen was always empty. The code and the
+// three tables stay for now (removal is a separate, tested step); the events
+// are unscheduled on the next admin visit so nothing keeps running.
+add_action( 'admin_init', array( 'ANPA_Socios_Email_Cron', 'unschedule' ) );
 
 // fase36: template management write actions (save / restore).
 ANPA_Socios_Email_Template_Actions::register();

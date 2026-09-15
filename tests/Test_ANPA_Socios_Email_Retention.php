@@ -87,7 +87,8 @@ final class Test_ANPA_Socios_Email_Retention extends TestCase {
 
 	public function test_the_runner_is_wired_and_guarded(): void {
 		$this->assertStringContainsString( 'class-anpa-socios-email-purge.php', $this->bootstrap );
-		$this->assertStringContainsString( 'ANPA_Socios_Email_Cron::PURGE_HOOK', $this->bootstrap );
+		// 1.64.0: the daily purge is no longer scheduled (queue retired).
+		$this->assertStringNotContainsString( 'ANPA_Socios_Email_Cron::PURGE_HOOK', $this->bootstrap );
 		$this->assertStringContainsString( 'ANPA_Socios_Email_Queue::can_run()', $this->purge );
 		$this->assertStringContainsString( "'blocked'", $this->purge );
 		// It never sends.
@@ -178,7 +179,8 @@ final class Test_ANPA_Socios_Email_Retention extends TestCase {
 		$this->assertSame( 2, substr_count( $body, 'update_option(' ) );
 		$this->assertStringContainsString( 'ANPA_Socios_Email_Retention::payload_days(', $body );
 		$this->assertStringContainsString( 'ANPA_Socios_Email_Retention::metadata_days(', $body );
-		$this->assertStringContainsString( "add_action( 'admin_post_anpa_socios_save_comms_retention_periods'", $this->settings );
+		// 1.64.0: the handler is kept but not registered any more (subsection retired).
+		$this->assertStringNotContainsString( "add_action( 'admin_post_anpa_socios_save_comms_retention_periods'", $this->settings );
 	}
 
 	public function test_the_form_shows_the_bounds_it_enforces(): void {

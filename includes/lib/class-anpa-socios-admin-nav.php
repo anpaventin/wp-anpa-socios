@@ -135,11 +135,8 @@ final class ANPA_Socios_Admin_Nav {
 	 */
 	private const PLUGIN_SUBMENUS = array(
 		'management'    => self::NATIVE_MANAGEMENT_PAGE,
-		'communications' => array(
-			'slug'       => 'anpa-socios-comunicacions',
-			'menu_label' => 'Rexistro de envíos',
-			'page_title' => 'Rexistro de envíos',
-		),
+		// 1.64.0: «Rexistro de envíos» (fase35 queue) retired — see openspec
+		// 2026-09-15-retirada-cola-comunicacions.
 		'settings'      => array(
 			'slug'       => 'anpa-socios-settings',
 			'menu_label' => 'Axustes',
@@ -221,7 +218,7 @@ final class ANPA_Socios_Admin_Nav {
 		'ciclo-curso'            => 'Ciclo anual e checklist de setembro',
 		'socios'                 => 'Socios/as: altas, aprobación, baixas e importación',
 		'extraescolares'         => 'Extraescolares: grupos, matrículas e ofertas',
-		'comunicacions'          => 'Comunicacións: plantillas e rexistro de envíos',
+		'comunicacions'          => 'Comunicacións: plantillas de email e Lista Gmail',
 		'exportacions-copias'    => 'Exportacións e copias',
 		'privacidade-seguridade' => 'Privacidade e seguridade',
 		'manual-familias'        => 'Manual das familias',
