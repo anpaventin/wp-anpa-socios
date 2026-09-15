@@ -114,21 +114,10 @@ class ANPA_Socios_Email {
 			}
 		);
 
-		$asunto = $content['subject'];
-		$corpo  = $content['html'];
-
-		// Append the configurable signature (if any) before </body>.
-		$corpo = str_replace( '</body>', self::signature_html() . '</body>', $corpo );
-
-		$headers = self::notice_headers();
-
-		add_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
-
-		try {
-			return wp_mail( $email, $asunto, $corpo, $headers );
-		} finally {
-			remove_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
-		}
+		// 1.65.1: one exit point for every email. The store template (seeded since
+		// fase36) is a fragment without </body>, so the old str_replace never added
+		// the signature to the code emails — the most frequent email of all.
+		return self::send_from_master( $email, (string) $content['subject'], (string) $content['html'] );
 	}
 
 	/**
@@ -261,18 +250,8 @@ class ANPA_Socios_Email {
 			}
 		);
 
-		$asunto = $content['subject'];
-		$corpo  = $content['html'];
-
-		$headers = self::notice_headers();
-
-		add_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
-
-		try {
-			return wp_mail( self::junta_email(), $asunto, $corpo, $headers );
-		} finally {
-			remove_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
-		}
+		// 1.65.1: junta notices go through send_from_master() too (full HTML + signature).
+		return self::send_from_master( self::junta_email(), (string) $content['subject'], (string) $content['html'] );
 	}
 
 	/**
@@ -312,18 +291,8 @@ class ANPA_Socios_Email {
 			}
 		);
 
-		$asunto = $content['subject'];
-		$corpo  = $content['html'];
-
-		$headers = self::notice_headers();
-
-		add_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
-
-		try {
-			return wp_mail( self::junta_email(), $asunto, $corpo, $headers );
-		} finally {
-			remove_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
-		}
+		// 1.65.1: junta notices go through send_from_master() too (full HTML + signature).
+		return self::send_from_master( self::junta_email(), (string) $content['subject'], (string) $content['html'] );
 	}
 
 	/**
@@ -368,16 +337,8 @@ class ANPA_Socios_Email {
 			}
 		);
 
-		$asunto = $content['subject'];
-		$corpo  = $content['html'];
-
-		$headers = self::notice_headers();
-		add_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
-		try {
-			return wp_mail( self::junta_email(), $asunto, $corpo, $headers );
-		} finally {
-			remove_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
-		}
+		// 1.65.1: junta notices go through send_from_master() too (full HTML + signature).
+		return self::send_from_master( self::junta_email(), (string) $content['subject'], (string) $content['html'] );
 	}
 
 	/**
@@ -418,16 +379,8 @@ class ANPA_Socios_Email {
 			}
 		);
 
-		$asunto = $content['subject'];
-		$corpo  = $content['html'];
-
-		$headers = self::notice_headers();
-		add_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
-		try {
-			return wp_mail( $email_socio, $asunto, $corpo, $headers );
-		} finally {
-			remove_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
-		}
+		// 1.65.1: through send_from_master() so the family gets the signature too.
+		return self::send_from_master( $email_socio, (string) $content['subject'], (string) $content['html'] );
 	}
 
 	/**
