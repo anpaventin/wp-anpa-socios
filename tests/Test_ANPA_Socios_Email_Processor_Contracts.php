@@ -33,10 +33,11 @@ final class Test_ANPA_Socios_Email_Processor_Contracts extends TestCase {
 		$this->bootstrap = (string) file_get_contents( $root . '/anpa-socios.php' );
 	}
 
-	public function test_processor_and_actions_are_wired_in_bootstrap(): void {
+	public function test_processor_is_loaded_but_the_admin_actions_are_retired(): void {
+		// 1.64.0: classes still ship (removal is a separate step) but nothing wires them.
 		$this->assertStringContainsString( 'class-anpa-socios-email-processor.php', $this->bootstrap );
 		$this->assertStringContainsString( 'class-anpa-socios-email-admin-actions.php', $this->bootstrap );
-		$this->assertStringContainsString( 'ANPA_Socios_Email_Admin_Actions::register()', $this->bootstrap );
+		$this->assertStringNotContainsString( 'ANPA_Socios_Email_Admin_Actions::register()', $this->bootstrap );
 	}
 
 	public function test_cron_tick_reaches_the_processor_through_the_queue(): void {

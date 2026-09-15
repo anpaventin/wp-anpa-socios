@@ -65,12 +65,16 @@ final class Test_ANPA_Socios_Email_Lifecycle extends TestCase {
 		$this->assertStringNotContainsString( 'wp_mail', $body );
 	}
 
-	public function test_bootstrap_wires_cron_lifecycle(): void {
-		$this->assertStringContainsString( "add_filter( 'cron_schedules', array( 'ANPA_Socios_Email_Cron', 'add_schedule' ) )", $this->bootstrap );
-		$this->assertStringContainsString( "register_activation_hook( __FILE__, array( 'ANPA_Socios_Email_Cron', 'schedule' ) )", $this->bootstrap );
+	public function test_bootstrap_retires_the_cron_lifecycle(): void {
+		// 1.64.0: nothing schedules the tick or the purge any more; the existing
+		// events are unscheduled on the next admin visit and on deactivation.
+		$this->assertStringNotContainsString( "add_filter( 'cron_schedules', array( 'ANPA_Socios_Email_Cron', 'add_schedule' ) )", $this->bootstrap );
+		$this->assertStringNotContainsString( "register_activation_hook( __FILE__, array( 'ANPA_Socios_Email_Cron', 'schedule' ) )", $this->bootstrap );
+		$this->assertStringNotContainsString( "add_action( ANPA_Socios_Email_Cron::HOOK, array( 'ANPA_Socios_Email_Cron', 'tick' ) )", $this->bootstrap );
+		$this->assertStringNotContainsString( "add_action( ANPA_Socios_Email_Cron::PURGE_HOOK", $this->bootstrap );
+		$this->assertStringNotContainsString( "array( 'ANPA_Socios_Email_Cron', 'ensure_scheduled' )", $this->bootstrap );
+		$this->assertStringContainsString( "add_action( 'admin_init', array( 'ANPA_Socios_Email_Cron', 'unschedule' ) )", $this->bootstrap );
 		$this->assertStringContainsString( "register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Email_Cron', 'unschedule' ) )", $this->bootstrap );
-		$this->assertStringContainsString( "add_action( ANPA_Socios_Email_Cron::HOOK, array( 'ANPA_Socios_Email_Cron', 'tick' ) )", $this->bootstrap );
-		$this->assertStringContainsString( "add_action( 'admin_init', array( 'ANPA_Socios_Email_Cron', 'ensure_scheduled' ) )", $this->bootstrap );
 	}
 
 	public function test_uninstall_preserves_communications_by_default(): void {

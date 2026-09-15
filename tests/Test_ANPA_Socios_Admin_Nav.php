@@ -327,11 +327,7 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 					'menu_label' => 'Xestión',
 					'page_title' => 'Xestión',
 				),
-				'communications' => array(
-					'slug'       => 'anpa-socios-comunicacions',
-					'menu_label' => 'Rexistro de envíos',
-					'page_title' => 'Rexistro de envíos',
-				),
+				// 1.64.0: «Rexistro de envíos» (fase35 queue) retired — no producer ever existed.
 				'settings' => array(
 					'slug'       => 'anpa-socios-settings',
 					'menu_label' => 'Axustes',
@@ -394,12 +390,12 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 		);
 
 		$this->assertSame(
-			// Since 1.49.1 the email templates page (fase36) sits between Comunicacións and Axustes.
-			array( 'anpa-socios-management', 'anpa-socios-comunicacions', 'anpa-socios-templates', 'anpa-socios-settings', 'anpa-socios-docs' ),
+			// Since 1.64.0 the retired «Rexistro de envíos» is gone: Xestión, Plantillas, Axustes, Documentación.
+			array( 'anpa-socios-management', 'anpa-socios-templates', 'anpa-socios-settings', 'anpa-socios-docs' ),
 			array_column( $GLOBALS['anpa_socios_admin_nav_submenu_calls'], 4 )
 		);
 		$this->assertSame(
-			array( 'Xestión', 'Rexistro de envíos', 'Plantillas de Email', 'Axustes', 'Documentación' ),
+			array( 'Xestión', 'Plantillas de Email', 'Axustes', 'Documentación' ),
 			array_column( $GLOBALS['anpa_socios_admin_nav_submenu_calls'], 2 )
 		);
 		$this->assertNotContains( 'ANPA Socios', array_column( $GLOBALS['anpa_socios_admin_nav_submenu_calls'], 2 ) );

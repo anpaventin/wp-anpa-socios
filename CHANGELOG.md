@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.64.0] - 2026-09-15
+
+### Removed
+
+- **«Rexistro de envíos» e o cron da cola de correo (fase 35) retíranse da interface.** A cola de campañas
+  (1.49.0) estaba completa por dentro, pero nunca existiu a pantalla «Enviar desde a directiva» que debía crear
+  as campañas (quedou para unha fase 39 que non se fixo), así que o «Rexistro de envíos» sempre estivo baleiro e
+  o tick de cada cinco minutos e a purga diaria non tiñan nada que procesar. Na 1.64.0 desaparecen do menú a
+  pantalla e a subsección Axustes → Comunicacións, e os dous eventos de cron anúlanse na seguinte visita ao
+  admin. O código e as tres táboas (`anpa_email_campaigns`, `_recipients`, `_attempts`, baleiras en produción)
+  consérvanse: a súa eliminación vai nun paso separado que se proba antes no LXC 103. Os envíos masivos ás
+  familias seguen o camiño de Lista Gmail (reenvío dende a conta da xunta). Documentado en
+  `openspec/changes/2026-09-15-retirada-cola-comunicacions`.
+
 ## [1.63.1] - 2026-09-15
 
 ### Fixed
