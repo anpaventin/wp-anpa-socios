@@ -238,6 +238,9 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 				'conta_xunta'       => ANPA_Socios_Config::master_email(),
 				'google_url'        => self::google_url(),
 				'total_actuais'     => count( $actuais ),
+				// 1.65.0: families = who pays (one fee per family); emails = who is on the list (both parents).
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only count, ASCII SQL.
+				'total_familias'    => (int) $wpdb->get_var( "SELECT COUNT(DISTINCT COALESCE(NULLIF(familia_id, 0), id)) FROM {$soc_t} WHERE estado = 'activo' AND rol <> 'master' AND email <> ''" ),
 				'ultima_exportacion' => null === $snapshot ? null : array(
 					'exportado_en' => (string) ( $snapshot['exportado_en'] ?? '' ),
 					'por'          => (string) ( $snapshot['por'] ?? '' ),
