@@ -1198,8 +1198,11 @@
 			anpaAdminFetch(path, { method: 'POST' }).then(function (r) {
 				// 1.62.0: say whether the family's email went out (the decision itself is already applied).
 				var mail = '';
-				if (r && r.correo_enviado === true) { mail = ' Enviouse o correo á familia.'; }
-				else if (r && r.correo_enviado === false) { mail = ' ATENCIÓN: non se puido enviar o correo á familia; avísaa por outro medio.'; }
+				// A member baixa covers the whole family unit: list the deregistered addresses.
+				if (r && Array.isArray(r.emails_baixa) && r.emails_baixa.length) { okMsg += ' Correos dados de baixa: ' + r.emails_baixa.join(', ') + '.'; }
+				if (r && typeof r.correos_enviados === 'number' && r.correo_enviado === true) { mail = ' Enviouse o correo a ' + r.correos_enviados + ' persoa(s) da familia.'; }
+				else if (r && r.correo_enviado === true) { mail = ' Enviouse o correo á familia.'; }
+				else if (r && r.correo_enviado === false) { mail = ' ATENCIÓN: non se puido enviar o correo á familia' + (r && typeof r.correos_enviados === 'number' ? ' (enviados: ' + r.correos_enviados + ')' : '') + '; avísaa por outro medio.'; }
 				showMessage(okMsg + mail, r && r.correo_enviado === false ? 'warning' : 'success');
 				loadBaixas();
 			}).catch(function (e) { showMessage(e.message, 'error'); loadBaixas(); });
@@ -1221,7 +1224,7 @@
 				tr.appendChild(cell(s.fillos_activos)); tr.appendChild(cell(s.matriculas_vixentes));
 				var path = 'socio/' + encodeURIComponent(s.email || '') + '/baixa/';
 				tr.appendChild(actionCell(function () {
-					if (!window.confirm('Confirmar a baixa de ' + (s.email || '') + '? O socio/a pasa a estado «baixa» e perde o acceso á área.')) { return; }
+					if (!window.confirm('Confirmar a baixa de ' + (s.email || '') + '? Danse de baixa TODOS os membros da unidade familiar (proxenitor/a principal e secundario/a): pasan a estado «baixa», perden o acceso á área e cada un recibe un correo coa lista dos enderezos dados de baixa.')) { return; }
 					act(path + 'confirm', 'Baixa de socio/a confirmada.');
 				}, function () {
 					if (!window.confirm('Rexeitar a solicitude de ' + (s.email || '') + '? Segue sendo socio/a activo/a.')) { return; }

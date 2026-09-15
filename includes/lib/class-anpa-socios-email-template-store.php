@@ -186,17 +186,19 @@ final class ANPA_Socios_Email_Template_Store {
 				),
 				'html' => array(
 					'<p>' . __( 'Ola %s,', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'A directiva de %s confirmou a túa baixa como socio/a. A partir de agora xa non tes acceso á área de socios nin ás actividades extraescolares xestionadas pola asociación.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'A directiva de %s confirmou a baixa da vosa unidade familiar como socios/as. A partir de agora xa non tedes acceso á área de socios nin ás actividades extraescolares xestionadas pola asociación.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Correos dados de baixa como socios/as:', 'anpa-socios' ) . ' <strong>%s</strong></p>' .
 					'<p>' . __( 'Se cres que se trata dun erro ou queres volver a ser socio/a, escribe á directiva en %s e solucionámolo.', 'anpa-socios' ) . '</p>' .
 					'<p>' . __( 'Grazas por formar parte da asociación.', 'anpa-socios' ) . '</p>',
-					array( 'nome', 'association_name', 'contact_email' ),
+					array( 'nome', 'association_name', 'emails_baixa', 'contact_email' ),
 				),
 				'text' => array(
 					__( 'Ola %s,', 'anpa-socios' ) . "\n\n" .
-					__( 'A directiva de %s confirmou a túa baixa como socio/a. A partir de agora xa non tes acceso á área de socios nin ás actividades extraescolares xestionadas pola asociación.', 'anpa-socios' ) . "\n\n" .
+					__( 'A directiva de %s confirmou a baixa da vosa unidade familiar como socios/as. A partir de agora xa non tedes acceso á área de socios nin ás actividades extraescolares xestionadas pola asociación.', 'anpa-socios' ) . "\n\n" .
+					__( 'Correos dados de baixa como socios/as:', 'anpa-socios' ) . ' %s' . "\n\n" .
 					__( 'Se cres que se trata dun erro ou queres volver a ser socio/a, escribe á directiva en %s e solucionámolo.', 'anpa-socios' ) . "\n\n" .
 					__( 'Grazas por formar parte da asociación.', 'anpa-socios' ),
-					array( 'nome', 'association_name', 'contact_email' ),
+					array( 'nome', 'association_name', 'emails_baixa', 'contact_email' ),
 				),
 			),
 			'baixa_socio_rexeitada' => array(
@@ -253,6 +255,53 @@ final class ANPA_Socios_Email_Template_Store {
 					__( 'A directiva de %s revisou a solicitude de baixa de %s na actividade %s e non a aceptou: a matrícula segue activa e a actividade continúa como ata agora.', 'anpa-socios' ) . "\n\n" .
 					__( 'Se consideras que houbo un erro, ponte en contacto coa directiva en %s para solucionalo.', 'anpa-socios' ),
 					array( 'association_name', 'alumno', 'actividade', 'contact_email' ),
+				),
+			),
+			// 1.62.0: acknowledgement to the family when it REQUESTS a baixa from the
+			// area: the process is manual, an administrator confirms it within days,
+			// and the ANPA is run by parents in their free time.
+			'baixa_socio_solicitada' => array(
+				'subject' => array(
+					__( 'Recibimos a túa solicitude de baixa — %s', 'anpa-socios' ),
+					array( 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Ola %s,', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Rexistramos a túa solicitude de baixa como socio/a de %s.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'A baixa non é automática: unha persoa da directiva ten que revisala e confirmala, e pode tardar uns días. Mentres tanto segues sendo socio/a. En canto se confirme, recibirás outro correo.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Lembra que o traballo da ANPA fano nais e pais que dedican o seu tempo libre a estas tarefas; grazas pola paciencia.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Se cambias de idea, podes anular a solicitude desde a túa área de socios ou escribir á directiva en %s.', 'anpa-socios' ) . '</p>',
+					array( 'nome', 'association_name', 'contact_email' ),
+				),
+				'text' => array(
+					__( 'Ola %s,', 'anpa-socios' ) . "\n\n" .
+					__( 'Rexistramos a túa solicitude de baixa como socio/a de %s.', 'anpa-socios' ) . "\n\n" .
+					__( 'A baixa non é automática: unha persoa da directiva ten que revisala e confirmala, e pode tardar uns días. Mentres tanto segues sendo socio/a. En canto se confirme, recibirás outro correo.', 'anpa-socios' ) . "\n\n" .
+					__( 'Lembra que o traballo da ANPA fano nais e pais que dedican o seu tempo libre a estas tarefas; grazas pola paciencia.', 'anpa-socios' ) . "\n\n" .
+					__( 'Se cambias de idea, podes anular a solicitude desde a túa área de socios ou escribir á directiva en %s.', 'anpa-socios' ),
+					array( 'nome', 'association_name', 'contact_email' ),
+				),
+			),
+			'baixa_extraescolar_solicitada' => array(
+				'subject' => array(
+					__( 'Recibimos a solicitude de baixa da actividade %s — %s', 'anpa-socios' ),
+					array( 'actividade', 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Ola,', 'anpa-socios' ) . '</p>' .
+					'<p>' . sprintf( __( 'Rexistramos a solicitude de baixa de %s na actividade %s de %%s.', 'anpa-socios' ), '<strong>%s</strong>', '<strong>%s</strong>' ) . '</p>' .
+					'<p>' . __( 'A baixa non é automática: unha persoa da directiva ten que revisala e confirmala, e pode tardar uns días. Mentres tanto a matrícula segue como estaba. En canto se confirme, recibirás outro correo indicando desde cando é efectiva e se hai algún cobro.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Lembra que o traballo da ANPA fano nais e pais que dedican o seu tempo libre a estas tarefas; grazas pola paciencia.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Se cambias de idea, podes anular a solicitude desde a túa área de socios ou escribir á directiva en %s.', 'anpa-socios' ) . '</p>',
+					array( 'alumno', 'actividade', 'association_name', 'contact_email' ),
+				),
+				'text' => array(
+					__( 'Ola,', 'anpa-socios' ) . "\n\n" .
+					__( 'Rexistramos a solicitude de baixa de %s na actividade %s de %s.', 'anpa-socios' ) . "\n\n" .
+					__( 'A baixa non é automática: unha persoa da directiva ten que revisala e confirmala, e pode tardar uns días. Mentres tanto a matrícula segue como estaba. En canto se confirme, recibirás outro correo indicando desde cando é efectiva e se hai algún cobro.', 'anpa-socios' ) . "\n\n" .
+					__( 'Lembra que o traballo da ANPA fano nais e pais que dedican o seu tempo libre a estas tarefas; grazas pola paciencia.', 'anpa-socios' ) . "\n\n" .
+					__( 'Se cambias de idea, podes anular a solicitude desde a túa área de socios ou escribir á directiva en %s.', 'anpa-socios' ),
+					array( 'alumno', 'actividade', 'association_name', 'contact_email' ),
 				),
 			),
 			// 1.62.0: start-of-year email. Sent to the junta's own inbox (Xestión →

@@ -36,16 +36,27 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 
 	public function test_five_new_templates_exist_with_galician_text_and_the_right_variables(): void {
 		$defaults = ANPA_Socios_Email_Template_Store::get_all_defaults();
-		foreach ( array( 'baixa_socio_confirmada', 'baixa_socio_rexeitada', 'baixa_extraescolar_confirmada', 'baixa_extraescolar_rexeitada', 'inicio_curso' ) as $id ) {
+		foreach ( array( 'baixa_socio_solicitada', 'baixa_extraescolar_solicitada', 'baixa_socio_confirmada', 'baixa_socio_rexeitada', 'baixa_extraescolar_confirmada', 'baixa_extraescolar_rexeitada', 'inicio_curso' ) as $id ) {
 			$this->assertArrayHasKey( $id, $defaults, $id );
 			$this->assertStringContainsString( '%s', $defaults[ $id ]['subject'], "$id subject has the association placeholder" );
 		}
-		$this->assertStringContainsString( 'confirmou a túa baixa como socio/a', $defaults['baixa_socio_confirmada']['html'] );
+		// Acknowledgements on request: manual process, a few days, confirmation email, parents' free time.
+		foreach ( array( 'baixa_socio_solicitada', 'baixa_extraescolar_solicitada' ) as $id ) {
+			$this->assertStringContainsString( 'A baixa non é automática', $defaults[ $id ]['html'] );
+			$this->assertStringContainsString( 'pode tardar uns días', $defaults[ $id ]['html'] );
+			$this->assertStringContainsString( 'recibirás outro correo', $defaults[ $id ]['html'] );
+			$this->assertStringContainsString( 'nais e pais que dedican o seu tempo libre', $defaults[ $id ]['html'] );
+			$this->assertStringContainsString( 'nais e pais que dedican o seu tempo libre', $defaults[ $id ]['text'] );
+		}
+		$this->assertSame( array( 'alumno', 'actividade', 'association_name', 'contact_email' ), ANPA_Socios_Email_Template_Store::get_variables( 'baixa_extraescolar_solicitada' )['html'] );
+		$this->assertStringContainsString( 'confirmou a baixa da vosa unidade familiar como socios/as', $defaults['baixa_socio_confirmada']['html'] );
 		$this->assertStringContainsString( 'non a aceptou: segues sendo socio/a activo/a', $defaults['baixa_socio_rexeitada']['html'] );
 		$this->assertStringContainsString( 'ponte en contacto coa directiva en %s para solucionalo', $defaults['baixa_socio_rexeitada']['html'] );
 		$this->assertStringContainsString( 'ponte en contacto coa directiva en %s para solucionalo', $defaults['baixa_extraescolar_rexeitada']['html'] );
 		$this->assertSame( array( 'association_name', 'alumno', 'actividade', 'efectos', 'contact_email' ), ANPA_Socios_Email_Template_Store::get_variables( 'baixa_extraescolar_confirmada' )['html'] );
-		$this->assertSame( array( 'nome', 'association_name', 'contact_email' ), ANPA_Socios_Email_Template_Store::get_variables( 'baixa_socio_confirmada' )['html'] );
+		$this->assertSame( array( 'nome', 'association_name', 'emails_baixa', 'contact_email' ), ANPA_Socios_Email_Template_Store::get_variables( 'baixa_socio_confirmada' )['html'] );
+		$this->assertStringContainsString( 'Correos dados de baixa como socios/as:', $defaults['baixa_socio_confirmada']['html'] );
+		$this->assertStringContainsString( 'unidade familiar', $defaults['baixa_socio_confirmada']['html'] );
 
 		$inicio = $defaults['inicio_curso']['html'];
 		foreach ( array( 'Iniciar sesión como socio/a:', 'Darse de alta:', 'Modificar datos:', 'Actividades extraescolares:', 'Área de socios:', 'Web da asociación:' ) as $needle ) {
@@ -145,8 +156,15 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 
 	public function test_handlers_send_the_emails_and_report_it(): void {
 		$socios = $this->src( 'includes/class-anpa-socios-admin-socios-handler.php' );
-		$this->assertStringContainsString( 'ANPA_Socios_Email::enviar_baixa_socio_confirmada( $email, $nome )', $socios );
-		$this->assertStringContainsString( "\$data['correo_enviado'] = \$correo_enviado;", $socios );
+		// The baixa covers the whole family unit (head + linked parents), never the master, and each member is emailed the list.
+		$this->assertStringContainsString( "SELECT email, nome FROM {\$soc_t} WHERE estado = 'activo' AND rol <> 'master' AND ( id = %d OR familia_id = %d ) ORDER BY id ASC", $socios );
+		$this->assertStringContainsString( "UPDATE {\$soc_t} SET estado = 'baixa', baixa_estado = 'none', actualizado_en = %s WHERE estado = 'activo' AND rol <> 'master' AND ( id = %d OR familia_id = %d )", $socios );
+		$this->assertStringContainsString( 'ANPA_Socios_Familia::resolve_familia_id(', $socios );
+		$this->assertStringContainsString( "ANPA_Socios_Email::enviar_baixa_socio_confirmada( (string) \$m['email'], (string) \$m['nome'], \$lista )", $socios );
+		$this->assertStringContainsString( "\$data['emails_baixa']     = \$emails;", $socios );
+		$this->assertStringContainsString( "\$data['correo_enviado']   = \$enviados === count( \$membros );", $socios );
+		$this->assertStringContainsString( "'baixa_confirm_familia'", $socios );
+		$this->assertStringContainsString( "'solicitada' !== (string) \$row['baixa_estado']", $socios, 'the requester must still have a pending request' );
 
 		$baixas = $this->src( 'includes/class-anpa-socios-admin-baixas-handler.php' );
 		$this->assertStringContainsString( 'ANPA_Socios_Email::enviar_baixa_socio_rexeitada( $email, $nome )', $baixas );
@@ -165,9 +183,16 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 		$this->assertStringContainsString( "'correo_enviado' => \$correo_enviado, 'efectos' => \$efectos", $grupos );
 
 		$email = $this->src( 'includes/class-anpa-socios-email.php' );
-		foreach ( array( 'enviar_baixa_socio_confirmada', 'enviar_baixa_socio_rexeitada', 'enviar_baixa_extraescolar_confirmada', 'enviar_baixa_extraescolar_rexeitada', 'enviar_inicio_curso' ) as $fn ) {
+		foreach ( array( 'enviar_baixa_socio_solicitada', 'enviar_baixa_extraescolar_solicitada', 'enviar_baixa_socio_confirmada', 'enviar_baixa_socio_rexeitada', 'enviar_baixa_extraescolar_confirmada', 'enviar_baixa_extraescolar_rexeitada', 'enviar_inicio_curso' ) as $fn ) {
 			$this->assertStringContainsString( "public static function {$fn}(", $email );
 		}
+
+		// The family is acknowledged right when it requests the baixa (area), after the junta notice.
+		$area = $this->src( 'includes/class-anpa-socios-area-rest.php' );
+		$this->assertStringContainsString( "ANPA_Socios_Email::enviar_baixa_socio_solicitada( \$email, (string) \$profile['nome'] );", $area );
+		$this->assertGreaterThan( strpos( $area, 'ANPA_Socios_Email::enviar_aviso_baixa_socio(' ), strpos( $area, 'ANPA_Socios_Email::enviar_baixa_socio_solicitada(' ) );
+		$extra = $this->src( 'includes/class-anpa-socios-extraescolares-rest.php' );
+		$this->assertStringContainsString( 'ANPA_Socios_Email::enviar_baixa_extraescolar_solicitada( $email, $alumno_nome, $actividade_nome );', $extra );
 		$this->assertStringContainsString( '$body    = self::wrap_html( $body );', $email, 'send_from_master signs every email' );
 
 		$this->assertStringContainsString( "includes/lib/class-anpa-socios-baixa-extraescolar-efectos.php';", $this->src( 'anpa-socios.php' ) );

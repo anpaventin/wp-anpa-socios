@@ -2992,7 +2992,9 @@ final class ANPA_Socios_Admin_Settings {
 		echo '</ul>';
 		$h3( __( 'Correos automáticos ás familias nas baixas', 'anpa-socios' ) );
 		echo '<ul>';
+		$li( __( 'Ao solicitar a baixa desde a área (como socio/a ou dunha actividade), a familia recibe un acuse de recibo («baixa_socio_solicitada», «baixa_extraescolar_solicitada»): a baixa non é automática, confírmaa unha persoa da directiva e pode tardar uns días, e avisarase por correo ao confirmarse.', 'anpa-socios' ) );
 		$li( __( 'Ao confirmar ou rexeitar unha solicitude en Xestión → Socios → Baixas solicitadas, a familia recibe un correo coa plantilla correspondente: «baixa_socio_confirmada», «baixa_socio_rexeitada», «baixa_extraescolar_confirmada» ou «baixa_extraescolar_rexeitada» (Axustes → Plantillas de email, coa sinatura de Axustes → Xeral).', 'anpa-socios' ) );
+		$li( __( 'A baixa de socio/a confirmada aplícase a toda a unidade familiar (proxenitor/a principal e secundario/a): todos pasan a «baixa», perden o acceso á área e cada un recibe o correo coa lista dos enderezos dados de baixa. Se a familia ten dous correos, saen dous correos.', 'anpa-socios' ) );
 		$li( __( 'Baixa dunha actividade: se o trimestre en curso xa comezou (estado «activo» en Axustes → Cursos → Estado dos trimestres), o correo di que a baixa é efectiva ao remate do trimestre e que a cota se mantén ata entón; se aínda estamos en período de inscrición (trimestre pendente, grupos sen pechar), di que é inmediata e que non se pasará ningún cobro.', 'anpa-socios' ) );
 		$li( __( 'Os correos de rexeitamento indican á familia que, se cre que houbo un erro, escriba á directiva ao correo de contacto de Axustes → Xeral.', 'anpa-socios' ) );
 		echo '</ul>';

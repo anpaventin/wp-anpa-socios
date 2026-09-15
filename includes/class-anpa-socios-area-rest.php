@@ -476,6 +476,8 @@ class ANPA_Socios_Area_REST {
 
 		// Notify the junta. Best-effort: a mail failure must not fail the request.
 		ANPA_Socios_Email::enviar_aviso_baixa_socio( $email, (string) $profile['nome'], (string) $profile['apelidos'] );
+		// 1.62.0: acknowledge to the member — manual process, a few days, confirmation email will follow.
+		ANPA_Socios_Email::enviar_baixa_socio_solicitada( $email, (string) $profile['nome'] );
 		ANPA_Socios_Admin_Shared::write_audit_actor( strtolower( $email ), 'socio', 'socio', strtolower( $email ), 'baixa_solicitada' );
 
 		return new WP_REST_Response(

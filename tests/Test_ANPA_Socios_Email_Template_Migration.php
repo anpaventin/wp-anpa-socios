@@ -34,7 +34,7 @@ final class Test_ANPA_Socios_Email_Template_Migration extends TestCase {
 
 		$stored = get_option( 'anpa_socios_email_templates' );
 		$this->assertIsArray( $stored );
-		$this->assertCount( 15, $stored );
+		$this->assertCount( 17, $stored );
 		$this->assertArrayHasKey( 'verification_code', $stored );
 	}
 

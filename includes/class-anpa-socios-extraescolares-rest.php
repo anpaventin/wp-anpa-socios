@@ -656,7 +656,11 @@ final class ANPA_Socios_Extraescolares_REST {
 				$wpdb->query( 'ROLLBACK' );
 				return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
 			}
-			ANPA_Socios_Email::enviar_aviso_baixa_extraescolar( $email, self::pupil_name( (int) $mat['fillo_id'] ), self::activity_name( (int) $mat['activitad_id'] ) );
+			$alumno_nome     = self::pupil_name( (int) $mat['fillo_id'] );
+			$actividade_nome = self::activity_name( (int) $mat['activitad_id'] );
+			ANPA_Socios_Email::enviar_aviso_baixa_extraescolar( $email, $alumno_nome, $actividade_nome );
+			// 1.62.0: acknowledge to the family — manual process, a few days, confirmation email will follow.
+			ANPA_Socios_Email::enviar_baixa_extraescolar_solicitada( $email, $alumno_nome, $actividade_nome );
 			ANPA_Socios_Admin_Shared::write_audit_actor( $email, 'socio', 'matricula', (string) $id, 'matricula_baixa_solicitada' );
 			return new WP_REST_Response( array( 'id' => $id, 'estado' => 'baixa_solicitada' ), 200 );
 		}
