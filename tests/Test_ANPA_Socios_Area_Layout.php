@@ -29,6 +29,9 @@ final class Test_ANPA_Socios_Area_Layout extends TestCase {
 	public function test_phone_date_and_selects_share_the_text_field_sizing(): void {
 		$css = $this->css();
 		$this->assertMatchesRegularExpression( '/#anpa-area input\[type="tel"\],\n#anpa-area input\[type="date"\],\n#anpa-area input\[type="number"\],\n#anpa-area \.anpa-area-card select \{[^}]*width: 100%;[^}]*max-width: var\(--anpa-measure, 34rem\);[^}]*padding: 0\.7rem 0\.85rem;/s', $css );
+		// 1.65.3: the theme pins a fixed height on selects; ours must size themselves or the text is clipped.
+		$this->assertMatchesRegularExpression( '/#anpa-area \.anpa-area-card select,\n#anpa-area input\[type="tel"\],\n#anpa-area input\[type="date"\],\n#anpa-area input\[type="number"\] \{\n\theight: auto;\n\tmin-height: 2\.75rem;\n\tline-height: 1\.4;\n\}/', $css );
+		$this->assertStringContainsString( "#anpa-area .anpa-area-card select {\n\tpadding: 0.55rem 2rem 0.55rem 0.85rem;", $css );
 		// iOS zoom guard for the new controls too.
 		$this->assertMatchesRegularExpression( '/@media \(max-width: 768px\) \{\n\t#anpa-area input\[type="tel"\],[^}]*font-size: 16px;/s', $css );
 		// The template really uses those control types in the area cards.
