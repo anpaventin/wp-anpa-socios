@@ -764,6 +764,20 @@ final class ANPA_Socios_Admin_Settings {
 			esc_html__( 'Opcional. Correo da conta de Gmail onde se mantén a etiqueta «Socios Web ANPA». Só serve para que o botón «Abrir Google Contactos» de Xestión → Socios → Lista Gmail abra esa conta cando hai varias sesións de Google iniciadas; a web nunca escribe en Google.', 'anpa-socios' )
 		);
 
+		// 1.63.0: links used by the start-of-year email (template «inicio_curso»).
+		printf(
+			'<tr><th scope="row"><label for="cfg-instrucions">%s</label></th><td><input name="instrucions_url" id="cfg-instrucions" type="url" class="regular-text" value="%s" placeholder="https://"><p class="description">%s</p></td></tr>',
+			esc_html__( 'Entrada coas instrucións para as familias', 'anpa-socios' ),
+			esc_attr( ANPA_Socios_Config::instrucions_url() ),
+			esc_html__( 'URL da entrada do blog coas instrucións de alta, acceso, modificación de datos, extraescolares e baixas. Vai no correo de inicio de curso (Xestión → Socios → Lista Gmail). Se queda baleira, o correo liga á área de socios.', 'anpa-socios' )
+		);
+		printf(
+			'<tr><th scope="row"><label for="cfg-extraescolares">%s</label></th><td><input name="extraescolares_url" id="cfg-extraescolares" type="url" class="regular-text" value="%s" placeholder="https://"><p class="description">%s</p></td></tr>',
+			esc_html__( 'Páxina pública de extraescolares', 'anpa-socios' ),
+			esc_attr( ANPA_Socios_Config::extraescolares_url() ),
+			esc_html__( 'URL da páxina coa oferta de actividades e o horario. Vai no correo de inicio de curso. Se queda baleira, búscase a páxina que leva o shortcode [anpa_extraescolares_ofertadas].', 'anpa-socios' )
+		);
+
 		echo '</tbody></table>';
 		submit_button( __( 'Gardar configuración', 'anpa-socios' ) );
 		echo '</form>';
@@ -1921,6 +1935,21 @@ final class ANPA_Socios_Admin_Settings {
 			}
 		}
 
+		// 1.63.0: links for the start-of-year email (optional; empty deletes the option).
+		foreach ( array( 'instrucions_url' => ANPA_Socios_Config::OPTION_INSTRUCIONS_URL, 'extraescolares_url' => ANPA_Socios_Config::OPTION_EXTRAESCOLARES_URL ) as $field => $option ) {
+			if ( ! array_key_exists( $field, $_POST ) ) {
+				continue;
+			}
+			$url = esc_url_raw( trim( (string) wp_unslash( $_POST[ $field ] ) ) );
+			if ( '' === $url ) {
+				delete_option( $option );
+			} elseif ( 0 !== strpos( $url, 'http://' ) && 0 !== strpos( $url, 'https://' ) ) {
+				$msg = 'url_invalid';
+			} else {
+				update_option( $option, $url );
+			}
+		}
+
 		if ( array_key_exists( 'landing_page_id', $_POST ) ) {
 			$landing = (int) $_POST['landing_page_id'];
 			update_option( self::LANDING_OPTION, $landing > 0 ? $landing : 0 );
@@ -2851,6 +2880,7 @@ final class ANPA_Socios_Admin_Settings {
 			'comedor_email_invalid'  => array( 'error', __( 'O correo do comedor non é válido; o resto da configuración gardouse.', 'anpa-socios' ) ),
 			'comedor_email_conflict' => array( 'error', __( 'O correo do comedor xa pertence a un socio/a ou a unha empresa e non se gardou; o resto da configuración gardouse. Un mesmo correo só pode ter un rol.', 'anpa-socios' ) ),
 			'google_email_invalid'   => array( 'error', __( 'A conta de Google da xunta non é un correo válido; o resto da configuración gardouse.', 'anpa-socios' ) ),
+			'url_invalid'            => array( 'error', __( 'Unha das URL (entrada de instrucións ou páxina de extraescolares) non é válida: ten que empezar por http:// ou https://. O resto da configuración gardouse.', 'anpa-socios' ) ),
 			'pw_ok'          => array( 'success', __( 'Contrasinal de admin actualizado.', 'anpa-socios' ) ),
 			'pw_bad'         => array( 'error', __( 'O contrasinal non cumpre os requisitos (mín. 8 caracteres, unha maiúscula e un símbolo).', 'anpa-socios' ) ),
 			'updates_checked' => array( 'success', __( 'Comprobación de actualizacións executada. Se hai unha versión nova, aparecerá en Plugins.', 'anpa-socios' ) ),
@@ -2995,7 +3025,7 @@ final class ANPA_Socios_Admin_Settings {
 		$li( __( 'Ao solicitar a baixa desde a área (como socio/a ou dunha actividade), a familia recibe un acuse de recibo («baixa_socio_solicitada», «baixa_extraescolar_solicitada»): a baixa non é automática, confírmaa unha persoa da directiva e pode tardar uns días, e avisarase por correo ao confirmarse.', 'anpa-socios' ) );
 		$li( __( 'Ao confirmar ou rexeitar unha solicitude en Xestión → Socios → Baixas solicitadas, a familia recibe un correo coa plantilla correspondente: «baixa_socio_confirmada», «baixa_socio_rexeitada», «baixa_extraescolar_confirmada» ou «baixa_extraescolar_rexeitada» (Axustes → Plantillas de email, coa sinatura de Axustes → Xeral).', 'anpa-socios' ) );
 		$li( __( 'A baixa de socio/a confirmada aplícase a toda a unidade familiar (proxenitor/a principal e secundario/a): todos pasan a «baixa», perden o acceso á área e cada un recibe o correo coa lista dos enderezos dados de baixa. Se a familia ten dous correos, saen dous correos.', 'anpa-socios' ) );
-		$li( __( 'Baixa dunha actividade: se o trimestre en curso xa comezou (estado «activo» en Axustes → Cursos → Estado dos trimestres), o correo di que a baixa é efectiva ao remate do trimestre e que a cota se mantén ata entón; se aínda estamos en período de inscrición (trimestre pendente, grupos sen pechar), di que é inmediata e que non se pasará ningún cobro.', 'anpa-socios' ) );
+		$li( __( 'Baixa dunha actividade: mentres a ventá de inscrición do trimestre en curso estea ABERTA (Axustes → Cursos → Estado dos trimestres), o correo di que a baixa é efectiva desde ese momento e sen ningún cobro, porque as clases aínda non están confirmadas; cando a ventá xa está PECHADA (listado enviado ás empresas, clases en marcha), di que é efectiva ao remate do trimestre, coa data de peche operativo, e que a cota se mantén ata entón. Vale para os tres trimestres.', 'anpa-socios' ) );
 		$li( __( 'Os correos de rexeitamento indican á familia que, se cre que houbo un erro, escriba á directiva ao correo de contacto de Axustes → Xeral.', 'anpa-socios' ) );
 		echo '</ul>';
 		$h3( __( 'Auditoría', 'anpa-socios' ) );

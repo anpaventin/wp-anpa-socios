@@ -58,11 +58,14 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 		$this->assertStringContainsString( 'Correos dados de baixa como socios/as:', $defaults['baixa_socio_confirmada']['html'] );
 		$this->assertStringContainsString( 'unidade familiar', $defaults['baixa_socio_confirmada']['html'] );
 
+		// 1.63.0: modelled on the junta's September mail — links, relative calendar, only «1 de outubro» as a date.
 		$inicio = $defaults['inicio_curso']['html'];
-		foreach ( array( 'Iniciar sesión como socio/a:', 'Darse de alta:', 'Modificar datos:', 'Actividades extraescolares:', 'Área de socios:', 'Web da asociación:' ) as $needle ) {
+		foreach ( array( 'Prezadas familias,', 'Instrucións paso a paso', 'Oferta de actividades e horarios:', 'Área de socios/as', 'Calendario de inicio:', 'comezan o 1 de outubro', 'Cinco días antes do inicio', 'deixando dous días', 'Avisos automáticos:', 'Aviso importante sobre os pagos:', 'O cobro das actividades faino directamente cada empresa' ) as $needle ) {
 			$this->assertStringContainsString( $needle, $inicio );
+			$this->assertStringContainsString( $needle, $defaults['inicio_curso']['text'] );
 		}
-		$this->assertSame( array( 'association_name', 'login_url', 'login_url', 'web_url', 'web_url', 'contact_email' ), ANPA_Socios_Email_Template_Store::get_variables( 'inicio_curso' )['html'] );
+		$this->assertSame( 0, preg_match( '/\b(luns|martes|mércores|xoves|venres|sábado|domingo)\b/iu', $inicio ), 'no weekdays: the mail must not age' );
+		$this->assertSame( array( 'association_name', 'instrucions_url', 'instrucions_url', 'extraescolares_url', 'extraescolares_url', 'login_url', 'login_url', 'contact_email' ), ANPA_Socios_Email_Template_Store::get_variables( 'inicio_curso' )['html'] );
 	}
 
 	public function test_rendered_activity_baixa_email_carries_the_effects_sentence_and_a_readable_contact_email(): void {
@@ -83,55 +86,97 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 
 	public function test_urls_are_still_escaped_as_urls(): void {
 		$out = ANPA_Socios_Email_Template_Renderer::render( 'inicio_curso', array(
-			'association_name' => 'ANPA',
-			'login_url'        => 'https://example.org/socios/area-persoal/',
-			'web_url'          => 'https://example.org/',
-			'contact_email'    => 'info@example.org',
+			'association_name'   => 'ANPA',
+			'login_url'          => 'https://example.org/socios/area-persoal/',
+			'instrucions_url'    => 'https://example.org/guia-da-web/',
+			'extraescolares_url' => 'https://example.org/extraescolares/',
+			'contact_email'      => 'info@example.org',
 		) );
 		$this->assertStringContainsString( '<a href="https://example.org/socios/area-persoal/">https://example.org/socios/area-persoal/</a>', $out['html'] );
-		$this->assertStringContainsString( '<a href="https://example.org/">https://example.org/</a>', $out['html'] );
+		$this->assertStringContainsString( '<a href="https://example.org/guia-da-web/">https://example.org/guia-da-web/</a>', $out['html'] );
+		$this->assertStringContainsString( '<a href="https://example.org/extraescolares/">https://example.org/extraescolares/</a>', $out['html'] );
 		$this->assertStringContainsString( 'info@example.org', $out['html'] );
-		$this->assertSame( 'Comeza o curso — ANPA', $out['subject'] );
+		$this->assertSame( 'Comeza o curso: socios/as e actividades extraescolares — ANPA', $out['subject'] );
+
+		// The sender reads both links from Axustes and never leaves them empty.
+		$email = $this->src( 'includes/class-anpa-socios-email.php' );
+		$this->assertStringContainsString( "'instrucions_url'    => '' !== \$instrucions ? \$instrucions : \$login_url,", $email );
+		$this->assertStringContainsString( "ANPA_Socios_Hub_Page::find_page_url( 'anpa_extraescolares_ofertadas' )", $email );
+		$cfg = $this->src( 'includes/class-anpa-socios-config.php' );
+		$this->assertStringContainsString( "const OPTION_INSTRUCIONS_URL = 'anpa_socios_instrucions_url';", $cfg );
+		$this->assertStringContainsString( "const OPTION_EXTRAESCOLARES_URL = 'anpa_socios_extraescolares_url';", $cfg );
+		$settings = $this->src( 'includes/class-anpa-socios-admin-settings.php' );
+		$this->assertStringContainsString( 'name="instrucions_url"', $settings );
+		$this->assertStringContainsString( 'name="extraescolares_url"', $settings );
 	}
 
 	// ── Trimester rule ───────────────────────────────────────────────────
 
-	public function test_started_trimester_means_effective_at_its_end_with_the_date(): void {
-		$gate = ANPA_Socios_Matricula_Gate::avaliar( array( 'curso_escolar' => '2026/2027', 'estado' => 'activo' ) + $this->datas_row(), $this->trimestres( 'activo' ), '2026-10-05' );
-		$r    = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $this->trimestres( 'activo' ), $this->datas() );
-		$this->assertSame( ANPA_Socios_Baixa_Extraescolar_Efectos::FIN_TRIMESTRE, $r['efecto'] );
+	/** Trimester rows by WINDOW state (what the rule really depends on since 1.63.0). */
+	private function ventanas( string $v1, string $v2 = 'pechada', string $v3 = 'pechada' ): array {
+		return array(
+			1 => array( 'estado' => 'activo', 'ventana_estado' => $v1, 'presente' => true ),
+			2 => array( 'estado' => 'pendente', 'ventana_estado' => $v2, 'presente' => true ),
+			3 => array( 'estado' => 'pendente', 'ventana_estado' => $v3, 'presente' => true ),
+		);
+	}
+
+	public function test_open_window_means_immediate_and_free_even_if_the_trimester_row_is_activo(): void {
+		// Exactly the production case of 2026-09-15: T1 row «activo», window «aberta», classes not confirmed.
+		$curso = array( 'curso_escolar' => '2026/2027', 'estado' => 'activo' ) + $this->datas_row();
+		$gate  = ANPA_Socios_Matricula_Gate::avaliar( $curso, $this->ventanas( 'aberta' ), '2026-09-15' );
+		$this->assertTrue( $gate['abertas'] );
+		$r = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $this->ventanas( 'aberta' ), $this->datas() );
+		$this->assertSame( ANPA_Socios_Baixa_Extraescolar_Efectos::INMEDIATA, $r['efecto'] );
 		$this->assertSame( 1, $r['trimestre'] );
+		$this->assertSame( '', $r['data_fin'] );
+		$this->assertStringContainsString( 'ventá de inscrición do 1º trimestre segue aberta', $r['texto'] );
+		$this->assertStringContainsString( 'efectiva desde este momento', $r['texto'] );
+		$this->assertStringContainsString( 'non se pasará ningún cobro', $r['texto'] );
+		$this->assertStringNotContainsString( '22/12/2026', $r['texto'] );
+
+		// Same in any trimester: T2 window open in February.
+		$gate = ANPA_Socios_Matricula_Gate::avaliar( $curso, $this->ventanas( 'pechada', 'aberta' ), '2027-02-01' );
+		$r    = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $this->ventanas( 'pechada', 'aberta' ), $this->datas() );
+		$this->assertSame( ANPA_Socios_Baixa_Extraescolar_Efectos::INMEDIATA, $r['efecto'] );
+		$this->assertStringContainsString( '2º trimestre segue aberta', $r['texto'] );
+	}
+
+	public function test_closed_window_means_effective_at_the_end_of_the_trimester_with_the_date(): void {
+		$curso = array( 'curso_escolar' => '2026/2027', 'estado' => 'activo' ) + $this->datas_row();
+		$gate  = ANPA_Socios_Matricula_Gate::avaliar( $curso, $this->ventanas( 'pechada' ), '2026-10-05' );
+		$this->assertFalse( $gate['abertas'] );
+		$r = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $this->ventanas( 'pechada' ), $this->datas() );
+		$this->assertSame( ANPA_Socios_Baixa_Extraescolar_Efectos::FIN_TRIMESTRE, $r['efecto'] );
 		$this->assertSame( '2026-12-22', $r['data_fin'] );
-		$this->assertStringContainsString( 'Como o 1º trimestre xa comezou', $r['texto'] );
+		$this->assertStringContainsString( 'inscrición do 1º trimestre xa está pechada', $r['texto'] );
 		$this->assertStringContainsString( '(o 22/12/2026)', $r['texto'] );
 		$this->assertStringContainsString( 'non se cobrará o trimestre seguinte', $r['texto'] );
 
-		// Second trimester started, evaluated in February.
-		$gate = ANPA_Socios_Matricula_Gate::avaliar( array( 'curso_escolar' => '2026/2027', 'estado' => 'activo' ) + $this->datas_row(), $this->trimestres( 'pechado', 'activo' ), '2027-02-01' );
-		$r    = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $this->trimestres( 'pechado', 'activo' ), $this->datas() );
+		$gate = ANPA_Socios_Matricula_Gate::avaliar( $curso, $this->ventanas( 'pechada', 'pechada' ), '2027-02-01' );
+		$r    = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $this->ventanas( 'pechada', 'pechada' ), $this->datas() );
 		$this->assertSame( 2, $r['trimestre'] );
 		$this->assertSame( '2027-03-19', $r['data_fin'] );
 	}
 
-	public function test_pre_enrolment_means_immediate_and_free_of_charge(): void {
-		// Trimester configured but not started yet (groups still open, enrolments at the start of the course).
-		$gate = ANPA_Socios_Matricula_Gate::avaliar( array( 'curso_escolar' => '2026/2027', 'estado' => 'activo' ) + $this->datas_row(), $this->trimestres( 'pendente' ), '2026-09-10' );
-		$r    = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $this->trimestres( 'pendente' ), $this->datas() );
-		$this->assertSame( ANPA_Socios_Baixa_Extraescolar_Efectos::INMEDIATA, $r['efecto'] );
-		$this->assertSame( '', $r['data_fin'] );
-		$this->assertStringContainsString( 'período de inscrición', $r['texto'] );
-		$this->assertStringContainsString( 'non se pasará ningún cobro', $r['texto'] );
-
-		// Nothing configured at all: fail towards "no charge" rather than inventing a date.
+	public function test_unknown_state_never_announces_a_charge(): void {
+		// No course / no trimester rows: fail towards "no charge" rather than inventing a date.
 		$r = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( ANPA_Socios_Matricula_Gate::avaliar( null, array() ), array(), null );
+		$this->assertSame( ANPA_Socios_Baixa_Extraescolar_Efectos::INMEDIATA, $r['efecto'] );
+		$this->assertStringContainsString( 'período de inscrición segue aberto', $r['texto'] );
+
+		// Rows exist but the current one is not present (not initialised): still no charge.
+		$rows = $this->ventanas( 'pechada' );
+		$rows[1]['presente'] = false;
+		$r = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( array( 'trimestre' => 1, 'abertas' => false, 'motivo' => 'trimestre_sen_configurar' ), $rows, $this->datas() );
 		$this->assertSame( ANPA_Socios_Baixa_Extraescolar_Efectos::INMEDIATA, $r['efecto'] );
 	}
 
-	public function test_started_trimester_without_calendar_omits_the_date(): void {
+	public function test_closed_window_without_calendar_omits_the_date(): void {
 		$gate = array( 'trimestre' => 3, 'abertas' => false, 'motivo' => 'ventana_pechada' );
-		$r    = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $this->trimestres( 'pechado', 'pechado', 'activo' ), null );
+		$r    = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $this->ventanas( 'pechada', 'pechada', 'pechada' ), null );
 		$this->assertSame( ANPA_Socios_Baixa_Extraescolar_Efectos::FIN_TRIMESTRE, $r['efecto'] );
-		$this->assertStringContainsString( 'Como o 3º trimestre xa comezou', $r['texto'] );
+		$this->assertStringContainsString( 'inscrición do 3º trimestre xa está pechada', $r['texto'] );
 		$this->assertStringNotContainsString( '(o ', $r['texto'] );
 	}
 

@@ -605,9 +605,18 @@ class ANPA_Socios_Email {
 	 */
 	public static function enviar_inicio_curso( string $to ): bool {
 		$login_url = class_exists( 'ANPA_Socios_Admin_Settings' ) ? ANPA_Socios_Admin_Settings::landing_page_url() : '';
+		// 1.63.0: the instructions post and the public activities page come from
+		// Axustes → Xeral; both fall back to something sensible so no link is empty.
+		$instrucions = ANPA_Socios_Config::instrucions_url();
+		$extra       = ANPA_Socios_Config::extraescolares_url();
+		if ( '' === $extra && class_exists( 'ANPA_Socios_Hub_Page' ) ) {
+			$extra = (string) ANPA_Socios_Hub_Page::find_page_url( 'anpa_extraescolares_ofertadas' );
+		}
 		return self::send_template( $to, 'inicio_curso', array(
-			'login_url' => $login_url,
-			'web_url'   => home_url( '/' ),
+			'login_url'          => $login_url,
+			'web_url'            => home_url( '/' ),
+			'instrucions_url'    => '' !== $instrucions ? $instrucions : $login_url,
+			'extraescolares_url' => '' !== $extra ? $extra : home_url( '/' ),
 		) );
 	}
 

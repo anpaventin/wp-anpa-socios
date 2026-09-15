@@ -250,6 +250,9 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 				'baixas'            => $baixas,
 				'baixas_sen_confirmar' => $pendentes,
 				'precisa_exportar'  => null === $snapshot || array() !== $altas || array() !== $baixas,
+				// 1.63.0: links the start-of-year email will carry (Axustes → Xeral).
+				'instrucions_url'   => ANPA_Socios_Config::instrucions_url(),
+				'extraescolares_url' => ANPA_Socios_Config::extraescolares_url(),
 			),
 			200
 		);
