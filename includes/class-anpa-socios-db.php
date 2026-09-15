@@ -26,21 +26,6 @@ class ANPA_Socios_DB {
 	const VERSION_OPTION = 'anpa_socios_db_version';
 
 	/**
-	 * Option that opts IN to deleting the communications log on uninstall
-	 * (fase35). Scope is COMMUNICATIONS ONLY, hence the name: the rest of the
-	 * plugin data follows its own rules. Absent or any value other than "1"
-	 * preserves the log.
-	 *
-	 * uninstall.php repeats this string literally on purpose: plugin classes are
-	 * not loaded during uninstall, so it cannot read this constant. A contract
-	 * test keeps both in sync.
-	 *
-	 * @since 1.39.0
-	 * @var string
-	 */
-	const OPTION_DELETE_COMMS_ON_UNINSTALL = 'anpa_socios_delete_comms_on_uninstall';
-
-	/**
 	 * Current schema version for anpa-socios-owned tables.
 	 *
 	 * 1.2.0 adds `rol` and `pendiente_alta` to wp_anpa_socios.
@@ -120,7 +105,7 @@ class ANPA_Socios_DB {
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.41.0';
+	const DB_VERSION = '1.42.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -366,6 +351,12 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.41.0', '<' ) && ! self::migrate_to_1_41_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.41.0 (migrate_to_1_41_0): ' . $wpdb->last_error );
+			return;
+		}
+		// 1.42.0 (1.65.0): drop the never-used fase35 email queue tables.
+		if ( version_compare( $installed_version, '1.42.0', '<' ) && ! self::migrate_to_1_42_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.42.0 (migrate_to_1_42_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -737,42 +728,6 @@ class ANPA_Socios_DB {
 		global $wpdb;
 
 		return $wpdb->prefix . 'anpa_transicions';
-	}
-
-	/**
-	 * Returns the full wp_anpa_email_campaigns table name (fase35).
-	 *
-	 * @since  1.39.0
-	 * @return string
-	 */
-	public static function tabela_email_campaigns(): string {
-		global $wpdb;
-
-		return $wpdb->prefix . 'anpa_email_campaigns';
-	}
-
-	/**
-	 * Returns the full wp_anpa_email_recipients table name (fase35).
-	 *
-	 * @since  1.39.0
-	 * @return string
-	 */
-	public static function tabela_email_recipients(): string {
-		global $wpdb;
-
-		return $wpdb->prefix . 'anpa_email_recipients';
-	}
-
-	/**
-	 * Returns the full wp_anpa_email_attempts table name (fase35).
-	 *
-	 * @since  1.39.0
-	 * @return string
-	 */
-	public static function tabela_email_attempts(): string {
-		global $wpdb;
-
-		return $wpdb->prefix . 'anpa_email_attempts';
 	}
 
 	/**
@@ -4020,149 +3975,16 @@ class ANPA_Socios_DB {
 		return true;
 	}
 
-	/** Reads SHOW COLUMNS for anpa_grupos.estado and checks the enum lists «deshabilitado». */
-	private static function grupos_estado_inclue_deshabilitado(): bool {
-		global $wpdb;
-
-		$column = $wpdb->get_row(
-			$wpdb->prepare( 'SHOW COLUMNS FROM ' . self::tabela_grupos() . ' LIKE %s', 'estado' ),
-			ARRAY_A
-		);
-		if ( ! is_array( $column ) || ! isset( $column['Type'] ) ) {
-			return false;
-		}
-		return false !== strpos( (string) $column['Type'], 'deshabilitado' );
-	}
-
+	/**
+	 * 1.39.0 (fase35) used to create the email queue tables. The queue was
+	 * retired without ever having a producer (1.64.0) and removed in 1.65.0, so
+	 * this step is a no-op: fresh installs never get the tables and 1.42.0
+	 * drops them wherever they were created.
+	 *
+	 * @since  1.39.0
+	 * @return bool
+	 */
 	private static function migrate_to_1_39_0(): bool {
-		global $wpdb;
-
-		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-		$charset_collate = $wpdb->get_charset_collate();
-
-		$campaigns  = self::tabela_email_campaigns();
-		$recipients = self::tabela_email_recipients();
-		$attempts   = self::tabela_email_attempts();
-
-		// All datetime columns store UTC (written by the app with gmdate();
-		// SQL scheduling/comparisons use UTC_TIMESTAMP()). NO CURRENT_TIMESTAMP
-		// defaults, whose value depends on the MySQL session time zone. Plain
-		// `datetime` (second precision) is compatible with the minimum supported
-		// engines (WordPress 6.0 → MySQL 5.7+ / MariaDB 10.3+).
-		//
-		// 1. Campaigns. Denormalised counters here are a fast cache, NOT the
-		//    source of truth: totals are recalculable from email_recipients and
-		//    reconciled by the queue service (see design.md §Contadores).
-		dbDelta(
-			"CREATE TABLE {$campaigns} (
-				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-				uuid char(36) NOT NULL,
-				event_type varchar(40) NOT NULL DEFAULT '',
-				state varchar(16) NOT NULL DEFAULT 'pending',
-				course_year varchar(9) NULL,
-				trimester tinyint(1) NULL,
-				entity_type varchar(20) NOT NULL DEFAULT 'general',
-				entity_id bigint(20) unsigned NULL,
-				template_ref varchar(64) NULL,
-				payload_version smallint(5) unsigned NOT NULL DEFAULT 1,
-				total int(10) unsigned NOT NULL DEFAULT 0,
-				pending_count int(10) unsigned NOT NULL DEFAULT 0,
-				processed_count int(10) unsigned NOT NULL DEFAULT 0,
-				accepted_count int(10) unsigned NOT NULL DEFAULT 0,
-				failed_count int(10) unsigned NOT NULL DEFAULT 0,
-				cancelled_count int(10) unsigned NOT NULL DEFAULT 0,
-				skipped_count int(10) unsigned NOT NULL DEFAULT 0,
-				batch_size smallint(5) unsigned NOT NULL DEFAULT 25,
-				max_attempts smallint(5) unsigned NOT NULL DEFAULT 5,
-				scheduled_at_utc datetime NULL,
-				created_at_utc datetime NOT NULL,
-				updated_at_utc datetime NULL,
-				started_at_utc datetime NULL,
-				finished_at_utc datetime NULL,
-				paused_at_utc datetime NULL,
-				cancelled_at_utc datetime NULL,
-				purge_after_utc datetime NULL,
-				created_by varchar(100) NOT NULL DEFAULT '',
-				idempotency_key char(64) NOT NULL,
-				meta_json longtext NULL,
-				PRIMARY KEY  (id),
-				UNIQUE KEY uuid (uuid),
-				UNIQUE KEY idempotency_key (idempotency_key),
-				KEY state (state),
-				KEY created_at_utc (created_at_utc)
-			) {$charset_collate};"
-		);
-
-		// 2. Recipients (one row per recipient). Dedup via UNIQUE(idempotency_key),
-		//    where the key is sha256 of a canonical JSON of
-		//    [version, campaign_uuid, normalized_email, recipient_type, message_key]
-		//    (see ANPA_Socios_Email_Recipients). email is varchar(254) (RFC max),
-		//    NOT uniquely indexed (the char(64) key handles dedup within index
-		//    limits). All datetimes are UTC.
-		dbDelta(
-			"CREATE TABLE {$recipients} (
-				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-				campaign_id bigint(20) unsigned NOT NULL,
-				email varchar(254) NOT NULL,
-				recipient_type varchar(20) NOT NULL DEFAULT 'other',
-				message_key varchar(190) NOT NULL DEFAULT '',
-				entity_type varchar(20) NOT NULL DEFAULT 'general',
-				entity_id bigint(20) unsigned NULL,
-				state varchar(20) NOT NULL DEFAULT 'pending',
-				attempts smallint(5) unsigned NOT NULL DEFAULT 0,
-				next_attempt_at_utc datetime NULL,
-				last_attempt_at_utc datetime NULL,
-				accepted_at_utc datetime NULL,
-				last_error varchar(255) NOT NULL DEFAULT '',
-				subject_render varchar(255) NOT NULL DEFAULT '',
-				payload_snapshot longtext NULL,
-				payload_hash char(64) NOT NULL DEFAULT '',
-				lease_token char(36) NOT NULL DEFAULT '',
-				locked_at_utc datetime NULL,
-				locked_until_utc datetime NULL,
-				idempotency_key char(64) NOT NULL,
-				correlation_id varchar(64) NOT NULL DEFAULT '',
-				created_at_utc datetime NOT NULL,
-				updated_at_utc datetime NOT NULL,
-				PRIMARY KEY  (id),
-				UNIQUE KEY idempotency_key (idempotency_key),
-				KEY campaign_state (campaign_id, state),
-				KEY claimable (state, next_attempt_at_utc),
-				KEY locked_until_utc (locked_until_utc)
-			) {$charset_collate};"
-		);
-
-		// 3. Attempts (one row per attempt). All datetimes are UTC.
-		dbDelta(
-			"CREATE TABLE {$attempts} (
-				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-				campaign_id bigint(20) unsigned NOT NULL,
-				recipient_id bigint(20) unsigned NOT NULL,
-				attempt_no smallint(5) unsigned NOT NULL,
-				started_at_utc datetime NOT NULL,
-				finished_at_utc datetime NULL,
-				result varchar(16) NOT NULL DEFAULT '',
-				error_category varchar(40) NOT NULL DEFAULT '',
-				error_message varchar(255) NOT NULL DEFAULT '',
-				duration_ms int(10) unsigned NULL,
-				correlation_id varchar(64) NOT NULL DEFAULT '',
-				PRIMARY KEY  (id),
-				UNIQUE KEY recipient_attempt (recipient_id, attempt_no),
-				KEY recipient (recipient_id),
-				KEY campaign (campaign_id)
-			) {$charset_collate};"
-		);
-
-		// Postcondition: the three tables exist.
-		if ( self::table_missing( $campaigns ) || self::table_missing( $recipients ) || self::table_missing( $attempts ) ) {
-			$wpdb->last_error = '1.39.0 email queue table creation postcondition failed';
-			return false;
-		}
-
-		// NOTE: this migration intentionally creates NO campaign, schedules NO
-		// send and sends NO email. The recurring cron event is registered
-		// separately (activation/admin_init) and its tick is a no-op until the
-		// queue processor lands (later PR); it never runs during migration.
 		return true;
 	}
 
@@ -4308,5 +4130,43 @@ class ANPA_Socios_DB {
 		}
 
 		return array( 'inicio' => (string) $row['inicio'], 'fin' => (string) $row['fin'] );
+	}
+
+	/**
+	 * Migration to 1.42.0: drops the never-used fase35 email queue tables and
+	 * forgets its options and cron events. Idempotent (IF EXISTS / delete).
+	 * The fase36 template store (`anpa_socios_email_templates`) and the
+	 * signature (`anpa_socios_email_signature`) are NOT touched.
+	 *
+	 * @since  1.65.0
+	 * @return bool
+	 */
+	private static function migrate_to_1_42_0(): bool {
+		global $wpdb;
+
+		foreach ( array( 'anpa_email_attempts', 'anpa_email_recipients', 'anpa_email_campaigns' ) as $suffix ) {
+			$table = $wpdb->prefix . $suffix;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- guarded schema migration.
+			if ( false === $wpdb->query( "DROP TABLE IF EXISTS {$table}" ) ) {
+				return false;
+			}
+		}
+		foreach ( array(
+			'anpa_socios_delete_comms_on_uninstall',
+			'anpa_socios_email_payload_retention_days',
+			'anpa_socios_email_metadata_retention_days',
+			'anpa_socios_email_last_run_utc',
+			'anpa_socios_email_purge_last_run_utc',
+			'anpa_socios_email_run_lock',
+			'anpa_socios_email_run_max_seconds',
+		) as $option ) {
+			delete_option( $option );
+		}
+		if ( function_exists( 'wp_clear_scheduled_hook' ) ) {
+			wp_clear_scheduled_hook( 'anpa_socios_email_queue_tick' );
+			wp_clear_scheduled_hook( 'anpa_socios_email_purge_daily' );
+		}
+
+		return true;
 	}
 }
