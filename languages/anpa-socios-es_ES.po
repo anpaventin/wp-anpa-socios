@@ -1527,8 +1527,20 @@ msgstr "Cerrar matrículas (ventana)"
 msgid "Aquí está o único interruptor das matrículas. Cada trimestre ten dous estados independentes: o estado lectivo (pendente, activo, pechado) é informativo e serve para o calendario e os avisos; a ventá do trimestre é a que abre ou pecha as matrículas, baixas e solicitudes das familias. O trimestre actual derívase das datas operativas do curso. As transicións son manuais e quedan rexistradas (quen, cando, orixe); o sistema avisa cando chega unha data operativa pero nunca cambia un estado por si só."
 msgstr "Aquí está el único interruptor de las matrículas. Cada trimestre tiene dos estados independientes: el estado lectivo (pendiente, activo, cerrado) es informativo y sirve para el calendario y los avisos; la ventana del trimestre es la que abre o cierra las matrículas, bajas y solicitudes de las familias. El trimestre actual se deriva de las fechas operativas del curso. Las transiciones son manuales y quedan registradas (quién, cuándo, origen); el sistema avisa cuando llega una fecha operativa pero nunca cambia un estado por sí solo."
 
-msgid "Rexistro de e\nvíos"
-msgstr "Registro de e\nvíos"
+msgid "Rexistro de envíos"
+msgstr "Registro de envíos"
 
-msgid "Esta pa\ntalla é o mo\nitor da cola de correo: amosa as campañas de e\nvío masivo la\nzadas desde «E\nviar desde a directiva» (desti\natarios, i\nte\ntos, resultado) e permite procesalas, pausalas ou rei\nte\ntalas. Os correos automáticos du\n só desti\natario (códigos de verificació\n, be\nvidas, avisos de baixa ou de praza) e\nvía\nse ao mome\nto e \no\n aparece\n aquí; as súas pla\ntillas edíta\nse e\n «Pla\ntillas de Email». É \normal que estea baleira se \no\n se fixo \ni\ngú\n e\nvío masivo."
-msgstr "Esta pa\ntalla es el mo\nitor de la cola de correo: muestra las campañas de e\nvío masivo la\nzadas desde «E\nviar desde la directiva» (desti\natarios, i\nte\ntos, resultado) y permite procesarlas, pausarlas o rei\nte\ntarlas. Los correos automáticos de u\n solo desti\natario (códigos de verificació\n, bie\nve\nidas, avisos de baja o de plaza) se e\nvía\n al mome\nto y \no aparece\n aquí; sus pla\ntillas se edita\n e\n «Pla\ntillas de Email». Es \normal que esté vacía si \no se ha hecho \ni\ngú\n e\nvío masivo."
+msgid "Esta pantalla é o monitor da cola de correo: amosa as campañas de envío masivo lanzadas desde «Enviar desde a directiva» (destinatarios, intentos, resultado) e permite procesalas, pausalas ou reintentalas. Os correos automáticos dun só destinatario (códigos de verificación, benvidas, avisos de baixa ou de praza) envíanse ao momento e non aparecen aquí; as súas plantillas edítanse en «Plantillas de Email». É normal que estea baleira se non se fixo ningún envío masivo."
+msgstr "Esta pantalla es el monitor de la cola de correo: muestra las campañas de envío masivo lanzadas desde «Enviar desde la directiva» (destinatarios, intentos, resultado) y permite procesarlas, pausarlas o reintentarlas. Los correos automáticos de un solo destinatario (códigos de verificación, bienvenidas, avisos de baja o de plaza) se envían al momento y no aparecen aquí; sus plantillas se editan en «Plantillas de Email». Es normal que esté vacía si no se ha hecho ningún envío masivo."
+
+msgid "Comprobar actualizacións"
+msgstr "Comprobar actualizaciones"
+
+msgid "ANPA Socios está actualizado: non hai ningunha versión nova."
+msgstr "ANPA Socios está actualizado: no hay ninguna versión nueva."
+
+msgid "Hai unha nova versión de ANPA Socios dispoñible. Actualízao desde esta mesma páxina de Plugins."
+msgstr "Hay una nueva versión de ANPA Socios disponible. Actualízalo desde esta misma página de Plugins."
+
+msgid "Non se puido comprobar se hai actualizacións de ANPA Socios. Téntao de novo nuns minutos."
+msgstr "No se pudo comprobar si hay actualizaciones de ANPA Socios. Inténtalo de nuevo en unos minutos."

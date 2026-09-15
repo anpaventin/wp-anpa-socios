@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.63.1] - 2026-09-15
+
+### Fixed
+
+- **«Check for updates» en galego.** Na pantalla de Plugins, a ligazón do comprobador de actualizacións e o aviso
+  de resultado saían en inglés porque a biblioteca (plugin-update-checker) trae castelán pero non galego. Agora
+  a ligazón di «Comprobar actualizacións» e o aviso indica se o plugin está actualizado, se hai versión nova ou
+  se non se puido comprobar (con tradución ao castelán no catálogo es_ES). Corríxense de paso dúas entradas
+  corrompidas do catálogo es_ES («Rexistro de e\nvíos») que non traducían nada.
+
 ## [1.63.0] - 2026-09-15
 
 ### Fixed
