@@ -12,17 +12,9 @@
  * It intentionally does NOT rely on the plugin's classes: WordPress loads this
  * file in isolation, so everything is done directly with $wpdb + core helpers.
  *
- * COMMUNICATIONS EXCEPTION (fase35): the email communications tables
- * (wp_anpa_email_campaigns / _recipients / _attempts) are PRESERVED by default,
- * because campaign and attempt records may be needed to diagnose incidents and
- * to evidence administrative actions. They are removed ONLY when an admin
- * explicitly enabled the option `anpa_socios_delete_comms_on_uninstall` (value
- * exactly "1"). The option scope is COMMUNICATIONS ONLY — it is deliberately NOT
- * named "delete all data", since the rest of the plugin's tables follow the
- * existing destructive-by-default uninstall (take a backup first).
- *
- * DEFENSIVE: absent option → preserve; unexpected value → preserve; only the
- * exact authorized value "1" deletes the communications tables.
+ * 1.65.0: the fase35 communications tables no longer exist (the queue was retired
+ * unused), so there is no preservation exception any more: every wp_anpa_* table
+ * is dropped like the rest.
  *
  * MULTISITE: the plugin is designed for PER-SITE installation. On multisite this
  * cleanup runs per site (switch_to_blog loop below) and only ever touches the
@@ -51,30 +43,14 @@ if ( ! function_exists( 'anpa_socios_uninstall_cleanup' ) ) :
 function anpa_socios_uninstall_cleanup() {
 	global $wpdb;
 
-	// fase35: the email communications tables (campaigns/recipients/attempts) are
-	// PRESERVED by default on uninstall — they may be needed to diagnose incidents
-	// and to evidence administrative actions. They are removed ONLY when an admin
-	// explicitly set `anpa_socios_delete_comms_on_uninstall` to exactly "1"
-	// (COMMUNICATIONS-ONLY scope). Defensive: any other value, or its absence,
-	// preserves. Read the flag BEFORE deleting options below.
-	$delete_comms = ( '1' === (string) get_option( 'anpa_socios_delete_comms_on_uninstall', '0' ) );
-	$preserve     = $delete_comms ? array() : array(
-		$wpdb->prefix . 'anpa_email_campaigns',
-		$wpdb->prefix . 'anpa_email_recipients',
-		$wpdb->prefix . 'anpa_email_attempts',
-	);
 
-	// 1. Drop every custom table owned by the plugin (wp_anpa_*), except the
-	//    communications tables when they must be preserved. Table names come from
-	//    SHOW TABLES (never user input), so they are safe to inline.
+	// 1. Drop every custom table owned by the plugin (wp_anpa_*). Table names come
+	//    from SHOW TABLES (never user input), so they are safe to inline.
 	$like   = $wpdb->esc_like( $wpdb->prefix . 'anpa_' ) . '%';
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
 	$tables = $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $like ) );
 	if ( is_array( $tables ) ) {
 		foreach ( $tables as $table ) {
-			if ( in_array( $table, $preserve, true ) ) {
-				continue; // Keep communications data unless explicit delete-all.
-			}
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
 			$wpdb->query( 'DROP TABLE IF EXISTS `' . str_replace( '`', '', $table ) . '`' );
 		}

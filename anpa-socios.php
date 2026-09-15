@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ANPA Socios
  * Description: Xestión de socios para asociacións de nais e pais (ANPA/AMPA): área de socios sen contrasinal, fillos e actividades extraescolares, domiciliación SEPA cifrada, ciclo de curso, panel de administración e actualizacións self-hosted. Configurable para calquera asociación.
- * Version: 1.64.0
+ * Version: 1.65.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: ANPA Socios
@@ -21,8 +21,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ANPA_SOCIOS_VERSION', '1.64.0' );
-define( 'ANPA_SOCIOS_DB_VERSION', '1.41.0' );
+define( 'ANPA_SOCIOS_VERSION', '1.65.0' );
+define( 'ANPA_SOCIOS_DB_VERSION', '1.42.0' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 
@@ -62,13 +62,6 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-calendario
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-trimestre-estado.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-ventana-estado.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-matricula-gate.php';
-// fase35: email queue pure domain (value objects + policies).
-require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-email-campaign-state.php';
-require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-email-recipient-state.php';
-require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-email-backoff.php';
-require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-email-recipients.php';
-require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-email-batch-planner.php';
-require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-email-retention.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-course-settings.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-season.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-preseason-gate.php';
@@ -117,15 +110,6 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-fillo-cursos-r
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-extraescolares-rest.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-extraescolar-offers.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-season-service.php';
-require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-render-provider.php';
-require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-template-render-provider.php';
-require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-queue-repo.php';
-require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-queue.php';
-require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-processor.php';
-require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-admin-actions.php';
-require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-purge.php';
-require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-cron.php';
-require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-communications-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-templates-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-template-actions.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-template-migration.php';
@@ -158,13 +142,8 @@ register_activation_hook( __FILE__, array( 'ANPA_Socios_Season_Service', 'progra
 // fase36: seed email template defaults on activation.
 register_activation_hook( __FILE__, array( 'ANPA_Socios_Email_Template_Migration', 'migrate' ) );
 
-// 1.64.0: the fase35 email queue is RETIRED from the UI. Nothing ever created a
-// campaign (the «Enviar desde a directiva» launcher was left for a fase 39 that
-// was never built), so the 5-minute tick and the daily purge only burned cron
-// slots and the «Rexistro de envíos» screen was always empty. The code and the
-// three tables stay for now (removal is a separate, tested step); the events
-// are unscheduled on the next admin visit so nothing keeps running.
-add_action( 'admin_init', array( 'ANPA_Socios_Email_Cron', 'unschedule' ) );
+// 1.64.0/1.65.0: the fase35 email queue was retired (never used) and its code
+// removed; migration 1.42.0 drops its tables and clears its cron events.
 
 // fase36: template management write actions (save / restore).
 ANPA_Socios_Email_Template_Actions::register();
@@ -182,8 +161,6 @@ add_action( 'admin_init', static function () {
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_DB', 'desprogramar_limpeza_sesions' ) );
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Extraescolar_Offers', 'desprogramar' ) );
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Season_Service', 'desprogramar' ) );
-// fase35: cancel the email queue tick on deactivation (never deletes data).
-register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Email_Cron', 'unschedule' ) );
 
 add_action( 'rest_api_init', array( 'ANPA_Socios_REST', 'register_routes' ) );
 // fase13b: serve the anpa/v1 verification routes ourselves, but only when the
@@ -240,11 +217,3 @@ add_action(
 	}
 );
 
-// FASE36: Register the template render provider so FASE35 queue can render
-// template-based emails without knowing the template syntax.
-add_filter(
-	'anpa_socios_email_render_provider',
-	static function () {
-		return new ANPA_Socios_Email_Template_Render_Provider();
-	}
-);

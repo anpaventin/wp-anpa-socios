@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.65.0] - 2026-09-15
+
+### Removed
+
+- **Elimínase o código da cola de correo (fase 35) e as súas táboas.** Tras retirala da interface na 1.64.0,
+  desaparecen as quince clases da cola (campañas, destinatarios, intentos, procesador, cron, purga, retención,
+  accións admin, pantalla «Rexistro de envíos» e os provedores de renderizado), os seus tests de unidade e de
+  integración e a excepción de `uninstall.php` que conservaba as táboas. A migración de esquema **1.42.0** fai
+  `DROP TABLE IF EXISTS` de `anpa_email_campaigns`, `anpa_email_recipients` e `anpa_email_attempts` (baleiras
+  en produción: nunca se creou unha campaña), borra as opcións propias da cola (retención, último run, bloqueo,
+  borrado ao desinstalar) e anula os seus eventos de cron; `migrate_to_1_39_0` pasa a non facer nada para que
+  unha instalación antiga non cree as táboas só para borralas. Non toca as plantillas de email
+  (`anpa_socios_email_templates`) nin a sinatura. `ANPA_Socios_Email_Ownership` (exclusividade de correos entre
+  socios e empresas) non ten que ver coa cola e mantense. Probado primeiro no LXC 103; ver
+  `openspec/changes/2026-09-15-retirada-cola-comunicacions`.
+
 ## [1.64.0] - 2026-09-15
 
 ### Removed
