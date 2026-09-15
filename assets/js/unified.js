@@ -473,12 +473,29 @@
 	 * Step: alta — request verification code for the alta flow.
 	 * @param {object} cfg
 	 */
+	/**
+	 * 1.62.1: Enter in a step's input acts like its main button. The widget is
+	 * not a <form> (the three steps share one root and their buttons are
+	 * type="button"), so without this Enter did nothing.
+	 * @param {HTMLElement|null} input
+	 * @param {HTMLElement|null} button
+	 */
+	function bindEnter(input, button) {
+		if (!input || !button) { return; }
+		input.addEventListener('keydown', function (event) {
+			if (event.key !== 'Enter' || event.isComposing) { return; }
+			event.preventDefault();
+			if (!button.disabled) { button.click(); }
+		});
+	}
+
 	function initAltaStep(cfg) {
 		var emailInput = cfg.root.querySelector('#anpa-unified-email');
 		var tsInput = cfg.root.querySelector('#anpa-unified-ts');
 
 		var requestBtn = cfg.root.querySelector('[data-action="request-code-alta"]');
 		if (!requestBtn) { return; }
+		bindEnter(emailInput, requestBtn);
 
 		requestBtn.addEventListener('click', async function () {
 			var email = (emailInput.value || '').trim().toLowerCase();
@@ -510,6 +527,7 @@
 		var codeInput = cfg.root.querySelector('#anpa-unified-code');
 		var verifyBtn = cfg.root.querySelector('[data-action="verify-code"]');
 		var backBtn = cfg.root.querySelector('[data-action="back-email"]');
+		bindEnter(codeInput, verifyBtn);
 
 		if (verifyBtn) {
 			verifyBtn.addEventListener('click', async function () {

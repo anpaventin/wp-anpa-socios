@@ -275,6 +275,22 @@
 			}
 		}
 
+		// 1.62.1: Enter in a login input acts like the step's main button. The
+		// login steps are cards, not a <form>, and their buttons are type="button".
+		function enterClicks(inputSelector, buttonSelector) {
+			const input = root.querySelector(inputSelector);
+			const button = root.querySelector(buttonSelector);
+			if (!input || !button) { return; }
+			input.addEventListener('keydown', function (event) {
+				if (event.key !== 'Enter' || event.isComposing) { return; }
+				event.preventDefault();
+				if (!button.disabled) { button.click(); }
+			});
+		}
+		enterClicks('#anpa-area-email', '[data-action="request-code"]');
+		enterClicks('#anpa-area-code', '[data-action="verify-code"]');
+		enterClicks('#anpa-area-email-alta', '[data-action="request-code-alta"]');
+
 		let email = '';
 		let fase1Token = '';
 		let areaToken = '';
