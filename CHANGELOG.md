@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.65.2] - 2026-09-16
+
+### Fixed
+
+- **Área → Os meus datos: o bloque «Segundo proxenitor / titor» saía apelotoado.** Era un contedor normal dentro
+  da tarxeta (que coloca os campos en columna con separación), así que as súas etiquetas quedaban en liña e os
+  campos sen espazo entre eles; ademais o campo de teléfono (`type="tel"`) non tiña as regras de anchura dos
+  campos de texto. Agora o bloque usa a mesma disposición en columna, con separador superior, as etiquetas van en
+  bloque, e teléfono, data e desplegables comparten anchura, bordes e tamaño de letra co resto (16 px en móbil para
+  evitar o zoom de iOS; botón a ancho completo en pantallas pequenas). Só CSS: sen cambios de comportamento.
+
 ## [1.65.1] - 2026-09-15
 
 ### Fixed

@@ -803,3 +803,45 @@
 
 /* 1.60.1: company/canteen panel — waiting-list rows in yellow. */
 #anpa-area .anpa-empresa-alumnos tr.anpa-empresa-estado-lista_espera td { background: #fff9c4; }
+
+/* ── 1.65.2: nested field groups + every text-like control share one layout ──
+   «Os meus datos → Segundo proxenitor / titor» is a plain div inside the flex
+   card, so its labels sat inline and its fields had no vertical gap; the phone
+   field (type="tel") also escaped the width rules written for text/email. */
+#anpa-area .anpa-area-p2-inline {
+	display: flex;
+	flex-direction: column;
+	gap: 0.85rem;
+	margin-top: 0.5rem;
+	padding-top: 0.85rem;
+	border-top: 1px solid var(--anpa-border);
+}
+#anpa-area .anpa-area-p2-inline[hidden] { display: none; }
+#anpa-area .anpa-area-p2-inline h3 { margin: 0; }
+#anpa-area .anpa-area-card > label,
+#anpa-area .anpa-area-p2-inline > label { display: block; margin-bottom: -0.45rem; }
+#anpa-area input[type="tel"],
+#anpa-area input[type="date"],
+#anpa-area input[type="number"],
+#anpa-area .anpa-area-card select {
+	width: 100%;
+	max-width: var(--anpa-measure, 34rem);
+	box-sizing: border-box;
+	padding: 0.7rem 0.85rem;
+	border: 1px solid var(--theme-border-color, #d9d9d9);
+	border-radius: 6px;
+	font-size: 1rem;
+	background: var(--anpa-surface, #fff);
+}
+#anpa-area input[type="tel"][inputmode="numeric"] { max-width: 16rem; }
+@media (max-width: 768px) {
+	#anpa-area input[type="tel"],
+	#anpa-area input[type="date"],
+	#anpa-area input[type="number"],
+	#anpa-area .anpa-area-card select { font-size: 16px; } /* prevent iOS zoom on focus */
+}
+@media (max-width: 480px) {
+	#anpa-area .anpa-area-p2-inline button { width: 100%; }
+	#anpa-area input[type="tel"][inputmode="numeric"],
+	#anpa-area input[inputmode="numeric"] { max-width: 100%; }
+}

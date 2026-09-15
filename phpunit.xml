@@ -122,6 +122,7 @@
       <file>tests/Test_ANPA_Socios_Login_Enter.php</file>
       <file>tests/Test_ANPA_Socios_Updater_Ui.php</file>
       <file>tests/Test_ANPA_Socios_Cola_Retirada.php</file>
+      <file>tests/Test_ANPA_Socios_Area_Layout.php</file>
       <file>tests/Test_ANPA_Socios_Contenido_Config.php</file>
       <file>tests/Test_ANPA_Socios_Contenido_Admin.php</file>
       <file>tests/Test_ANPA_Socios_Contenido_Libros.php</file>
