@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.65.4] - 2026-09-16
+
+### Fixed
+
+- **Área → Nova matrícula: alumno, actividade e grupo saían xuntos na mesma liña.** O formulario constrúeo o
+  JavaScript nun contedor sen disposición propia, así que as etiquetas e os tres desplegables quedaban en liña. Agora
+  o contedor vai en columna coa mesma separación que o resto de tarxetas: cada etiqueta enriba do seu desplegable,
+  desplegables coa anchura dos demais campos, e o botón a ancho completo en pantallas pequenas. Só CSS.
+
 ## [1.65.3] - 2026-09-16
 
 ### Fixed

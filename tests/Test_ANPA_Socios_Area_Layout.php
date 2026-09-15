@@ -26,6 +26,16 @@ final class Test_ANPA_Socios_Area_Layout extends TestCase {
 		$this->assertStringContainsString( "#anpa-area .anpa-area-card > label,\n#anpa-area .anpa-area-p2-inline > label { display: block;", $css );
 	}
 
+	public function test_enrolment_form_stacks_its_labels_and_selects(): void {
+		// 1.65.4: area.js builds «Nova matrícula» as .anpa-socio-edit (label, select, label, select, …).
+		$js = (string) file_get_contents( dirname( __DIR__ ) . '/assets/js/area.js' );
+		$this->assertStringContainsString( "form.className = 'anpa-socio-edit';", $js );
+		$css = $this->css();
+		$this->assertMatchesRegularExpression( '/#anpa-area \.anpa-socio-edit \{\n\tdisplay: flex;\n\tflex-direction: column;\n\tgap: 0\.85rem;/', $css );
+		$this->assertStringContainsString( '#anpa-area .anpa-socio-edit > label { display: block;', $css );
+		$this->assertStringContainsString( '#anpa-area .anpa-socio-edit > select { width: 100%; max-width: var(--anpa-measure, 34rem); }', $css );
+	}
+
 	public function test_phone_date_and_selects_share_the_text_field_sizing(): void {
 		$css = $this->css();
 		$this->assertMatchesRegularExpression( '/#anpa-area input\[type="tel"\],\n#anpa-area input\[type="date"\],\n#anpa-area input\[type="number"\],\n#anpa-area \.anpa-area-card select \{[^}]*width: 100%;[^}]*max-width: var\(--anpa-measure, 34rem\);[^}]*padding: 0\.7rem 0\.85rem;/s', $css );
