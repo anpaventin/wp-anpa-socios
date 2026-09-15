@@ -1166,7 +1166,7 @@
 		var intro = document.createElement('p');
 		intro.className = 'description';
 		// 1.62.0: both decisions email the family with the templates in Axustes → Plantillas.
-		intro.textContent = 'Solicitudes abertas polas familias desde a área de socios. Confirmar fai efectiva a baixa; rexeitar deixa todo como estaba. Nos dous casos a familia recibe un correo automático (plantillas «baixa_socio_confirmada», «baixa_socio_rexeitada», «baixa_extraescolar_confirmada» e «baixa_extraescolar_rexeitada» en Axustes → Plantillas de email). Na baixa dunha actividade o correo indica se é efectiva ao remate do trimestre en curso (trimestre xa iniciado) ou de inmediato e sen cobro (período de inscrición).';
+		intro.textContent = 'Solicitudes abertas polas familias desde a área de socios. Confirmar fai efectiva a baixa; rexeitar deixa todo como estaba. Nos dous casos a familia recibe un correo automático (plantillas «baixa_socio_confirmada», «baixa_socio_rexeitada», «baixa_extraescolar_confirmada» e «baixa_extraescolar_rexeitada» en Axustes → Plantillas de email). Na baixa dunha actividade o correo indica se é inmediata e sen cobro (ventá de inscrición do trimestre aínda aberta) ou efectiva ao remate do trimestre en curso (ventá xa pechada).';
 		root.appendChild(intro);
 
 		function actionCell(onConfirm, onReject, confirmLabel) {
@@ -1427,6 +1427,14 @@
 		ic.appendChild(el('p', 'Correo para todas as familias co que fai a web: iniciar sesión como socio/a (código ao correo, sen contrasinal), darse de alta, modificar os datos e inscribirse nas actividades extraescolares. Para non saturar o WordPress envíase UNHA soa vez á conta da xunta' + (d.conta_xunta ? ' (' + d.conta_xunta + ')' : '') + ' e dende Gmail reenvíase á etiqueta «' + etiqueta + '» (en CCO). O texto edítase na plantilla «inicio_curso» de Axustes → Plantillas de email.', 'description'));
 		var icActs = el('div', null, 'anpa-mgmt-form-actions');
 		icActs.style.display = 'flex'; icActs.style.gap = '0.5rem'; icActs.style.flexWrap = 'wrap';
+		// 1.63.0: the email links to the instructions post and the activities page from Axustes → Xeral.
+		if (!d.instrucions_url) {
+			var icWarn = el('p', 'Atención: aínda non está configurada a URL da entrada coas instrucións (Axustes → Xeral → «Entrada coas instrucións para as familias»); mentres tanto o correo liga á área de socios. Publica primeiro a entrada e garda a súa URL.');
+			icWarn.style.color = '#8a6d00'; icWarn.style.fontWeight = '600';
+			ic.appendChild(icWarn);
+		} else {
+			ic.appendChild(el('p', 'Ligazóns do correo: instrucións → ' + d.instrucions_url + (d.extraescolares_url ? ' · extraescolares → ' + d.extraescolares_url : ' · extraescolares → páxina co shortcode [anpa_extraescolares_ofertadas]'), 'description'));
+		}
 		var icSend = el('button', 'Enviar o correo de inicio de curso á conta da xunta', 'anpa-mgmt-btn');
 		icSend.type = 'button';
 		icSend.addEventListener('click', function () {

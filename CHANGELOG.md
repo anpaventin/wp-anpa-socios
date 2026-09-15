@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.63.0] - 2026-09-15
+
+### Fixed
+
+- **Baixa dunha actividade: a regra do trimestre miraba o dato equivocado.** O correo de confirmación decidía
+  polo estado do trimestre («activo» só significa que é o trimestre en curso), así que o 15/09 unha familia
+  recibiu que a baixa sería efectiva o 22/12 cando a inscrición do 1º trimestre aínda estaba aberta e as clases
+  sen confirmar. Agora a regra mira a **ventá de matrícula** (Axustes → Cursos → Estado dos trimestres), en
+  calquera dos tres trimestres: coa ventá ABERTA a baixa é efectiva desde ese momento e sen ningún cobro («as
+  clases aínda non están confirmadas»); coa ventá PECHADA é efectiva ao remate do trimestre, coa data de peche
+  operativo, e a cota mantense ata entón. Se o estado é descoñecido nunca se anuncia un cobro.
+
+### Changed
+
+- **Correo de inicio de curso reescrito** sobre o modelo do correo que a xunta enviou en setembro: saúdo ás
+  familias, prazo aberto para facerse socio/a e inscribirse, tres ligazóns (entrada coas instrucións paso a paso,
+  oferta de actividades e horarios, área de socios/as), calendario relativo (as actividades comezan o 1 de
+  outubro; cinco días antes péchase a inscrición e envíase o listado ás empresas, deixando dous días para dar de
+  baixa ou cambiar de actividade), aviso de que a web avisa por correo en cada paso, e o aviso sobre os pagos (o
+  cobro faino cada empresa). Sen días da semana nin datas concretas para que non caduque.
+- **Axustes → Xeral: dúas ligazóns novas** para ese correo: «Entrada coas instrucións para as familias» e
+  «Páxina pública de extraescolares» (se queda baleira, búscase a páxina co shortcode
+  `[anpa_extraescolares_ofertadas]`). Lista Gmail avisa se a entrada de instrucións aínda non está configurada.
+
 ## [1.62.1] - 2026-09-15
 
 ### Added

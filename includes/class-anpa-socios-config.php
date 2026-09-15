@@ -62,6 +62,15 @@ final class ANPA_Socios_Config {
 	const OPTION_GOOGLE_CONTACTS_EMAIL = 'anpa_socios_google_contacts_email';
 
 	/**
+	 * 1.63.0: links used by the start-of-year email («inicio_curso»): the blog
+	 * post with the instructions for families and the public activities page.
+	 *
+	 * @var string
+	 */
+	const OPTION_INSTRUCIONS_URL = 'anpa_socios_instrucions_url';
+	const OPTION_EXTRAESCOLARES_URL = 'anpa_socios_extraescolares_url';
+
+	/**
 	 * Returns the resolved master email.
 	 *
 	 * Precedence: wp-config constant > WP option > default constant.
@@ -210,6 +219,26 @@ final class ANPA_Socios_Config {
 	 */
 	public static function google_contacts_email(): string {
 		return strtolower( trim( (string) get_option( self::OPTION_GOOGLE_CONTACTS_EMAIL, '' ) ) );
+	}
+
+	/**
+	 * URL of the blog post with the instructions for families ('' when not set).
+	 *
+	 * @since  1.63.0
+	 * @return string
+	 */
+	public static function instrucions_url(): string {
+		return trim( (string) get_option( self::OPTION_INSTRUCIONS_URL, '' ) );
+	}
+
+	/**
+	 * URL of the public activities page ('' when not set).
+	 *
+	 * @since  1.63.0
+	 * @return string
+	 */
+	public static function extraescolares_url(): string {
+		return trim( (string) get_option( self::OPTION_EXTRAESCOLARES_URL, '' ) );
 	}
 
 	/**
