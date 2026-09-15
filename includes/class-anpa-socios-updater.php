@@ -85,5 +85,43 @@ final class ANPA_Socios_Updater {
 		}
 
 		call_user_func( array( $factory, 'buildUpdateChecker' ), $url, ANPA_SOCIOS_PLUGIN_FILE, self::SLUG );
+
+		// 1.63.1: the library ships Spanish but no Galician, so the «Check for
+		// updates» link and its result notice on the Plugins screen stayed in
+		// English on a gl_ES site. Label them in the plugin's own language (the
+		// es_ES catalogue translates them for Spanish sites).
+		add_filter( 'puc_manual_check_link-' . self::SLUG, array( __CLASS__, 'manual_check_link_text' ) );
+		add_filter( 'puc_manual_check_message-' . self::SLUG, array( __CLASS__, 'manual_check_message' ), 10, 2 );
+	}
+
+	/**
+	 * Text of the manual «Check for updates» link in the plugin row.
+	 *
+	 * @since  1.63.1
+	 * @return string
+	 */
+	public static function manual_check_link_text(): string {
+		return __( 'Comprobar actualizacións', 'anpa-socios' );
+	}
+
+	/**
+	 * Result notice after a manual check (statuses defined by the library).
+	 *
+	 * @since  1.63.1
+	 * @param  string $message Library message (already escaped).
+	 * @param  string $status  'no_update' | 'update_available' | 'error' | other.
+	 * @return string
+	 */
+	public static function manual_check_message( $message, $status ): string {
+		switch ( (string) $status ) {
+			case 'no_update':
+				return esc_html__( 'ANPA Socios está actualizado: non hai ningunha versión nova.', 'anpa-socios' );
+			case 'update_available':
+				return esc_html__( 'Hai unha nova versión de ANPA Socios dispoñible. Actualízao desde esta mesma páxina de Plugins.', 'anpa-socios' );
+			case 'error':
+				return esc_html__( 'Non se puido comprobar se hai actualizacións de ANPA Socios. Téntao de novo nuns minutos.', 'anpa-socios' );
+			default:
+				return (string) $message;
+		}
 	}
 }
