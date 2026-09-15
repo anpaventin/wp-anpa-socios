@@ -186,6 +186,23 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 
 	// ── Signature ────────────────────────────────────────────────────────
 
+	public function test_every_email_leaves_through_send_from_master_so_all_carry_the_signature(): void {
+		// 1.65.1: the code email (store template = fragment) reached the family without the
+		// signature because enviar_codigo() did its own str_replace on a missing </body>.
+		$email = $this->src( 'includes/class-anpa-socios-email.php' );
+		// Docblocks mention "wp_mail()" (no space); real calls are "wp_mail( $to, …".
+		$this->assertSame( 1, preg_match_all( '/\bwp_mail\( /', $email ), 'exactly one wp_mail() call: inside send_from_master()' );
+		$this->assertSame( 1, preg_match_all( '/^\s*return wp_mail\( \$to, /m', $email ) );
+		$this->assertSame( 1, substr_count( $email, "self::signature_html() . '</body>'" ), 'the signature is appended only by wrap_html()' );
+		$this->assertStringNotContainsString( "str_replace( '</body>', self::signature_html()", $email );
+		foreach ( array( 'enviar_codigo', 'enviar_oferta_extraescolar', 'enviar_aviso_baixa_socio', 'enviar_aviso_reactivacion', 'enviar_aviso_baixa_extraescolar' ) as $fn ) {
+			$start = strpos( $email, "public static function {$fn}(" );
+			$this->assertNotFalse( $start, $fn );
+			$body = substr( $email, $start, strpos( $email, "\n\t}\n", $start ) - $start );
+			$this->assertStringContainsString( 'return self::send_from_master(', $body, "$fn must send through send_from_master()" );
+		}
+	}
+
 	public function test_wrap_html_gives_fragments_a_document_and_keeps_full_documents(): void {
 		$frag = ANPA_Socios_Email::wrap_html( '<p>Ola</p>' );
 		$this->assertStringStartsWith( '<!DOCTYPE html>', $frag );

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.65.1] - 2026-09-15
+
+### Fixed
+
+- **A sinatura da ANPA non ía no correo do código de acceso** (nin na oferta de praza nin nos avisos á xunta). Eses
+  cinco envíos pegaban a sinatura buscando un `</body>` que as plantillas do almacén (fragmentos HTML) non teñen,
+  así que dende a fase 36 saían sen ela. Agora todos os correos do plugin saen por un único punto
+  (`send_from_master`), que envolve o contido nun documento HTML completo coa sinatura de Axustes → Xeral. Un test
+  garante que só hai unha chamada a `wp_mail()` en toda a clase.
+
 ## [1.65.0] - 2026-09-15
 
 ### Removed
