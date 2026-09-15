@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.62.0] - 2026-09-15
+
+### Added
+
+- **Correos ás familias ao resolver as baixas solicitadas.** En Xestión → Socios → Baixas solicitadas, «Confirmar
+  baixa» e «Rexeitar» envían agora un correo automático á familia con catro plantillas novas (Axustes →
+  Plantillas de email): `baixa_socio_confirmada`, `baixa_socio_rexeitada`, `baixa_extraescolar_confirmada` e
+  `baixa_extraescolar_rexeitada`. Os de rexeitamento din que a solicitude non se aceptou e que, se cren que houbo
+  un erro, escriban á directiva ao correo de contacto. A pantalla indica se o correo saíu (ou avisa se non se puido
+  enviar). Os avisos á xunta cando a familia solicita a baixa (`baixa_socio`, `baixa_extraescolar`) non cambian.
+- **Regra do trimestre na baixa dunha actividade.** O correo de confirmación explica os efectos segundo o estado do
+  trimestre en curso (Axustes → Cursos → Estado dos trimestres): se xa comezou («activo»), a baixa é efectiva ao
+  remate do trimestre (coa data de peche operativo cando está configurada), a cota mantense ata entón e non se
+  cobra o seguinte; se aínda estamos en período de inscrición (trimestre pendente, grupos sen pechar), é inmediata e
+  non se pasa ningún cobro. Helper puro `ANPA_Socios_Baixa_Extraescolar_Efectos`.
+- **Correo de inicio de curso.** Nova plantilla `inicio_curso` (iniciar sesión como socio/a co código ao correo,
+  darse de alta, modificar datos, inscribirse nas extraescolares, ligazóns á área de socios e á web, correo de
+  contacto). En Xestión → Socios → Lista Gmail, «Enviar o correo de inicio de curso á conta da xunta» mándao UNHA
+  soa vez á conta da xunta (`POST admin/contactos-google/inicio-curso`), que o reenvía dende Gmail á etiqueta
+  «Socios Web ANPA» en CCO para non saturar o WordPress. Ligazón directa para editar a plantilla.
+
+### Fixed
+
+- **As plantillas personalizadas perdían a sinatura da ANPA.** As plantillas editadas en Axustes son fragmentos
+  HTML sen `<body>`, así que o envío non lles engadía a sinatura de Axustes → Xeral. Agora todo correo enviado
+  dende a conta da asociación vai nun documento HTML completo coa sinatura (`ANPA_Socios_Email::wrap_html()`).
+- **Os correos de contacto nas plantillas saían como ligazóns rotas** (`http://directiva@…`): o renderizador
+  tratábaos como URL. Agora só as variables `*_url` se escapan como URL; os correos van como texto.
+
 ## [1.61.0] - 2026-09-14
 
 ### Added

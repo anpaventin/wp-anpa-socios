@@ -767,7 +767,30 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		// Free slot → offer to the next in the waitlist.
 		ANPA_Socios_Extraescolar_Offers::offer_next( (int) $mat['grupo_id'], (int) $mat['trimestre'] );
 
-		return new WP_REST_Response( array( 'id' => $id, 'estado' => 'baixa' ), 200 );
+		// 1.62.0: tell the family when the baixa takes effect (end of the running
+		// trimester, or immediately and free of charge during pre-enrolment).
+		$correo_enviado = false;
+		$efectos        = '';
+		$detalle        = ANPA_Socios_Admin_Baixas_Handler::detalle_matricula( $id );
+		if ( is_array( $detalle ) ) {
+			$curso = (string) ( $detalle['curso_escolar'] ?? '' );
+			$row   = ANPA_Socios_Curso_Escolar::is_valid( $curso )
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only course calendar for the email.
+				? $wpdb->get_row( $wpdb->prepare( 'SELECT ' . ANPA_Socios_Matricula_Gate_Repo::CURSO_COLUMNS . ' FROM ' . ANPA_Socios_DB::tabela_cursos() . ' WHERE curso_escolar = %s', $curso ), ARRAY_A )
+				: null;
+			$gate  = is_array( $row ) ? ANPA_Socios_Matricula_Gate_Repo::avaliar_fila( $row ) : ANPA_Socios_Matricula_Gate::avaliar( null, array() );
+			$tris  = ANPA_Socios_Curso_Escolar::is_valid( $curso ) ? ANPA_Socios_Trimestre_Repo::for_curso( $curso ) : array();
+			$datas = is_array( $row ) ? ANPA_Socios_Matricula_Gate::datas_de_fila( $row ) : null;
+			$efectos        = ANPA_Socios_Baixa_Extraescolar_Efectos::texto( $gate, $tris, $datas );
+			$correo_enviado = ANPA_Socios_Email::enviar_baixa_extraescolar_confirmada(
+				(string) $detalle['socio_email'],
+				trim( (string) $detalle['fillo_nome'] . ' ' . (string) $detalle['fillo_apelidos'] ),
+				(string) $detalle['actividade'],
+				$efectos
+			);
+		}
+
+		return new WP_REST_Response( array( 'id' => $id, 'estado' => 'baixa', 'correo_enviado' => $correo_enviado, 'efectos' => $efectos ), 200 );
 	}
 
 	/**

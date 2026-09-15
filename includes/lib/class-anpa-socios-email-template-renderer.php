@@ -74,8 +74,12 @@ final class ANPA_Socios_Email_Template_Renderer {
 			$value = $context[ $key ] ?? '';
 			if ( 'subject' === $type || 'text' === $type ) {
 				$values[] = sanitize_text_field( (string) $value );
-			} elseif ( in_array( $key, array( 'login_url', 'contact_email', 'master_email', 'email_socio' ), true ) ) {
+			} elseif ( 'login_url' === $key || '_url' === substr( $key, -4 ) ) {
 				$values[] = esc_url( (string) $value );
+			} elseif ( in_array( $key, array( 'contact_email', 'master_email', 'email_socio' ), true ) ) {
+				// 1.62.0: emails are text, not URLs — esc_url() used to turn
+				// "directiva@anpa.gal" into "http://directiva@anpa.gal".
+				$values[] = esc_html( sanitize_text_field( (string) $value ) );
 			} else {
 				$values[] = esc_html( (string) $value );
 			}

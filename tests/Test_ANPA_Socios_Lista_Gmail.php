@@ -75,7 +75,8 @@ final class Test_ANPA_Socios_Lista_Gmail extends TestCase {
 		$h = $this->src( 'includes/class-anpa-socios-admin-contactos-google-handler.php' );
 		$this->assertStringContainsString( "'/contactos-google/estado'", $h );
 		$this->assertStringContainsString( "'/contactos-google/export'", $h );
-		$this->assertSame( 2, substr_count( $h, "'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' )" ) );
+		// estado + export + inicio-curso (1.62.0): master only, all of them.
+		$this->assertSame( 3, substr_count( $h, "'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' )" ) );
 		$this->assertStringContainsString( 'ANPA_Socios_Admin_Contactos_Google_Handler::register_routes();', $this->src( 'includes/class-anpa-socios-admin-rest.php' ) );
 		$this->assertStringContainsString( "includes/class-anpa-socios-admin-contactos-google-handler.php';", $this->src( 'anpa-socios.php' ) );
 		require_once dirname( __DIR__ ) . '/includes/lib/class-anpa-socios-admin-nav.php';

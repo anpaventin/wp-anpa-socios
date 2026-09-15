@@ -166,7 +166,12 @@ final class ANPA_Socios_Admin_Baixas_Handler {
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'socio', $email, 'baixa_reject' );
 
-		return new WP_REST_Response( array( 'email' => $email, 'baixa_estado' => 'none' ), 200 );
+		// 1.62.0: the member is told the request was not accepted (and whom to contact).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only lookup for the email.
+		$nome           = (string) $wpdb->get_var( $wpdb->prepare( 'SELECT nome FROM ' . ANPA_Socios_DB::tabela_socios() . ' WHERE email = %s', $email ) );
+		$correo_enviado = ANPA_Socios_Email::enviar_baixa_socio_rexeitada( $email, $nome );
+
+		return new WP_REST_Response( array( 'email' => $email, 'baixa_estado' => 'none', 'correo_enviado' => $correo_enviado ), 200 );
 	}
 
 	/**
@@ -202,6 +207,57 @@ final class ANPA_Socios_Admin_Baixas_Handler {
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'matricula', (string) $id, 'baixa_reject' );
 
-		return new WP_REST_Response( array( 'id' => $id, 'estado' => 'activo' ), 200 );
+		// 1.62.0: the family is told the request was not accepted (and whom to contact).
+		$correo_enviado = false;
+		$detalle        = self::detalle_matricula( $id );
+		if ( is_array( $detalle ) ) {
+			$correo_enviado = ANPA_Socios_Email::enviar_baixa_extraescolar_rexeitada(
+				(string) $detalle['socio_email'],
+				trim( (string) $detalle['fillo_nome'] . ' ' . (string) $detalle['fillo_apelidos'] ),
+				(string) $detalle['actividade']
+			);
+		}
+
+		return new WP_REST_Response( array( 'id' => $id, 'estado' => 'activo', 'correo_enviado' => $correo_enviado ), 200 );
+	}
+
+	/**
+	 * Pupil, family email, activity and school year of an enrolment — what the
+	 * confirmation/rejection emails need. Pure ASCII SQL (see 1.56.3).
+	 *
+	 * @since  1.62.0
+	 * @param  int $id Matrícula id.
+	 * @return array{fillo_nome:string,fillo_apelidos:string,socio_email:string,actividade:string,curso_escolar:string}|null
+	 */
+	public static function detalle_matricula( int $id ): ?array {
+		global $wpdb;
+
+		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		$fil_t = ANPA_Socios_DB::tabela_fillos();
+		$act_t = ANPA_Socios_DB::tabela_actividades();
+		$gru_t = ANPA_Socios_DB::tabela_grupos();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only lookup for the email.
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT f.nome AS fillo_nome, f.apelidos AS fillo_apelidos, f.socio_email, a.nome AS actividade, COALESCE(g.curso_escolar, '') AS curso_escolar
+				 FROM {$mat_t} m
+				 INNER JOIN {$fil_t} f ON f.id = m.fillo_id
+				 INNER JOIN {$act_t} a ON a.id = m.activitad_id
+				 LEFT JOIN {$gru_t} g ON g.id = m.grupo_id
+				 WHERE m.id = %d",
+				$id
+			),
+			ARRAY_A
+		);
+		if ( ! is_array( $row ) ) {
+			return null;
+		}
+		return array(
+			'fillo_nome'     => (string) $row['fillo_nome'],
+			'fillo_apelidos' => (string) $row['fillo_apelidos'],
+			'socio_email'    => (string) $row['socio_email'],
+			'actividade'     => (string) $row['actividade'],
+			'curso_escolar'  => (string) $row['curso_escolar'],
+		);
 	}
 }

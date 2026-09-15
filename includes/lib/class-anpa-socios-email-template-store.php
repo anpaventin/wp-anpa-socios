@@ -176,6 +176,122 @@ final class ANPA_Socios_Email_Template_Store {
 					array( 'contact_email' ),
 				),
 			),
+			// 1.62.0: emails to the family when the junta resolves a baixa request
+			// (Xestión → Socios → Baixas solicitadas). The ANPA signature configured
+			// in Axustes is appended automatically to every one of them.
+			'baixa_socio_confirmada' => array(
+				'subject' => array(
+					__( 'Baixa de socio/a confirmada — %s', 'anpa-socios' ),
+					array( 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Ola %s,', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'A directiva de %s confirmou a túa baixa como socio/a. A partir de agora xa non tes acceso á área de socios nin ás actividades extraescolares xestionadas pola asociación.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Se cres que se trata dun erro ou queres volver a ser socio/a, escribe á directiva en %s e solucionámolo.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Grazas por formar parte da asociación.', 'anpa-socios' ) . '</p>',
+					array( 'nome', 'association_name', 'contact_email' ),
+				),
+				'text' => array(
+					__( 'Ola %s,', 'anpa-socios' ) . "\n\n" .
+					__( 'A directiva de %s confirmou a túa baixa como socio/a. A partir de agora xa non tes acceso á área de socios nin ás actividades extraescolares xestionadas pola asociación.', 'anpa-socios' ) . "\n\n" .
+					__( 'Se cres que se trata dun erro ou queres volver a ser socio/a, escribe á directiva en %s e solucionámolo.', 'anpa-socios' ) . "\n\n" .
+					__( 'Grazas por formar parte da asociación.', 'anpa-socios' ),
+					array( 'nome', 'association_name', 'contact_email' ),
+				),
+			),
+			'baixa_socio_rexeitada' => array(
+				'subject' => array(
+					__( 'Solicitude de baixa de socio/a non aceptada — %s', 'anpa-socios' ),
+					array( 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Ola %s,', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'A directiva de %s revisou a túa solicitude de baixa como socio/a e non a aceptou: segues sendo socio/a activo/a, co acceso á área de socios e ás actividades igual que ata agora.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Se consideras que houbo un erro, ponte en contacto coa directiva en %s para solucionalo.', 'anpa-socios' ) . '</p>',
+					array( 'nome', 'association_name', 'contact_email' ),
+				),
+				'text' => array(
+					__( 'Ola %s,', 'anpa-socios' ) . "\n\n" .
+					__( 'A directiva de %s revisou a túa solicitude de baixa como socio/a e non a aceptou: segues sendo socio/a activo/a, co acceso á área de socios e ás actividades igual que ata agora.', 'anpa-socios' ) . "\n\n" .
+					__( 'Se consideras que houbo un erro, ponte en contacto coa directiva en %s para solucionalo.', 'anpa-socios' ),
+					array( 'nome', 'association_name', 'contact_email' ),
+				),
+			),
+			'baixa_extraescolar_confirmada' => array(
+				'subject' => array(
+					__( 'Baixa da actividade %s confirmada — %s', 'anpa-socios' ),
+					array( 'actividade', 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Ola,', 'anpa-socios' ) . '</p>' .
+					'<p>' . sprintf( __( 'A directiva de %%s confirmou a baixa de %s na actividade %s.', 'anpa-socios' ), '<strong>%s</strong>', '<strong>%s</strong>' ) . '</p>' .
+					'<p>%s</p>' .
+					'<p>' . __( 'Se tes dúbidas, escribe á directiva en %s.', 'anpa-socios' ) . '</p>',
+					array( 'association_name', 'alumno', 'actividade', 'efectos', 'contact_email' ),
+				),
+				'text' => array(
+					__( 'Ola,', 'anpa-socios' ) . "\n\n" .
+					__( 'A directiva de %s confirmou a baixa de %s na actividade %s.', 'anpa-socios' ) . "\n\n" .
+					'%s' . "\n\n" .
+					__( 'Se tes dúbidas, escribe á directiva en %s.', 'anpa-socios' ),
+					array( 'association_name', 'alumno', 'actividade', 'efectos', 'contact_email' ),
+				),
+			),
+			'baixa_extraescolar_rexeitada' => array(
+				'subject' => array(
+					__( 'Solicitude de baixa da actividade %s non aceptada — %s', 'anpa-socios' ),
+					array( 'actividade', 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Ola,', 'anpa-socios' ) . '</p>' .
+					'<p>' . sprintf( __( 'A directiva de %%s revisou a solicitude de baixa de %s na actividade %s e non a aceptou: a matrícula segue activa e a actividade continúa como ata agora.', 'anpa-socios' ), '<strong>%s</strong>', '<strong>%s</strong>' ) . '</p>' .
+					'<p>' . __( 'Se consideras que houbo un erro, ponte en contacto coa directiva en %s para solucionalo.', 'anpa-socios' ) . '</p>',
+					array( 'association_name', 'alumno', 'actividade', 'contact_email' ),
+				),
+				'text' => array(
+					__( 'Ola,', 'anpa-socios' ) . "\n\n" .
+					__( 'A directiva de %s revisou a solicitude de baixa de %s na actividade %s e non a aceptou: a matrícula segue activa e a actividade continúa como ata agora.', 'anpa-socios' ) . "\n\n" .
+					__( 'Se consideras que houbo un erro, ponte en contacto coa directiva en %s para solucionalo.', 'anpa-socios' ),
+					array( 'association_name', 'alumno', 'actividade', 'contact_email' ),
+				),
+			),
+			// 1.62.0: start-of-year email. Sent to the junta's own inbox (Xestión →
+			// Socios → Lista Gmail) and forwarded from Gmail to the «Socios Web ANPA»
+			// label, so WordPress never mails hundreds of families at once.
+			'inicio_curso' => array(
+				'subject' => array(
+					__( 'Comeza o curso — %s', 'anpa-socios' ),
+					array( 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Ola, familias!', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Comeza un novo curso e dende %s queremos lembrarvos que toda a xestión de socios/as se fai na nosa web:', 'anpa-socios' ) . '</p>' .
+					'<ul>' .
+					'<li><strong>' . __( 'Iniciar sesión como socio/a:', 'anpa-socios' ) . '</strong> ' . __( 'entra na área de socios, escribe o teu correo e recibirás un código de acceso; non fai falta contrasinal.', 'anpa-socios' ) . '</li>' .
+					'<li><strong>' . __( 'Darse de alta:', 'anpa-socios' ) . '</strong> ' . __( 'se aínda non sodes socios/as, na mesma páxina podedes facer a alta cos datos da familia e dos fillos/as.', 'anpa-socios' ) . '</li>' .
+					'<li><strong>' . __( 'Modificar datos:', 'anpa-socios' ) . '</strong> ' . __( 'na túa área podes actualizar o teléfono, o correo, os datos bancarios e os datos e cursos dos fillos/as.', 'anpa-socios' ) . '</li>' .
+					'<li><strong>' . __( 'Actividades extraescolares:', 'anpa-socios' ) . '</strong> ' . __( 'dende a área inscríbense os fillos/as nas actividades, vense as prazas e a lista de espera e solicítanse as baixas.', 'anpa-socios' ) . '</li>' .
+					'</ul>' .
+					'<p>' . __( 'Área de socios:', 'anpa-socios' ) . ' <a href="%s">%s</a></p>' .
+					'<p>' . __( 'Web da asociación:', 'anpa-socios' ) . ' <a href="%s">%s</a></p>' .
+					'<p>' . __( 'Para calquera dúbida, escribe á directiva en %s.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Bo comezo de curso!', 'anpa-socios' ) . '</p>',
+					array( 'association_name', 'login_url', 'login_url', 'web_url', 'web_url', 'contact_email' ),
+				),
+				'text' => array(
+					__( 'Ola, familias!', 'anpa-socios' ) . "\n\n" .
+					__( 'Comeza un novo curso e dende %s queremos lembrarvos que toda a xestión de socios/as se fai na nosa web:', 'anpa-socios' ) . "\n\n" .
+					'- ' . __( 'Iniciar sesión como socio/a:', 'anpa-socios' ) . ' ' . __( 'entra na área de socios, escribe o teu correo e recibirás un código de acceso; non fai falta contrasinal.', 'anpa-socios' ) . "\n" .
+					'- ' . __( 'Darse de alta:', 'anpa-socios' ) . ' ' . __( 'se aínda non sodes socios/as, na mesma páxina podedes facer a alta cos datos da familia e dos fillos/as.', 'anpa-socios' ) . "\n" .
+					'- ' . __( 'Modificar datos:', 'anpa-socios' ) . ' ' . __( 'na túa área podes actualizar o teléfono, o correo, os datos bancarios e os datos e cursos dos fillos/as.', 'anpa-socios' ) . "\n" .
+					'- ' . __( 'Actividades extraescolares:', 'anpa-socios' ) . ' ' . __( 'dende a área inscríbense os fillos/as nas actividades, vense as prazas e a lista de espera e solicítanse as baixas.', 'anpa-socios' ) . "\n\n" .
+					__( 'Área de socios:', 'anpa-socios' ) . ' %s' . "\n" .
+					__( 'Web da asociación:', 'anpa-socios' ) . ' %s' . "\n\n" .
+					__( 'Para calquera dúbida, escribe á directiva en %s.', 'anpa-socios' ) . "\n\n" .
+					__( 'Bo comezo de curso!', 'anpa-socios' ),
+					array( 'association_name', 'login_url', 'web_url', 'contact_email' ),
+				),
+			),
 			'send_from_master' => array(
 				'subject' => array(
 					'%s',

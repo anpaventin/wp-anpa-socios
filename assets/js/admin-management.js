@@ -1165,7 +1165,8 @@
 
 		var intro = document.createElement('p');
 		intro.className = 'description';
-		intro.textContent = 'Solicitudes abertas polas familias desde a área de socios. Confirmar fai efectiva a baixa; rexeitar deixa todo como estaba (a familia non recibe correo automático: avísaa se procede).';
+		// 1.62.0: both decisions email the family with the templates in Axustes → Plantillas.
+		intro.textContent = 'Solicitudes abertas polas familias desde a área de socios. Confirmar fai efectiva a baixa; rexeitar deixa todo como estaba. Nos dous casos a familia recibe un correo automático (plantillas «baixa_socio_confirmada», «baixa_socio_rexeitada», «baixa_extraescolar_confirmada» e «baixa_extraescolar_rexeitada» en Axustes → Plantillas de email). Na baixa dunha actividade o correo indica se é efectiva ao remate do trimestre en curso (trimestre xa iniciado) ou de inmediato e sen cobro (período de inscrición).';
 		root.appendChild(intro);
 
 		function actionCell(onConfirm, onReject, confirmLabel) {
@@ -1194,8 +1195,12 @@
 		}
 		function cell(text) { var td = document.createElement('td'); td.textContent = text == null ? '' : String(text); return td; }
 		function act(path, okMsg) {
-			anpaAdminFetch(path, { method: 'POST' }).then(function () {
-				showMessage(okMsg, 'success');
+			anpaAdminFetch(path, { method: 'POST' }).then(function (r) {
+				// 1.62.0: say whether the family's email went out (the decision itself is already applied).
+				var mail = '';
+				if (r && r.correo_enviado === true) { mail = ' Enviouse o correo á familia.'; }
+				else if (r && r.correo_enviado === false) { mail = ' ATENCIÓN: non se puido enviar o correo á familia; avísaa por outro medio.'; }
+				showMessage(okMsg + mail, r && r.correo_enviado === false ? 'warning' : 'success');
 				loadBaixas();
 			}).catch(function (e) { showMessage(e.message, 'error'); loadBaixas(); });
 		}
@@ -1409,6 +1414,31 @@
 			diffTable('Altas desde a última exportación', altas, 'Ningunha alta nova.');
 			diffTable('Baixas desde a última exportación', baixas, 'Ningunha baixa.');
 		}
+
+		// ── Correo de inicio de curso (1.62.0) ──
+		// ONE email to the junta's inbox (template «inicio_curso»), forwarded from
+		// Gmail to the label: WordPress never mails hundreds of families at once.
+		var ic = el('div', null, 'anpa-mgmt-form');
+		ic.style.maxWidth = '760px'; ic.style.marginTop = '1.5rem';
+		ic.appendChild(el('h3', 'Correo de inicio de curso'));
+		ic.appendChild(el('p', 'Correo para todas as familias co que fai a web: iniciar sesión como socio/a (código ao correo, sen contrasinal), darse de alta, modificar os datos e inscribirse nas actividades extraescolares. Para non saturar o WordPress envíase UNHA soa vez á conta da xunta' + (d.conta_xunta ? ' (' + d.conta_xunta + ')' : '') + ' e dende Gmail reenvíase á etiqueta «' + etiqueta + '» (en CCO). O texto edítase na plantilla «inicio_curso» de Axustes → Plantillas de email.', 'description'));
+		var icActs = el('div', null, 'anpa-mgmt-form-actions');
+		icActs.style.display = 'flex'; icActs.style.gap = '0.5rem'; icActs.style.flexWrap = 'wrap';
+		var icSend = el('button', 'Enviar o correo de inicio de curso á conta da xunta', 'anpa-mgmt-btn');
+		icSend.type = 'button';
+		icSend.addEventListener('click', function () {
+			if (!window.confirm('Enviar o correo de inicio de curso a ' + (d.conta_xunta || 'a conta da xunta') + '? Despois reenvíao dende Gmail á etiqueta «' + etiqueta + '».')) { return; }
+			icSend.disabled = true;
+			anpaAdminFetch('contactos-google/inicio-curso', { method: 'POST' }).then(function (r) {
+				icSend.disabled = false;
+				showMessage('Correo de inicio de curso enviado a ' + ((r && r.destinatario) || d.conta_xunta || 'a conta da xunta') + '. Ábreo en Gmail e reenvíao á etiqueta «' + etiqueta + '» en CCO.', 'success');
+			}).catch(function (e) { icSend.disabled = false; showMessage(e.message || 'Non se puido enviar o correo.', 'error'); });
+		});
+		var icEdit = el('a', 'Editar a plantilla «inicio_curso»', 'anpa-mgmt-btn anpa-mgmt-btn-secondary');
+		icEdit.href = 'admin.php?page=anpa-socios-templates&edit=inicio_curso';
+		icActs.appendChild(icSend); icActs.appendChild(icEdit);
+		ic.appendChild(icActs);
+		root.appendChild(ic);
 	}
 
 	// ── Section: Fillos ──────────────────────────────────────────────
