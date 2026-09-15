@@ -364,6 +364,10 @@ final class ANPA_Socios_Admin_Socios_Handler {
 				array( 'status' => 403 ) );
 		}
 
+		// 1.62.0: the member gets a templated email once the baixa is effective.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only lookup for the email.
+		$nome = (string) $wpdb->get_var( $wpdb->prepare( "SELECT nome FROM {$wpdb->prefix}anpa_socios WHERE email = %s", $email ) );
+
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'anpa_socios',
 			array(
@@ -393,7 +397,17 @@ final class ANPA_Socios_Admin_Socios_Handler {
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'socio', $email, 'baixa_confirm' );
 
-		return self::get_socio( $request );
+		$correo_enviado = ANPA_Socios_Email::enviar_baixa_socio_confirmada( $email, $nome );
+
+		$response = self::get_socio( $request );
+		if ( $response instanceof WP_REST_Response ) {
+			$data = $response->get_data();
+			if ( is_array( $data ) ) {
+				$data['correo_enviado'] = $correo_enviado;
+				$response->set_data( $data );
+			}
+		}
+		return $response;
 	}
 
 	/**

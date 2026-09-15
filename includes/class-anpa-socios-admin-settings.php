@@ -2988,6 +2988,13 @@ final class ANPA_Socios_Admin_Settings {
 		$li( __( 'Pasos: confirmar as baixas pendentes en Baixas solicitadas (se non se confirman, eses correos seguen na lista) → Descargar CSV → Abrir Google Contactos coa conta da xunta → eliminar a etiqueta «Socios Web ANPA» cos seus contactos → Importar o CSV. A web non escribe en Google: é un proceso manual de tres pulsacións.', 'anpa-socios' ) );
 		$li( __( 'Se desde a última exportación só houbo altas, «Descargar só as altas novas» dá un CSV cos correos novos para importalos SEN eliminar a etiqueta (súmanse á que xa existe); as baixas seguen en Google ata facer o proceso completo.', 'anpa-socios' ) );
 		$li( __( 'Gmail limita os envíos a 500 destinatarios ao día: usa a etiqueta en CCO e, para avisos a toda a asociación, o Rexistro de envíos da web.', 'anpa-socios' ) );
+		$li( __( 'Correo de inicio de curso: na mesma pantalla, «Enviar o correo de inicio de curso á conta da xunta» manda UNHA soa vez a plantilla «inicio_curso» (como entrar como socio/a, darse de alta, modificar datos e inscribirse nas extraescolares) á conta da xunta; dende Gmail reenvíase á etiqueta «Socios Web ANPA» en CCO. O texto edítase en Axustes → Plantillas de email.', 'anpa-socios' ) );
+		echo '</ul>';
+		$h3( __( 'Correos automáticos ás familias nas baixas', 'anpa-socios' ) );
+		echo '<ul>';
+		$li( __( 'Ao confirmar ou rexeitar unha solicitude en Xestión → Socios → Baixas solicitadas, a familia recibe un correo coa plantilla correspondente: «baixa_socio_confirmada», «baixa_socio_rexeitada», «baixa_extraescolar_confirmada» ou «baixa_extraescolar_rexeitada» (Axustes → Plantillas de email, coa sinatura de Axustes → Xeral).', 'anpa-socios' ) );
+		$li( __( 'Baixa dunha actividade: se o trimestre en curso xa comezou (estado «activo» en Axustes → Cursos → Estado dos trimestres), o correo di que a baixa é efectiva ao remate do trimestre e que a cota se mantén ata entón; se aínda estamos en período de inscrición (trimestre pendente, grupos sen pechar), di que é inmediata e que non se pasará ningún cobro.', 'anpa-socios' ) );
+		$li( __( 'Os correos de rexeitamento indican á familia que, se cre que houbo un erro, escriba á directiva ao correo de contacto de Axustes → Xeral.', 'anpa-socios' ) );
 		echo '</ul>';
 		$h3( __( 'Auditoría', 'anpa-socios' ) );
 		$p( __( 'Xestión → Auditoría rexistra o que fai cada socio/a (altas, baixas, fillos/as engadidos ou eliminados, cambios de IBAN sen os datos, matrículas, ofertas aceptadas) e o que fai a xunta (aprobacións, importacións, cambios de estrutura). Filtra polo correo para ver a historia dunha familia.', 'anpa-socios' ) );

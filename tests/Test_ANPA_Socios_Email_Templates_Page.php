@@ -43,11 +43,13 @@ final class Test_ANPA_Socios_Email_Templates_Page extends TestCase {
 
 	public function test_templates_list_has_expected_ids(): void {
 		$templates = ANPA_Socios_Email_Template_Store::get_all();
-		$this->assertCount( 10, $templates );
+		$this->assertCount( 15, $templates );
 		$expected_ids = array(
 			'verification_code', 'baixa_socio', 'reactivacion',
 			'baixa_extraescolar', 'oferta_extraescolar', 'pendente_aprobacion',
 			'aprobacion', 'benvida_alta', 'rexeitamento', 'send_from_master',
+			'baixa_socio_confirmada', 'baixa_socio_rexeitada', 'baixa_extraescolar_confirmada',
+			'baixa_extraescolar_rexeitada', 'inicio_curso',
 		);
 		foreach ( $expected_ids as $id ) {
 			$this->assertArrayHasKey( $id, $templates );

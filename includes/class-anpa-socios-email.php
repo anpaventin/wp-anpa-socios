@@ -441,7 +441,7 @@ class ANPA_Socios_Email {
 	 * @return bool
 	 */
 	private static function send_from_master( string $to, string $subject, string $body ): bool {
-		$body    = str_replace( '</body>', self::signature_html() . '</body>', $body );
+		$body    = self::wrap_html( $body );
 		$headers = self::notice_headers();
 
 		add_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
@@ -450,6 +450,135 @@ class ANPA_Socios_Email {
 		} finally {
 			remove_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
 		}
+	}
+
+	/**
+	 * Full HTML document with the ANPA signature (Axustes → Xeral → Sinatura).
+	 *
+	 * The hardcoded bodies already carry a <body>; the templates edited in
+	 * Axustes → Plantillas are fragments, so until 1.62.0 a customised template
+	 * lost the signature (str_replace on a missing </body> did nothing). Both
+	 * shapes now end with the same signature block.
+	 *
+	 * @since  1.62.0
+	 * @param  string $body HTML fragment or full document.
+	 * @return string
+	 */
+	public static function wrap_html( string $body ): string {
+		if ( false !== stripos( $body, '</body>' ) ) {
+			return str_ireplace( '</body>', self::signature_html() . '</body>', $body );
+		}
+
+		return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head>'
+			. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
+			. $body
+			. self::signature_html()
+			. '</body></html>';
+	}
+
+	/**
+	 * Context shared by the family-facing templates.
+	 *
+	 * @since  1.62.0
+	 * @return array<string,string>
+	 */
+	private static function family_context(): array {
+		return array(
+			'association_name' => ANPA_Socios_Config::association_name(),
+			'contact_email'    => ANPA_Socios_Config::contact_email(),
+		);
+	}
+
+	/**
+	 * Renders a store template (custom or default) and sends it from the master
+	 * identity with the signature. Best-effort: never throws.
+	 *
+	 * @since  1.62.0
+	 * @param  string               $to          Recipient.
+	 * @param  string               $template_id Template id in the store.
+	 * @param  array<string,string> $context     Variables.
+	 * @return bool
+	 */
+	private static function send_template( string $to, string $template_id, array $context ): bool {
+		$to = trim( $to );
+		if ( '' === $to ) {
+			return false;
+		}
+		$content = ANPA_Socios_Email_Template_Renderer::render( $template_id, array_merge( self::family_context(), $context ) );
+		if ( '' === trim( (string) $content['subject'] ) || '' === trim( (string) $content['html'] ) ) {
+			return false;
+		}
+
+		return self::send_from_master( $to, (string) $content['subject'], (string) $content['html'] );
+	}
+
+	/**
+	 * The junta confirmed the member's baixa request (Baixas solicitadas → Confirmar).
+	 *
+	 * @since  1.62.0
+	 * @param  string $email_socio Member email.
+	 * @param  string $nome        Member first name.
+	 * @return bool
+	 */
+	public static function enviar_baixa_socio_confirmada( string $email_socio, string $nome ): bool {
+		return self::send_template( $email_socio, 'baixa_socio_confirmada', array( 'nome' => $nome ) );
+	}
+
+	/**
+	 * The junta rejected the member's baixa request (Baixas solicitadas → Rexeitar).
+	 *
+	 * @since  1.62.0
+	 * @param  string $email_socio Member email.
+	 * @param  string $nome        Member first name.
+	 * @return bool
+	 */
+	public static function enviar_baixa_socio_rexeitada( string $email_socio, string $nome ): bool {
+		return self::send_template( $email_socio, 'baixa_socio_rexeitada', array( 'nome' => $nome ) );
+	}
+
+	/**
+	 * The junta confirmed a pupil's activity baixa. $efectos is the sentence
+	 * built by ANPA_Socios_Baixa_Extraescolar_Efectos (end of the running
+	 * trimester vs. no charge during pre-enrolment).
+	 *
+	 * @since  1.62.0
+	 * @param  string $email_socio Family email.
+	 * @param  string $alumno      Pupil full name.
+	 * @param  string $actividade  Activity name.
+	 * @param  string $efectos     Effects sentence.
+	 * @return bool
+	 */
+	public static function enviar_baixa_extraescolar_confirmada( string $email_socio, string $alumno, string $actividade, string $efectos ): bool {
+		return self::send_template( $email_socio, 'baixa_extraescolar_confirmada', array( 'alumno' => $alumno, 'actividade' => $actividade, 'efectos' => $efectos ) );
+	}
+
+	/**
+	 * The junta rejected a pupil's activity baixa request.
+	 *
+	 * @since  1.62.0
+	 * @param  string $email_socio Family email.
+	 * @param  string $alumno      Pupil full name.
+	 * @param  string $actividade  Activity name.
+	 * @return bool
+	 */
+	public static function enviar_baixa_extraescolar_rexeitada( string $email_socio, string $alumno, string $actividade ): bool {
+		return self::send_template( $email_socio, 'baixa_extraescolar_rexeitada', array( 'alumno' => $alumno, 'actividade' => $actividade ) );
+	}
+
+	/**
+	 * Start-of-year email, addressed to the families but delivered to ONE inbox
+	 * (the junta's) for forwarding to the Google Contacts label.
+	 *
+	 * @since  1.62.0
+	 * @param  string $to Recipient (the junta's account).
+	 * @return bool
+	 */
+	public static function enviar_inicio_curso( string $to ): bool {
+		$login_url = class_exists( 'ANPA_Socios_Admin_Settings' ) ? ANPA_Socios_Admin_Settings::landing_page_url() : '';
+		return self::send_template( $to, 'inicio_curso', array(
+			'login_url' => $login_url,
+			'web_url'   => home_url( '/' ),
+		) );
 	}
 
 	/**

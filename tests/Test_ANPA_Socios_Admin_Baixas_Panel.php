@@ -79,15 +79,19 @@ final class Test_ANPA_Socios_Admin_Baixas_Panel extends TestCase {
 		$this->assertSame( 2, substr_count( $js, "act(path + 'reject'," ) );
 		$this->assertStringContainsString( 'Baixas de socios/as pendentes (', $js );
 		$this->assertStringContainsString( 'Baixas de actividades pendentes (', $js );
-		// Every resolution asks for confirmation first.
+		// Every resolution asks for confirmation first (4 in Baixas; the 5th is the
+		// start-of-year email button of the Lista Gmail section that follows, 1.62.0).
 		$start = strpos( $js, 'function renderBaixas(data)' );
 		$end   = strpos( $js, '// ── Section: Fillos', $start );
-		$this->assertSame( 4, substr_count( substr( $js, $start, $end - $start ), 'window.confirm(' ) );
+		$this->assertSame( 5, substr_count( substr( $js, $start, $end - $start ), 'window.confirm(' ) );
+		$baixas_end = strpos( $js, '// ── Section: Lista Gmail', $start );
+		$this->assertSame( 4, substr_count( substr( $js, $start, $baixas_end - $start ), 'window.confirm(' ) );
 	}
 
 	public function test_docs_point_to_the_new_panel(): void {
 		$docs = $this->src( 'includes/class-anpa-socios-admin-settings.php' );
-		$this->assertSame( 2, substr_count( $docs, 'Xestión → Socios → Baixas solicitadas' ) );
+		// 1.62.0 adds the paragraph about the automatic emails on confirm/reject.
+		$this->assertSame( 3, substr_count( $docs, 'Xestión → Socios → Baixas solicitadas' ) );
 		$this->assertStringNotContainsString( 'A xunta confírmaa en Xestión → Socios/as;', $docs );
 	}
 }

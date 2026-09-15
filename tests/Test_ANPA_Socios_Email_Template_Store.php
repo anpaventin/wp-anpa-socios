@@ -39,11 +39,13 @@ final class Test_ANPA_Socios_Email_Template_Store extends TestCase {
 		delete_option( 'anpa_socios_email_templates' );
 		$all = ANPA_Socios_Email_Template_Store::get_all();
 		$this->assertIsArray( $all );
-		$this->assertCount( 10, $all );
+		$this->assertCount( 15, $all );
 		$expected_ids = array(
 			'verification_code', 'baixa_socio', 'reactivacion',
 			'baixa_extraescolar', 'oferta_extraescolar', 'pendente_aprobacion',
 			'aprobacion', 'benvida_alta', 'rexeitamento', 'send_from_master',
+			'baixa_socio_confirmada', 'baixa_socio_rexeitada', 'baixa_extraescolar_confirmada',
+			'baixa_extraescolar_rexeitada', 'inicio_curso',
 		);
 		foreach ( $expected_ids as $id ) {
 			$this->assertArrayHasKey( $id, $all );
