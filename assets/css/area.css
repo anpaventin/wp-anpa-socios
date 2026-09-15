@@ -860,3 +860,20 @@
 	#anpa-area input[type="tel"][inputmode="numeric"],
 	#anpa-area input[inputmode="numeric"] { max-width: 100%; }
 }
+
+/* ── 1.65.4: «Nova matrícula» form (built by area.js as .anpa-socio-edit) ──
+   Labels and the three selects (alumno, actividade, grupo) were emitted as
+   inline siblings of a plain div, so they ran together on one line. Same
+   column layout as the card and the second-parent block. */
+#anpa-area .anpa-socio-edit {
+	display: flex;
+	flex-direction: column;
+	gap: 0.85rem;
+	align-items: stretch;
+}
+#anpa-area .anpa-socio-edit > label { display: block; margin-bottom: -0.45rem; }
+#anpa-area .anpa-socio-edit > select { width: 100%; max-width: var(--anpa-measure, 34rem); }
+#anpa-area .anpa-socio-edit > button { align-self: flex-start; }
+@media (max-width: 480px) {
+	#anpa-area .anpa-socio-edit > button { width: 100%; }
+}
