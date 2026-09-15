@@ -21,6 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   socios e empresas) non ten que ver coa cola e mantense. Probado primeiro no LXC 103; ver
   `openspec/changes/2026-09-15-retirada-cola-comunicacions`.
 
+### Changed
+
+- **Lista Gmail: familias e correos por separado.** O estado amosaba «Socios/as activos: 400», que sumaba os dous
+  proxenitores. Agora di «Familias socias activas: N (unha cota por familia)» e «Correos na lista: M (os dous
+  proxenitores de cada familia)». A exportación non cambia: xa incluía os dous proxenitores de cada familia, cada
+  un coa súa alta, para que ambos reciban os avisos; a cota cóbrase unha soa vez por familia.
+
 ## [1.64.0] - 2026-09-15
 
 ### Removed

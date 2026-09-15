@@ -73,6 +73,18 @@ final class Test_ANPA_Socios_Lista_Gmail_Novas extends TestCase {
 		$this->assertStringContainsString( '$altas  = self::socios_novos( $actuais, $previos );', $h );
 	}
 
+	public function test_state_counts_families_and_emails_separately_and_exports_both_parents(): void {
+		$h = $this->src( 'includes/class-anpa-socios-admin-contactos-google-handler.php' );
+		// One row per parent with an email (both parents go to the list)…
+		$this->assertStringContainsString( "SELECT email, nome, apelidos FROM {\$soc_t}\n\t\t\t WHERE estado = 'activo' AND rol <> 'master' AND email <> ''", $h );
+		// …and a family count for the fee (one fee per family unit).
+		$this->assertStringContainsString( "'total_familias'    => (int) \$wpdb->get_var( \"SELECT COUNT(DISTINCT COALESCE(NULLIF(familia_id, 0), id)) FROM {\$soc_t} WHERE estado = 'activo' AND rol <> 'master' AND email <> ''\" )", $h );
+		$js = $this->src( 'assets/js/admin-management.js' );
+		$this->assertStringContainsString( "'Familias socias activas: ' + (d.total_familias || 0) + ' (unha cota por familia)'", $js );
+		$this->assertStringContainsString( "'Correos na lista: ' + (d.total_actuais || 0)", $js );
+		$this->assertStringNotContainsString( "'Socios/as activos agora: '", $js );
+	}
+
 	public function test_js_has_the_second_button_disabled_without_new_members_and_the_skip_step_4_note(): void {
 		$js = $this->src( 'assets/js/admin-management.js' );
 		$this->assertStringContainsString( "anpaAdminFetch('contactos-google/export?ambito=novas')", $js );

@@ -1298,14 +1298,17 @@
 			return s ? formatAdminDate(s.slice(0, 10)) + (s.length > 16 ? ' ' + s.slice(11, 16) : '') : '';
 		}
 
-		root.appendChild(el('p', 'Etiqueta de Google Contactos «' + etiqueta + '»: os correos de todos os socios/as activos (cada proxenitor/a coa súa alta). A web non pode escribir na conta de Google; o proceso é manual e leva tres pulsacións.', 'description'));
+		root.appendChild(el('p', 'Etiqueta de Google Contactos «' + etiqueta + '»: os correos de todos os socios/as activos, é dicir, os dous proxenitores de cada familia cando os dous teñen correo (cada un coa súa alta), para que ambos reciban os avisos da ANPA; a cota cóbrase unha soa vez por familia. A web non pode escribir na conta de Google; o proceso é manual e leva tres pulsacións.', 'description'));
 
 		// ── Estado ──
 		var card = el('div', null, 'anpa-mgmt-form');
 		card.style.maxWidth = '760px';
 		card.appendChild(el('h3', 'Estado'));
 		var ul = document.createElement('ul');
-		ul.appendChild(el('li', 'Socios/as activos agora: ' + (d.total_actuais || 0)));
+		// 1.65.0: the list carries BOTH parents of each family (each one is a socio/a with an email),
+		// but the fee is charged once per family, so show both figures.
+		ul.appendChild(el('li', 'Familias socias activas: ' + (d.total_familias || 0) + ' (unha cota por familia)'));
+		ul.appendChild(el('li', 'Correos na lista: ' + (d.total_actuais || 0) + ' (os dous proxenitores de cada familia, para que ambos reciban os avisos)'));
 		if (ultima) {
 			// 1.61.0: a "novas" export only added members to the label; the total is what Google holds.
 			ul.appendChild(el('li', 'Última exportación: ' + fmtDateTime(ultima.exportado_en) + (ultima.por ? ' por ' + ultima.por : '') + (ultima.tipo === 'novas' ? ' · só altas novas (' + (ultima.exportados || 0) + ' correos engadidos; ' + (ultima.total || 0) + ' na etiqueta)' : ' (' + (ultima.total || 0) + ' correos)')));
