@@ -140,12 +140,6 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 	}
 
 	/**
-	 * GET /admin/contactos-google/estado — last export vs. current members.
-	 *
-	 * @since  1.58.0
-	 * @return WP_REST_Response
-	 */
-	/**
 	 * Members recorded by the last export (what Google Contacts holds), keyed by
 	 * lower-case email. Pure.
 	 *
@@ -217,6 +211,12 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 		return array_values( $previos + self::por_email( $exportados ) );
 	}
 
+	/**
+	 * GET /admin/contactos-google/estado — last export vs. current members.
+	 *
+	 * @since  1.58.0
+	 * @return WP_REST_Response
+	 */
 	public static function estado(): WP_REST_Response {
 		global $wpdb;
 
