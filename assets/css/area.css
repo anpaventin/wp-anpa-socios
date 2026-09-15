@@ -834,6 +834,21 @@
 	background: var(--anpa-surface, #fff);
 }
 #anpa-area input[type="tel"][inputmode="numeric"] { max-width: 16rem; }
+/* 1.65.3: the theme (Blocksy) pins a fixed height on select/input; with the padding
+   above the option text overflowed and showed cut in half (fillos: curso/aula;
+   nova matrícula: alumno/actividade/grupo). Let the control size itself. */
+#anpa-area .anpa-area-card select,
+#anpa-area input[type="tel"],
+#anpa-area input[type="date"],
+#anpa-area input[type="number"] {
+	height: auto;
+	min-height: 2.75rem;
+	line-height: 1.4;
+}
+#anpa-area .anpa-area-card select {
+	padding: 0.55rem 2rem 0.55rem 0.85rem;
+	color: inherit;
+}
 @media (max-width: 768px) {
 	#anpa-area input[type="tel"],
 	#anpa-area input[type="date"],
