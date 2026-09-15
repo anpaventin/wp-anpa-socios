@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.62.1] - 2026-09-15
+
+### Added
+
+- **Acuse de recibo ao solicitar unha baixa.** Cando a familia solicita desde a área a baixa como socio/a ou a
+  baixa dunha actividade, ademais do aviso á xunta recibe un correo (`baixa_socio_solicitada`,
+  `baixa_extraescolar_solicitada`) que explica que a baixa non é automática, que unha persoa da directiva ten que
+  confirmala e pode tardar uns días, que recibirá outro correo ao confirmarse, e lembra que o traballo da ANPA fano
+  nais e pais no seu tempo libre. Todas as plantillas novas están en galego (17 en total).
+- **A baixa de socio/a aplícase a toda a unidade familiar.** Ao confirmala, tanto o/a proxenitor/a principal como
+  o/a secundario/a (cada un coa súa alta) pasan a «baixa» e perden o acceso á área; cada un recibe o correo
+  `baixa_socio_confirmada`, que inclúe a lista dos enderezos dados de baixa (variable `emails_baixa`). Xestión
+  amosa eses enderezos e cantos correos saíron; a auditoría rexistra `baixa_confirm` para quen solicitou e
+  `baixa_confirm_familia` para o resto. Antes só se daba de baixa a conta que fixera a solicitude.
+
+### Fixed
+
+- **Enter no acceso.** Na entrada de socios (páxina unificada e área), pulsar Enter no campo do correo equivale a
+  «Enviar código» e no campo do código a «Verificar»/«Entrar»; antes non facía nada porque os pasos non son un
+  formulario e os botóns son `type="button"`.
+
 ## [1.62.0] - 2026-09-15
 
 ### Added
@@ -15,16 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `baixa_extraescolar_rexeitada`. Os de rexeitamento din que a solicitude non se aceptou e que, se cren que houbo
   un erro, escriban á directiva ao correo de contacto. A pantalla indica se o correo saíu (ou avisa se non se puido
   enviar). Os avisos á xunta cando a familia solicita a baixa (`baixa_socio`, `baixa_extraescolar`) non cambian.
-- **Acuse de recibo ao solicitar unha baixa.** Cando a familia solicita desde a área a baixa como socio/a ou a
-  baixa dunha actividade, ademais do aviso á xunta recibe un correo (`baixa_socio_solicitada`,
-  `baixa_extraescolar_solicitada`) que explica que a baixa non é automática, que unha persoa da directiva ten que
-  confirmala e pode tardar uns días, que recibirá outro correo ao confirmarse, e lembra que o traballo da ANPA fano
-  nais e pais no seu tempo libre. Todas as plantillas novas están en galego.
-- **A baixa de socio/a aplícase a toda a unidade familiar.** Ao confirmala, tanto o/a proxenitor/a principal como
-  o/a secundario/a (cada un coa súa alta) pasan a «baixa» e perden o acceso á área; cada un recibe o correo
-  `baixa_socio_confirmada`, que inclúe a lista dos enderezos dados de baixa (variable `emails_baixa`). Xestión
-  amosa eses enderezos e cantos correos saíron; a auditoría rexistra `baixa_confirm` para quen solicitou e
-  `baixa_confirm_familia` para o resto. Antes só se daba de baixa a conta que fixera a solicitude.
 - **Regra do trimestre na baixa dunha actividade.** O correo de confirmación explica os efectos segundo o estado do
   trimestre en curso (Axustes → Cursos → Estado dos trimestres): se xa comezou («activo»), a baixa é efectiva ao
   remate do trimestre (coa data de peche operativo cando está configurada), a cota mantense ata entón e non se
