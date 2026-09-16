@@ -40,6 +40,17 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 	const OPTION_SNAPSHOT = 'anpa_socios_contactos_google_snapshot';
 
 	/**
+	 * Option holding the last DOWNLOAD that the junta has not confirmed yet (same
+	 * shape as the snapshot). The browser cannot tell whether it really saved the
+	 * file (corporate policies block downloads silently), so nothing is recorded
+	 * until «Si, gardouse» promotes this to OPTION_SNAPSHOT.
+	 *
+	 * @since 1.66.0
+	 * @var string
+	 */
+	const OPTION_PENDENTE = 'anpa_socios_contactos_google_pendente';
+
+	/**
 	 * Header row of Google's own CSV format (what "Export → Google CSV" produces
 	 * in Google Contacts, 2024+ layout). Import maps columns by these names, so
 	 * the row is emitted verbatim and unused columns stay empty.
@@ -76,6 +87,100 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 			'callback'            => array( __CLASS__, 'inicio_curso' ),
 			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
 		) );
+		// 1.66.0: the download is recorded only when the junta confirms the file was saved.
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/contactos-google/exportacion/confirmar', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( __CLASS__, 'confirmar_exportacion' ),
+			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+		) );
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/contactos-google/exportacion/descartar', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( __CLASS__, 'descartar_exportacion' ),
+			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+		) );
+	}
+
+	/**
+	 * Snapshot to record once the junta confirms the download. Keeps the time the
+	 * file was produced (what it contains) and adds when it was confirmed. Pure.
+	 *
+	 * @since  1.66.0
+	 * @param  array<string,mixed>|null $pendente      Stored OPTION_PENDENTE value.
+	 * @param  string                   $confirmado_en Confirmation time (MySQL format).
+	 * @return array<string,mixed>|null Null when there is nothing to record.
+	 */
+	public static function snapshot_desde_pendente( ?array $pendente, string $confirmado_en ): ?array {
+		if ( empty( $pendente ) || empty( $pendente['socios'] ) || ! is_array( $pendente['socios'] ) ) {
+			return null;
+		}
+		$socios = array_values( $pendente['socios'] );
+
+		return array(
+			'exportado_en'  => (string) ( $pendente['exportado_en'] ?? $confirmado_en ),
+			'confirmado_en' => $confirmado_en,
+			'por'           => (string) ( $pendente['por'] ?? '' ),
+			'total'         => (int) ( $pendente['total'] ?? count( $socios ) ),
+			'tipo'          => 'novas' === ( $pendente['tipo'] ?? '' ) ? 'novas' : 'completa',
+			'exportados'    => (int) ( $pendente['exportados'] ?? count( $socios ) ),
+			'socios'        => $socios,
+		);
+	}
+
+	/**
+	 * Summary of the unconfirmed download for the panel (no member data).
+	 *
+	 * @since  1.66.0
+	 * @return array{exportado_en:string,tipo:string,exportados:int}|null
+	 */
+	private static function pendente_resumo(): ?array {
+		$p = get_option( self::OPTION_PENDENTE, null );
+		if ( ! is_array( $p ) || empty( $p['socios'] ) ) {
+			return null;
+		}
+		return array(
+			'exportado_en' => (string) ( $p['exportado_en'] ?? '' ),
+			'tipo'         => 'novas' === ( $p['tipo'] ?? '' ) ? 'novas' : 'completa',
+			'exportados'   => (int) ( $p['exportados'] ?? count( $p['socios'] ) ),
+		);
+	}
+
+	/**
+	 * POST /admin/contactos-google/exportacion/confirmar — the junta saw the file:
+	 * the pending download becomes the snapshot the panel compares against.
+	 *
+	 * @since  1.66.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function confirmar_exportacion( WP_REST_Request $request ) {
+		$pendente = get_option( self::OPTION_PENDENTE, null );
+		$snapshot = self::snapshot_desde_pendente( is_array( $pendente ) ? $pendente : null, current_time( 'mysql' ) );
+		if ( null === $snapshot ) {
+			return new WP_Error( 'anpa_sen_exportacion_pendente', __( 'Non hai ningunha descarga pendente de confirmar. Descarga o CSV de novo.', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+		update_option( self::OPTION_SNAPSHOT, $snapshot, false );
+		delete_option( self::OPTION_PENDENTE );
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'export', 'contactos-google', 'export_confirmada' );
+
+		return new WP_REST_Response( array( 'anotada' => true, 'tipo' => $snapshot['tipo'], 'exportados' => $snapshot['exportados'], 'total' => $snapshot['total'] ), 200 );
+	}
+
+	/**
+	 * POST /admin/contactos-google/exportacion/descartar — the browser did not
+	 * save the file: forget the pending download, the snapshot stays as it was.
+	 *
+	 * @since  1.66.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public static function descartar_exportacion( WP_REST_Request $request ): WP_REST_Response {
+		$habia = is_array( get_option( self::OPTION_PENDENTE, null ) );
+		delete_option( self::OPTION_PENDENTE );
+		if ( $habia ) {
+			ANPA_Socios_Admin_Shared::write_audit( $request, 'export', 'contactos-google', 'export_descartada' );
+		}
+
+		return new WP_REST_Response( array( 'descartada' => $habia ), 200 );
 	}
 
 	/**
@@ -253,6 +358,8 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 				'baixas'            => $baixas,
 				'baixas_sen_confirmar' => $pendentes,
 				'precisa_exportar'  => null === $snapshot || array() !== $altas || array() !== $baixas,
+				// 1.66.0: a download the junta has not confirmed (or discarded) yet.
+				'exportacion_pendente' => self::pendente_resumo(),
 				// 1.63.0: links the start-of-year email will carry (Axustes → Xeral).
 				'instrucions_url'   => ANPA_Socios_Config::instrucions_url(),
 				'extraescolares_url' => ANPA_Socios_Config::extraescolares_url(),
@@ -288,7 +395,8 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 	}
 
 	/**
-	 * GET /admin/contactos-google/export — downloads the CSV and records the snapshot.
+	 * GET /admin/contactos-google/export — downloads the CSV and leaves the export
+	 * pending of confirmation (1.66.0; before, it recorded the snapshot at once).
 	 *
 	 * @since  1.58.0
 	 * @param  WP_REST_Request $request Incoming request.
@@ -305,9 +413,11 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 		$csv      = self::build_csv( $socios );
 		$gardados = self::socios_tras_exportacion( $so_novas, $socios, $previos );
 
+		// 1.66.0: the file is served now, but it is RECORDED only when the junta confirms
+		// the browser saved it (confirmar_exportacion). Until then altas/baixas stay as they are.
 		$user = wp_get_current_user();
 		update_option(
-			self::OPTION_SNAPSHOT,
+			self::OPTION_PENDENTE,
 			array(
 				'exportado_en' => current_time( 'mysql' ),
 				'por'          => $user instanceof WP_User ? (string) $user->user_email : '',
