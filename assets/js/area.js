@@ -1853,10 +1853,16 @@
 			const a = document.createElement('a');
 			a.href = url;
 			a.download = 'alumnos-empresa-' + ambito + '.csv';
+			a.rel = 'noopener';
+			a.style.display = 'none';
 			document.body.appendChild(a);
 			a.click();
-			document.body.removeChild(a);
-			URL.revokeObjectURL(url);
+			// 1.65.5: keep the blob URL alive until the browser has started the download
+			// (revoking it at once cancelled the download in Firefox and recent Chromium).
+			setTimeout(() => {
+				document.body.removeChild(a);
+				URL.revokeObjectURL(url);
+			}, 60000);
 			// 1.60.0: only while enrolments are open — the downloaded list may change (altas/baixas).
 			if (empresaAvisoMatriculas && empresaAvisoMatriculas.estado === 'abertas') {
 				const tri = Number(empresaAvisoMatriculas.trimestre) || 0;
