@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.66.0] - 2026-09-16
+
+### Changed
+
+- **Lista Gmail: a exportación só se anota cando confirmas que o ficheiro se gardou.** Ata agora, ao pulsar «Descargar
+  CSV para Google Contactos» ou «Descargar só as altas novas» a web anotaba a exportación no momento de servir o
+  ficheiro (as altas e baixas pasaban a cero e saía «CSV descargado»), aínda que o navegador non chegase a gardar nada:
+  algúns equipos de empresa bloquean as descargas sen avisar (así se detectou o 2026-09-16; noutro equipo o mesmo
+  navegador descargaba ben). Agora a descarga queda **pendente de confirmar**: baixo os botóns aparece «Gardou o
+  navegador o ficheiro …?» con «Si, gardouse: anotar a exportación» (anota a exportación e actualiza altas/baixas) e
+  «Non se descargou» (non cambia nada). Se se pecha a páxina sen responder, a seguinte visita volve preguntar e os
+  botóns de descarga quedan bloqueados ata decidir. Rutas novas (só xunta) `POST contactos-google/exportacion/confirmar`
+  e `…/descartar`; opción `anpa_socios_contactos_google_pendente`; auditoría `export_confirmada` / `export_descartada`
+  (`export_csv` segue anotándose ao servir o ficheiro, que xa saíu do servidor). Paso 2 das instrucións actualizado.
+  Tests: `Test_ANPA_Socios_Lista_Gmail_Confirmacion` (helper puro `snapshot_desde_pendente` + contratos). Sen cambios
+  de esquema.
+
 ## [1.65.5] - 2026-09-16
 
 ### Fixed

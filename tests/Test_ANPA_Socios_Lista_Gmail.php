@@ -62,7 +62,7 @@ final class Test_ANPA_Socios_Lista_Gmail extends TestCase {
 		$this->assertStringContainsString( "WHERE estado = 'activo' AND rol <> 'master' AND email <> ''", $h );
 		$this->assertStringContainsString( "WHERE estado = 'activo' AND baixa_estado = 'solicitada' AND rol <> 'master'", $h );
 		$this->assertStringContainsString( "'baixas_sen_confirmar' => \$pendentes,", $h );
-		$this->assertStringContainsString( "update_option(\n			self::OPTION_SNAPSHOT,", $h );
+		$this->assertStringContainsString( "update_option(\n			self::OPTION_PENDENTE,", $h ); // 1.66.0: the download is pending until confirmed; only confirmar_exportacion() writes OPTION_SNAPSHOT.
 		$this->assertStringContainsString( "write_audit( \$request, 'export', 'contactos-google', \$so_novas ? 'export_csv_novas' : 'export_csv' )", $h );
 		// SQL literals stay ASCII (wpdb invalid-text parser, see 1.56.3).
 		preg_match_all( '/"\s*SELECT\b.*?"/s', $h, $m );
@@ -75,8 +75,8 @@ final class Test_ANPA_Socios_Lista_Gmail extends TestCase {
 		$h = $this->src( 'includes/class-anpa-socios-admin-contactos-google-handler.php' );
 		$this->assertStringContainsString( "'/contactos-google/estado'", $h );
 		$this->assertStringContainsString( "'/contactos-google/export'", $h );
-		// estado + export + inicio-curso (1.62.0): master only, all of them.
-		$this->assertSame( 3, substr_count( $h, "'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' )" ) );
+		// estado + export + inicio-curso (1.62.0) + exportacion/confirmar + exportacion/descartar (1.66.0): master only, all of them.
+		$this->assertSame( 5, substr_count( $h, "'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' )" ) );
 		$this->assertStringContainsString( 'ANPA_Socios_Admin_Contactos_Google_Handler::register_routes();', $this->src( 'includes/class-anpa-socios-admin-rest.php' ) );
 		$this->assertStringContainsString( "includes/class-anpa-socios-admin-contactos-google-handler.php';", $this->src( 'anpa-socios.php' ) );
 		require_once dirname( __DIR__ ) . '/includes/lib/class-anpa-socios-admin-nav.php';

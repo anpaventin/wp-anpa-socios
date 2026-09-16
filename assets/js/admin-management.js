@@ -1345,20 +1345,57 @@
 			card.appendChild(el('p', 'Consello: en Axustes → Xeral → Configuración podes indicar o correo da conta de Google da xunta; así o botón «Abrir Google Contactos» abre directamente esa conta cando hai varias sesións iniciadas.', 'description'));
 		}
 
+		// ── Confirmación da descarga (1.66.0) ──
+		// The browser cannot tell whether it really saved the file (corporate policies block
+		// downloads silently), so the server keeps the export «pendente» until the junta answers.
+		var confirmBox = el('div', null, 'anpa-mgmt-form-actions');
+		confirmBox.hidden = true;
+		confirmBox.style.marginTop = '0.75rem'; confirmBox.style.padding = '0.75rem 1rem';
+		confirmBox.style.border = '1px solid #dba617'; confirmBox.style.background = '#fcf9e8'; confirmBox.style.borderRadius = '4px';
+		function pedirConfirmacion(texto) {
+			confirmBox.textContent = '';
+			confirmBox.hidden = false;
+			var p = el('p', texto); p.style.fontWeight = '600'; p.style.margin = '0 0 0.5rem';
+			confirmBox.appendChild(p);
+			confirmBox.appendChild(el('p', 'Ata que confirmes, a web non anota esta exportación: as altas e baixas seguen como estaban.', 'description'));
+			var row = el('div', null, 'anpa-mgmt-form-actions');
+			row.style.display = 'flex'; row.style.gap = '0.5rem'; row.style.flexWrap = 'wrap';
+			var si = el('button', 'Si, gardouse: anotar a exportación', 'anpa-mgmt-btn'); si.type = 'button';
+			var non = el('button', 'Non se descargou', 'anpa-mgmt-btn anpa-mgmt-btn-secondary'); non.type = 'button';
+			si.addEventListener('click', function () {
+				si.disabled = true; non.disabled = true;
+				anpaAdminFetch('contactos-google/exportacion/confirmar', { method: 'POST' }).then(function (r) {
+					showMessage(r && r.tipo === 'novas'
+						? 'Exportación anotada. Importa o CSV en Google Contactos SEN eliminar a etiqueta (salta o paso 4): os correos novos súmanse á etiqueta «' + etiqueta + '».'
+						: 'Exportación anotada. Agora importa o CSV en Google Contactos seguindo os pasos de abaixo.', 'success');
+					loadListaGmail();
+				}).catch(function (e) { si.disabled = false; non.disabled = false; showMessage(e.message, 'error'); });
+			});
+			non.addEventListener('click', function () {
+				si.disabled = true; non.disabled = true;
+				anpaAdminFetch('contactos-google/exportacion/descartar', { method: 'POST' }).then(function () {
+					showMessage('Non se anotou nada. Se o navegador non garda o ficheiro, proba noutro navegador ou equipo: algunhas empresas bloquean as descargas.', 'warning');
+					loadListaGmail();
+				}).catch(function (e) { si.disabled = false; non.disabled = false; showMessage(e.message, 'error'); });
+			});
+			row.appendChild(si); row.appendChild(non);
+			confirmBox.appendChild(row);
+			confirmBox.scrollIntoView({ block: 'nearest' });
+		}
+
 		// ── Botóns ──
 		var acts = el('div', null, 'anpa-mgmt-form-actions');
 		acts.style.display = 'flex'; acts.style.gap = '0.5rem'; acts.style.flexWrap = 'wrap';
 		var dl = el('button', 'Descargar CSV para Google Contactos', 'anpa-mgmt-btn');
 		dl.type = 'button';
 		dl.addEventListener('click', function () {
-			dl.disabled = true;
+			dl.disabled = true; dlNovas.disabled = true;
+			var nome = 'socios-web-anpa-google-' + new Date().toISOString().slice(0, 10) + '.csv';
 			anpaAdminFetch('contactos-google/export').then(function (blob) {
-				if (blob instanceof Blob) {
-					downloadBlob(blob, 'socios-web-anpa-google-' + new Date().toISOString().slice(0, 10) + '.csv');
-					showMessage('CSV descargado. Agora impórtao en Google Contactos seguindo os pasos de abaixo.', 'success');
-				}
-				loadListaGmail();
-			}).catch(function (e) { dl.disabled = false; showMessage(e.message, 'error'); });
+				if (blob instanceof Blob) { downloadBlob(blob, nome); }
+				// 1.66.0: nothing is recorded yet — ask whether the browser really saved the file.
+				pedirConfirmacion('Gardou o navegador o ficheiro ' + nome + '? (Mira a lista de descargas.)');
+			}).catch(function (e) { dl.disabled = false; dlNovas.disabled = !ultima || !altas.length; showMessage(e.message, 'error'); });
 		});
 		// 1.61.0: only the members that joined since the last export, to add them to
 		// the existing label without deleting it (the baixas stay in Google until the
@@ -1368,14 +1405,12 @@
 		dlNovas.disabled = !ultima || !altas.length;
 		dlNovas.title = !ultima ? 'Primeiro fai unha exportación completa.' : (!altas.length ? 'Non hai altas novas desde a última exportación.' : 'Só os ' + altas.length + ' correos novos; impórtaos SEN eliminar a etiqueta.');
 		dlNovas.addEventListener('click', function () {
-			dlNovas.disabled = true;
+			dl.disabled = true; dlNovas.disabled = true;
+			var nome = 'socios-web-anpa-google-novas-' + new Date().toISOString().slice(0, 10) + '.csv';
 			anpaAdminFetch('contactos-google/export?ambito=novas').then(function (blob) {
-				if (blob instanceof Blob) {
-					downloadBlob(blob, 'socios-web-anpa-google-novas-' + new Date().toISOString().slice(0, 10) + '.csv');
-					showMessage('CSV coas altas novas descargado. Impórtao en Google Contactos SEN eliminar a etiqueta (salta o paso 4): os correos novos súmanse á etiqueta «' + etiqueta + '».', 'success');
-				}
-				loadListaGmail();
-			}).catch(function (e) { dlNovas.disabled = false; showMessage(e.message, 'error'); });
+				if (blob instanceof Blob) { downloadBlob(blob, nome); }
+				pedirConfirmacion('Gardou o navegador o ficheiro ' + nome + ' (só as altas novas)? (Mira a lista de descargas.)');
+			}).catch(function (e) { dl.disabled = false; dlNovas.disabled = false; showMessage(e.message, 'error'); });
 		});
 		var open = el('button', 'Abrir Google Contactos', 'anpa-mgmt-btn anpa-mgmt-btn-secondary');
 		open.type = 'button';
@@ -1383,10 +1418,14 @@
 		acts.appendChild(dl); acts.appendChild(dlNovas); acts.appendChild(open);
 		card.appendChild(acts);
 		card.appendChild(el('p', '«Descargar CSV para Google Contactos» leva todos os socios/as activos (para refacer a etiqueta enteira, quitando as baixas). «Descargar só as altas novas» leva só os correos dados de alta desde a última exportación, para engadilos á etiqueta que xa existe sen tocar o resto; as baixas seguen en Google ata facer o proceso completo.', 'description'));
-		acts = el('div', null, 'anpa-mgmt-form-actions');
-		acts.hidden = true;
-		card.appendChild(acts);
+		card.appendChild(confirmBox);
 		root.appendChild(card);
+		if (d.exportacion_pendente && d.exportacion_pendente.exportado_en) {
+			// 1.66.0: a download from an earlier visit that was never confirmed nor discarded.
+			var pend = d.exportacion_pendente;
+			dl.disabled = true; dlNovas.disabled = true;
+			pedirConfirmacion('Hai unha descarga sen confirmar do ' + fmtDateTime(pend.exportado_en) + (pend.tipo === 'novas' ? ' (só altas novas, ' : ' (completa, ') + (pend.exportados || 0) + ' correos). Gardouse ese ficheiro?');
+		}
 
 		// ── Instrucións ──
 		var steps = el('div', null, 'anpa-mgmt-form');
@@ -1395,7 +1434,7 @@
 		var ol = document.createElement('ol');
 		[
 			'Confirma primeiro as baixas pendentes en Xestión → Socios → Baixas solicitadas. Se unha baixa non se confirma, esa persoa segue sendo socio/a activo/a e o seu correo NON sae da lista.',
-			'Pulsa «Descargar CSV para Google Contactos». Gárdase o ficheiro socios-web-anpa-google-<data>.csv e a web anota esta exportación para comparar coa seguinte.',
+			'Pulsa «Descargar CSV para Google Contactos», comproba que o navegador gardou o ficheiro socios-web-anpa-google-<data>.csv e responde «Si, gardouse»: só entón a web anota esta exportación para comparar coa seguinte. Se non se descargou, responde «Non se descargou» e non cambia nada.',
 			'Pulsa «Abrir Google Contactos». Ten a sesión iniciada coa conta de Google da xunta' + (d.conta_google ? ' (' + d.conta_google + ')' : '') + '.',
 			'En Google Contactos, no menú da esquerda, abre a etiqueta «' + etiqueta + '», pulsa o menú de tres puntos → «Eliminar etiqueta» → «Eliminar todos os contactos e a etiqueta». Así desaparecen as baixas. Se a etiqueta aínda non existe, salta este paso.',
 			'Pulsa «Importar» → «Seleccionar ficheiro» → escolle o CSV descargado → «Importar». A etiqueta «' + etiqueta + '» créase de novo cos socios/as activos. Google engade ademais unha etiqueta «Importado o …» que podes eliminar (só a etiqueta, mantendo os contactos).'
