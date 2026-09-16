@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.65.5] - 2026-09-16
+
+### Fixed
+
+- **Os botóns de descarga de CSV non gardaban ningún ficheiro.** «Descargar CSV para Google Contactos» e «Descargar só as
+  altas novas» (Lista Gmail), os «Exportar CSV» de Xestión e a descarga de alumnado do panel de empresa/comedor amosaban a
+  mensaxe de éxito pero o navegador non gardaba nada, tanto en produción como no LXC 103. O ficheiro chegaba ben do
+  servidor (comprobado coa petición REST real: 200, `text/csv`): o problema estaba no navegador, porque a ligazón temporal
+  (`blob:`) anulábase no mesmo instante de pulsar, e Firefox e as versións recentes de Chromium cancelan a descarga se a
+  ligazón desaparece antes de comezar. Agora a ligazón mantense un minuto e bórrase despois (nos dous ficheiros,
+  `admin-management.js` e `area.js`). Test de contrato `Test_ANPA_Socios_Csv_Download_Blob`. Só JavaScript: sen cambios
+  no servidor nin no esquema. Nota: cada intento fallido xa quedou anotado como exportación; tras actualizar, fai unha
+  exportación completa e importa o CSV en Google Contactos.
+
 ## [1.65.4] - 2026-09-16
 
 ### Fixed

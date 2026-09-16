@@ -222,15 +222,23 @@
 		return select;
 	}
 
+	// 1.65.5: the browser starts the download AFTER the click returns, so the blob URL
+	// has to outlive it. Revoking it right away (as before) made Firefox and recent
+	// Chromium cancel the download silently: the panel said «descargado» and no file
+	// appeared. Keep the link a minute, then clean up.
 	function downloadBlob(blob, filename) {
 		var url = URL.createObjectURL(blob);
 		var a = document.createElement('a');
 		a.href = url;
 		a.download = filename;
+		a.rel = 'noopener';
+		a.style.display = 'none';
 		document.body.appendChild(a);
 		a.click();
-		document.body.removeChild(a);
-		URL.revokeObjectURL(url);
+		setTimeout(function () {
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+		}, 60000);
 	}
 
 	// ── Passphrase modal
