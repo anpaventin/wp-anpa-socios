@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.67.0] - 2026-09-19
+
+### Changed
+
+- **A firma dos correos admite ligazóns.** «Firma dos correos» (Axustes → Xeral e o asistente inicial) era texto plano: ao
+  gardar quitábase calquera etiqueta e ao enviar escapábase todo, así que «Facebook | Instagram | Telegram» saía sen
+  ligazóns. Agora o campo admite HTML limitado: `<a href="…">`, `<strong>`/`<b>`, `<em>`/`<i>` e `<br>` (saneado con
+  `wp_kses` ao gardar e ao enviar; scripts, imaxes e estilos elimínanse). O texto normal e os saltos de liña do campo
+  seguen respectándose (`white-space: pre-line`), polo que as firmas existentes non cambian. Campo máis alto e texto de
+  axuda cun exemplo. Tests: `Test_ANPA_Socios_Email_Signature_Html` (etiquetas permitidas, saneado, contratos de
+  gardado e envío). Sen cambios de esquema.
+
 ## [1.66.0] - 2026-09-16
 
 ### Changed

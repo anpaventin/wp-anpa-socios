@@ -290,10 +290,10 @@ final class ANPA_Socios_Admin_Settings {
 			esc_html__( 'Amósase no aviso de protección de datos (RGPD) do formulario de alta. Opcional.', 'anpa-socios' )
 		);
 		printf(
-			'<tr><th scope="row"><label for="anpa-w-sign">%s</label></th><td><textarea name="email_signature" id="anpa-w-sign" class="large-text" rows="3">%s</textarea><p class="description">%s</p></td></tr>',
+			'<tr><th scope="row"><label for="anpa-w-sign">%s</label></th><td><textarea name="email_signature" id="anpa-w-sign" class="large-text" rows="6">%s</textarea><p class="description">%s</p></td></tr>',
 			esc_html__( 'Firma dos correos', 'anpa-socios' ),
 			esc_textarea( self::wizard_signature_prefill() ),
-			esc_html__( 'Engádese ao final dos correos que envía o plugin. Podes editala.', 'anpa-socios' )
+			esc_html__( 'Engádese ao final dos correos que envía o plugin. Podes editala. Admite ligazóns e negriña en HTML: <a href="https://…">Facebook</a>, <strong>texto</strong>; os saltos de liña respéctanse.', 'anpa-socios' )
 		);
 		printf(
 			'<tr><th scope="row"><label for="anpa-w-menu">%s</label></th><td><input name="menu_name" id="anpa-w-menu" type="text" class="regular-text" maxlength="%d" value="%s"><p class="description">%s</p></td></tr>',
@@ -401,7 +401,7 @@ final class ANPA_Socios_Admin_Settings {
 		}
 		update_option( ANPA_Socios_Config::OPTION_ADDRESS, sanitize_text_field( (string) wp_unslash( $_POST['association_address'] ?? '' ) ) );
 		if ( isset( $_POST['email_signature'] ) ) {
-			update_option( ANPA_Socios_Config::OPTION_SIGNATURE, sanitize_textarea_field( (string) wp_unslash( $_POST['email_signature'] ) ) );
+			update_option( ANPA_Socios_Config::OPTION_SIGNATURE, ANPA_Socios_Email::sanitize_signature( (string) wp_unslash( $_POST['email_signature'] ) ) );
 		}
 		$menu_name = trim( wp_strip_all_tags( (string) wp_unslash( $_POST['menu_name'] ?? '' ) ) );
 		if ( '' !== $menu_name ) {
@@ -736,10 +736,10 @@ final class ANPA_Socios_Admin_Settings {
 			esc_html__( 'Etiqueta visible na barra lateral de administración. Se a deixas baleira, usarase «Xestión ANPA».', 'anpa-socios' )
 		);
 		printf(
-			'<tr><th scope="row"><label for="cfg-sign">%s</label></th><td><textarea name="email_signature" id="cfg-sign" class="large-text" rows="3">%s</textarea><p class="description">%s</p></td></tr>',
+			'<tr><th scope="row"><label for="cfg-sign">%s</label></th><td><textarea name="email_signature" id="cfg-sign" class="large-text" rows="8">%s</textarea><p class="description">%s</p></td></tr>',
 			esc_html__( 'Firma dos correos', 'anpa-socios' ),
 			esc_textarea( ANPA_Socios_Config::email_signature() ),
-			esc_html__( 'Engádese ao final dos correos enviados dende a conta do equipo administrador.', 'anpa-socios' )
+			esc_html__( 'Engádese ao final de todos os correos que envía a web. Texto normal cos seus saltos de liña; admite ligazóns e negriña en HTML: <a href="https://…">Facebook</a>, <strong>texto</strong>. O resto de etiquetas elimínanse ao gardar.', 'anpa-socios' )
 		);
 		printf(
 			'<tr><th scope="row">%s</th><td><label><input type="checkbox" name="require_approval" value="1" %s> %s</label></td></tr>',
@@ -1878,7 +1878,7 @@ final class ANPA_Socios_Admin_Settings {
 			update_option( ANPA_Socios_Config::OPTION_MENU_NAME, trim( $menu_name ) );
 		}
 		if ( array_key_exists( 'email_signature', $_POST ) ) {
-			update_option( ANPA_Socios_Config::OPTION_SIGNATURE, sanitize_textarea_field( (string) wp_unslash( $_POST['email_signature'] ) ) );
+			update_option( ANPA_Socios_Config::OPTION_SIGNATURE, ANPA_Socios_Email::sanitize_signature( (string) wp_unslash( $_POST['email_signature'] ) ) );
 		}
 		if ( array_key_exists( 'require_approval', $_POST ) || array_key_exists( 'association_name', $_POST ) ) {
 			update_option( ANPA_Socios_Config::OPTION_APPROVAL, ! empty( $_POST['require_approval'] ) ? '1' : '0' );

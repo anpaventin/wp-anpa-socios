@@ -132,9 +132,41 @@ class ANPA_Socios_Email {
 			return '';
 		}
 
+		// 1.67.0: limited HTML (links, bold, line breaks) instead of plain text, so the
+		// social links can be clickable. Line breaks typed in the textarea still render.
 		return '<hr style="margin-top:24px"><p style="color:#666;font-size:12px;white-space:pre-line">'
-			. esc_html( $sig )
+			. wp_kses( $sig, self::signature_allowed_html() )
 			. '</p>';
+	}
+
+	/**
+	 * HTML the signature may contain: links, bold/italic and line breaks. Nothing
+	 * that can carry scripts, styles or remote images into every email.
+	 *
+	 * @since  1.67.0
+	 * @return array<string,array<string,bool>>
+	 */
+	public static function signature_allowed_html(): array {
+		return array(
+			'a'      => array( 'href' => true, 'title' => true, 'target' => true, 'rel' => true ),
+			'br'     => array(),
+			'strong' => array(),
+			'b'      => array(),
+			'em'     => array(),
+			'i'      => array(),
+		);
+	}
+
+	/**
+	 * Sanitizes the signature typed in Axustes (wizard and Xeral) before saving.
+	 * Keeps the allowed tags and the plain-text line breaks; drops the rest.
+	 *
+	 * @since  1.67.0
+	 * @param  string $raw Submitted value (already unslashed).
+	 * @return string
+	 */
+	public static function sanitize_signature( string $raw ): string {
+		return trim( wp_kses( $raw, self::signature_allowed_html() ) );
 	}
 
 	/**
