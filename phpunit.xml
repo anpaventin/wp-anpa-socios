@@ -120,6 +120,7 @@
       <file>tests/Test_ANPA_Socios_Lista_Gmail_Novas.php</file>
       <file>tests/Test_ANPA_Socios_Csv_Download_Blob.php</file>
       <file>tests/Test_ANPA_Socios_Lista_Gmail_Confirmacion.php</file>
+      <file>tests/Test_ANPA_Socios_Email_Signature_Html.php</file>
       <file>tests/Test_ANPA_Socios_Emails_Baixas_Inicio_Curso.php</file>
       <file>tests/Test_ANPA_Socios_Login_Enter.php</file>
       <file>tests/Test_ANPA_Socios_Updater_Ui.php</file>
