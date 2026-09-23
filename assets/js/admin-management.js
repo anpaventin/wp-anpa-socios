@@ -1224,14 +1224,13 @@
 
 	function renderBaixas(data) {
 		root.textContent = '';
-		document.title = 'Baixas solicitadas — Xestión ANPA';
+		document.title = 'Baixas de socios — Xestión ANPA';
 		var socios = data && Array.isArray(data.socios) ? data.socios : [];
-		var mats = data && Array.isArray(data.matriculas) ? data.matriculas : [];
 
 		var intro = document.createElement('p');
 		intro.className = 'description';
 		// 1.62.0: both decisions email the family with the templates in Axustes → Plantillas.
-		intro.textContent = 'Solicitudes abertas polas familias desde a área de socios. Confirmar fai efectiva a baixa; rexeitar deixa todo como estaba. Nos dous casos a familia recibe un correo automático (plantillas «baixa_socio_confirmada», «baixa_socio_rexeitada», «baixa_extraescolar_confirmada» e «baixa_extraescolar_rexeitada» en Axustes → Plantillas de email). Na baixa dunha actividade o correo indica se é inmediata e sen cobro (ventá de inscrición do trimestre aínda aberta) ou efectiva ao remate do trimestre en curso (ventá xa pechada).';
+		intro.textContent = 'Solicitudes de baixa da asociación feitas polas familias desde a área de socios. Confirmar fai efectiva a baixa de toda a unidade familiar; rexeitar deixa todo como estaba. Nos dous casos a familia recibe un correo automático (plantillas «baixa_socio_confirmada» e «baixa_socio_rexeitada» en Axustes → Plantillas de email). As baixas de actividades pedidas polas familias xestiónanse en Extraescolares → Matrículas (1.68.1).';
 		root.appendChild(intro);
 
 		function actionCell(onConfirm, onReject, confirmLabel) {
@@ -1300,37 +1299,6 @@
 			root.appendChild(ts);
 		}
 
-		// ── Matrículas ──
-		var h3m = document.createElement('h3');
-		h3m.style.marginTop = '1.5rem';
-		h3m.textContent = 'Baixas de actividades pendentes (' + mats.length + ')';
-		root.appendChild(h3m);
-		if (!mats.length) {
-			root.appendChild(emptyEl('Non hai solicitudes de baixa de actividades.'));
-		} else {
-			var tm = simpleTable(['Data da solicitude', 'Alumno/a', 'Curso/Aula', 'Actividade', 'Grupo', 'Curso escolar', 'Familia (email)', 'Accións']);
-			mats.forEach(function (m) {
-				var tr = document.createElement('tr');
-				tr.className = 'anpa-row-baixa-pending';
-				tr.appendChild(cell(formatAdminDate(m.solicitada_en)));
-				tr.appendChild(cell(((m.fillo_apelidos || '') + ', ' + (m.fillo_nome || '')).replace(/^, /, '')));
-				tr.appendChild(cell(m.curso_completo));
-				tr.appendChild(cell(m.actividade));
-				tr.appendChild(cell([m.grupo, m.dias, m.franxa].filter(Boolean).join(' · ')));
-				tr.appendChild(cell(m.curso_escolar));
-				tr.appendChild(cell(m.socio_email));
-				var path = 'matricula/' + m.id + '/baixa/';
-				tr.appendChild(actionCell(function () {
-					if (!window.confirm('Confirmar a baixa de ' + (m.fillo_nome || '') + ' en ' + (m.actividade || '') + '? A praza oférecese ao seguinte da lista de espera.')) { return; }
-					act(path + 'confirm', 'Baixa da actividade confirmada.');
-				}, function () {
-					if (!window.confirm('Rexeitar a solicitude? A matrícula volve a estar activa.')) { return; }
-					act(path + 'reject', 'Solicitude rexeitada; a matrícula segue activa.');
-				}, 'Confirmar baixa'));
-				tm._tbody.appendChild(tr);
-			});
-			root.appendChild(tm);
-		}
 	}
 
 	// ── Section: Lista Gmail (1.58.0) ────────────────────────────────
@@ -1394,7 +1362,7 @@
 		}
 		card.appendChild(status);
 		if (pendentes > 0) {
-			var warn = el('p', 'Atención: hai ' + pendentes + ' solicitude(s) de baixa de socio/a sen confirmar en Xestión → Socios → Baixas solicitadas. Mentres non se confirmen, eses correos seguen sendo socios activos e IRÁN na lista exportada. Confirma primeiro as baixas e exporta despois.');
+			var warn = el('p', 'Atención: hai ' + pendentes + ' solicitude(s) de baixa de socio/a sen confirmar en Xestión → Socios → Baixas de socios. Mentres non se confirmen, eses correos seguen sendo socios activos e IRÁN na lista exportada. Confirma primeiro as baixas e exporta despois.');
 			warn.style.color = '#8a6d00'; warn.style.fontWeight = '600';
 			card.appendChild(warn);
 		}
@@ -1490,7 +1458,7 @@
 		steps.appendChild(el('h3', 'Pasos para actualizar a lista en Gmail'));
 		var ol = document.createElement('ol');
 		[
-			'Confirma primeiro as baixas pendentes en Xestión → Socios → Baixas solicitadas. Se unha baixa non se confirma, esa persoa segue sendo socio/a activo/a e o seu correo NON sae da lista.',
+			'Confirma primeiro as baixas pendentes en Xestión → Socios → Baixas de socios. Se unha baixa non se confirma, esa persoa segue sendo socio/a activo/a e o seu correo NON sae da lista.',
 			'Pulsa «Descargar CSV para Google Contactos», comproba que o navegador gardou o ficheiro socios-web-anpa-google-<data>.csv e responde «Si, gardouse»: só entón a web anota esta exportación para comparar coa seguinte. Se non se descargou, responde «Non se descargou» e non cambia nada.',
 			'Pulsa «Abrir Google Contactos». Ten a sesión iniciada coa conta de Google da xunta' + (d.conta_google ? ' (' + d.conta_google + ')' : '') + '.',
 			'En Google Contactos, no menú da esquerda, abre a etiqueta «' + etiqueta + '», pulsa o menú de tres puntos → «Eliminar etiqueta» → «Eliminar todos os contactos e a etiqueta». Así desaparecen as baixas. Se a etiqueta aínda non existe, salta este paso.',
@@ -2821,25 +2789,39 @@
 		var list = data && Array.isArray(data.cursos) ? data.cursos : [];
 		var active = list.filter(function (c) { return c.curso_escolar === current && c.estado === 'activo'; })[0] || null;
 
+		// 1.68.1: three blocks in this order — (1) course cycle panel for the course
+		// the server picks (active, else the most recent pending one), (2) pending
+		// activity withdrawals, (3) the enrolment listing with its own course selector.
+		var estadoHost = document.createElement('div');
+		root.appendChild(estadoHost);
+		renderEstadoCurso(estadoHost, '');
+
+		var baixasHost = document.createElement('div');
+		root.appendChild(baixasHost);
+		renderBaixasActividades(baixasHost);
+
+		var listado = document.createElement('div');
+		listado.className = 'anpa-mgmt-form anpa-listado-matriculas';
+		root.appendChild(listado);
 		var h3 = document.createElement('h3');
-		h3.textContent = 'Matrículas';
-		root.appendChild(h3);
+		h3.textContent = 'Listado de matrículas';
+		listado.appendChild(h3);
 
 		var courseNotice = document.createElement('p');
 		courseNotice.className = 'description';
-		courseNotice.appendChild(document.createTextNode('As datas do curso escolar (inicio, peche e peches operativos dos trimestres) configúranse en '));
+		courseNotice.appendChild(document.createTextNode('Todas as matrículas do curso escollido, con busca e exportación. As datas do curso configúranse en '));
 		var courseSettingsLink = document.createElement('a');
 		courseSettingsLink.href = 'admin.php?page=anpa-socios-settings&tab=cursos';
 		courseSettingsLink.textContent = 'Axustes → Cursos';
 		courseNotice.appendChild(courseSettingsLink);
-		courseNotice.appendChild(document.createTextNode('. O trimestre activo, a apertura e o peche das matrículas e os avisos ás familias xestiónanse aquí (1.68.0).'));
-		root.appendChild(courseNotice);
+		courseNotice.appendChild(document.createTextNode('.'));
+		listado.appendChild(courseNotice);
 
 		// 1.60.0: trimester + enrolment window of the active course, coloured so
 		// the reader knows whether the listing below can still change.
 		var activeAviso = active && active.matriculas_aviso && typeof active.matriculas_aviso === 'object' ? active.matriculas_aviso : null;
 		var avisoHost = document.createElement('div');
-		root.appendChild(avisoHost);
+		listado.appendChild(avisoHost);
 		function renderAviso(cursoSel) {
 			avisoHost.textContent = '';
 			var box = document.createElement('div');
@@ -2900,18 +2882,13 @@
 		viewBtn.textContent = 'Ver matrículas';
 		viewBtn.style.marginLeft = '0.5rem';
 		viewBtn.addEventListener('click', function () {
-			renderEstadoCurso(estadoHost, matCursoSelect.value);
 			loadMat(matCursoSelect.value);
 		});
 		matCursoDiv.appendChild(viewBtn);
-		root.appendChild(matCursoDiv);
-
-		// 1.68.0: course cycle panel for the selected course (combos + notices).
-		var estadoHost = document.createElement('div');
-		root.appendChild(estadoHost);
+		listado.appendChild(matCursoDiv);
 
 		var matHost = document.createElement('div');
-		root.appendChild(matHost);
+		listado.appendChild(matHost);
 
 		var MAT_COLS = ['fillo_apelidos', 'fillo_nome', 'actividade', 'curso_completo', 'estado', 'franxa', 'dias', 'trimestres', 'creado_en', 'posicion'];
 
@@ -2955,8 +2932,70 @@
 				renderMat();
 			}).catch(function (e) { matHost.textContent = ''; showMessage(e.message, 'error'); });
 		}
-		renderEstadoCurso(estadoHost, matCursoSelect.value);
 		loadMat(matCursoSelect.value);
+	}
+
+	// ── 1.68.1: Baixas de actividades pendentes (moved here from Socios → Baixas) ──
+	function renderBaixasActividades(host) {
+		host.textContent = '';
+		var card = document.createElement('div');
+		card.className = 'anpa-mgmt-form anpa-baixas-actividades';
+		card.innerHTML = '<p class="anpa-mgmt-loading">Cargando baixas de actividades\u2026</p>';
+		host.appendChild(card);
+		anpaAdminFetch('baixas-pendentes').then(function (data) {
+			card.textContent = '';
+			var mats = data && Array.isArray(data.matriculas) ? data.matriculas : [];
+			var h3m = document.createElement('h3');
+			h3m.textContent = 'Baixas de actividades pendentes (' + mats.length + ')';
+			card.appendChild(h3m);
+			var intro = document.createElement('p');
+			intro.className = 'description';
+			intro.textContent = 'Baixas de actividades solicitadas polas familias desde a área. Confirmar fai efectiva a baixa e ofrece a praza á lista de espera; rexeitar devolve a matrícula a activa. Nos dous casos a familia recibe un correo («baixa_extraescolar_confirmada» / «baixa_extraescolar_rexeitada»): coa ventá de inscrición aínda aberta a baixa é inmediata e sen cobro; pechada, é efectiva ao remate do trimestre en curso.';
+			card.appendChild(intro);
+			if (!mats.length) { card.appendChild(emptyEl('Non hai solicitudes de baixa de actividades.')); return; }
+			function cell(text) { var td = document.createElement('td'); td.textContent = text == null ? '' : String(text); return td; }
+			function act(path, okMsg) {
+				anpaAdminFetch(path, { method: 'POST' }).then(function (r) {
+					var mail = '';
+					if (r && r.correo_enviado === true) { mail = ' Enviouse o correo á familia.'; }
+					else if (r && r.correo_enviado === false) { mail = ' ATENCIÓN: non se puido enviar o correo á familia; avísaa por outro medio.'; }
+					showMessage(okMsg + mail, r && r.correo_enviado === false ? 'warning' : 'success');
+					renderBaixasActividades(host);
+				}).catch(function (e) { showMessage(e.message, 'error'); renderBaixasActividades(host); });
+			}
+			var tm = document.createElement('table'); tm.className = 'anpa-mgmt-table';
+			var thead = document.createElement('thead'); var hr = document.createElement('tr');
+			['Data da solicitude', 'Alumno/a', 'Curso/Aula', 'Actividade', 'Grupo', 'Curso escolar', 'Familia (email)', 'Accións'].forEach(function (l) { var th = document.createElement('th'); th.textContent = l; hr.appendChild(th); });
+			thead.appendChild(hr); tm.appendChild(thead);
+			var tbody = document.createElement('tbody');
+			mats.forEach(function (m) {
+				var tr = document.createElement('tr');
+				tr.className = 'anpa-row-baixa-pending';
+				tr.appendChild(cell(formatAdminDate(m.solicitada_en)));
+				tr.appendChild(cell(((m.fillo_apelidos || '') + ', ' + (m.fillo_nome || '')).replace(/^, /, '')));
+				tr.appendChild(cell(m.curso_completo));
+				tr.appendChild(cell(m.actividade));
+				tr.appendChild(cell([m.grupo, m.dias, m.franxa].filter(Boolean).join(' · ')));
+				tr.appendChild(cell(m.curso_escolar));
+				tr.appendChild(cell(m.socio_email));
+				var path = 'matricula/' + m.id + '/baixa/';
+				var td = document.createElement('td');
+				var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'anpa-mgmt-btn anpa-mgmt-btn-danger'; ok.textContent = 'Confirmar baixa';
+				ok.addEventListener('click', function () {
+					if (!window.confirm('Confirmar a baixa de ' + (m.fillo_nome || '') + ' en ' + (m.actividade || '') + '? A praza oférecese ao seguinte da lista de espera.')) { return; }
+					act(path + 'confirm', 'Baixa da actividade confirmada.');
+				});
+				var no = document.createElement('button'); no.type = 'button'; no.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary'; no.textContent = 'Rexeitar'; no.style.marginLeft = '0.4rem';
+				no.addEventListener('click', function () {
+					if (!window.confirm('Rexeitar a solicitude? A matrícula volve a estar activa.')) { return; }
+					act(path + 'reject', 'Solicitude rexeitada; a matrícula segue activa.');
+				});
+				td.appendChild(ok); td.appendChild(no); tr.appendChild(td);
+				tbody.appendChild(tr);
+			});
+			tm.appendChild(tbody);
+			card.appendChild(tm);
+		}).catch(function (e) { card.textContent = ''; card.appendChild(emptyEl('Non se puideron cargar as baixas de actividades: ' + e.message)); });
 	}
 
 	// ── 1.68.0: Estado do curso e matrículas (Xestión → Extraescolares → Matrículas) ──
@@ -3042,6 +3081,16 @@
 		});
 		table.appendChild(tbody);
 		panel.appendChild(table);
+
+		// 1.68.1: the operative dates behind the trimester (informative; edited in Axustes → Cursos).
+		function dmy(v) { return v ? String(v).split('-').reverse().join('/') : 'sen configurar'; }
+		var datas = d.datas || {};
+		var pDatas = el('p', 'description anpa-estado-curso-datas');
+		pDatas.appendChild(document.createTextNode('Datas do curso: comeza o ' + dmy(datas.inicio) + ' · fin do 1\u00BA trimestre ' + dmy(datas.t1) + ' · fin do 2\u00BA trimestre ' + dmy(datas.t2) + ' · remata o ' + dmy(datas.peche) + '. O trimestre actual derívase destas datas; edítanse en '));
+		var aDatas = document.createElement('a'); aDatas.href = 'admin.php?page=anpa-socios-settings&tab=cursos'; aDatas.textContent = 'Axustes → Cursos';
+		pDatas.appendChild(aDatas);
+		pDatas.appendChild(document.createTextNode('.'));
+		panel.appendChild(pDatas);
 
 		// Combos.
 		var combos = el('div', 'anpa-estado-curso-combos');

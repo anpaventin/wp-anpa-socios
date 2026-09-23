@@ -71,9 +71,14 @@ final class Test_ANPA_Socios_Extraescolares_Control_Emails extends TestCase {
 		$this->assertStringContainsString( 'lista de espera</strong> (posición 4)', $out['html'] );
 
 		$out = ANPA_Socios_Email_Template_Renderer::render( 'prazo_matriculas', $ctx + array( 'data_peche' => '30/09/2026', 'data_inicio_actividades' => '01/10/2026', 'login_url' => 'https://example.org/area/', 'extraescolares_url' => 'https://example.org/extra/' ) );
-		$this->assertSame( 'Lembranza: o prazo de inscrición nas extraescolares remata o 30/09/2026 — ANPA Proba', $out['subject'] );
+		$this->assertSame( 'Últimos días para revisar as inscricións nas extraescolares: o prazo remata o 30/09/2026 — ANPA Proba', $out['subject'] );
 		$this->assertStringContainsString( 'remata o <strong>30/09/2026</strong>', $out['html'] );
 		$this->assertStringContainsString( 'comezan o <strong>01/10/2026</strong>', $out['html'] );
+		// 1.68.1: the three points of the junta's real reminder (viability, waiting lists, review).
+		foreach ( array( 'número mínimo de participantes', 'Inscricións en grupos activos:', 'Listas de espera:', 'Revisión dos datos:', 'lista definitiva ás empresas' ) as $needle ) {
+			$this->assertStringContainsString( $needle, $out['html'] );
+			$this->assertStringContainsString( $needle, $out['text'] );
+		}
 		$this->assertStringContainsString( '<a href="https://example.org/extra/">https://example.org/extra/</a>', $out['html'] );
 
 		$out = ANPA_Socios_Email_Template_Renderer::render( 'grupo_pechado_minimo', $ctx );

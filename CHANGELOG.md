@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.68.1] - 2026-09-23
+
+### Changed
+
+- **Xestión → Extraescolares → Matrículas en tres bloques.** Primeiro «Estado do curso e matrículas» (para o curso
+  activo, ou o pendente máis recente se non hai activo), despois **«Baixas de actividades pendentes»** (movidas dende
+  Socios → Baixas, cos mesmos botóns Confirmar baixa / Rexeitar e os mesmos correos á familia) e por último «Listado
+  de matrículas» co seu selector «Mostrar matrículas de» e o aviso de prazo. O panel do estado amosa agora, a modo
+  informativo, as **datas do curso** que se editan en Axustes → Cursos (comezo, fin do 1º e do 2º trimestre e
+  remate), das que se deriva o trimestre actual.
+- **Socios → «Baixas solicitadas» pasa a chamarse «Baixas de socios»** e queda só coas baixas da asociación.
+  Documentación e avisos de Lista Gmail actualizados.
+- **Plantillas `inicio_curso` e `prazo_matriculas` reescritas** a partir dos correos reais que a xunta enviou en
+  setembro de 2026: o de inicio de curso é breve e pon as ligazóns primeiro (instrucións paso a paso, oferta e
+  horarios, área de socios/as) cun calendario relativo; o de prazo explica a fase final de revisión (viabilidade de
+  cada grupo e mínimo de participantes, inscricións en grupos activos, listas de espera, revisión dos datos), a data
+  de peche e o envío da lista definitiva ás empresas antes do comezo das clases. As personalizacións xa gardadas en
+  Axustes → Plantillas non se tocan; «Restaurar» devolve o texto novo.
+
 ## [1.68.0] - 2026-09-23
 
 ### Added

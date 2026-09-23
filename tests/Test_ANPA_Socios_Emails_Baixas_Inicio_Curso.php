@@ -58,9 +58,9 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 		$this->assertStringContainsString( 'Correos dados de baixa como socios/as:', $defaults['baixa_socio_confirmada']['html'] );
 		$this->assertStringContainsString( 'unidade familiar', $defaults['baixa_socio_confirmada']['html'] );
 
-		// 1.63.0: modelled on the junta's September mail — links, relative calendar, only «1 de outubro» as a date.
+		// 1.68.1: modelled on the junta's real start-of-year mail — short, links first, relative calendar, only «1 de outubro» as a date.
 		$inicio = $defaults['inicio_curso']['html'];
-		foreach ( array( 'Prezadas familias,', 'Instrucións paso a paso', 'Oferta de actividades e horarios:', 'Área de socios/as', 'Calendario de inicio:', 'comezan o 1 de outubro', 'Cinco días antes do inicio', 'deixando dous días', 'Avisos automáticos:', 'Aviso importante sobre os pagos:', 'O cobro das actividades faino directamente cada empresa' ) as $needle ) {
+		foreach ( array( 'Prezadas familias,', 'Xa está aberta a inscrición nas actividades extraescolares!', 'paso a paso', 'Oferta de actividades e horarios semanais:', 'Área de socios/as', 'Calendario:', 'comezan o 1 de outubro', 'avisaremos por correo da data exacta de peche', 'Aviso importante sobre os pagos:', 'O cobro das actividades faino directamente cada empresa' ) as $needle ) {
 			$this->assertStringContainsString( $needle, $inicio );
 			$this->assertStringContainsString( $needle, $defaults['inicio_curso']['text'] );
 		}

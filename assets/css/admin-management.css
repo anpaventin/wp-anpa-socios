@@ -1126,3 +1126,7 @@
 /* 1.68.0: Grupos e horarios — occupancy line and below-minimum highlight. */
 .anpa-grupos-horarios-ocupacion { font-weight: 600; }
 .anpa-grupos-horarios-ocupacion--baixo-minimo { color: #a41e1e; }
+
+/* 1.68.1: Xestión → Matrículas — three cards (estado, baixas de actividades, listado). */
+.anpa-estado-curso-datas { margin: 0 0 1rem; }
+.anpa-baixas-actividades h3, .anpa-listado-matriculas h3 { margin-top: 0; }
