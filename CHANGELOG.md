@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.68.2] - 2026-09-23
+
+### Changed
+
+- **Páxina pública de extraescolares en bloques.** As tarxetas de actividades amósanse agora en seccións con título e
+  barra divisoria segundo o horario dos seus grupos: «Actividades no horario de comedor (mediodía)» e «Actividades de
+  tarde» (e «de mañá» se as houber). Cada actividade vai ao bloque do seu primeiro grupo e a tarxeta segue listando
+  todos os seus grupos. A grella pasa a un **máximo de tres tarxetas por fila** (antes catro en pantallas anchas); en
+  móbil e tableta segue igual. Helper puro `ANPA_Socios_Oferta_Seccions`. Substitúe o PR #1 (`fix/extraescolares-card-grid`),
+  que se pecha sen fusionar.
+
 ## [1.68.1] - 2026-09-23
 
 ### Changed

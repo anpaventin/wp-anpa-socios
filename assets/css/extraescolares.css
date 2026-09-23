@@ -109,12 +109,25 @@
 	margin: 1.25rem 0;
 }
 
-/* fase28: wider minimum card width (was 220px) and never more than 4 columns
-   per row, so cards do not get too narrow on wide/fullscreen viewports. */
-@media (min-width: 1200px) {
+/* 1.68.2: narrow screens keep the auto-fit grid (1–2 cards); from 900px the
+   grid is fixed at three equal columns, never more, so cards stay readable on
+   wide/fullscreen viewports and the last row keeps the same card width. */
+@media (min-width: 900px) {
 	.anpa-extra-ofertadas .anpa-card-grid {
-		grid-template-columns: repeat(4, 1fr);
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 	}
+}
+
+/* 1.68.2: the offer is split into titled blocks (comedor / tarde) with a divider. */
+.anpa-extra-seccion + .anpa-extra-seccion {
+	border-top: 3px solid #d9e2df;
+	margin-top: 2rem;
+	padding-top: 1.25rem;
+}
+.anpa-extra-seccion-titulo {
+	font-size: 1.35rem;
+	margin: 0 0 0.25rem;
+	color: #18412f;
 }
 
 .anpa-extra-card {

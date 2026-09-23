@@ -115,8 +115,13 @@ final class ANPA_Socios_Extraescolares_Page {
 				. esc_html( sprintf( __( 'Actividades activas no curso actual %s', 'anpa-socios' ), $curso ) )
 				. '</p>';
 		}
+		// 1.68.2: one titled section per time-of-day block (comedor / tarde), with a
+		// divider between them and at most three cards per row (CSS).
+		foreach ( ANPA_Socios_Oferta_Seccions::agrupar( $rows ) as $seccion ) {
+		$html .= '<section class="anpa-extra-seccion anpa-extra-seccion--' . esc_attr( ANPA_Socios_Oferta_Seccions::clase( (string) $seccion['horario'] ) ) . '">';
+		$html .= '<h2 class="anpa-extra-seccion-titulo">' . esc_html( (string) $seccion['titulo'] ) . '</h2>';
 		$html .= '<div class="anpa-card-grid">';
-		foreach ( $rows as $act ) {
+		foreach ( $seccion['rows'] as $act ) {
 			$html .= '<div class="anpa-card anpa-extra-card">';
 			$html .= '<p class="anpa-icon-circle">' . esc_html( self::activity_icon( (string) ( $act['icono'] ?? '' ) ) ) . '</p>';
 			$html .= '<h3>' . esc_html( (string) ( $act['nome'] ?? '' ) ) . '</h3>';
@@ -151,7 +156,9 @@ final class ANPA_Socios_Extraescolares_Page {
 
 			$html .= '</div>';
 		}
-		$html .= '</div></div>';
+		$html .= '</div></section>';
+		}
+		$html .= '</div>';
 
 		return $html;
 	}
