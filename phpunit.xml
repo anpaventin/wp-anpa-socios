@@ -125,6 +125,10 @@
       <file>tests/Test_ANPA_Socios_Login_Enter.php</file>
       <file>tests/Test_ANPA_Socios_Updater_Ui.php</file>
       <file>tests/Test_ANPA_Socios_Cola_Retirada.php</file>
+      <file>tests/Test_ANPA_Socios_Envio_Masivo.php</file>
+      <file>tests/Test_ANPA_Socios_Trimestre_Combo.php</file>
+      <file>tests/Test_ANPA_Socios_Matricula_Estado.php</file>
+      <file>tests/Test_ANPA_Socios_Extraescolares_Control_Emails.php</file>
       <file>tests/Test_ANPA_Socios_Area_Layout.php</file>
       <file>tests/Test_ANPA_Socios_Contenido_Config.php</file>
       <file>tests/Test_ANPA_Socios_Contenido_Admin.php</file>

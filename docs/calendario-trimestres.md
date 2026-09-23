@@ -1,5 +1,11 @@
 # Calendario académico e trimestres (fase34)
 
+> **1.68.0:** o panel de estado dos trimestres e da ventá de matrícula xa non está en Axustes → Cursos. Vive en
+> **Xestión → Extraescolares → Matrículas**, como dous combos («Trimestre activo» e «Matrículas abertas para», con
+> como moito unha ventá aberta) e os botóns de aviso ás familias (comezo do curso, prazo, fin de curso). As datas
+> operativas seguen en Axustes → Cursos. Coa ventá pechada e o curso activo, as solicitudes das familias quedan
+> «pendentes de aprobación» (Socios → Aprobacións).
+
 Esta funcionalidade engade un calendario operativo por curso e o estado
 separado de cada trimestre e da súa ventá de solicitudes. Non xestiona
 pagamentos nin cambia estados de forma automática: as transicións críticas

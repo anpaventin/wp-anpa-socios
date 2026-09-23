@@ -425,9 +425,9 @@ class ANPA_Socios_Email {
 	 * @param  string $body    HTML body (must contain a </body> tag).
 	 * @return bool
 	 */
-	private static function send_from_master( string $to, string $subject, string $body ): bool {
+	private static function send_from_master( string $to, string $subject, string $body, array $extra_headers = array() ): bool {
 		$body    = self::wrap_html( $body );
-		$headers = self::notice_headers();
+		$headers = array_merge( self::notice_headers(), $extra_headers );
 
 		add_filter( 'wp_mail_content_type', array( __CLASS__, 'content_type_html' ) );
 		try {
@@ -589,6 +589,18 @@ class ANPA_Socios_Email {
 	 * @return bool
 	 */
 	public static function enviar_inicio_curso( string $to ): bool {
+		return self::send_template( $to, 'inicio_curso', self::links_context() );
+	}
+
+	/**
+	 * Links shared by the family-facing templates: area, web, instructions post
+	 * and public activities page (Axustes → Xeral), each with a sensible fallback
+	 * so no link is ever empty.
+	 *
+	 * @since  1.68.0
+	 * @return array<string,string>
+	 */
+	public static function links_context(): array {
 		$login_url = class_exists( 'ANPA_Socios_Admin_Settings' ) ? ANPA_Socios_Admin_Settings::landing_page_url() : '';
 		// 1.63.0: the instructions post and the public activities page come from
 		// Axustes → Xeral; both fall back to something sensible so no link is empty.
@@ -597,12 +609,102 @@ class ANPA_Socios_Email {
 		if ( '' === $extra && class_exists( 'ANPA_Socios_Hub_Page' ) ) {
 			$extra = (string) ANPA_Socios_Hub_Page::find_page_url( 'anpa_extraescolares_ofertadas' );
 		}
-		return self::send_template( $to, 'inicio_curso', array(
+		return array(
 			'login_url'          => $login_url,
 			'web_url'            => home_url( '/' ),
 			'instrucions_url'    => '' !== $instrucions ? $instrucions : $login_url,
 			'extraescolares_url' => '' !== $extra ? $extra : home_url( '/' ),
-		) );
+		);
+	}
+
+	// ──────────────────────────────────────────────
+	// 1.68.0: mass email to the families (Xestión → Matrículas, Grupos e horarios)
+	// ──────────────────────────────────────────────
+
+	/**
+	 * Sends one templated message to many families: the visible recipient is
+	 * the junta's own address and the families go in Bcc, in batches of
+	 * ANPA_Socios_Envio_Masivo::TAMANO_LOTE so no message exceeds the recipient
+	 * limit of Gmail or of the usual SMTP relays. Renders once, never throws.
+	 *
+	 * @since  1.68.0
+	 * @param  array<int,string>    $emails      Family addresses (deduped and validated here).
+	 * @param  string               $template_id Template id in the store.
+	 * @param  array<string,string> $context     Variables (links and family context are merged in).
+	 * @return array{lotes:int,enviados:int,fallidos:int,lotes_fallidos:int,destinatarios:int}
+	 */
+	public static function enviar_masivo( array $emails, string $template_id, array $context = array() ): array {
+		$lotes         = ANPA_Socios_Envio_Masivo::lotes( $emails );
+		$destinatarios = 0;
+		foreach ( $lotes as $lote ) {
+			$destinatarios += count( $lote );
+		}
+		if ( array() === $lotes ) {
+			return ANPA_Socios_Envio_Masivo::resumo( array() ) + array( 'destinatarios' => 0 );
+		}
+		$content = ANPA_Socios_Email_Template_Renderer::render( $template_id, array_merge( self::family_context(), self::links_context(), $context ) );
+		$subject = (string) $content['subject'];
+		$html    = (string) $content['html'];
+		if ( '' === trim( $subject ) || '' === trim( $html ) ) {
+			return ANPA_Socios_Envio_Masivo::resumo( array_map( static function ( array $l ): array { return array( 'ok' => false, 'n' => count( $l ) ); }, $lotes ) ) + array( 'destinatarios' => $destinatarios );
+		}
+		$to         = self::junta_email();
+		$resultados = array();
+		foreach ( $lotes as $lote ) {
+			$ok = false;
+			try {
+				$ok = self::send_from_master( $to, $subject, $html, array( ANPA_Socios_Envio_Masivo::cabeceira_bcc( $lote ) ) );
+			} catch ( \Throwable $e ) {
+				$ok = false;
+			}
+			$resultados[] = array( 'ok' => (bool) $ok, 'n' => count( $lote ) );
+		}
+		return ANPA_Socios_Envio_Masivo::resumo( $resultados ) + array( 'destinatarios' => $destinatarios );
+	}
+
+	/**
+	 * The family requested a place while the trimester window was closed: the
+	 * request is pending the junta's approval.
+	 *
+	 * @since  1.68.0
+	 * @param  string $email_socio Family address.
+	 * @param  string $alumno      Pupil name.
+	 * @param  string $actividade  Activity name.
+	 * @param  string $grupo       Group label (name, schedule).
+	 * @return bool
+	 */
+	public static function enviar_matricula_pendente( string $email_socio, string $alumno, string $actividade, string $grupo ): bool {
+		return self::send_template( $email_socio, 'matricula_pendente', array( 'alumno' => $alumno, 'actividade' => $actividade, 'grupo' => $grupo ) );
+	}
+
+	/**
+	 * The junta approved the pending request and there was a place.
+	 *
+	 * @since  1.68.0
+	 * @return bool
+	 */
+	public static function enviar_matricula_aprobada_praza( string $email_socio, string $alumno, string $actividade, string $grupo ): bool {
+		return self::send_template( $email_socio, 'matricula_aprobada_praza', array( 'alumno' => $alumno, 'actividade' => $actividade, 'grupo' => $grupo ) + self::links_context() );
+	}
+
+	/**
+	 * The junta approved the pending request but the group is full: waiting list.
+	 *
+	 * @since  1.68.0
+	 * @return bool
+	 */
+	public static function enviar_matricula_aprobada_espera( string $email_socio, string $alumno, string $actividade, string $grupo, int $posicion ): bool {
+		return self::send_template( $email_socio, 'matricula_aprobada_espera', array( 'alumno' => $alumno, 'actividade' => $actividade, 'grupo' => $grupo, 'posicion' => (string) $posicion ) );
+	}
+
+	/**
+	 * The junta rejected the pending request.
+	 *
+	 * @since  1.68.0
+	 * @return bool
+	 */
+	public static function enviar_matricula_rexeitada( string $email_socio, string $alumno, string $actividade ): bool {
+		return self::send_template( $email_socio, 'matricula_rexeitada', array( 'alumno' => $alumno, 'actividade' => $actividade ) );
 	}
 
 	/**

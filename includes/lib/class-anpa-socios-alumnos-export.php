@@ -145,7 +145,7 @@ final class ANPA_Socios_Alumnos_Export {
 			$where   .= ' AND g.curso_escolar = %s';
 			$params[] = $curso_escolar;
 		}
-		$where .= $so_activos ? " AND m.estado = 'activo'" : " AND m.estado IN ('activo','lista_espera','oferta','baixa_solicitada','baixa')";
+		$where .= $so_activos ? " AND m.estado = 'activo'" : " AND m.estado IN ('activo','lista_espera','oferta','baixa_solicitada','pendente_aprobacion','baixa')";
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table names from DB helper; where built from placeholders.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
@@ -158,7 +158,7 @@ final class ANPA_Socios_Alumnos_Export {
 				. "LEFT JOIN {$grupos} g ON g.id = m.grupo_id "
 				. "LEFT JOIN {$fc} fc ON fc.fillo_id = f.id AND fc.curso_escolar = g.curso_escolar "
 				. "WHERE {$where} "
-				. "ORDER BY a.nome, e.nome, g.nome, FIELD(m.estado, 'activo', 'oferta', 'lista_espera', 'baixa_solicitada', 'baixa'), f.apelidos, f.nome",
+				. "ORDER BY a.nome, e.nome, g.nome, FIELD(m.estado, 'activo', 'oferta', 'lista_espera', 'baixa_solicitada', 'pendente_aprobacion', 'baixa'), f.apelidos, f.nome",
 				$params
 			),
 			ARRAY_A

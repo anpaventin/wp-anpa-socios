@@ -105,7 +105,7 @@ class ANPA_Socios_DB {
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.42.0';
+	const DB_VERSION = '1.43.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -357,6 +357,12 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.42.0', '<' ) && ! self::migrate_to_1_42_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.42.0 (migrate_to_1_42_0): ' . $wpdb->last_error );
+			return;
+		}
+		// 1.43.0 (1.68.0): matriculas.estado gains «pendente_aprobacion» (requested with the window closed).
+		if ( version_compare( $installed_version, '1.43.0', '<' ) && ! self::migrate_to_1_43_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.43.0 (migrate_to_1_43_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -1592,9 +1598,9 @@ class ANPA_Socios_DB {
 			ARRAY_A
 		);
 		$estado_type = is_array( $estado_col ) ? (string) ( $estado_col['Type'] ?? '' ) : '';
-		if ( '' !== $estado_type && false === strpos( $estado_type, 'lista_espera' ) ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded enum migration.
-			$wpdb->query( "ALTER TABLE {$matriculas} MODIFY COLUMN estado enum('activo','lista_espera','oferta','baixa_solicitada','baixa') NOT NULL DEFAULT 'activo'" );
+		if ( '' !== $estado_type && ( false === strpos( $estado_type, 'lista_espera' ) || false === strpos( $estado_type, 'pendente_aprobacion' ) ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded enum migration (1.68.0 adds pendente_aprobacion).
+			$wpdb->query( "ALTER TABLE {$matriculas} MODIFY COLUMN estado enum('activo','lista_espera','oferta','baixa_solicitada','pendente_aprobacion','baixa') NOT NULL DEFAULT 'activo'" );
 		}
 
 		// --- matriculas: swap unique key to be trimester-scoped.
@@ -4168,5 +4174,31 @@ class ANPA_Socios_DB {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Migration to 1.43.0 (plugin 1.68.0): `matriculas.estado` gains the value
+	 * «pendente_aprobacion» — an enrolment requested by a family while the
+	 * trimester window was closed, waiting for the junta (or for the next
+	 * trimester activation) to approve or reject it. Guarded by the current
+	 * column type; no row changes value.
+	 *
+	 * @since  1.68.0
+	 * @return bool
+	 */
+	private static function migrate_to_1_43_0(): bool {
+		global $wpdb;
+		$matriculas = self::tabela_matriculas();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+		$estado_col  = $wpdb->get_row( $wpdb->prepare( "SHOW COLUMNS FROM {$matriculas} LIKE %s", 'estado' ), ARRAY_A );
+		$estado_type = is_array( $estado_col ) ? (string) ( $estado_col['Type'] ?? '' ) : '';
+		if ( '' === $estado_type ) {
+			return true; // table absent: crear_tabelas() creates it with the full enum.
+		}
+		if ( false !== strpos( $estado_type, 'pendente_aprobacion' ) ) {
+			return true;
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded enum migration.
+		return false !== $wpdb->query( "ALTER TABLE {$matriculas} MODIFY COLUMN estado enum('activo','lista_espera','oferta','baixa_solicitada','pendente_aprobacion','baixa') NOT NULL DEFAULT 'activo'" );
 	}
 }

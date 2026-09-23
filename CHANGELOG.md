@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.68.0] - 2026-09-23
+
+### Added
+
+- **Xestión → Extraescolares → Matrículas: «Estado do curso e matrículas».** O interruptor das matrículas deixa
+  Axustes → Cursos (que conserva só as datas do curso) e pasa a un panel con dous combos: **«Trimestre activo»**
+  (1º / 2º / 3º / Curso pechado) e **«Matrículas abertas para»** (1º / 2º / 3º / Pechadas; como moito unha ventá
+  aberta á vez). Cada cambio segue pasando polo rexistro de transicións (quen, cando, orixe, correlación) e pola regra
+  única de matrículas de 1.51.0. Botóns de aviso ás familias: **«Notificar comezo do curso»** (activa o curso se está
+  pendente, pon o 1º trimestre activo, abre a súa ventá e envía `inicio_curso`), **«Notificar prazo de matrículas»**
+  (data de peche e de comezo das actividades; `prazo_matriculas`), apertura e peche das matrículas con aviso opcional
+  (`matriculas_abertas` / `matriculas_pechadas`) e **«Notificar fin de curso»** (pecha trimestres, ventás e curso;
+  os grupos abertos pasan a pechados e as matrículas vixentes a baixa; `fin_curso`). Rutas só para a xunta:
+  `GET admin/trimestres`, `POST admin/trimestres/{inicializar,estado,ventana}`,
+  `POST admin/avisos/{comezo-curso,prazo-matriculas,fin-curso}` (`ANPA_Socios_Admin_Trimestres_Handler`; planificador
+  puro `ANPA_Socios_Trimestre_Combo`).
+- **Correo masivo ás familias, sempre igual.** `ANPA_Socios_Email::enviar_masivo()`: destinatario visible = correo da
+  xunta, familias en **CCO por lotes de 50** (`ANPA_Socios_Envio_Masivo`, por baixo do límite de 100 destinatarios por
+  mensaxe de Gmail e dos relés SMTP habituais), unha soa renderización por envío e unha entrada de auditoría `masivo`
+  con `plantilla:lotes/enviados/fallidos`. Nunca lanza: os lotes fallidos cóntanse e amósanse á xunta.
+- **Matrículas pendentes de aprobación.** Novo estado `pendente_aprobacion` (esquema **1.43.0**, só amplía o `enum`).
+  Co curso activo e a ventá pechada, a área segue amosando a oferta (con aviso ámbar) e a solicitude da familia
+  créase **pendente**, sen ocupar praza, con correo `matricula_pendente` aos dous proxenitores. Xestión → Socios →
+  Aprobacións gaña o bloque «Matrículas pendentes de aprobación» con **Aprobar** (praza se o grupo está aberto e ten
+  sitio, se non lista de espera; correos `matricula_aprobada_praza` / `matricula_aprobada_espera`) e **Rexeitar**
+  (pasa a baixa; `matricula_rexeitada`, que remite á directiva). Ao activar un trimestre con pendentes o servidor esixe
+  confirmación expresa e apróbaas todas coas mesmas regras. A familia pode **retirar** unha solicitude pendente dende a
+  área. Rutas `GET admin/matriculas/pendentes`, `POST admin/matricula/<id>/{aprobar,rexeitar}`. Listados, exportación
+  e panel de empresa/comedor recoñecen o estado (cor azul clara en Xestión → Matrículas).
+- **Grupos e horarios: ocupación e avisos por grupo.** Cada tarxeta amosa inscritos/máximo, lista de espera, pendentes
+  e mínimo (en vermello por baixo do mínimo). **Só coas matrículas pechadas**, dous botóns por grupo: **«Notificar
+  comezo do trimestre»** (`grupo_comezo_trimestre` aos inscritos e á empresa; `grupo_comezo_espera` aos de lista de
+  espera) e **«Pechar por non acadar o mínimo»** (só se activos < mínimo: o grupo pasa a `pechado`, as súas matrículas
+  vixentes a baixa e envíase `grupo_pechado_minimo` ás familias e á empresa). Rutas
+  `POST admin/grupo/<id>/{notificar-comezo,pechar-minimo}`.
+- **11 plantillas novas** en Axustes → Plantillas de email (28 en total), todas en galego e editables.
+
+### Changed
+
+- Axustes → Cursos xa non amosa «Estado dos trimestres» (ligazón a Xestión); o aviso de «fin do trimestre alcanzado»
+  leva a Xestión → Matrículas. Documentación de Axustes, `docs/calendario-trimestres.md` e README actualizados.
+
+### Fixed
+
+- **Capacidade contada só por trimestre.** A matrícula da área contaba as prazas ocupadas do grupo só no trimestre
+  actual, mentres a oferta pública e o panel de empresa contaban todas as activas: no 2º e 3º trimestre un grupo cheo
+  admitía novas matrículas. Agora conta todas as matrículas activas do grupo, e a comprobación de duplicado (o alumno/a
+  xa está na actividade) tampouco depende do trimestre.
+- **Trimestre da matrícula.** Derivábase do mes natural; agora das datas operativas do curso, a mesma regra que decide o
+  prazo (`ANPA_Socios_Trimestre::actual_por_datas`).
+
+Tests: RED→GREEN `Test_ANPA_Socios_Envio_Masivo`, `Test_ANPA_Socios_Trimestre_Combo`, `Test_ANPA_Socios_Matricula_Estado`,
+`Test_ANPA_Socios_Extraescolares_Control_Emails`; contratos de Axustes, gate, grupos e plantillas actualizados.
+
 ## [1.67.0] - 2026-09-19
 
 ### Changed

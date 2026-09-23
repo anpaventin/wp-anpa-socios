@@ -72,6 +72,11 @@ final class Test_ANPA_Socios_Grupos_Horarios extends TestCase {
 					'dias'            => 'luns,mercores',
 					'estado'          => 'aberto',
 					'nivel_id'        => 1,
+					'min_pupilos'     => 8,
+					'max_pupilos'     => 12,
+					'activos'         => 9,
+					'espera'          => 2,
+					'pendentes'       => 1,
 				),
 				array(
 					'grupo_id'        => 11,
@@ -103,6 +108,9 @@ final class Test_ANPA_Socios_Grupos_Horarios extends TestCase {
 		$this->assertSame( 10, $result['slots'][0]['grupo_id'] );
 		$this->assertSame( 'serie-5', $result['slots'][0]['serie_uid'] );
 		$this->assertFalse( $result['slots'][0]['conflito_comedor'] );
+		// 1.68.0: occupancy travels with the slot (counts only).
+		$this->assertSame( array( 8, 12, 9, 2, 1 ), array( $result['slots'][0]['min_pupilos'], $result['slots'][0]['max_pupilos'], $result['slots'][0]['activos'], $result['slots'][0]['espera'], $result['slots'][0]['pendentes'] ) );
+		$this->assertSame( 0, $result['slots'][2]['activos'], 'missing counts default to zero' );
 		$this->assertSame( '11:1:martes', $result['slots'][2]['slot_key'] );
 		$this->assertTrue( $result['slots'][2]['conflito_comedor'] );
 		$this->assertStringNotContainsString( 'fillo', strtolower( (string) json_encode( $result ) ) );
@@ -131,7 +139,14 @@ final class Test_ANPA_Socios_Grupos_Horarios extends TestCase {
 		$this->assertStringContainsString( 'Editar', $body );
 		$this->assertStringContainsString( 'openGroupEditor', $body );
 		$this->assertStringNotContainsString( 'Vista agrupada en preparación', $body );
-		$this->assertStringNotContainsString( "method: 'POST'", $body );
+		// 1.68.0: the grid stays read-only except for the two per-group notices
+		// (start of trimester, close below minimum), which are disabled while the
+		// enrolment window is open (fail closed when the gate cannot be read).
+		$this->assertSame( 2, substr_count( $body, "method: 'POST'" ) );
+		$this->assertStringContainsString( "'/notificar-comezo'", $body );
+		$this->assertStringContainsString( "'/pechar-minimo'", $body );
+		$this->assertStringContainsString( 'state.matriculasAbertas !== false', $body );
+		$this->assertStringContainsString( ".catch(function () { return true; })", $body );
 		$this->assertStringNotContainsString( "method: 'PUT'", $body );
 		$this->assertStringNotContainsString( "method: 'DELETE'", $body );
 		$this->assertStringContainsString( '.anpa-grupos-horarios-grid', $css );

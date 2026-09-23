@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.67.0-blue">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.68.0-blue">
   <img alt="WordPress" src="https://img.shields.io/badge/WordPress-6.0%2B-21759b">
   <img alt="PHP" src="https://img.shields.io/badge/PHP-7.4%2B-777bb4">
   <img alt="Tests" src="https://img.shields.io/badge/PHPUnit-strict%20TDD-2eac68">
@@ -64,6 +64,10 @@ content and secrets strictly separated.
   waitlists, authorisations and school-year scoping.
 - **Encrypted SEPA banking** — sealed-box (public-key) encryption of IBAN/NIF.
 - **Season lifecycle** — automatic course open/close with configurable dates.
+- **Course cycle from one place** — Xestión → Matrículas: active trimester and enrolment
+  window as two combos, start-of-year / deadline / end-of-year notices to every family
+  (junta in To, families in Bcc batches), per-group «trimester starts» and «below minimum»
+  notices, and enrolment requests made outside the window held for board approval.
 - **Admin dashboard** — members, activities, courses, enrolments, exports (CSV),
   approvals and audit log.
 - **Backup / restore / wipe** — encrypted `.anpabak` export protected by the banking
