@@ -176,7 +176,8 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 				"SELECT g.id AS grupo_id, g.actividad_id AS actividade_id, g.serie_uid,
 				        a.nome AS actividade_nome, g.nome AS grupo_nome,
 				        g.horario, g.franxa, g.dias, g.estado, gn.nivel_id,
-				        g.min_pupilos, g.max_pupilos
+				        g.min_pupilos, g.max_pupilos,
+				        g.aviso_comezo_ciclo, g.aviso_comezo_trimestre, g.aviso_comezo_en
 				 FROM {$grupos} g
 				 INNER JOIN {$acts} a ON a.id = g.actividad_id
 				 INNER JOIN {$gn} gn ON gn.grupo_id = g.id
@@ -191,16 +192,43 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		}
 
 		// 1.68.0: occupancy counts per group (numbers only) for the admin cards.
+		// 1.69.0: «notificado» = the «grupo creado» notice went out in the CURRENT
+		// enrolment-window cycle (latest «ventana → pechada» transition of the course).
 		$ocupacion = self::ocupacion_por_grupo( $curso );
+		$ciclo     = self::ciclo_ventana( $curso );
 		foreach ( $group_rows as &$group_row ) {
 			$gid = (int) ( $group_row['grupo_id'] ?? 0 );
 			$group_row['activos']   = (int) ( $ocupacion[ $gid ]['activos'] ?? 0 );
 			$group_row['espera']    = (int) ( $ocupacion[ $gid ]['espera'] ?? 0 );
 			$group_row['pendentes'] = (int) ( $ocupacion[ $gid ]['pendentes'] ?? 0 );
+			$group_row['notificado'] = ( null !== $group_row['aviso_comezo_en'] && (int) $group_row['aviso_comezo_ciclo'] === (int) $ciclo['id'] );
 		}
 		unset( $group_row );
 
 		return new WP_REST_Response( ANPA_Socios_Grupos_Horarios::build( $curso, $level_rows, $group_rows ), 200 );
+	}
+
+	/**
+	 * The current enrolment-window cycle of a course: the latest «ventana →
+	 * pechada» transition (id + trimester). A «grupo creado» notice is tied to
+	 * this id, so the button comes back only after the window opens and closes
+	 * again. `id` 0 when the window was never closed by an admin (seed state).
+	 *
+	 * @since  1.69.0
+	 * @param  string $curso Course.
+	 * @return array{id:int,trimestre:int}
+	 */
+	public static function ciclo_ventana( string $curso ): array {
+		global $wpdb;
+		$log = ANPA_Socios_DB::tabela_transicions();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only lookup in the transition log.
+		$row = $wpdb->get_row( $wpdb->prepare(
+			"SELECT id, referencia FROM {$log} WHERE curso_escolar = %s AND ambito = %s AND a_estado = %s ORDER BY id DESC LIMIT 1",
+			$curso,
+			ANPA_Socios_Trimestre_Repo::AMBITO_VENTANA,
+			ANPA_Socios_Ventana_Estado::PECHADA
+		), ARRAY_A );
+		return array( 'id' => is_array( $row ) ? (int) $row['id'] : 0, 'trimestre' => is_array( $row ) ? (int) $row['referencia'] : 0 );
 	}
 
 	/**
@@ -871,8 +899,13 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'email', ANPA_Socios_Envio_Masivo::etiqueta_auditoria( 'grupo_espera', $espera ), 'masivo' );
 		}
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $ctx['grupo_id'], 'aviso_comezo' );
+		// 1.69.0: remember the notice for this window cycle (the card turns green and hides the button).
+		$ciclo = self::ciclo_ventana( $ctx['curso_escolar'] );
+		$tri   = $ciclo['trimestre'] > 0 ? $ciclo['trimestre'] : (int) ( ANPA_Socios_Matricula_Gate_Repo::para_curso( $ctx['curso_escolar'] )['trimestre'] ?? 0 );
+		global $wpdb;
+		$wpdb->update( ANPA_Socios_DB::tabela_grupos(), array( 'aviso_comezo_ciclo' => $ciclo['id'], 'aviso_comezo_trimestre' => $tri, 'aviso_comezo_en' => current_time( 'mysql' ) ), array( 'id' => $ctx['grupo_id'] ), array( '%d', '%d', '%s' ), array( '%d' ) );
 
-		return new WP_REST_Response( array( 'id' => $ctx['grupo_id'], 'trimestre' => $ctx['trimestre'], 'inscritos' => $inscritos, 'espera' => $espera ), 200 );
+		return new WP_REST_Response( array( 'id' => $ctx['grupo_id'], 'trimestre' => $ctx['trimestre'], 'notificado_trimestre' => $tri, 'inscritos' => $inscritos, 'espera' => $espera ), 200 );
 	}
 
 	/**

@@ -107,6 +107,10 @@ final class ANPA_Socios_Grupos_Horarios {
 					'activos'          => (int) ( $row['activos'] ?? 0 ),
 					'espera'           => (int) ( $row['espera'] ?? 0 ),
 					'pendentes'        => (int) ( $row['pendentes'] ?? 0 ),
+					// 1.69.0: «grupo creado» notice of the current window cycle.
+					'notificado'           => ! empty( $row['notificado'] ),
+					'notificado_trimestre' => (int) ( $row['aviso_comezo_trimestre'] ?? 0 ),
+					'notificado_en'        => (string) ( $row['aviso_comezo_en'] ?? '' ),
 				);
 			}
 		}
