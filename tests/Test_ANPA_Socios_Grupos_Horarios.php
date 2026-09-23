@@ -33,6 +33,8 @@ final class Test_ANPA_Socios_Grupos_Horarios extends TestCase {
 		$this->assertStringNotContainsString( 'tabela_fillos', $body );
 		$this->assertStringNotContainsString( 'tabela_socios', $body );
 		$this->assertStringNotContainsString( 'tabela_matriculas', $body );
+		// 1.68.1: a group disabled for lack of minimum disappears from the grid.
+		$this->assertStringContainsString( "AND g.estado <> 'deshabilitado'", $body );
 	}
 
 	public function test_builds_one_slot_per_group_level_and_day_without_pii(): void {
@@ -145,7 +147,10 @@ final class Test_ANPA_Socios_Grupos_Horarios extends TestCase {
 		$this->assertSame( 2, substr_count( $body, "method: 'POST'" ) );
 		$this->assertStringContainsString( "'/notificar-comezo'", $body );
 		$this->assertStringContainsString( "'/pechar-minimo'", $body );
-		$this->assertStringContainsString( 'state.matriculasAbertas !== false', $body );
+		// 1.68.1: the two buttons only exist with the window closed (=== false, i.e. read and closed).
+		$this->assertStringContainsString( 'var pechadas = state.matriculasAbertas === false;', $body );
+		$this->assertStringContainsString( "if (pechadas && group.estado === 'aberto') {", $body );
+		$this->assertStringContainsString( 'Notificar grupo creado (comezo do trimestre)', $body );
 		$this->assertStringContainsString( ".catch(function () { return true; })", $body );
 		$this->assertStringNotContainsString( "method: 'PUT'", $body );
 		$this->assertStringNotContainsString( "method: 'DELETE'", $body );

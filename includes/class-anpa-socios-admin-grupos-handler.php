@@ -180,7 +180,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 				 FROM {$grupos} g
 				 INNER JOIN {$acts} a ON a.id = g.actividad_id
 				 INNER JOIN {$gn} gn ON gn.grupo_id = g.id
-				 WHERE g.curso_escolar = %s
+				 WHERE g.curso_escolar = %s AND g.estado <> 'deshabilitado'
 				 ORDER BY g.franxa ASC, a.nome ASC, g.nome ASC, g.id ASC, gn.nivel_id ASC",
 				$curso
 			),
@@ -877,7 +877,8 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 
 	/**
 	 * POST /admin/grupo/<id>/pechar-minimo — the group did not reach its
-	 * minimum: it becomes «pechado» (hidden from the offer and the area), its
+	 * minimum: it becomes «deshabilitado» (hidden from the offer, the area and
+	 * Grupos e horarios; reusable from the activity's group list), its
 	 * current enrolments and waiting list become «baixa» (today) and the
 	 * families and the company get grupo_pechado_minimo. Refused while the
 	 * window is open, or when activos >= min_pupilos.
@@ -912,9 +913,12 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
-		$g_ok = $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET estado = 'pechado', actualizado_en = %s WHERE id = %d", $now, $ctx['grupo_id'] ) );
+		// 1.68.1: the group never formed → «deshabilitado» (hidden from the offer, the area
+		// and Grupos e horarios; reusable from the activity's group list). Its enrolments go
+		// to baixa first so the disabled state holds its invariant (no current enrolments).
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- audited bulk close of one group.
 		$m_ok = $wpdb->query( $wpdb->prepare( "UPDATE {$mat_t} SET estado = 'baixa', baixa_en = %s, oferta_token = NULL, oferta_expira = NULL, actualizado_en = %s WHERE grupo_id = %d AND estado IN ({$in})", $now, $now, $ctx['grupo_id'] ) );
+		$g_ok = $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET estado = %s, actualizado_en = %s WHERE id = %d", ANPA_Socios_Grupo_Serie::ESTADO_DESHABILITADO, $now, $ctx['grupo_id'] ) );
 		if ( false === $g_ok || false === $m_ok || false === $wpdb->query( 'COMMIT' ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
@@ -925,7 +929,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		$envio = ANPA_Socios_Email::enviar_masivo( array_merge( $ctx['emails_activos'], $ctx['emails_espera'], $ctx['emails_pendentes'], $ctx['empresa_email'] ), 'grupo_pechado_minimo', array( 'actividade' => $ctx['actividade'], 'grupo' => $ctx['grupo_nome'] ) );
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'email', ANPA_Socios_Envio_Masivo::etiqueta_auditoria( 'grupo_minimo', $envio ), 'masivo' );
 
-		return new WP_REST_Response( array( 'id' => $ctx['grupo_id'], 'estado' => 'pechado', 'matriculas_baixa' => (int) $m_ok, 'envio' => $envio ), 200 );
+		return new WP_REST_Response( array( 'id' => $ctx['grupo_id'], 'estado' => ANPA_Socios_Grupo_Serie::ESTADO_DESHABILITADO, 'matriculas_baixa' => (int) $m_ok, 'envio' => $envio ), 200 );
 	}
 
 	/**

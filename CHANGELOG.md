@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cada grupo e mínimo de participantes, inscricións en grupos activos, listas de espera, revisión dos datos), a data
   de peche e o envío da lista definitiva ás empresas antes do comezo das clases. As personalizacións xa gardadas en
   Axustes → Plantillas non se tocan; «Restaurar» devolve o texto novo.
+- **Grupos e horarios: os avisos por grupo só aparecen coas matrículas pechadas** (antes vían-se desactivados). O
+  botón «Notificar comezo do trimestre» pasa a chamarse **«Notificar grupo creado (comezo do trimestre)»**. «Pechar
+  por non acadar o mínimo» deixa o grupo **deshabilitado** en vez de pechado: desaparece de Grupos e horarios, da
+  oferta e da área (as matrículas pasan a baixa antes, así que o estado cumpre a súa regra) e pódese reactivar dende
+  a ficha da actividade. Grupos e horarios xa non lista os grupos deshabilitados.
 
 ## [1.68.0] - 2026-09-23
 
