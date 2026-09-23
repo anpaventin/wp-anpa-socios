@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ANPA Socios
  * Description: Xestión de socios para asociacións de nais e pais (ANPA/AMPA): área de socios sen contrasinal, fillos e actividades extraescolares, domiciliación SEPA cifrada, ciclo de curso, panel de administración e actualizacións self-hosted. Configurable para calquera asociación.
- * Version: 1.68.1
+ * Version: 1.68.2
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: ANPA Socios
@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ANPA_SOCIOS_VERSION', '1.68.1' );
+define( 'ANPA_SOCIOS_VERSION', '1.68.2' );
 define( 'ANPA_SOCIOS_DB_VERSION', '1.43.0' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
@@ -54,6 +54,7 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
     require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-cleanup-estrutura-cli.php';
 }
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-prazas.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-oferta-seccions.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-curso-escolar.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-nivel-promotion.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-grupos-horarios.php';

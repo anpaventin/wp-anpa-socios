@@ -78,8 +78,10 @@ final class Test_ANPA_Socios_Actividades_Effective_State extends TestCase {
 		$this->assertStringContainsString( "renderGroupSeriesList(groupsList, act, { scope: 'activity-inline' })", $this->js );
 	}
 
-	public function test_public_cards_grid_wider_min_and_max_four_columns(): void {
+	public function test_public_cards_grid_wider_min_and_max_three_columns(): void {
 		$this->assertStringContainsString( 'minmax(260px, 1fr)', $this->css );
-		$this->assertStringContainsString( 'repeat(4, 1fr)', $this->css );
+		// 1.68.2: capped at three cards per row (was four).
+		$this->assertStringContainsString( 'repeat(3, minmax(0, 1fr))', $this->css );
+		$this->assertStringNotContainsString( 'repeat(4, 1fr)', $this->css );
 	}
 }

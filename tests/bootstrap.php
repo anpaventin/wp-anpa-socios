@@ -195,6 +195,7 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-curso-fit.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-grupo-niveis.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-grupo-serie.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-prazas.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-oferta-seccions.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-disponibilidade-horaria.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-estrutura-escolar.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-curso-escolar.php';
