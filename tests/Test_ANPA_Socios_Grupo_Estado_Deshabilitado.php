@@ -100,13 +100,13 @@ final class Test_ANPA_Socios_Grupo_Estado_Deshabilitado extends TestCase {
 
 	public function test_schema_migration_1_40_0_widens_the_estado_enum_guarded(): void {
 		$db = $this->src( 'includes/class-anpa-socios-db.php' );
-		$this->assertStringContainsString( "const DB_VERSION = '1.42.0'", $db );
+		$this->assertStringContainsString( "const DB_VERSION = '1.43.0'", $db );
 		$this->assertStringContainsString( "version_compare( \$installed_version, '1.40.0', '<' ) && ! self::migrate_to_1_40_0()", $db );
 		$this->assertStringContainsString( 'Migration halted at step 1.40.0', $db );
 		$this->assertStringContainsString( 'private static function migrate_to_1_40_0(): bool', $db );
 		$this->assertStringContainsString( "MODIFY COLUMN estado enum('aberto','pechado','deshabilitado') NOT NULL DEFAULT 'aberto'", $db );
 		// Fresh installs get the widened enum straight from the CREATE statement too.
 		$this->assertStringContainsString( "estado enum('aberto','pechado','deshabilitado') not null default 'aberto'", $db );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.42.0' )", $this->src( 'anpa-socios.php' ) );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.43.0' )", $this->src( 'anpa-socios.php' ) );
 	}
 }

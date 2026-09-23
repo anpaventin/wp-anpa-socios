@@ -45,12 +45,12 @@ final class Test_ANPA_Socios_Cola_Retirada extends TestCase {
 		foreach ( array( 'ANPA_Socios_Email_Cron', 'ANPA_Socios_Email_Admin_Actions', 'anpa_socios_email_render_provider', 'ANPA_Socios_Email_Template_Render_Provider' ) as $needle ) {
 			$this->assertStringNotContainsString( $needle, $main );
 		}
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.42.0' )", $main );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.43.0' )", $main );
 	}
 
 	public function test_migration_1_42_0_drops_the_tables_and_forgets_only_queue_options(): void {
 		$db = $this->src( 'includes/class-anpa-socios-db.php' );
-		$this->assertStringContainsString( "const DB_VERSION = '1.42.0';", $db );
+		$this->assertStringContainsString( "const DB_VERSION = '1.43.0';", $db );
 		$this->assertStringContainsString( "version_compare( \$installed_version, '1.42.0', '<' ) && ! self::migrate_to_1_42_0()", $db );
 		$this->assertStringContainsString( 'Migration halted at step 1.42.0', $db );
 

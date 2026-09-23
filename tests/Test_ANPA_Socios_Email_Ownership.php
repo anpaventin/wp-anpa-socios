@@ -60,7 +60,7 @@ final class Test_ANPA_Socios_Email_Ownership extends TestCase {
 		$this->assertStringContainsString( "'export_alumnos_empresa_todos' : 'export_alumnos_empresa'", $rest );
 
 		$lib = $this->src( 'includes/lib/class-anpa-socios-alumnos-export.php' );
-		$this->assertStringContainsString( "m.estado IN ('activo','lista_espera','oferta','baixa_solicitada','baixa')", $lib );
+		$this->assertStringContainsString( "m.estado IN ('activo','lista_espera','oferta','baixa_solicitada','pendente_aprobacion','baixa')", $lib );
 
 		$tpl = $this->src( 'includes/class-anpa-socios-area-page.php' );
 		$this->assertStringContainsString( 'data-ambito="activos"', $tpl );

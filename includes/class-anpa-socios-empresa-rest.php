@@ -442,7 +442,7 @@ class ANPA_Socios_Empresa_REST {
 		$out['curso_escolar'] = (string) $curso;
 		$out['actividades']   = array();
 		$out['alumnos']       = array();
-		$out['totais']        = array( 'activo' => 0, 'lista_espera' => 0, 'oferta' => 0, 'baixa_solicitada' => 0, 'baixa' => 0 );
+		$out['totais']        = array( 'activo' => 0, 'lista_espera' => 0, 'oferta' => 0, 'baixa_solicitada' => 0, 'pendente_aprobacion' => 0, 'baixa' => 0 );
 		// 1.60.0: trimester + enrolment window, so the reader knows whether the list can still change.
 		$out['matriculas']    = ANPA_Socios_Matricula_Gate::aviso_listado(
 			null !== $curso ? ANPA_Socios_Matricula_Gate_Repo::para_curso( (string) $curso ) : ANPA_Socios_Matricula_Gate::avaliar( null, array() )
@@ -458,7 +458,7 @@ class ANPA_Socios_Empresa_REST {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- scoped to the authenticated company.
 			$grupos = $wpdb->get_results( $wpdb->prepare(
 				"SELECT a.id AS actividad_id, a.nome AS actividade, a.estado AS actividade_estado, COALESCE(e.nome, '') AS empresa_nome, g.id AS grupo_id, g.nome AS grupo, g.horario, g.franxa, g.dias, g.estado AS grupo_estado, g.min_pupilos, g.max_pupilos,
-				        SUM(m.estado = 'activo') AS activos, SUM(m.estado = 'lista_espera') AS lista_espera, SUM(m.estado = 'oferta') AS ofertas, SUM(m.estado = 'baixa_solicitada') AS baixas_solicitadas, SUM(m.estado = 'baixa') AS baixas
+				        SUM(m.estado = 'activo') AS activos, SUM(m.estado = 'lista_espera') AS lista_espera, SUM(m.estado = 'oferta') AS ofertas, SUM(m.estado = 'baixa_solicitada') AS baixas_solicitadas, SUM(m.estado = 'pendente_aprobacion') AS pendentes, SUM(m.estado = 'baixa') AS baixas
 				 FROM {$act_t} a
 				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = %s
 				 LEFT JOIN {$mat_t} m ON m.grupo_id = g.id
@@ -490,6 +490,7 @@ class ANPA_Socios_Empresa_REST {
 					'lista_espera'  => (int) $g['lista_espera'],
 					'ofertas'       => (int) $g['ofertas'],
 					'baixas_solicitadas' => (int) $g['baixas_solicitadas'],
+					'pendentes'     => (int) $g['pendentes'],
 					'baixas'        => (int) $g['baixas'],
 				);
 			}

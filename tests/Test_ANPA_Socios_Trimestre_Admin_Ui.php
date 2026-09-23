@@ -29,9 +29,12 @@ final class Test_ANPA_Socios_Trimestre_Admin_Ui extends TestCase {
 
 	public function test_new_admin_post_actions_are_registered(): void {
 		$this->assertStringContainsString( "admin_post_anpa_socios_copiar_datas_curso", $this->settings );
-		$this->assertStringContainsString( "admin_post_anpa_socios_trimestre_transicion", $this->settings );
 		$this->assertStringContainsString( 'handle_copiar_datas_curso', $this->settings );
-		$this->assertStringContainsString( 'handle_trimestre_transicion', $this->settings );
+		// 1.68.0: the trimester/window switch left Axustes for Xestión → Matrículas (REST).
+		$this->assertStringNotContainsString( 'admin_post_anpa_socios_trimestre_transicion', $this->settings );
+		$this->assertStringNotContainsString( 'handle_trimestre_transicion', $this->settings );
+		$this->assertStringNotContainsString( 'render_trimestres_panel', $this->settings );
+		$this->assertStringContainsString( 'page=anpa-socios-management&section=matriculas', $this->settings );
 	}
 
 	public function test_repo_is_wired_in_bootstrap(): void {
@@ -68,19 +71,30 @@ final class Test_ANPA_Socios_Trimestre_Admin_Ui extends TestCase {
 	}
 
 	public function test_transition_handler_guards_and_delegates_to_repo(): void {
-		$start = strpos( $this->settings, 'public static function handle_trimestre_transicion' );
-		$end   = strpos( $this->settings, 'private static function render_trimestres_panel', $start );
-		$body  = substr( $this->settings, $start, $end - $start );
-
-		$this->assertStringContainsString( "self::guard( 'anpa_socios_trimestre_transicion' )", $body );
-		$this->assertStringContainsString( 'ANPA_Socios_Trimestre_Repo::transicionar_trimestre', $body );
-		$this->assertStringContainsString( 'ANPA_Socios_Trimestre_Repo::transicionar_ventana', $body );
+		// 1.68.0: the REST handler behind Xestión → Matrículas applies every transition
+		// through the repo (validated + logged) and never writes the trimester table itself.
+		$handler = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-trimestres-handler.php' );
+		$this->assertStringContainsString( "array( 'ANPA_Socios_Admin_Shared', 'permission_master' )", $handler );
+		$this->assertStringContainsString( 'ANPA_Socios_Trimestre_Repo::transicionar_trimestre', $handler );
+		$this->assertStringContainsString( 'ANPA_Socios_Trimestre_Repo::transicionar_ventana', $handler );
+		$this->assertStringContainsString( 'ANPA_Socios_Trimestre_Combo::plan_estado', $handler );
+		$this->assertStringContainsString( 'ANPA_Socios_Trimestre_Combo::plan_ventana', $handler );
+		$this->assertStringNotContainsString( 'tabela_curso_trimestres', $handler );
+		// Activating a trimester with pending requests needs an explicit confirmation.
+		$this->assertStringContainsString( "'anpa_admin_matriculas_pendentes'", $handler );
+		$this->assertStringContainsString( 'ANPA_Socios_Admin_Matriculas_Handler::aprobar(', $handler );
 	}
 
-	public function test_transition_buttons_carry_a_nonce(): void {
-		$start = strpos( $this->settings, 'private static function render_transicion_button' );
-		$body  = substr( $this->settings, $start, 800 );
-		$this->assertStringContainsString( "wp_nonce_field( 'anpa_socios_trimestre_transicion' )", $body );
+	public function test_mass_notices_go_through_the_batched_sender_and_are_audited(): void {
+		$handler = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-trimestres-handler.php' );
+		foreach ( array( "'inicio_curso'", "'prazo_matriculas'", "'fin_curso'", "'matriculas_abertas'", "'matriculas_pechadas'" ) as $tpl ) {
+			$this->assertStringContainsString( $tpl, $handler );
+		}
+		$this->assertStringContainsString( 'ANPA_Socios_Email::enviar_masivo( self::socios_activos_emails(), $template_id, $context )', $handler );
+		$this->assertStringContainsString( "ANPA_Socios_Envio_Masivo::etiqueta_auditoria( \$template_id, \$resumo ), 'masivo'", $handler );
+		// End of year closes groups and current enrolments of that course only.
+		$this->assertStringContainsString( "WHERE g.curso_escolar = %s AND m.estado IN ({\$in})", $handler );
+		$this->assertStringContainsString( "WHERE curso_escolar = %s AND estado = 'aberto'", $handler );
 	}
 
 	public function test_repo_delegates_transition_rules_to_value_objects(): void {
@@ -173,17 +187,22 @@ final class Test_ANPA_Socios_Trimestre_Admin_Ui extends TestCase {
 	}
 
 	public function test_transition_handler_passes_a_correlation_id(): void {
-		$start = strpos( $this->settings, 'public static function handle_trimestre_transicion' );
-		$end   = strpos( $this->settings, 'public static function handle_inicializar_trimestres', $start );
-		$body  = substr( $this->settings, $start, $end - $start );
-		$this->assertStringContainsString( 'wp_generate_uuid4', $body );
-		$this->assertStringContainsString( 'transicion_sen_config', $body );
+		$handler = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-trimestres-handler.php' );
+		$this->assertStringContainsString( 'wp_generate_uuid4', $handler );
+		// One correlation id per admin operation, shared by every transition it applies.
+		$this->assertStringContainsString( "self::correlacion( 'te_' )", $handler );
+		$this->assertStringContainsString( "self::correlacion( 've_' )", $handler );
+		$this->assertStringContainsString( "self::correlacion( 'cc_' )", $handler );
+		$this->assertStringContainsString( "self::correlacion( 'fc_' )", $handler );
 	}
 
 	public function test_panel_offers_explicit_repair_when_not_initialised(): void {
-		$this->assertStringContainsString( 'admin_post_anpa_socios_inicializar_trimestres', $this->settings );
-		$this->assertStringContainsString( 'handle_inicializar_trimestres', $this->settings );
-		$this->assertStringContainsString( 'esta_inicializado', $this->settings );
-		$this->assertStringContainsString( 'Sen configurar', $this->settings );
+		$handler = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-trimestres-handler.php' );
+		$this->assertStringContainsString( "'/trimestres/inicializar'", $handler );
+		$this->assertStringContainsString( 'ANPA_Socios_Trimestre_Repo::ensure_seeded( $curso, ANPA_Socios_Trimestre_Repo::ORIXE_REPARACION', $handler );
+		// The panel reads the fail-closed flag and the JS shows the repair button.
+		$this->assertStringContainsString( "'inicializado'", $handler );
+		$js = (string) file_get_contents( dirname( __DIR__ ) . '/assets/js/admin-management.js' );
+		$this->assertStringContainsString( 'trimestres/inicializar', $js );
 	}
 }

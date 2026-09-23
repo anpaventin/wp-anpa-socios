@@ -948,8 +948,12 @@
 			lista_espera: __( 'En lista de espera', 'anpa-socios' ),
 			oferta: __( 'Oferta de praza pendente', 'anpa-socios' ),
 			baixa_solicitada: __( 'Baixa solicitada', 'anpa-socios' ),
+			pendente_aprobacion: __( 'Pendente de aprobación pola directiva', 'anpa-socios' ),
 			baixa: __( 'Baixa', 'anpa-socios' ),
 		};
+		// 1.68.0: with the course active but the enrolment window closed, the offer is
+		// still shown and a request lands as «pendente_aprobacion» for the junta.
+		let ofertaPechada = false;
 
 		function extraDiasText(csv) {
 			return String(csv || '').split(',').filter(Boolean).map((d) => EXTRA_DIA_LABELS[d] || d).join(', ');
@@ -999,6 +1003,7 @@
 				const sep = String(root.dataset.extraOfertaUrl || '').indexOf('?') === -1 ? '?' : '&';
 				const ofertaData = await tokenRequest('GET', root.dataset.extraOfertaUrl + sep + 'fillo_id=' + encodeURIComponent(fillosList[0].id), areaToken, null, root);
 				oferta = Array.isArray(ofertaData) ? ofertaData : (ofertaData && Array.isArray(ofertaData.activities) ? ofertaData.activities : []);
+				ofertaPechada = !!(ofertaData && !Array.isArray(ofertaData) && ofertaData.matriculas_abertas === false);
 			}
 			renderEnrolForm(enrolEl, oferta, fillosList);
 		}
@@ -1048,6 +1053,18 @@
 					});
 					li.appendChild(baixa);
 				}
+				if (m.estado === 'pendente_aprobacion') {
+					const retirar = document.createElement('button');
+					retirar.type = 'button';
+					retirar.className = 'anpa-area-secondary anpa-area-danger';
+					retirar.textContent = __( 'Retirar solicitude', 'anpa-socios' );
+					retirar.addEventListener('click', async () => {
+						if (!window.confirm(__( 'Retirar a solicitude de matrícula? Non se garda ningunha praza.', 'anpa-socios' ))) { return; }
+						const done = await tokenRequest('POST', base + '/baixa', areaToken, {}, root);
+						if (done) { showMessage(root, __( 'Solicitude retirada.', 'anpa-socios' ), 'success'); await loadExtraescolares(); }
+					});
+					li.appendChild(retirar);
+				}
 				if (m.estado === 'baixa_solicitada') {
 					const cancel = document.createElement('button');
 					cancel.type = 'button';
@@ -1079,6 +1096,13 @@
 				p.textContent = __( 'Non hai actividades dispoñibles neste momento.', 'anpa-socios' );
 				host.appendChild(p);
 				return;
+			}
+
+			if (ofertaPechada) {
+				const aviso = document.createElement('p');
+				aviso.className = 'anpa-area-muted anpa-area-warning';
+				aviso.textContent = __( 'O prazo de matrícula está pechado. Podes deixar igualmente a solicitude: quedará pendente de aprobación pola directiva e recibirás un correo cando a revise (praza ou lista de espera).', 'anpa-socios' );
+				host.appendChild(aviso);
 			}
 
 			const form = document.createElement('div');
@@ -1291,9 +1315,11 @@
 				const url = root.dataset.extraFilloBaseUrl + encodeURIComponent(filloSel.value) + '/matricula';
 				const result = await tokenRequest('POST', url, areaToken, payload, root);
 				if (result) {
-					const msg = (result.estado === 'lista_espera')
-						? 'Matrícula en lista de espera (posición ' + (result.posicion || '?') + ').'
-						: __( 'Matrícula confirmada.', 'anpa-socios' );
+					const msg = (result.estado === 'pendente_aprobacion')
+						? __( 'Solicitude rexistrada: queda pendente de aprobación pola directiva. Recibirás un correo cando a revise.', 'anpa-socios' )
+						: (result.estado === 'lista_espera')
+							? 'Matrícula en lista de espera (posición ' + (result.posicion || '?') + ').'
+							: __( 'Matrícula confirmada.', 'anpa-socios' );
 					showMessage(root, msg, 'success');
 					await loadExtraescolares();
 				}

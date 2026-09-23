@@ -400,7 +400,7 @@ final class ANPA_Socios_Csv_Import {
 	 * @since  1.38.0
 	 */
 	public static function matricula_estado( string $estado ): string {
-		$valid = array( 'activo', 'lista_espera', 'oferta', 'baixa_solicitada', 'baixa' );
+		$valid = array( 'activo', 'lista_espera', 'oferta', 'baixa_solicitada', 'pendente_aprobacion', 'baixa' );
 
 		return in_array( $estado, $valid, true ) ? $estado : 'activo';
 	}

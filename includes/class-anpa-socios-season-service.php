@@ -132,7 +132,7 @@ final class ANPA_Socios_Season_Service {
 		// Pass 2 (fase34): detect trimesters that reached their operative close
 		// date on the ACTIVE course and raise a persistent, idempotent notice.
 		// This NEVER changes any trimester/window/course state — the junta must
-		// apply the transition manually from Axustes → Cursos.
+		// apply the transition manually from Xestión → Extraescolares → Matrículas.
 		$summary['trimestre_avisos'] = self::detect_trimestre_ends( $today );
 
 		return $summary;
@@ -253,7 +253,8 @@ final class ANPA_Socios_Season_Service {
 			return;
 		}
 
-		$url = admin_url( 'admin.php?page=anpa-socios-settings&tab=cursos&section=curso-escolar' );
+		// 1.68.0: transitions are applied from Xestión → Extraescolares → Matrículas.
+		$url = admin_url( 'admin.php?page=anpa-socios-management&section=matriculas' );
 		foreach ( $avisos as $aviso ) {
 			$curso = (string) ( $aviso['curso'] ?? '' );
 			$tri   = (int) ( $aviso['trimestre'] ?? 0 );
@@ -275,7 +276,7 @@ final class ANPA_Socios_Season_Service {
 					$data
 				) ),
 				esc_url( $url ),
-				esc_html__( 'ir a Cursos', 'anpa-socios' )
+				esc_html__( 'ir a Xestión → Matrículas', 'anpa-socios' )
 			);
 		}
 	}

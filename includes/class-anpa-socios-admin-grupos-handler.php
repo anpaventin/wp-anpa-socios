@@ -78,6 +78,17 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			'callback'            => array( __CLASS__, 'confirm_baixa' ),
 			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
 		) );
+		// 1.68.0: per-group notices from Grupos e horarios (only while enrolments are closed).
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/grupo/(?P<id>\d+)/notificar-comezo', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( __CLASS__, 'notificar_comezo' ),
+			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+		) );
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/grupo/(?P<id>\d+)/pechar-minimo', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( __CLASS__, 'pechar_minimo' ),
+			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+		) );
 	}
 
 	/**
@@ -164,7 +175,8 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			$wpdb->prepare(
 				"SELECT g.id AS grupo_id, g.actividad_id AS actividade_id, g.serie_uid,
 				        a.nome AS actividade_nome, g.nome AS grupo_nome,
-				        g.horario, g.franxa, g.dias, g.estado, gn.nivel_id
+				        g.horario, g.franxa, g.dias, g.estado, gn.nivel_id,
+				        g.min_pupilos, g.max_pupilos
 				 FROM {$grupos} g
 				 INNER JOIN {$acts} a ON a.id = g.actividad_id
 				 INNER JOIN {$gn} gn ON gn.grupo_id = g.id
@@ -178,7 +190,43 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Non se puideron cargar os grupos.', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
+		// 1.68.0: occupancy counts per group (numbers only) for the admin cards.
+		$ocupacion = self::ocupacion_por_grupo( $curso );
+		foreach ( $group_rows as &$group_row ) {
+			$gid = (int) ( $group_row['grupo_id'] ?? 0 );
+			$group_row['activos']   = (int) ( $ocupacion[ $gid ]['activos'] ?? 0 );
+			$group_row['espera']    = (int) ( $ocupacion[ $gid ]['espera'] ?? 0 );
+			$group_row['pendentes'] = (int) ( $ocupacion[ $gid ]['pendentes'] ?? 0 );
+		}
+		unset( $group_row );
+
 		return new WP_REST_Response( ANPA_Socios_Grupos_Horarios::build( $curso, $level_rows, $group_rows ), 200 );
+	}
+
+	/**
+	 * Active / waiting / pending counts per group of a course. Counts only —
+	 * no pupil or family data leaves this query.
+	 *
+	 * @since  1.68.0
+	 * @param  string $curso Course.
+	 * @return array<int,array{activos:int,espera:int,pendentes:int}>
+	 */
+	private static function ocupacion_por_grupo( string $curso ): array {
+		global $wpdb;
+		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		$gru_t = ANPA_Socios_DB::tabela_grupos();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- aggregate counts, no PII.
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT m.grupo_id, SUM(m.estado = 'activo') AS activos, SUM(m.estado IN ('lista_espera','oferta')) AS espera, SUM(m.estado = 'pendente_aprobacion') AS pendentes
+			 FROM {$mat_t} m INNER JOIN {$gru_t} g ON g.id = m.grupo_id
+			 WHERE g.curso_escolar = %s GROUP BY m.grupo_id",
+			$curso
+		), ARRAY_A );
+		$out = array();
+		foreach ( is_array( $rows ) ? $rows : array() as $r ) {
+			$out[ (int) $r['grupo_id'] ] = array( 'activos' => (int) $r['activos'], 'espera' => (int) $r['espera'], 'pendentes' => (int) $r['pendentes'] );
+		}
+		return $out;
 	}
 
 	/**
@@ -791,6 +839,159 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		}
 
 		return new WP_REST_Response( array( 'id' => $id, 'estado' => 'baixa', 'correo_enviado' => $correo_enviado, 'efectos' => $efectos ), 200 );
+	}
+
+	// ──────────────────────────────────────────────
+	// 1.68.0: per-group notices (Grupos e horarios)
+	// ──────────────────────────────────────────────
+
+	/**
+	 * POST /admin/grupo/<id>/notificar-comezo — «the group is confirmed and the
+	 * trimester starts»: one mass mail to the enrolled families and the company
+	 * (grupo_comezo_trimestre) and another to the waiting list (grupo_comezo_espera).
+	 * Refused (409) while the course's enrolment window is open: the list is not
+	 * final yet.
+	 *
+	 * @since  1.68.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function notificar_comezo( WP_REST_Request $request ) {
+		$ctx = self::contexto_aviso_grupo( (int) $request->get_param( 'id' ) );
+		if ( is_wp_error( $ctx ) ) {
+			return $ctx;
+		}
+		$vars = array( 'actividade' => $ctx['actividade'], 'grupo' => $ctx['grupo_nome'], 'horario' => $ctx['horario'], 'trimestre' => $ctx['trimestre'] );
+
+		$inscritos = ANPA_Socios_Email::enviar_masivo( array_merge( $ctx['emails_activos'], $ctx['empresa_email'] ), 'grupo_comezo_trimestre', $vars );
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'email', ANPA_Socios_Envio_Masivo::etiqueta_auditoria( 'grupo_comezo', $inscritos ), 'masivo' );
+		$espera = array( 'lotes' => 0, 'enviados' => 0, 'fallidos' => 0, 'lotes_fallidos' => 0, 'destinatarios' => 0 );
+		if ( array() !== $ctx['emails_espera'] ) {
+			$espera = ANPA_Socios_Email::enviar_masivo( $ctx['emails_espera'], 'grupo_comezo_espera', $vars );
+			ANPA_Socios_Admin_Shared::write_audit( $request, 'email', ANPA_Socios_Envio_Masivo::etiqueta_auditoria( 'grupo_espera', $espera ), 'masivo' );
+		}
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $ctx['grupo_id'], 'aviso_comezo' );
+
+		return new WP_REST_Response( array( 'id' => $ctx['grupo_id'], 'trimestre' => $ctx['trimestre'], 'inscritos' => $inscritos, 'espera' => $espera ), 200 );
+	}
+
+	/**
+	 * POST /admin/grupo/<id>/pechar-minimo — the group did not reach its
+	 * minimum: it becomes «pechado» (hidden from the offer and the area), its
+	 * current enrolments and waiting list become «baixa» (today) and the
+	 * families and the company get grupo_pechado_minimo. Refused while the
+	 * window is open, or when activos >= min_pupilos.
+	 *
+	 * @since  1.68.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function pechar_minimo( WP_REST_Request $request ) {
+		global $wpdb;
+		$ctx = self::contexto_aviso_grupo( (int) $request->get_param( 'id' ) );
+		if ( is_wp_error( $ctx ) ) {
+			return $ctx;
+		}
+		if ( $ctx['min_pupilos'] < 1 || $ctx['activos'] >= $ctx['min_pupilos'] ) {
+			return new WP_Error(
+				'anpa_admin_grupo_con_minimo',
+				sprintf(
+					/* translators: 1: active enrolments, 2: group minimum */
+					__( 'O grupo ten %1$d alumnos/as activos e o mínimo é %2$d: non se pode pechar por falta de mínimo. Se aínda así queres pechalo, edita o grupo e cambia o seu estado.', 'anpa-socios' ),
+					$ctx['activos'],
+					$ctx['min_pupilos']
+				),
+				array( 'status' => 409, 'activos' => $ctx['activos'], 'min_pupilos' => $ctx['min_pupilos'] )
+			);
+		}
+
+		$table = ANPA_Socios_DB::tabela_grupos();
+		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		$now   = current_time( 'mysql' );
+		$in    = ANPA_Socios_Matricula_Estado::sql_in( ANPA_Socios_Matricula_Estado::VIXENTES );
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		$g_ok = $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET estado = 'pechado', actualizado_en = %s WHERE id = %d", $now, $ctx['grupo_id'] ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- audited bulk close of one group.
+		$m_ok = $wpdb->query( $wpdb->prepare( "UPDATE {$mat_t} SET estado = 'baixa', baixa_en = %s, oferta_token = NULL, oferta_expira = NULL, actualizado_en = %s WHERE grupo_id = %d AND estado IN ({$in})", $now, $now, $ctx['grupo_id'] ) );
+		if ( false === $g_ok || false === $m_ok || false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $ctx['grupo_id'], 'pechado_minimo' );
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', sprintf( '%d:m%d', $ctx['grupo_id'], (int) $m_ok ), 'minimo_baixas' );
+
+		$envio = ANPA_Socios_Email::enviar_masivo( array_merge( $ctx['emails_activos'], $ctx['emails_espera'], $ctx['emails_pendentes'], $ctx['empresa_email'] ), 'grupo_pechado_minimo', array( 'actividade' => $ctx['actividade'], 'grupo' => $ctx['grupo_nome'] ) );
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'email', ANPA_Socios_Envio_Masivo::etiqueta_auditoria( 'grupo_minimo', $envio ), 'masivo' );
+
+		return new WP_REST_Response( array( 'id' => $ctx['grupo_id'], 'estado' => 'pechado', 'matriculas_baixa' => (int) $m_ok, 'envio' => $envio ), 200 );
+	}
+
+	/**
+	 * Everything a per-group notice needs: group, activity, company address,
+	 * current trimester, occupancy and the family addresses per state. Fails
+	 * with 409 while the course's enrolment window is still open.
+	 *
+	 * @since  1.68.0
+	 * @param  int $grupo_id Group id.
+	 * @return array<string,mixed>|WP_Error
+	 */
+	private static function contexto_aviso_grupo( int $grupo_id ) {
+		global $wpdb;
+		$gru_t = ANPA_Socios_DB::tabela_grupos();
+		$act_t = ANPA_Socios_DB::tabela_actividades();
+		$emp_t = ANPA_Socios_DB::tabela_empresas();
+		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only context for the notice.
+		$g = $wpdb->get_row( $wpdb->prepare(
+			"SELECT g.id, g.curso_escolar, g.nome, g.horario, g.franxa, g.dias, g.min_pupilos, g.max_pupilos, g.estado,
+			        a.nome AS actividade, COALESCE(e.email, '') AS empresa_email
+			 FROM {$gru_t} g
+			 INNER JOIN {$act_t} a ON a.id = g.actividad_id
+			 LEFT JOIN {$emp_t} e ON e.id = a.empresa_id
+			 WHERE g.id = %d",
+			$grupo_id
+		), ARRAY_A );
+		if ( ! is_array( $g ) ) {
+			return new WP_Error( 'anpa_admin_grupo_not_found', __( 'Grupo non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
+		}
+		$gate = ANPA_Socios_Matricula_Gate_Repo::para_curso( (string) $g['curso_escolar'] );
+		if ( ! empty( $gate['abertas'] ) ) {
+			return new WP_Error( 'anpa_admin_matriculas_abertas', __( 'As matrículas deste curso aínda están abertas: pecha o prazo en Xestión → Matrículas antes de avisar ás familias.', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only recipients lookup.
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT fillo_id, estado FROM {$mat_t} WHERE grupo_id = %d AND estado <> 'baixa'", $grupo_id ), ARRAY_A );
+		$emails = array( 'activo' => array(), 'espera' => array(), 'pendente' => array() );
+		$activos = 0;
+		foreach ( is_array( $rows ) ? $rows : array() as $r ) {
+			$estado = (string) $r['estado'];
+			$fam    = ANPA_Socios_Admin_Matriculas_Handler::familia_emails_por_fillo( (int) $r['fillo_id'] );
+			if ( 'activo' === $estado ) {
+				++$activos;
+				$emails['activo'] = array_merge( $emails['activo'], $fam );
+			} elseif ( in_array( $estado, array( 'lista_espera', 'oferta' ), true ) ) {
+				$emails['espera'] = array_merge( $emails['espera'], $fam );
+			} elseif ( ANPA_Socios_Matricula_Estado::PENDENTE_APROBACION === $estado ) {
+				$emails['pendente'] = array_merge( $emails['pendente'], $fam );
+			}
+		}
+		$empresa = trim( (string) $g['empresa_email'] );
+		return array(
+			'grupo_id'         => (int) $g['id'],
+			'curso_escolar'    => (string) $g['curso_escolar'],
+			'grupo_nome'       => (string) $g['nome'],
+			'actividade'       => (string) $g['actividade'],
+			'horario'          => ANPA_Socios_Admin_Matriculas_Handler::grupo_label( '', (string) $g['horario'], (string) $g['franxa'], (string) $g['dias'] ),
+			'trimestre'        => ANPA_Socios_Admin_Trimestres_Handler::ordinal( (int) ( $gate['trimestre'] ?? 0 ) ),
+			'min_pupilos'      => (int) $g['min_pupilos'],
+			'max_pupilos'      => (int) $g['max_pupilos'],
+			'activos'          => $activos,
+			'emails_activos'   => array_values( array_unique( $emails['activo'] ) ),
+			'emails_espera'    => array_values( array_unique( $emails['espera'] ) ),
+			'emails_pendentes' => array_values( array_unique( $emails['pendente'] ) ),
+			'empresa_email'    => '' !== $empresa ? array( $empresa ) : array(),
+		);
 	}
 
 	/**

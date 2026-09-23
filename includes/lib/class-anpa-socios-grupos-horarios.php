@@ -101,6 +101,12 @@ final class ANPA_Socios_Grupos_Horarios {
 					'franxa'           => $franxa,
 					'estado'           => (string) ( $row['estado'] ?? '' ),
 					'conflito_comedor' => array() !== $conflicts,
+					// 1.68.0: occupancy for the admin card (counts only, no PII).
+					'min_pupilos'      => (int) ( $row['min_pupilos'] ?? 0 ),
+					'max_pupilos'      => (int) ( $row['max_pupilos'] ?? 0 ),
+					'activos'          => (int) ( $row['activos'] ?? 0 ),
+					'espera'           => (int) ( $row['espera'] ?? 0 ),
+					'pendentes'        => (int) ( $row['pendentes'] ?? 0 ),
 				);
 			}
 		}

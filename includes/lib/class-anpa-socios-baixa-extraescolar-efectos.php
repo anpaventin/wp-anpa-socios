@@ -5,7 +5,7 @@
  * Rule agreed with the junta (1.62.0, corrected in 1.63.0 after a wrong email
  * went out on 2026-09-15):
  *  - While the enrolment WINDOW of the running trimester is OPEN (Axustes →
- *    Cursos → Estado dos trimestres, «ventá aberta»): enrolments are still
+ *    Xestión → Extraescolares → Matrículas, «ventá aberta»): enrolments are still
  *    changing and the classes are not confirmed, so the baixa is effective
  *    immediately and nothing is charged. This holds in every trimester.
  *  - Once that window is CLOSED (the lists went to the companies, classes are

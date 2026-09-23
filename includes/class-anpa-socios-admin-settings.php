@@ -40,8 +40,6 @@ final class ANPA_Socios_Admin_Settings {
 		add_action( 'admin_post_anpa_socios_save_location', array( __CLASS__, 'handle_save_location' ) );
 		add_action( 'admin_post_anpa_socios_save_cursos', array( __CLASS__, 'handle_save_cursos' ) );
 		add_action( 'admin_post_anpa_socios_copiar_datas_curso', array( __CLASS__, 'handle_copiar_datas_curso' ) );
-		add_action( 'admin_post_anpa_socios_trimestre_transicion', array( __CLASS__, 'handle_trimestre_transicion' ) );
-		add_action( 'admin_post_anpa_socios_inicializar_trimestres', array( __CLASS__, 'handle_inicializar_trimestres' ) );
 		add_action( 'admin_post_anpa_socios_run_season', array( __CLASS__, 'handle_run_season' ) );
 		add_action( 'admin_post_anpa_socios_update_child_levels', array( __CLASS__, 'handle_update_child_levels' ) );
 		add_action( 'admin_post_anpa_socios_apply_child_levels', array( __CLASS__, 'handle_apply_child_levels' ) );
@@ -921,8 +919,10 @@ final class ANPA_Socios_Admin_Settings {
 		submit_button( __( 'Copiar datas do curso anterior', 'anpa-socios' ), 'secondary', 'submit', false );
 		echo '</form>';
 
-		// --- Trimester + application-window state panel ---
-		self::render_trimestres_panel( $sel );
+		// 1.68.0: the trimester/window switch lives in Xestión → Extraescolares → Matrículas.
+		$xestion_url = admin_url( 'admin.php?page=anpa-socios-management&section=matriculas' );
+		echo '<h2>' . esc_html__( 'Estado dos trimestres e matrículas', 'anpa-socios' ) . '</h2>';
+		echo '<p class="description" style="max-width:720px">' . esc_html__( 'Dende a versión 1.68.0 o trimestre activo, a apertura e o peche das matrículas e os avisos ás familias (comezo do curso, prazo, fin de curso) xestiónanse nun único sitio:', 'anpa-socios' ) . ' <a href="' . esc_url( $xestion_url ) . '">' . esc_html__( 'Xestión → Extraescolares → Matrículas', 'anpa-socios' ) . '</a>. ' . esc_html__( 'Aquí só quedan as datas do curso.', 'anpa-socios' ) . '</p>';
 
 		// --- Integrated course creation (same canonical section and writer). ---
 		echo '<h2>' . esc_html__( 'Crear novo curso', 'anpa-socios' ) . '</h2>';
@@ -2061,202 +2061,6 @@ final class ANPA_Socios_Admin_Settings {
 	}
 
 	/**
-	 * admin-post: apply a single manual trimester/window state transition.
-	 *
-	 * Delegates validation + persistence + audit logging to the repository,
-	 * which uses the pure value objects for the transition rules. Idempotent.
-	 *
-	 * @return void
-	 */
-	public static function handle_trimestre_transicion(): void {
-		self::guard( 'anpa_socios_trimestre_transicion' );
-
-		$curso     = sanitize_text_field( (string) wp_unslash( $_POST['curso_escolar'] ?? '' ) );
-		$ambito    = sanitize_key( (string) wp_unslash( $_POST['ambito'] ?? '' ) );
-		$trimestre = (int) ( $_POST['trimestre'] ?? 0 );
-		$a_estado  = sanitize_key( (string) wp_unslash( $_POST['a_estado'] ?? '' ) );
-
-		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
-			self::redirect_cursos( $curso, 'curso_error' );
-		}
-
-		$user  = wp_get_current_user();
-		$actor = ( $user instanceof WP_User && is_email( $user->user_email ) ) ? strtolower( $user->user_email ) : 'admin';
-
-		// Correlation/idempotency id groups this admin action in the audit log.
-		$correlacion = function_exists( 'wp_generate_uuid4' ) ? wp_generate_uuid4() : uniqid( 'tr_', true );
-
-		if ( ANPA_Socios_Trimestre_Repo::AMBITO_VENTANA === $ambito ) {
-			$res = ANPA_Socios_Trimestre_Repo::transicionar_ventana( $curso, $trimestre, $a_estado, $actor, ANPA_Socios_Trimestre_Repo::ORIXE_MANUAL, $correlacion );
-			// 1.51.0 (E3): the window IS the enrolment switch; refresh the derived cache.
-			ANPA_Socios_Matricula_Gate_Repo::sincronizar_flag( $curso );
-		} else {
-			$res = ANPA_Socios_Trimestre_Repo::transicionar_trimestre( $curso, $trimestre, $a_estado, $actor, ANPA_Socios_Trimestre_Repo::ORIXE_MANUAL, $correlacion );
-			// Once a trimester is closed (managed), clear its pending end-of-term
-			// notice so the persistent admin warning disappears.
-			if ( ! empty( $res['ok'] ) && ANPA_Socios_Trimestre_Estado::PECHADO === $a_estado ) {
-				ANPA_Socios_Season_Service::clear_aviso( $curso, $trimestre );
-			}
-		}
-
-		$msg = 'transicion_err';
-		if ( 'sen_configurar' === (string) ( $res['code'] ?? '' ) ) {
-			$msg = 'transicion_sen_config';
-		} elseif ( ! empty( $res['ok'] ) ) {
-			$msg = ! empty( $res['changed'] ) ? 'transicion_ok' : 'transicion_noop';
-		}
-		self::redirect_cursos( $curso, $msg );
-	}
-
-	/**
-	 * admin-post: explicit, audited repair that seeds any missing trimester
-	 * rows for the selected course (genesis state: T1 activo, T2/T3 pendente,
-	 * windows pechada). Idempotent; never overwrites an existing managed state.
-	 * This is the only ordinary path that creates rows on demand, and it is an
-	 * explicit admin action (never a silent side effect of a read).
-	 *
-	 * @return void
-	 */
-	public static function handle_inicializar_trimestres(): void {
-		self::guard( 'anpa_socios_inicializar_trimestres' );
-
-		$curso = sanitize_text_field( (string) wp_unslash( $_POST['curso_escolar'] ?? '' ) );
-		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
-			self::redirect_cursos( $curso, 'curso_error' );
-		}
-
-		$user  = wp_get_current_user();
-		$actor = ( $user instanceof WP_User && is_email( $user->user_email ) ) ? strtolower( $user->user_email ) : 'admin';
-
-		$res = ANPA_Socios_Trimestre_Repo::ensure_seeded( $curso, ANPA_Socios_Trimestre_Repo::ORIXE_REPARACION, $actor );
-		$msg = ! empty( $res['ok'] ) ? ( $res['created'] > 0 ? 'trimestres_inicializados' : 'transicion_noop' ) : 'transicion_err';
-		self::redirect_cursos( $curso, $msg );
-	}
-
-	/**
-	 * Renders the trimester + application-window state panel with manual
-	 * transition buttons. States are shown with explicit text (not colour
-	 * alone) for accessibility. Each action is an isolated nonce-protected POST.
-	 *
-	 * @param  string $curso Selected curso escolar.
-	 * @return void
-	 */
-	private static function render_trimestres_panel( string $curso ): void {
-		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
-			return;
-		}
-
-		$rows        = ANPA_Socios_Trimestre_Repo::for_curso( $curso );
-		$inicializado = ANPA_Socios_Trimestre_Repo::esta_inicializado( $curso );
-		$post_url    = esc_url( admin_url( 'admin-post.php' ) );
-		$tri_label = array(
-			ANPA_Socios_Trimestre_Estado::PENDENTE => __( 'Pendente', 'anpa-socios' ),
-			ANPA_Socios_Trimestre_Estado::ACTIVO   => __( 'Activo', 'anpa-socios' ),
-			ANPA_Socios_Trimestre_Estado::PECHADO  => __( 'Pechado', 'anpa-socios' ),
-		);
-		$tri_icon  = array(
-			ANPA_Socios_Trimestre_Estado::PENDENTE => '⏳',
-			ANPA_Socios_Trimestre_Estado::ACTIVO   => '🟢',
-			ANPA_Socios_Trimestre_Estado::PECHADO  => '🔒',
-		);
-		$ven_label = array(
-			ANPA_Socios_Ventana_Estado::PECHADA => __( 'Matrículas pechadas (ventá pechada)', 'anpa-socios' ),
-			ANPA_Socios_Ventana_Estado::ABERTA  => __( 'Matrículas abertas (ventá aberta)', 'anpa-socios' ),
-		);
-		$ven_icon  = array(
-			ANPA_Socios_Ventana_Estado::PECHADA => '⛔',
-			ANPA_Socios_Ventana_Estado::ABERTA  => '📨',
-		);
-
-		echo '<h2>' . esc_html__( 'Estado dos trimestres', 'anpa-socios' ) . '</h2>';
-		echo '<p class="description" style="max-width:720px">' . esc_html__( 'Aquí está o único interruptor das matrículas. Cada trimestre ten dous estados independentes: o estado lectivo (pendente, activo, pechado) é informativo e serve para o calendario e os avisos; a ventá do trimestre é a que abre ou pecha as matrículas, baixas e solicitudes das familias. O trimestre actual derívase das datas operativas do curso. As transicións son manuais e quedan rexistradas (quen, cando, orixe); o sistema avisa cando chega unha data operativa pero nunca cambia un estado por si só.', 'anpa-socios' ) . '</p>';
-
-		// Fail-closed: if any trimester row is missing, do NOT fabricate an
-		// "activo" state — surface it and offer an explicit, audited repair.
-		if ( ! $inicializado ) {
-			echo '<div class="notice notice-warning inline"><p>' . esc_html__( 'Este curso aínda non ten inicializados todos os trimestres. Mentres non se inicialicen, non se poden aplicar transicións (o sistema non asume ningún estado por defecto).', 'anpa-socios' ) . '</p>';
-			echo '<form method="post" action="' . $post_url . '" style="margin:0 0 8px">';
-			echo '<input type="hidden" name="action" value="anpa_socios_inicializar_trimestres">';
-			echo '<input type="hidden" name="curso_escolar" value="' . esc_attr( $curso ) . '">';
-			wp_nonce_field( 'anpa_socios_inicializar_trimestres' );
-			echo '<button type="submit" class="button button-primary">' . esc_html__( 'Inicializar trimestres deste curso', 'anpa-socios' ) . '</button>';
-			echo '</form></div>';
-		}
-
-		echo '<table class="widefat striped" style="max-width:760px"><thead><tr>';
-		echo '<th>' . esc_html__( 'Trimestre', 'anpa-socios' ) . '</th>';
-		echo '<th>' . esc_html__( 'Estado lectivo', 'anpa-socios' ) . '</th>';
-		echo '<th>' . esc_html__( 'Matrículas (ventá do trimestre)', 'anpa-socios' ) . '</th>';
-		echo '<th>' . esc_html__( 'Accións', 'anpa-socios' ) . '</th>';
-		echo '</tr></thead><tbody>';
-
-		foreach ( array( 1, 2, 3 ) as $tri ) {
-			$presente = ! empty( $rows[ $tri ]['presente'] );
-			$estado   = (string) ( $rows[ $tri ]['estado'] ?? '' );
-			$ventana  = (string) ( $rows[ $tri ]['ventana_estado'] ?? ANPA_Socios_Ventana_Estado::PECHADA );
-
-			echo '<tr>';
-			printf( '<td><strong>%s</strong></td>', esc_html( sprintf( /* translators: %d: trimester number */ __( '%dº trimestre', 'anpa-socios' ), $tri ) ) );
-
-			// Fail-closed: a missing row is shown as "Sen configurar" (never as
-			// activo) and offers no transition actions.
-			if ( ! $presente ) {
-				printf( '<td>⚠️ %s</td>', esc_html__( 'Sen configurar', 'anpa-socios' ) );
-				printf( '<td>%s %s</td>', esc_html( $ven_icon[ $ventana ] ?? '' ), esc_html( $ven_label[ $ventana ] ?? $ventana ) );
-				printf( '<td><span class="description">%s</span></td>', esc_html__( 'Inicializa os trimestres para xestionar este curso.', 'anpa-socios' ) );
-				echo '</tr>';
-				continue;
-			}
-
-			printf( '<td>%s %s</td>', esc_html( $tri_icon[ $estado ] ?? '' ), esc_html( $tri_label[ $estado ] ?? $estado ) );
-			printf( '<td>%s %s</td>', esc_html( $ven_icon[ $ventana ] ?? '' ), esc_html( $ven_label[ $ventana ] ?? $ventana ) );
-
-			echo '<td>';
-			// Trimester (lectivo) transition buttons.
-			if ( ANPA_Socios_Trimestre_Estado::PENDENTE === $estado ) {
-				self::render_transicion_button( $post_url, $curso, ANPA_Socios_Trimestre_Repo::AMBITO_TRIMESTRE, $tri, ANPA_Socios_Trimestre_Estado::ACTIVO, sprintf( __( 'Activar %dº trimestre', 'anpa-socios' ), $tri ) );
-			} elseif ( ANPA_Socios_Trimestre_Estado::ACTIVO === $estado ) {
-				self::render_transicion_button( $post_url, $curso, ANPA_Socios_Trimestre_Repo::AMBITO_TRIMESTRE, $tri, ANPA_Socios_Trimestre_Estado::PECHADO, sprintf( __( 'Pechar %dº trimestre', 'anpa-socios' ), $tri ) );
-			} elseif ( ANPA_Socios_Trimestre_Estado::PECHADO === $estado ) {
-				self::render_transicion_button( $post_url, $curso, ANPA_Socios_Trimestre_Repo::AMBITO_TRIMESTRE, $tri, ANPA_Socios_Trimestre_Estado::ACTIVO, sprintf( __( 'Reabrir %dº trimestre', 'anpa-socios' ), $tri ) );
-			}
-			// Application-window transition buttons.
-			if ( ANPA_Socios_Ventana_Estado::PECHADA === $ventana ) {
-				self::render_transicion_button( $post_url, $curso, ANPA_Socios_Trimestre_Repo::AMBITO_VENTANA, $tri, ANPA_Socios_Ventana_Estado::ABERTA, __( 'Abrir matrículas (ventá)', 'anpa-socios' ) );
-			} else {
-				self::render_transicion_button( $post_url, $curso, ANPA_Socios_Trimestre_Repo::AMBITO_VENTANA, $tri, ANPA_Socios_Ventana_Estado::PECHADA, __( 'Pechar matrículas (ventá)', 'anpa-socios' ) );
-			}
-			echo '</td>';
-			echo '</tr>';
-		}
-
-		echo '</tbody></table>';
-	}
-
-	/**
-	 * Renders one isolated nonce-protected transition button.
-	 *
-	 * @param  string $post_url  admin-post.php URL.
-	 * @param  string $curso     Curso escolar.
-	 * @param  string $ambito    trimestre|ventana.
-	 * @param  int    $trimestre 1..3.
-	 * @param  string $a_estado  Target state.
-	 * @param  string $label     Button label.
-	 * @return void
-	 */
-	private static function render_transicion_button( string $post_url, string $curso, string $ambito, int $trimestre, string $a_estado, string $label ): void {
-		echo '<form method="post" action="' . $post_url . '" style="display:inline-block;margin:0 6px 6px 0">';
-		echo '<input type="hidden" name="action" value="anpa_socios_trimestre_transicion">';
-		echo '<input type="hidden" name="curso_escolar" value="' . esc_attr( $curso ) . '">';
-		echo '<input type="hidden" name="ambito" value="' . esc_attr( $ambito ) . '">';
-		echo '<input type="hidden" name="trimestre" value="' . esc_attr( (string) $trimestre ) . '">';
-		echo '<input type="hidden" name="a_estado" value="' . esc_attr( $a_estado ) . '">';
-		wp_nonce_field( 'anpa_socios_trimestre_transicion' );
-		echo '<button type="submit" class="button button-secondary">' . esc_html( $label ) . '</button>';
-		echo '</form>';
-	}
-
-	/**
 	 * admin-post: run the season check now.
 	 *
 	 * @return void
@@ -2818,7 +2622,7 @@ final class ANPA_Socios_Admin_Settings {
 		$li( __( 'Axustes → Xeral: nome do menú, correo do equipo administrador (recibe os avisos de altas, baixas e reactivacións), aprobación de altas, e páxinas públicas creadas automaticamente (área de socios, asociarse, extraescolares).', 'anpa-socios' ) );
 		$li( __( 'Axustes → Localización e idioma: país, provincia, poboación e código postal por defecto que se prefillan nos formularios das familias.', 'anpa-socios' ) );
 		$li( __( 'Clave bancaria: xérase unha soa vez desde Axustes. A frase gárdase fóra da web, accesible só á xunta; sen ela non se poden ler nin exportar os IBAN. Non a envíes por correo nin a pegues en chats.', 'anpa-socios' ) );
-		$li( __( 'Axustes → Cursos → Curso escolar: crea o curso (formato AAAA/AAAA+1), pon as datas de inicio e peche e os peches operativos do 1º e 2º trimestre, actívao e inicializa os trimestres. As matrículas abren coa ventá do trimestre actual (ver «Ciclo anual»).', 'anpa-socios' ) );
+		$li( __( 'Axustes → Cursos → Curso escolar: crea o curso (formato AAAA/AAAA+1) e pon as datas de inicio e peche e os peches operativos do 1º e 2º trimestre. O trimestre activo, a apertura das matrículas e os avisos ás familias lévanse dende Xestión → Extraescolares → Matrículas (ver «Ciclo anual»).', 'anpa-socios' ) );
 		$li( __( 'Axustes → Cursos → Estrutura escolar: niveis (1º a 6º, con «Idade alumnado» 7 a 12) e aulas (A, B…). Ao crear un curso novo pódese copiar a estrutura do anterior.', 'anpa-socios' ) );
 		$li( __( 'Plantillas de Email: revisa os dez textos automáticos (por defecto en galego). «Restaurar» devolve o texto orixinal dunha plantilla.', 'anpa-socios' ) );
 		$li( __( 'Axustes → Contido: textos, documentos e ligazóns de transporte, libros, bos días, comedor e tardes divertidas. Amósanse nas páxinas públicas co shortcode [anpa_contenido categoria="comedor"] (unha categoría por shortcode).', 'anpa-socios' ) );
@@ -2835,24 +2639,25 @@ final class ANPA_Socios_Admin_Settings {
 		// 2. Ciclo anual.
 		echo '<section id="ciclo-curso" class="card"><h2>' . esc_html( $sections['ciclo-curso'] ) . '</h2><ul>';
 		$li_html( __( 'Cada curso vai do 1 de xullo ao 30 de xuño e usa o formato <code>AAAA/AAAA+1</code>. Só pode haber un curso activo.', 'anpa-socios' ) );
-		$li( __( 'O 20 de xuño o sistema pecha o curso activo e crea o seguinte como pendente. Nunca activa un curso por si só: faino a xunta en Axustes → Cursos cando corresponda.', 'anpa-socios' ) );
-		$li_html( __( '<strong>Regra única de matrículas:</strong> as familias poden matricular, dar de baixa ou solicitar praza só se o curso está activo <strong>e</strong> a ventá do trimestre actual está aberta (Axustes → Cursos → Estado dos trimestres). O trimestre actual derívase das datas operativas. O «estado lectivo» de cada trimestre é informativo; a ventá é o interruptor.', 'anpa-socios' ) );
+		$li( __( 'O 20 de xuño o sistema pecha o curso activo e crea o seguinte como pendente. Nunca activa un curso por si só: faino a xunta con «Notificar comezo do curso» en Xestión → Extraescolares → Matrículas.', 'anpa-socios' ) );
+		$li_html( __( '<strong>Regra única de matrículas:</strong> as familias poden matricular, dar de baixa ou solicitar praza só se o curso está activo <strong>e</strong> a ventá do trimestre actual está aberta (Xestión → Extraescolares → Matrículas, combo «Matrículas abertas para»; como moito unha ventá aberta). O trimestre actual derívase das datas operativas. O «estado lectivo» de cada trimestre é informativo; a ventá é o interruptor. Co prazo pechado e o curso activo, a solicitude da familia non se rexeita: queda «pendente de aprobación» e a xunta decide en Socios → Aprobacións, ou aproba todas dunha vez ao activar o seguinte trimestre.', 'anpa-socios' ) );
+		$li( __( 'Avisos ás familias dende o mesmo panel: «Notificar comezo do curso» (activa o curso, abre o 1º trimestre e envía «inicio_curso»), «Notificar prazo de matrículas» (data de peche e comezo das actividades), apertura e peche das matrículas con aviso opcional, e «Notificar fin de curso» (pecha trimestres, matrículas, grupos e curso). Todos os correos masivos van coa conta da xunta como destinatario visible e as familias en CCO, en lotes de 50, e quedan anotados en Operacións → Auditoría.', 'anpa-socios' ) );
 		$li( __( 'En pretempada (curso pendente) só o equipo administrador pode iniciar sesión na área; as familias quedan protexidas ata a apertura.', 'anpa-socios' ) );
 		echo '</ul>';
 		$h3( __( 'Checklist de setembro', 'anpa-socios' ) );
 		echo '<ol>';
 		$li( __( 'Copia de seguridade con UpdraftPlus antes de empezar.', 'anpa-socios' ) );
-		$li( __( 'Axustes → Cursos: activa o curso novo, comproba as datas e inicializa os trimestres.', 'anpa-socios' ) );
+		$li( __( 'Axustes → Cursos: comproba as datas do curso novo. Despois, en Xestión → Extraescolares → Matrículas, «Notificar comezo do curso» activa o curso, abre as matrículas do 1º trimestre e avisa ás familias por correo.', 'anpa-socios' ) );
 		$li( __( 'Estrutura escolar: copia niveis e aulas do curso anterior e revisa a «Idade alumnado» de cada nivel.', 'anpa-socios' ) );
 		$li( __( 'Axustes → Mantemento → «Actualizar niveis dos fillos»: o botón simula primeiro; revisa a lista e pulsa «Aplicar». Copia a lista CCO das familias de 6º que rematan e pregúntalles se seguen no centro ou queren a baixa. Os fillos que cambian de nivel quedan sen letra de aula: a área pídelle á familia que a indique antes de matricular.', 'anpa-socios' ) );
 		$li( __( 'Extraescolares: revisa empresas, actividades e grupos do curso novo (niveis, horarios, prazas, comedor) e pon en «aberto» os que se ofertan.', 'anpa-socios' ) );
-		$li( __( 'Abre as matrículas coa ventá do 1º trimestre e comproba na páxina pública que aparecen a oferta e o horario.', 'anpa-socios' ) );
+		$li( __( 'Comproba na páxina pública que aparecen a oferta e o horario. Uns días antes do peche usa «Notificar prazo de matrículas»; ao pechar o prazo, avisa ás familias inscritas de cada grupo con «Notificar comezo do trimestre» en Grupos e horarios, e pecha con «Pechar por non acadar o mínimo» os grupos que non saian.', 'anpa-socios' ) );
 		$li( __( 'Plantillas de Email: le os textos de benvida e oferta de praza e fai un envío de proba.', 'anpa-socios' ) );
 		$li( __( 'Anuncia ás familias (blog e WhatsApp) que revisen curso, aula e data de nacemento dos fillos/as antes de matricular.', 'anpa-socios' ) );
 		echo '</ol>';
 		$h3( __( 'Fin de curso', 'anpa-socios' ) );
 		echo '<ol>';
-		$li( __( 'Pecha a ventá do 3º trimestre cando remate o prazo de baixas.', 'anpa-socios' ) );
+		$li( __( 'En Xestión → Extraescolares → Matrículas, «Notificar fin de curso» pecha os trimestres, as matrículas, os grupos e o curso, e agradece ás familias a participación.', 'anpa-socios' ) );
 		$li( __( 'Confirma en Xestión → Socios → Baixas solicitadas as baixas pendentes (socios e matrículas) e exporta os listados que necesite a tesourería.', 'anpa-socios' ) );
 		$li( __( 'Fai unha copia completa (UpdraftPlus e o ficheiro cifrado .anpabak) antes do 20 de xuño.', 'anpa-socios' ) );
 		echo '</ol>';
@@ -2887,7 +2692,7 @@ final class ANPA_Socios_Admin_Settings {
 		$li( __( 'Ao solicitar a baixa desde a área (como socio/a ou dunha actividade), a familia recibe un acuse de recibo («baixa_socio_solicitada», «baixa_extraescolar_solicitada»): a baixa non é automática, confírmaa unha persoa da directiva e pode tardar uns días, e avisarase por correo ao confirmarse.', 'anpa-socios' ) );
 		$li( __( 'Ao confirmar ou rexeitar unha solicitude en Xestión → Socios → Baixas solicitadas, a familia recibe un correo coa plantilla correspondente: «baixa_socio_confirmada», «baixa_socio_rexeitada», «baixa_extraescolar_confirmada» ou «baixa_extraescolar_rexeitada» (Axustes → Plantillas de email, coa sinatura de Axustes → Xeral).', 'anpa-socios' ) );
 		$li( __( 'A baixa de socio/a confirmada aplícase a toda a unidade familiar (proxenitor/a principal e secundario/a): todos pasan a «baixa», perden o acceso á área e cada un recibe o correo coa lista dos enderezos dados de baixa. Se a familia ten dous correos, saen dous correos.', 'anpa-socios' ) );
-		$li( __( 'Baixa dunha actividade: mentres a ventá de inscrición do trimestre en curso estea ABERTA (Axustes → Cursos → Estado dos trimestres), o correo di que a baixa é efectiva desde ese momento e sen ningún cobro, porque as clases aínda non están confirmadas; cando a ventá xa está PECHADA (listado enviado ás empresas, clases en marcha), di que é efectiva ao remate do trimestre, coa data de peche operativo, e que a cota se mantén ata entón. Vale para os tres trimestres.', 'anpa-socios' ) );
+		$li( __( 'Baixa dunha actividade: mentres a ventá de inscrición do trimestre en curso estea ABERTA (Xestión → Extraescolares → Matrículas), o correo di que a baixa é efectiva desde ese momento e sen ningún cobro, porque as clases aínda non están confirmadas; cando a ventá xa está PECHADA (listado enviado ás empresas, clases en marcha), di que é efectiva ao remate do trimestre, coa data de peche operativo, e que a cota se mantén ata entón. Vale para os tres trimestres.', 'anpa-socios' ) );
 		$li( __( 'Os correos de rexeitamento indican á familia que, se cre que houbo un erro, escriba á directiva ao correo de contacto de Axustes → Xeral.', 'anpa-socios' ) );
 		echo '</ul>';
 		$h3( __( 'Auditoría', 'anpa-socios' ) );
@@ -2912,7 +2717,8 @@ final class ANPA_Socios_Admin_Settings {
 		echo '</ul>';
 		$h3( __( 'Matrículas, lista de espera e ofertas', 'anpa-socios' ) );
 		echo '<ul>';
-		$li( __( 'Só matriculan socios/as activos con datos bancarios completos, co curso activo e a ventá do trimestre aberta. A área amosa só os grupos do nivel de cada fillo/a: se o curso do fillo/a está mal, non verán as actividades correctas.', 'anpa-socios' ) );
+		$li( __( 'Só matriculan socios/as activos con datos bancarios completos e co curso activo. Coa ventá do trimestre aberta a matrícula é inmediata (praza ou lista de espera); coa ventá pechada queda pendente de aprobación pola directiva (Socios → Aprobacións). A área amosa só os grupos do nivel de cada fillo/a: se o curso do fillo/a está mal, non verán as actividades correctas.', 'anpa-socios' ) );
+		$li( __( 'Grupos e horarios amosa a ocupación de cada grupo (inscritos, lista de espera, pendentes e mínimo) e, coas matrículas pechadas, dous botóns por grupo: «Notificar comezo do trimestre» (correo ás familias inscritas e á empresa, e outro ás de lista de espera) e «Pechar por non acadar o mínimo» (o grupo pasa a pechado, as súas matrículas a baixa e avísase por correo).', 'anpa-socios' ) );
 		$li( __( 'Con praza a matrícula queda activa; sen praza (ou grupo pechado) vai a lista de espera por orde de solicitude. Cando queda unha praza, o sistema ofrécella á primeira persoa por correo e na área; ten tres días para aceptala, se non pasa á seguinte.', 'anpa-socios' ) );
 		$li( __( 'A baixa dunha matrícula sólicitaa a familia e confírmaa a xunta en Xestión → Matrículas. Desde a ficha do grupo pódese mover un alumno/a a outro grupo aberto da mesma actividade.', 'anpa-socios' ) );
 		$li( __( 'O trimestre dunha matrícula derívase da data en que se fai, segundo as datas operativas do curso.', 'anpa-socios' ) );

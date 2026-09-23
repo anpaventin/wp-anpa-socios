@@ -1030,16 +1030,19 @@
 	function loadApprovals() {
 		showLoading();
 		anpaAdminFetch('approvals').then(function (rows) {
-			anpaAdminFetch('approvals/history').then(function (history) {
-				renderApprovals(rows, history);
-			}).catch(function () {
-				renderApprovals(rows, []);
-				showMessage('Non se puido cargar o historial de aprobacións.', 'warning');
+			// 1.68.0: enrolment requests made with the window closed wait here too.
+			anpaAdminFetch('matriculas/pendentes').catch(function () { return { matriculas: [] }; }).then(function (pendentes) {
+				anpaAdminFetch('approvals/history').then(function (history) {
+					renderApprovals(rows, history, pendentes);
+				}).catch(function () {
+					renderApprovals(rows, [], pendentes);
+					showMessage('Non se puido cargar o historial de aprobacións.', 'warning');
+				});
 			});
 		}).catch(sectionError);
 	}
 
-	function renderApprovals(rows, historyRows) {
+	function renderApprovals(rows, historyRows, pendentes) {
 		root.textContent = '';
 		var list = Array.isArray(rows) ? rows : [];
 		var h3 = document.createElement('h3');
@@ -1110,6 +1113,60 @@
 			rejectBtn.addEventListener('click', function () { processApprovals('reject'); });
 			acts.appendChild(approveBtn); acts.appendChild(rejectBtn);
 			root.appendChild(acts);
+		}
+
+		// ── 1.68.0: Matrículas pendentes de aprobación ──
+		var pend = pendentes && Array.isArray(pendentes.matriculas) ? pendentes.matriculas : [];
+		var h3m = document.createElement('h3');
+		h3m.style.marginTop = '1.5rem';
+		h3m.textContent = 'Matrículas pendentes de aprobación (' + pend.length + ')';
+		root.appendChild(h3m);
+		var introM = document.createElement('p');
+		introM.className = 'description';
+		introM.textContent = 'Solicitudes feitas polas familias co prazo de matrícula pechado. Aprobar dá praza se o grupo está aberto e ten sitio (se non, lista de espera); rexeitar anula a solicitude. Nos dous casos a familia recibe un correo («matricula_aprobada_praza», «matricula_aprobada_espera» ou «matricula_rexeitada» en Axustes → Plantillas de email). Ao activar o seguinte trimestre en Extraescolares → Matrículas pódense aprobar todas dunha vez.';
+		root.appendChild(introM);
+		if (!pend.length) {
+			root.appendChild(emptyEl('Non hai matrículas pendentes de aprobación.'));
+		} else {
+			var tm = document.createElement('table'); tm.className = 'anpa-mgmt-table';
+			var tmHead = document.createElement('thead'); var tmHr = document.createElement('tr');
+			['Data', 'Alumno/a', 'Curso/Aula', 'Actividade', 'Grupo', 'Ocupación', 'Se se aproba', 'Familia (email)', 'Accións'].forEach(function (l) { var th = document.createElement('th'); th.textContent = l; tmHr.appendChild(th); });
+			tmHead.appendChild(tmHr); tm.appendChild(tmHead);
+			var tmBody = document.createElement('tbody');
+			function cellM(text) { var td = document.createElement('td'); td.textContent = text == null ? '' : String(text); return td; }
+			pend.forEach(function (m) {
+				var tr = document.createElement('tr');
+				tr.className = 'anpa-row-matricula-pendente';
+				tr.appendChild(cellM(formatAdminDate(m.solicitada_en)));
+				tr.appendChild(cellM(((m.fillo_apelidos || '') + ', ' + (m.fillo_nome || '')).replace(/^, /, '')));
+				tr.appendChild(cellM(m.curso_completo));
+				tr.appendChild(cellM(m.actividade));
+				tr.appendChild(cellM([m.grupo, m.dias, m.franxa].filter(Boolean).join(' · ')));
+				tr.appendChild(cellM((m.activos || 0) + '/' + (m.max_pupilos || 0) + ' inscritos' + (m.espera ? ' · ' + m.espera + ' en espera' : '') + (m.grupo_estado && m.grupo_estado !== 'aberto' ? ' · grupo ' + m.grupo_estado : '')));
+				tr.appendChild(cellM(m.destino === 'activo' ? 'Praza' : 'Lista de espera'));
+				tr.appendChild(cellM(m.socio_email));
+				var td = document.createElement('td');
+				var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'anpa-mgmt-btn'; ok.textContent = 'Aprobar';
+				ok.addEventListener('click', function () {
+					if (!window.confirm('Aprobar a matrícula de ' + (m.fillo_nome || '') + ' en ' + (m.actividade || '') + '? ' + (m.destino === 'activo' ? 'Ten praza: queda activa.' : 'Non hai praza libre: queda en lista de espera.') + ' A familia recibe un correo.')) { return; }
+					anpaAdminFetch('matricula/' + m.id + '/aprobar', { method: 'POST' }).then(function (r) {
+						showMessage('Matrícula aprobada: ' + (r && r.estado === 'activo' ? 'praza confirmada' : 'lista de espera (posición ' + (r && r.posicion) + ')') + '. Correos enviados: ' + (r && r.correos) + '.', 'success');
+						loadApprovals();
+					}).catch(function (e) { showMessage(e.message, 'error'); loadApprovals(); });
+				});
+				var no = document.createElement('button'); no.type = 'button'; no.className = 'anpa-mgmt-btn anpa-mgmt-btn-danger'; no.textContent = 'Rexeitar'; no.style.marginLeft = '0.4rem';
+				no.addEventListener('click', function () {
+					if (!window.confirm('Rexeitar a solicitude de ' + (m.fillo_nome || '') + ' en ' + (m.actividade || '') + '? A matrícula pasa a baixa e a familia recibe un correo para contactar coa directiva se ten dúbidas.')) { return; }
+					anpaAdminFetch('matricula/' + m.id + '/rexeitar', { method: 'POST' }).then(function (r) {
+						showMessage('Solicitude rexeitada. Correos enviados: ' + (r && r.correos) + '.', 'success');
+						loadApprovals();
+					}).catch(function (e) { showMessage(e.message, 'error'); loadApprovals(); });
+				});
+				td.appendChild(ok); td.appendChild(no); tr.appendChild(td);
+				tmBody.appendChild(tr);
+			});
+			tm.appendChild(tmBody);
+			root.appendChild(tm);
 		}
 
 		// ── Historical approvals ──
@@ -2770,12 +2827,12 @@
 
 		var courseNotice = document.createElement('p');
 		courseNotice.className = 'description';
-		courseNotice.appendChild(document.createTextNode('O estado, as datas e a apertura do curso escolar configúranse en '));
+		courseNotice.appendChild(document.createTextNode('As datas do curso escolar (inicio, peche e peches operativos dos trimestres) configúranse en '));
 		var courseSettingsLink = document.createElement('a');
 		courseSettingsLink.href = 'admin.php?page=anpa-socios-settings&tab=cursos';
 		courseSettingsLink.textContent = 'Axustes → Cursos';
 		courseNotice.appendChild(courseSettingsLink);
-		courseNotice.appendChild(document.createTextNode('. Aquí só se consulta e xestiona a operativa das matrículas.'));
+		courseNotice.appendChild(document.createTextNode('. O trimestre activo, a apertura e o peche das matrículas e os avisos ás familias xestiónanse aquí (1.68.0).'));
 		root.appendChild(courseNotice);
 
 		// 1.60.0: trimester + enrolment window of the active course, coloured so
@@ -2843,10 +2900,15 @@
 		viewBtn.textContent = 'Ver matrículas';
 		viewBtn.style.marginLeft = '0.5rem';
 		viewBtn.addEventListener('click', function () {
+			renderEstadoCurso(estadoHost, matCursoSelect.value);
 			loadMat(matCursoSelect.value);
 		});
 		matCursoDiv.appendChild(viewBtn);
 		root.appendChild(matCursoDiv);
+
+		// 1.68.0: course cycle panel for the selected course (combos + notices).
+		var estadoHost = document.createElement('div');
+		root.appendChild(estadoHost);
 
 		var matHost = document.createElement('div');
 		root.appendChild(matHost);
@@ -2881,6 +2943,7 @@
 						if (row.estado === 'baixa') { tr.classList.add('anpa-row-matricula-baixa'); }
 						else if (row.estado === 'baixa_solicitada') { tr.classList.add('anpa-row-baixa-pending'); }
 						else if (row.estado === 'lista_espera') { tr.classList.add('anpa-row-matricula-espera'); }
+						else if (row.estado === 'pendente_aprobacion') { tr.classList.add('anpa-row-matricula-pendente'); }
 					});
 					matHost.appendChild(matTable);
 					if (matSt.size > 0 && sorted.length > matSt.size) {
@@ -2892,7 +2955,193 @@
 				renderMat();
 			}).catch(function (e) { matHost.textContent = ''; showMessage(e.message, 'error'); });
 		}
+		renderEstadoCurso(estadoHost, matCursoSelect.value);
 		loadMat(matCursoSelect.value);
+	}
+
+	// ── 1.68.0: Estado do curso e matrículas (Xestión → Extraescolares → Matrículas) ──
+	// The single enrolment switch (two combos) plus the course-cycle notices to
+	// the families. Every action goes to ANPA_Socios_Admin_Trimestres_Handler.
+	function renderEstadoCurso(host, curso) {
+		host.textContent = '';
+		var panel = document.createElement('div');
+		panel.className = 'anpa-mgmt-form anpa-estado-curso';
+		panel.innerHTML = '<p class="anpa-mgmt-loading">Cargando o estado do curso\u2026</p>';
+		host.appendChild(panel);
+		anpaAdminFetch('trimestres?curso=' + encodeURIComponent(curso)).then(function (d) {
+			panel.textContent = '';
+			renderEstadoCursoPanel(panel, d || {});
+		}).catch(function (e) {
+			panel.textContent = '';
+			panel.appendChild(emptyEl('Non se puido cargar o estado do curso: ' + e.message));
+		});
+	}
+
+	function renderEstadoCursoPanel(panel, d) {
+		var curso = String(d.curso || '');
+		function el(tag, cls, text) { var e = document.createElement(tag); if (cls) { e.className = cls; } if (text != null) { e.textContent = text; } return e; }
+		function ordinal(n) { return String(n) + '\u00BA'; }
+		function destinatarios() {
+			return 'Enviarase a ' + (d.socios_activos || 0) + ' socios/as activos en ' + (d.lotes || 0) + ' envío(s) de ata ' + (d.tamano_lote || 50) + ' destinatarios en CCO, con ' + (d.correo_xunta || 'a conta da xunta') + ' como destinatario visible.';
+		}
+		function resumoEnvio(e) {
+			if (!e) { return ''; }
+			if (!e.destinatarios) { return 'Sen destinatarios: non se enviou ningún correo.'; }
+			return 'Correo enviado a ' + e.enviados + ' de ' + e.destinatarios + ' destinatarios en ' + e.lotes + ' envío(s)' + (e.fallidos ? '; ' + e.fallidos + ' fallaron (revisa Operacións → Auditoría)' : '') + '.';
+		}
+		function post(path, body, okMsg) {
+			return anpaAdminFetch(path, { method: 'POST', body: body }).then(function (r) {
+				var msg = okMsg;
+				if (r && r.envio) { msg += ' ' + resumoEnvio(r.envio); }
+				if (r && r.aprobacions && (r.aprobacions.praza || r.aprobacions.espera || r.aprobacions.erros)) {
+					msg += ' Matrículas pendentes aprobadas: ' + r.aprobacions.praza + ' con praza, ' + r.aprobacions.espera + ' en lista de espera' + (r.aprobacions.erros ? ', ' + r.aprobacions.erros + ' con erro' : '') + '.';
+				}
+				if (r && typeof r.grupos_pechados === 'number') { msg += ' Grupos pechados: ' + r.grupos_pechados + '; matrículas dadas de baixa: ' + r.matriculas_baixa + '.'; }
+				showMessage(msg, r && r.envio && r.envio.fallidos ? 'warning' : 'success');
+				loadCursos();
+			}).catch(function (e) { showMessage(e.message, 'error'); });
+		}
+
+		panel.appendChild(el('h3', null, 'Estado do curso ' + curso + ' e matrículas'));
+		panel.appendChild(el('p', 'description', 'Aquí está o único interruptor das matrículas. O trimestre activo é informativo (calendario e avisos); «Matrículas abertas para» é o que abre ou pecha as matrículas, baixas e solicitudes das familias. Só pode haber un trimestre activo e unha ventá aberta á vez. Cada cambio queda rexistrado (quen, cando, orixe) e o sistema nunca cambia un estado por si só. Co prazo pechado e o curso activo, as solicitudes das familias quedan pendentes de aprobación (Socios → Aprobacións).'));
+
+		if (d.estado_curso !== 'activo') {
+			var warn = el('div', 'anpa-mgmt-aviso-matriculas anpa-mgmt-aviso-matriculas--outro');
+			warn.appendChild(el('strong', null, 'Curso ' + (d.estado_curso === 'pendente' ? 'pendente' : (d.estado_curso === 'pechado' ? 'pechado' : 'sen configurar'))));
+			warn.appendChild(el('span', null, d.estado_curso === 'pendente'
+				? 'Aínda non está activo: «Notificar comezo do curso» actívao, abre as matrículas do 1\u00BA trimestre e avisa ás familias.'
+				: 'As familias non poden matricular. Para volver a abrilo usa «Notificar comezo do curso».'));
+			panel.appendChild(warn);
+		}
+		if (!d.inicializado) {
+			var ini = el('div', 'anpa-mgmt-aviso-matriculas anpa-mgmt-aviso-matriculas--abertas');
+			ini.appendChild(el('strong', null, 'Trimestres sen inicializar'));
+			ini.appendChild(el('span', null, 'Este curso aínda non ten os tres trimestres configurados; ata entón non se poden aplicar cambios (o sistema non asume ningún estado por defecto).'));
+			var iniBtn = el('button', 'anpa-mgmt-btn', 'Inicializar trimestres deste curso'); iniBtn.type = 'button';
+			iniBtn.addEventListener('click', function () {
+				if (!window.confirm('Inicializar os trimestres do curso ' + curso + '? Crea os que falten (1\u00BA activo, 2\u00BA e 3\u00BA pendentes, matrículas pechadas) sen tocar os que xa existen.')) { return; }
+				post('trimestres/inicializar', { curso: curso }, 'Trimestres inicializados.');
+			});
+			ini.appendChild(iniBtn);
+			panel.appendChild(ini);
+		}
+
+		// Read-only state table.
+		var TRI_LABEL = { pendente: '\u23F3 Pendente', activo: '\uD83D\uDFE2 Activo', pechado: '\uD83D\uDD12 Pechado' };
+		var table = el('table', 'anpa-mgmt-table anpa-estado-curso-tabela');
+		var thead = document.createElement('thead'); var hr = document.createElement('tr');
+		['Trimestre', 'Estado lectivo', 'Matrículas (ventá do trimestre)'].forEach(function (t) { hr.appendChild(el('th', null, t)); });
+		thead.appendChild(hr); table.appendChild(thead);
+		var tbody = document.createElement('tbody');
+		(d.trimestres || []).forEach(function (t) {
+			var tr = document.createElement('tr');
+			tr.appendChild(el('td', null, ordinal(t.trimestre) + ' trimestre'));
+			tr.appendChild(el('td', null, t.presente ? (TRI_LABEL[t.estado] || t.estado) : '\u26A0\uFE0F Sen configurar'));
+			tr.appendChild(el('td', null, t.ventana_estado === 'aberta' ? '\uD83D\uDCE8 Abertas' : '\u26D4 Pechadas'));
+			tbody.appendChild(tr);
+		});
+		table.appendChild(tbody);
+		panel.appendChild(table);
+
+		// Combos.
+		var combos = el('div', 'anpa-estado-curso-combos');
+		var l1 = el('label', null, 'Trimestre activo: ');
+		var selTri = document.createElement('select'); selTri.disabled = !d.inicializado;
+		var actualTri = d.trimestre_activo === '' || d.trimestre_activo == null ? '' : String(d.trimestre_activo);
+		if (actualTri === '') { var o0 = el('option', null, 'Sen trimestre activo'); o0.value = ''; o0.disabled = true; selTri.appendChild(o0); }
+		[['1', '1\u00BA trimestre'], ['2', '2\u00BA trimestre'], ['3', '3\u00BA trimestre'], ['pechado', 'Curso pechado']].forEach(function (p) {
+			var o = el('option', null, p[1]); o.value = p[0]; selTri.appendChild(o);
+		});
+		selTri.value = actualTri;
+		l1.appendChild(selTri);
+		var b1 = el('button', 'anpa-mgmt-btn anpa-mgmt-btn-secondary', 'Aplicar'); b1.type = 'button'; b1.disabled = !d.inicializado;
+		b1.addEventListener('click', function () {
+			var destino = selTri.value;
+			if (!destino || destino === actualTri) { showMessage('Escolle un trimestre distinto do actual.', 'error'); return; }
+			var body = { curso: curso, destino: destino === 'pechado' ? 'pechado' : parseInt(destino, 10) };
+			var txt = destino === 'pechado'
+				? 'Pechar o curso ' + curso + '? Péchanse os tres trimestres, as matrículas e o curso. As familias non poderán matricular nin dar de baixa. Para pechar tamén os grupos e as matrículas e avisar ás familias usa «Notificar fin de curso».'
+				: 'Activar o ' + ordinal(destino) + ' trimestre? Os trimestres anteriores quedan pechados. As matrículas non cambian: ábrense ou péchanse co combo «Matrículas abertas para».';
+			if (!window.confirm(txt)) { return; }
+			if (destino !== 'pechado' && d.matriculas_pendentes > 0) {
+				if (!window.confirm('Hai ' + d.matriculas_pendentes + ' matrícula(s) pendente(s) de aprobación. Ao activar o trimestre pasarán TODAS á súa actividade (praza se hai sitio, se non lista de espera) e as familias recibirán correo.\n\nAceptar = aprobalas todas agora e activar.\nCancelar = non activar; xestiónaas antes unha a unha en Socios → Aprobacións.')) { return; }
+				body.aprobar_pendentes = true;
+			}
+			post('trimestres/estado', body, destino === 'pechado' ? 'Curso pechado.' : ordinal(destino) + ' trimestre activo.');
+		});
+		l1.appendChild(b1);
+		combos.appendChild(l1);
+
+		var l2 = el('label', null, 'Matrículas abertas para: ');
+		var selVen = document.createElement('select'); selVen.disabled = !d.inicializado;
+		[['0', 'Matrículas pechadas'], ['1', 'Abertas para o 1\u00BA trimestre'], ['2', 'Abertas para o 2\u00BA trimestre'], ['3', 'Abertas para o 3\u00BA trimestre']].forEach(function (p) {
+			var o = el('option', null, p[1]); o.value = p[0]; selVen.appendChild(o);
+		});
+		var actualVen = String(parseInt(d.ventana_aberta, 10) || 0);
+		selVen.value = actualVen;
+		l2.appendChild(selVen);
+		var chk = document.createElement('input'); chk.type = 'checkbox'; chk.id = 'anpa-estado-curso-notificar';
+		var chkLabel = el('label', 'anpa-estado-curso-check'); chkLabel.appendChild(chk); chkLabel.appendChild(document.createTextNode(' Avisar por correo a todas as familias'));
+		var b2 = el('button', 'anpa-mgmt-btn anpa-mgmt-btn-secondary', 'Aplicar'); b2.type = 'button'; b2.disabled = !d.inicializado;
+		b2.addEventListener('click', function () {
+			var destino = parseInt(selVen.value, 10) || 0;
+			if (String(destino) === actualVen) { showMessage('Escolle un estado distinto do actual.', 'error'); return; }
+			if (destino > 0 && d.estado_curso !== 'activo') { showMessage('Só se poden abrir as matrículas do curso activo. Usa «Notificar comezo do curso».', 'error'); return; }
+			var notificar = !!chk.checked;
+			var txt = (destino > 0 ? 'Abrir as matrículas para o ' + ordinal(destino) + ' trimestre' : 'Pechar as matrículas') + (actualVen !== '0' && destino > 0 ? ' (a ventá do ' + ordinal(actualVen) + ' péchase)' : '') + '.'
+				+ (notificar ? '\n\nAvisarase ás familias co correo «' + (destino > 0 ? 'matriculas_abertas' : 'matriculas_pechadas') + '». ' + destinatarios() : '\n\nSen correo ás familias (marca a casilla se queres avisalas).');
+			if (!window.confirm(txt)) { return; }
+			post('trimestres/ventana', { curso: curso, destino: destino, notificar: notificar }, destino > 0 ? 'Matrículas abertas para o ' + ordinal(destino) + ' trimestre.' : 'Matrículas pechadas.');
+		});
+		l2.appendChild(b2);
+		combos.appendChild(l2);
+		combos.appendChild(chkLabel);
+		panel.appendChild(combos);
+
+		// Notices to the families.
+		var avisos = el('div', 'anpa-estado-curso-avisos');
+		avisos.appendChild(el('h4', null, 'Avisos ás familias'));
+		avisos.appendChild(el('p', 'description', destinatarios() + ' Textos en Axustes → Plantillas de email («inicio_curso», «prazo_matriculas», «matriculas_abertas», «matriculas_pechadas», «fin_curso»).'));
+
+		var fila1 = el('div', 'anpa-estado-curso-fila');
+		var bComezo = el('button', 'anpa-mgmt-btn', 'Notificar comezo do curso'); bComezo.type = 'button';
+		var outroActivo = d.curso_activo && d.curso_activo !== curso;
+		if (outroActivo) { bComezo.disabled = true; bComezo.title = 'Xa hai outro curso activo (' + d.curso_activo + '). Péchao primeiro no seu panel.'; }
+		bComezo.addEventListener('click', function () {
+			if (!window.confirm('Notificar o comezo do curso ' + curso + '?\n\n' + (d.estado_curso !== 'activo' ? 'Activa o curso, ' : '') + 'pon o 1\u00BA trimestre activo, abre as matrículas do 1\u00BA trimestre e envía o correo «inicio_curso» a todas as familias.\n\n' + destinatarios())) { return; }
+			post('avisos/comezo-curso', { curso: curso }, 'Comezo do curso notificado.');
+		});
+		fila1.appendChild(bComezo);
+		fila1.appendChild(el('span', 'description', 'Activa o curso se está pendente, abre as matrículas do 1\u00BA trimestre e envía o correo de inicio de curso.'));
+		avisos.appendChild(fila1);
+
+		var fila2 = el('div', 'anpa-estado-curso-fila');
+		var bPrazo = el('button', 'anpa-mgmt-btn anpa-mgmt-btn-secondary', 'Notificar prazo de matrículas'); bPrazo.type = 'button';
+		var hoxe = new Date();
+		var mercores = new Date(hoxe); mercores.setDate(hoxe.getDate() + (((3 - hoxe.getDay() + 7) % 7) || 7));
+		var anoInicio = parseInt(curso.split('/')[0], 10) || hoxe.getFullYear();
+		function iso(dt) { return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0'); }
+		var lPeche = el('label', null, 'Remata o '); var inPeche = document.createElement('input'); inPeche.type = 'date'; inPeche.value = iso(mercores); lPeche.appendChild(inPeche);
+		var lInicio = el('label', null, 'as actividades comezan o '); var inInicio = document.createElement('input'); inInicio.type = 'date'; inInicio.value = anoInicio + '-10-01'; lInicio.appendChild(inInicio);
+		bPrazo.addEventListener('click', function () {
+			if (!inPeche.value || !inInicio.value) { showMessage('Indica as dúas datas.', 'error'); return; }
+			if (!window.confirm('Lembrar ás familias que o prazo de matrícula remata o ' + inPeche.value.split('-').reverse().join('/') + ' e que as actividades comezan o ' + inInicio.value.split('-').reverse().join('/') + '?\n\n' + destinatarios())) { return; }
+			post('avisos/prazo-matriculas', { data_peche: inPeche.value, data_inicio_actividades: inInicio.value }, 'Prazo de matrículas notificado.');
+		});
+		fila2.appendChild(bPrazo); fila2.appendChild(lPeche); fila2.appendChild(lInicio);
+		avisos.appendChild(fila2);
+
+		var fila3 = el('div', 'anpa-estado-curso-fila');
+		var bFin = el('button', 'anpa-mgmt-btn anpa-mgmt-btn-danger', 'Notificar fin de curso'); bFin.type = 'button';
+		bFin.addEventListener('click', function () {
+			if (!window.confirm('Notificar o FIN do curso ' + curso + '?\n\nPéchanse os tres trimestres e as matrículas, o curso pasa a pechado, TODOS os grupos abertos pasan a pechados e TODAS as matrículas vixentes (activas, lista de espera, ofertas, baixas solicitadas e pendentes) pasan a baixa con data de hoxe. Envíase o correo «fin_curso» a todas as familias.\n\n' + destinatarios())) { return; }
+			if (!window.confirm('Esta acción non se pode desfacer. Confirmas o fin do curso ' + curso + '?')) { return; }
+			post('avisos/fin-curso', { curso: curso }, 'Fin de curso notificado.');
+		});
+		fila3.appendChild(bFin);
+		fila3.appendChild(el('span', 'description', 'Pecha trimestres, matrículas, grupos e curso, e agradece ás familias a participación.'));
+		avisos.appendChild(fila3);
+		panel.appendChild(avisos);
 	}
 
 	// ── Section: Auditoría ───────────────────────────────────────────
@@ -3222,6 +3471,12 @@
 						dia: slot.dia || '',
 						estado: slot.estado || '',
 						conflito_comedor: !!slot.conflito_comedor,
+						// 1.68.0: occupancy (same for every slot of the group).
+						min_pupilos: parseInt(slot.min_pupilos, 10) || 0,
+						max_pupilos: parseInt(slot.max_pupilos, 10) || 0,
+						activos: parseInt(slot.activos, 10) || 0,
+						espera: parseInt(slot.espera, 10) || 0,
+						pendentes: parseInt(slot.pendentes, 10) || 0,
 						nivel_ids: [],
 						slots: []
 					};
@@ -3303,6 +3558,9 @@
 			meta.appendChild(makeMetaLabel('Grupo', group.grupo_nome || '—'));
 			meta.appendChild(makeMetaLabel('Niveis', uniqueLevelLabels(group.nivel_ids, levelLookup).join(', ') || '—'));
 			meta.appendChild(makeMetaLabel('Estado', group.estado || '—'));
+			var ocup = makeMetaLabel('Ocupación', group.activos + '/' + group.max_pupilos + ' inscritos · ' + group.espera + ' en espera' + (group.pendentes ? ' · ' + group.pendentes + ' pendentes' : '') + ' · mínimo ' + group.min_pupilos);
+			ocup.className = 'anpa-grupos-horarios-ocupacion' + (group.min_pupilos > 0 && group.activos < group.min_pupilos ? ' anpa-grupos-horarios-ocupacion--baixo-minimo' : '');
+			meta.appendChild(ocup);
 			meta.appendChild(makeMetaLabel('Franxa', group.franxa || '—'));
 			if (group.horario_label || group.horario) {
 				meta.appendChild(makeMetaLabel('Horario', group.horario_label || group.horario));
@@ -3322,6 +3580,42 @@
 					openGroupEditor(group.actividade_id || group.activity_id, group.group_id || group.grupo_id, group.serie_uid);
 				});
 				actions.appendChild(edit);
+				// 1.68.0: notices per group, only while enrolments are closed and the group is open.
+				var abertas = state.matriculasAbertas !== false;
+				var motivo = abertas ? 'As matrículas do curso están abertas: pecha o prazo en Extraescolares → Matrículas antes de avisar.' : (group.estado !== 'aberto' ? 'Só para grupos abertos.' : '');
+				var gid = group.group_id || group.grupo_id;
+				var nomeG = group.grupo_nome || 'Grupo';
+				var nomeA = group.actividade_nome || '';
+				var bComezo = document.createElement('button');
+				bComezo.type = 'button';
+				bComezo.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
+				bComezo.textContent = 'Notificar comezo do trimestre';
+				bComezo.disabled = !!motivo;
+				if (motivo) { bComezo.title = motivo; }
+				bComezo.addEventListener('click', function () {
+					if (!window.confirm('Avisar ás familias inscritas no grupo «' + nomeG + '» de «' + nomeA + '» (e á empresa) de que o grupo queda confirmado e comeza o trimestre? As de lista de espera reciben outro correo. Envío en CCO por lotes, coa xunta como destinatario visible.')) { return; }
+					anpaAdminFetch('grupo/' + gid + '/notificar-comezo', { method: 'POST' }).then(function (r) {
+						var i = (r && r.inscritos) || {}; var e = (r && r.espera) || {};
+						showMessage('Aviso enviado. Inscritos e empresa: ' + (i.enviados || 0) + ' de ' + (i.destinatarios || 0) + '; lista de espera: ' + (e.enviados || 0) + ' de ' + (e.destinatarios || 0) + '.', (i.fallidos || e.fallidos) ? 'warning' : 'success');
+					}).catch(function (err) { showMessage(err.message, 'error'); });
+				});
+				actions.appendChild(bComezo);
+				var bMin = document.createElement('button');
+				bMin.type = 'button';
+				bMin.className = 'anpa-mgmt-btn anpa-mgmt-btn-danger';
+				bMin.textContent = 'Pechar por non acadar o mínimo';
+				var motivoMin = motivo || (group.min_pupilos < 1 ? 'O grupo non ten mínimo configurado.' : (group.activos >= group.min_pupilos ? 'O grupo acada o mínimo (' + group.activos + ' de ' + group.min_pupilos + ').' : ''));
+				bMin.disabled = !!motivoMin;
+				if (motivoMin) { bMin.title = motivoMin; }
+				bMin.addEventListener('click', function () {
+					if (!window.confirm('Pechar o grupo «' + nomeG + '» de «' + nomeA + '» por non acadar o mínimo (' + group.activos + ' de ' + group.min_pupilos + ')? O grupo pasa a pechado (deixa de aparecer na oferta e na área), as súas matrículas e as de lista de espera pasan a baixa, e as familias e a empresa reciben o correo «grupo_pechado_minimo». Esta acción non se pode desfacer.')) { return; }
+					anpaAdminFetch('grupo/' + gid + '/pechar-minimo', { method: 'POST' }).then(function (r) {
+						var e = (r && r.envio) || {};
+						showMessage('Grupo pechado; matrículas dadas de baixa: ' + (r && r.matriculas_baixa) + '. Correo enviado a ' + (e.enviados || 0) + ' de ' + (e.destinatarios || 0) + ' destinatarios.', e.fallidos ? 'warning' : 'success');
+						renderCourse(state.curso);
+					}).catch(function (err) { showMessage(err.message, 'error'); });
+				});
+				actions.appendChild(bMin);
 				card.appendChild(actions);
 			}
 			return card;
@@ -3468,8 +3762,15 @@
 			}
 			status.textContent = 'Cargando grupos de ' + curso + '…';
 			content.textContent = '';
-			anpaAdminFetch('grupos-horarios?curso_escolar=' + encodeURIComponent(curso)).then(function (resp) {
-				status.textContent = 'Curso cargado: ' + curso;
+			// 1.68.0: the enrolment gate decides whether the per-group notices are usable
+			// (fail closed: if it cannot be read, the buttons stay disabled).
+			var gateReq = anpaAdminFetch('trimestres?curso=' + encodeURIComponent(curso)).then(function (t) {
+				return !!(t && t.gate && t.gate.abertas);
+			}).catch(function () { return true; });
+			Promise.all([anpaAdminFetch('grupos-horarios?curso_escolar=' + encodeURIComponent(curso)), gateReq]).then(function (res) {
+				var resp = res[0];
+				state.matriculasAbertas = res[1];
+				status.textContent = 'Curso cargado: ' + curso + (res[1] ? ' · matrículas ABERTAS (os avisos por grupo actívanse ao pechar o prazo)' : ' · matrículas pechadas');
 				renderView(resp);
 			}).catch(function (e) {
 				status.textContent = 'Erro ao cargar ' + curso + '.';

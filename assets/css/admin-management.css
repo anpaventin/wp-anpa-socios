@@ -1082,3 +1082,47 @@
 	background: #fff9c4;
 	color: #6b5300;
 }
+
+/* 1.68.0: Xestión → Matrículas — requests pending the junta's approval in light blue. */
+.anpa-mgmt-table .anpa-row-matricula-pendente td {
+	background: #e8f1fb;
+	color: #0a3a66;
+}
+
+/* 1.68.0: «Estado do curso e matrículas» panel (combos + notices). */
+.anpa-estado-curso-tabela { max-width: 640px; margin: 0.5rem 0 1rem; }
+.anpa-estado-curso-combos {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75rem 2rem;
+	margin: 1rem 0;
+}
+.anpa-estado-curso-combos > label {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+	font-weight: 600;
+}
+.anpa-estado-curso-combos select { min-width: 220px; }
+.anpa-estado-curso-check { font-weight: 400; }
+.anpa-estado-curso-avisos {
+	border-top: 1px solid #dcdcde;
+	margin-top: 1rem;
+	padding-top: 1rem;
+}
+.anpa-estado-curso-avisos h4 { margin: 0 0 0.5rem; }
+.anpa-estado-curso-fila {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 0.75rem;
+	margin: 0.6rem 0;
+}
+.anpa-estado-curso-fila label { display: inline-flex; align-items: center; gap: 0.35rem; }
+.anpa-estado-curso .anpa-mgmt-aviso-matriculas .anpa-mgmt-btn { margin-left: auto; }
+
+/* 1.68.0: Grupos e horarios — occupancy line and below-minimum highlight. */
+.anpa-grupos-horarios-ocupacion { font-weight: 600; }
+.anpa-grupos-horarios-ocupacion--baixo-minimo { color: #a41e1e; }

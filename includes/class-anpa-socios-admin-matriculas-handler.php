@@ -45,6 +45,22 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 			'callback'            => array( __CLASS__, 'list_matriculas_sen_grupo' ),
 			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
 		) );
+		// 1.68.0: enrolment requests made while the trimester window was closed.
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/matriculas/pendentes', array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => array( __CLASS__, 'list_pendentes' ),
+			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+		) );
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/matricula/(?P<id>\d+)/aprobar', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( __CLASS__, 'aprobar_rest' ),
+			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+		) );
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/matricula/(?P<id>\d+)/rexeitar', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( __CLASS__, 'rexeitar_rest' ),
+			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+		) );
 	}
 
 	/**
@@ -78,7 +94,7 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 
 		// Optional estado filter.
 		$estado_filter = $request->get_param( 'estado' );
-		$valid_estados = array( 'activo', 'lista_espera', 'oferta', 'baixa_solicitada', 'baixa' );
+		$valid_estados = ANPA_Socios_Matricula_Estado::TODOS;
 		if ( $estado_filter && in_array( $estado_filter, $valid_estados, true ) ) {
 			$where[]  = "m.estado = %s";
 			$params[] = $estado_filter;
@@ -281,5 +297,286 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 		}
 
 		return new WP_REST_Response( null, 204 );
+	}
+
+	// ──────────────────────────────────────────────
+	// 1.68.0: enrolment requests pending the junta's approval
+	// ──────────────────────────────────────────────
+
+	/**
+	 * GET /admin/matriculas/pendentes — requests made while the trimester
+	 * window was closed (estado = pendente_aprobacion), oldest first, with the
+	 * group's occupancy so the junta can see where each one would land.
+	 * Pure ASCII SQL; the «Curso/Aula» label is built in PHP (1.56.3).
+	 *
+	 * @since  1.68.0
+	 * @return WP_REST_Response
+	 */
+	public static function list_pendentes(): WP_REST_Response {
+		global $wpdb;
+
+		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		$fil_t = ANPA_Socios_DB::tabela_fillos();
+		$gru_t = ANPA_Socios_DB::tabela_grupos();
+		$act_t = ANPA_Socios_DB::tabela_actividades();
+		$fc_t  = ANPA_Socios_DB::tabela_fillos_cursos();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- admin listing.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT m.id, m.trimestre, m.creado_en AS solicitada_en,
+				        f.id AS fillo_id, f.nome AS fillo_nome, f.apelidos AS fillo_apelidos, f.socio_email,
+				        COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula) AS aula,
+				        a.nome AS actividade, g.id AS grupo_id, g.nome AS grupo, g.franxa, g.dias, g.horario, g.curso_escolar,
+				        g.estado AS grupo_estado, g.max_pupilos,
+				        ( SELECT COUNT(*) FROM {$mat_t} m2 WHERE m2.grupo_id = g.id AND m2.estado = 'activo' ) AS activos,
+				        ( SELECT COUNT(*) FROM {$mat_t} m3 WHERE m3.grupo_id = g.id AND m3.estado = 'lista_espera' ) AS espera
+				 FROM {$mat_t} m
+				 INNER JOIN {$fil_t} f ON f.id = m.fillo_id
+				 INNER JOIN {$act_t} a ON a.id = m.activitad_id
+				 LEFT JOIN {$gru_t} g ON g.id = m.grupo_id
+				 LEFT JOIN {$fc_t} fc ON fc.fillo_id = f.id AND fc.curso_escolar = g.curso_escolar
+				 WHERE m.estado = %s
+				 ORDER BY m.creado_en ASC, m.id ASC",
+				ANPA_Socios_Matricula_Estado::PENDENTE_APROBACION
+			),
+			ARRAY_A
+		);
+		$rows = is_array( $rows ) ? $rows : array();
+		foreach ( $rows as &$row ) {
+			$row['curso_completo'] = ANPA_Socios_Admin_Shared::curso_completo( $row['curso'] ?? null, $row['aula'] ?? null );
+			$row['destino']        = ANPA_Socios_Matricula_Estado::destino_aprobacion( (string) $row['grupo_estado'], (int) $row['activos'], (int) $row['max_pupilos'] );
+		}
+		unset( $row );
+
+		return new WP_REST_Response( array( 'matriculas' => $rows ), 200 );
+	}
+
+	/**
+	 * POST /admin/matricula/<id>/aprobar
+	 *
+	 * @since  1.68.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function aprobar_rest( WP_REST_Request $request ) {
+		$r = self::aprobar( (int) $request->get_param( 'id' ), (string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_EMAIL ), (string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_ROL ) );
+		return is_wp_error( $r ) ? $r : new WP_REST_Response( $r, 200 );
+	}
+
+	/**
+	 * POST /admin/matricula/<id>/rexeitar
+	 *
+	 * @since  1.68.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function rexeitar_rest( WP_REST_Request $request ) {
+		$r = self::rexeitar( (int) $request->get_param( 'id' ), (string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_EMAIL ), (string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_ROL ) );
+		return is_wp_error( $r ) ? $r : new WP_REST_Response( $r, 200 );
+	}
+
+	/**
+	 * Approves a pending request: a place when the group is open and below its
+	 * maximum (counting EVERY active enrolment of the group, not only the
+	 * trimester's), the waiting list otherwise. The enrolment's trimester
+	 * becomes the current one (operative dates). Emails every active member of
+	 * the family. Reused by the trimester activation (Xestión → Matrículas).
+	 *
+	 * @since  1.68.0
+	 * @param  int    $id         Matrícula id.
+	 * @param  string $actor      Actor email for the audit row.
+	 * @param  string $actor_tipo Actor type for the audit row.
+	 * @return array{id:int,estado:string,posicion:int,correos:int}|WP_Error
+	 */
+	public static function aprobar( int $id, string $actor, string $actor_tipo ) {
+		global $wpdb;
+		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		$gru_t = ANPA_Socios_DB::tabela_grupos();
+
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		$wpdb->last_error = '';
+		$mat = $wpdb->get_row( $wpdb->prepare( "SELECT id, fillo_id, activitad_id, grupo_id, estado FROM {$mat_t} WHERE id = %d FOR UPDATE", $id ), ARRAY_A );
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $mat ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_matricula_not_found', __( 'Matrícula non atopada', 'anpa-socios' ), array( 'status' => 404 ) );
+		}
+		if ( ANPA_Socios_Matricula_Estado::PENDENTE_APROBACION !== (string) $mat['estado'] ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_no_pendente', __( 'Esta matrícula non está pendente de aprobación', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+		$grupo = $wpdb->get_row( $wpdb->prepare( "SELECT id, curso_escolar, estado, max_pupilos FROM {$gru_t} WHERE id = %d FOR UPDATE", (int) $mat['grupo_id'] ), ARRAY_A );
+		if ( '' !== (string) $wpdb->last_error || ! is_array( $grupo ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_grupo_not_found', __( 'O grupo desta matrícula xa non existe', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+		$activos = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$mat_t} WHERE grupo_id = %d AND estado = 'activo'", (int) $grupo['id'] ) );
+		$destino = ANPA_Socios_Matricula_Estado::destino_aprobacion( (string) $grupo['estado'], $activos, (int) $grupo['max_pupilos'] );
+
+		// Trimester = the current one by the course's operative dates (same rule as the gate).
+		$curso_row = $wpdb->get_row( $wpdb->prepare( 'SELECT ' . ANPA_Socios_Matricula_Gate_Repo::CURSO_COLUMNS . ' FROM ' . ANPA_Socios_DB::tabela_cursos() . ' WHERE curso_escolar = %s', (string) $grupo['curso_escolar'] ), ARRAY_A );
+		$trimestre = ANPA_Socios_Trimestre::actual_por_datas( is_array( $curso_row ) ? ANPA_Socios_Matricula_Gate::datas_de_fila( $curso_row ) : null );
+		$posicion  = 1 + (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$mat_t} WHERE activitad_id = %d AND trimestre = %d AND id <> %d", (int) $mat['activitad_id'], $trimestre, $id ) );
+
+		$updated = $wpdb->update(
+			$mat_t,
+			array( 'estado' => $destino, 'posicion' => $posicion, 'trimestre' => $trimestre, 'actualizado_en' => current_time( 'mysql' ) ),
+			array( 'id' => $id, 'estado' => ANPA_Socios_Matricula_Estado::PENDENTE_APROBACION ),
+			array( '%s', '%d', '%d', '%s' ),
+			array( '%d', '%s' )
+		);
+		if ( 1 !== (int) $updated ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		ANPA_Socios_Admin_Shared::write_audit_actor( $actor, $actor_tipo, 'matricula', (string) $id, 'aprobada_' . ( ANPA_Socios_Matricula_Estado::ACTIVO === $destino ? 'praza' : 'espera' ) );
+
+		$correos = 0;
+		$detalle = self::detalle_para_correo( $id );
+		if ( is_array( $detalle ) ) {
+			foreach ( $detalle['emails'] as $email ) {
+				$ok = ANPA_Socios_Matricula_Estado::ACTIVO === $destino
+					? ANPA_Socios_Email::enviar_matricula_aprobada_praza( $email, $detalle['alumno'], $detalle['actividade'], $detalle['grupo'] )
+					: ANPA_Socios_Email::enviar_matricula_aprobada_espera( $email, $detalle['alumno'], $detalle['actividade'], $detalle['grupo'], $posicion );
+				if ( $ok ) {
+					++$correos;
+				}
+			}
+		}
+
+		return array( 'id' => $id, 'estado' => $destino, 'posicion' => $posicion, 'correos' => $correos );
+	}
+
+	/**
+	 * Rejects a pending request: estado = baixa (today) + email to the family.
+	 *
+	 * @since  1.68.0
+	 * @param  int    $id         Matrícula id.
+	 * @param  string $actor      Actor email.
+	 * @param  string $actor_tipo Actor type.
+	 * @return array{id:int,estado:string,correos:int}|WP_Error
+	 */
+	public static function rexeitar( int $id, string $actor, string $actor_tipo ) {
+		global $wpdb;
+		$mat_t   = ANPA_Socios_DB::tabela_matriculas();
+		$detalle = self::detalle_para_correo( $id );
+		$updated = $wpdb->update(
+			$mat_t,
+			array( 'estado' => ANPA_Socios_Matricula_Estado::BAIXA, 'baixa_en' => current_time( 'mysql' ), 'actualizado_en' => current_time( 'mysql' ) ),
+			array( 'id' => $id, 'estado' => ANPA_Socios_Matricula_Estado::PENDENTE_APROBACION ),
+			array( '%s', '%s', '%s' ),
+			array( '%d', '%s' )
+		);
+		if ( false === $updated ) {
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		if ( 1 !== (int) $updated ) {
+			return new WP_Error( 'anpa_admin_no_pendente', __( 'Esta matrícula non está pendente de aprobación', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+		ANPA_Socios_Admin_Shared::write_audit_actor( $actor, $actor_tipo, 'matricula', (string) $id, 'matricula_rexeitada' );
+
+		$correos = 0;
+		if ( is_array( $detalle ) ) {
+			foreach ( $detalle['emails'] as $email ) {
+				if ( ANPA_Socios_Email::enviar_matricula_rexeitada( $email, $detalle['alumno'], $detalle['actividade'] ) ) {
+					++$correos;
+				}
+			}
+		}
+		return array( 'id' => $id, 'estado' => ANPA_Socios_Matricula_Estado::BAIXA, 'correos' => $correos );
+	}
+
+	/**
+	 * Pupil, activity, group label and the family's active addresses (both
+	 * parents) for the approval/rejection emails.
+	 *
+	 * @since  1.68.0
+	 * @param  int $id Matrícula id.
+	 * @return array{alumno:string,actividade:string,grupo:string,emails:array<int,string>}|null
+	 */
+	public static function detalle_para_correo( int $id ): ?array {
+		global $wpdb;
+		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		$fil_t = ANPA_Socios_DB::tabela_fillos();
+		$act_t = ANPA_Socios_DB::tabela_actividades();
+		$gru_t = ANPA_Socios_DB::tabela_grupos();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only lookup for the email.
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT f.id AS fillo_id, f.nome AS fillo_nome, f.apelidos AS fillo_apelidos, a.nome AS actividade,
+				        COALESCE(g.nome, '') AS grupo_nome, COALESCE(g.horario, '') AS horario, COALESCE(g.franxa, '') AS franxa, COALESCE(g.dias, '') AS dias
+				 FROM {$mat_t} m
+				 INNER JOIN {$fil_t} f ON f.id = m.fillo_id
+				 INNER JOIN {$act_t} a ON a.id = m.activitad_id
+				 LEFT JOIN {$gru_t} g ON g.id = m.grupo_id
+				 WHERE m.id = %d",
+				$id
+			),
+			ARRAY_A
+		);
+		if ( ! is_array( $row ) ) {
+			return null;
+		}
+		return array(
+			'alumno'     => trim( (string) $row['fillo_nome'] . ' ' . (string) $row['fillo_apelidos'] ),
+			'actividade' => (string) $row['actividade'],
+			'grupo'      => self::grupo_label( (string) $row['grupo_nome'], (string) $row['horario'], (string) $row['franxa'], (string) $row['dias'] ),
+			'emails'     => self::familia_emails_por_fillo( (int) $row['fillo_id'] ),
+		);
+	}
+
+	/**
+	 * Every active member of the pupil's family unit (falls back to the
+	 * pupil's socio_email when the family has no id yet).
+	 *
+	 * @since  1.68.0
+	 * @param  int $fillo_id Pupil id.
+	 * @return array<int,string>
+	 */
+	public static function familia_emails_por_fillo( int $fillo_id ): array {
+		global $wpdb;
+		$fil_t = ANPA_Socios_DB::tabela_fillos();
+		$soc_t = ANPA_Socios_DB::tabela_socios();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only recipients lookup.
+		$rows = $wpdb->get_col( $wpdb->prepare(
+			"SELECT s.email FROM {$soc_t} s INNER JOIN {$fil_t} f ON f.familia_id = s.familia_id
+			 WHERE f.id = %d AND f.familia_id > 0 AND s.estado = 'activo' AND s.email <> ''",
+			$fillo_id
+		) );
+		$emails = is_array( $rows ) ? array_map( 'strval', $rows ) : array();
+		if ( array() === $emails ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only fallback.
+			$one = (string) $wpdb->get_var( $wpdb->prepare( "SELECT socio_email FROM {$fil_t} WHERE id = %d", $fillo_id ) );
+			if ( '' !== $one ) {
+				$emails[] = $one;
+			}
+		}
+		return array_values( array_unique( array_map( 'strtolower', $emails ) ) );
+	}
+
+	/**
+	 * «Grupo A · Tarde 16:00-17:00 · Luns, Mércores» for the emails.
+	 *
+	 * @since  1.68.0
+	 * @return string
+	 */
+	public static function grupo_label( string $nome, string $horario, string $franxa, string $dias ): string {
+		$labels = array( 'luns' => 'Luns', 'martes' => 'Martes', 'mercores' => 'Mércores', 'xoves' => 'Xoves', 'venres' => 'Venres' );
+		$dias_l = array();
+		foreach ( array_filter( array_map( 'trim', explode( ',', $dias ) ) ) as $d ) {
+			$dias_l[] = $labels[ $d ] ?? $d;
+		}
+		$parts = array_filter( array(
+			$nome,
+			trim( ANPA_Socios_Grupo_Serie::horario_label( $horario ) . ' ' . $franxa ),
+			implode( ', ', $dias_l ),
+		) );
+		return implode( ' · ', $parts );
 	}
 }
