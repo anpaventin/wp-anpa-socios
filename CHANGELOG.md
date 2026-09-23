@@ -13,7 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   grupo garda o ciclo de matrículas no que se avisou (a última transición «ventá → pechada» do curso), o trimestre e a
   data (esquema **1.44.0**, tres columnas novas en `grupos`). A tarxeta píntase en verde con «Notificado: grupo creado ·
   Nº trimestre · data» e o botón desaparece ata que as matrículas se abran e se pechen de novo; entón volve aparecer
-  para avisar do trimestre seguinte.
+  para avisar do trimestre seguinte. Dende a ficha da actividade (lista de grupos, columna «Aviso») a xunta pode
+  **marcar ou desmarcar a man** esa notificación sen enviar correo (`POST admin/grupo/<id>/aviso-comezo`), por
+  exemplo se o aviso saíu dende Gmail ou se se enviou por erro.
+- **Resumo por actividade** (opción A da proposta `openspec/changes/2026-09-23-resumo-actividades`). Cada fila de
+  Xestión → Extraescolares → Actividades ten un botón **«Resumo»** que despliega debaixo unha táboa por grupo:
+  mínimo/máximo, e por trimestre os activos ao remate do trimestre (hoxe no trimestre en curso), os que están en
+  lista de espera agora e as baixas con data nese trimestre; ademais prazas libres, pendentes de aprobación e o
+  estado do aviso «grupo creado». Os trimestres seguen as datas operativas de Axustes → Cursos (modelo mensual se
+  non están configuradas). Só recontos, sen datos persoais. `GET admin/actividad/<id>/resumo`; helper puro
+  `ANPA_Socios_Resumo_Actividade`. A opción B (bloque plegado con CSV en Matrículas) queda para máis adiante.
 
 ### Changed
 

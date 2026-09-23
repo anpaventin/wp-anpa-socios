@@ -65,6 +65,12 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 
 		// GET /admin/actividad/{id}/horario-diagnostic?curso_escolar=YYYY/YYYY
 		// Read-only diagnostic: why an activity IS or IS NOT in the public horario.
+		// 1.69.0: per-activity course summary (counts only), shown under the activity row.
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/actividad/(?P<id>\d+)/resumo', array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => array( __CLASS__, 'resumo' ),
+			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+		) );
 		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/actividad/(?P<id>\d+)/horario-diagnostic', array(
 			array(
 				'methods'             => WP_REST_Server::READABLE,
@@ -84,6 +90,68 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 	 * @since 30.0.0
 	 * @return WP_REST_Response
 	 */
+	/**
+	 * GET /admin/actividad/<id>/resumo?curso= — per-group, per-trimester counts
+	 * (active at the close of each trimester, waiting now, baixas, pending,
+	 * free places) plus the «grupo creado» notice state. Read-only, no PII.
+	 *
+	 * @since  1.69.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function resumo( WP_REST_Request $request ) {
+		global $wpdb;
+		$id    = (int) $request->get_param( 'id' );
+		$curso = (string) $request->get_param( 'curso' );
+		if ( '' === $curso ) {
+			$curso = (string) ( ANPA_Socios_Curso_Activo::get() ?? '' );
+		}
+		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
+			return new WP_Error( 'anpa_admin_curso_invalid', __( 'Curso escolar inválido', 'anpa-socios' ), array( 'status' => 400 ) );
+		}
+		$act_t = ANPA_Socios_DB::tabela_actividades();
+		$gru_t = ANPA_Socios_DB::tabela_grupos();
+		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only.
+		$act = $wpdb->get_row( $wpdb->prepare( "SELECT id, nome FROM {$act_t} WHERE id = %d", $id ), ARRAY_A );
+		if ( ! is_array( $act ) ) {
+			return new WP_Error( 'anpa_admin_not_found', __( 'Actividade non atopada', 'anpa-socios' ), array( 'status' => 404 ) );
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only.
+		$grupos = $wpdb->get_results( $wpdb->prepare(
+			"SELECT id, nome, horario, franxa, dias, min_pupilos, max_pupilos, estado, aviso_comezo_ciclo, aviso_comezo_trimestre, aviso_comezo_en
+			 FROM {$gru_t} WHERE actividad_id = %d AND curso_escolar = %s ORDER BY franxa ASC, nome ASC, id ASC",
+			$id,
+			$curso
+		), ARRAY_A );
+		$grupos = is_array( $grupos ) ? $grupos : array();
+		$ciclo  = ANPA_Socios_Admin_Grupos_Handler::ciclo_ventana( $curso );
+		foreach ( $grupos as &$g ) {
+			$g['notificado'] = ( null !== $g['aviso_comezo_en'] && (int) $g['aviso_comezo_ciclo'] === (int) $ciclo['id'] );
+		}
+		unset( $g );
+		$matriculas = array();
+		if ( array() !== $grupos ) {
+			$ids = implode( ',', array_map( static function ( array $g ): int { return (int) $g['id']; }, $grupos ) );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- integer ids from the previous query; counts only.
+			$matriculas = $wpdb->get_results( "SELECT grupo_id, estado, creado_en, baixa_en FROM {$mat_t} WHERE grupo_id IN ({$ids})", ARRAY_A );
+			$matriculas = is_array( $matriculas ) ? $matriculas : array();
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only course dates.
+		$curso_row = $wpdb->get_row( $wpdb->prepare( 'SELECT ' . ANPA_Socios_Matricula_Gate_Repo::CURSO_COLUMNS . ' FROM ' . ANPA_Socios_DB::tabela_cursos() . ' WHERE curso_escolar = %s', $curso ), ARRAY_A );
+		$datas   = is_array( $curso_row ) ? ANPA_Socios_Matricula_Gate::datas_de_fila( $curso_row ) : array();
+		$limites = ANPA_Socios_Resumo_Actividade::limites( $curso, $datas );
+		$hoxe    = current_time( 'Y-m-d' );
+		$resumo  = ANPA_Socios_Resumo_Actividade::agregar( $grupos, $matriculas, $limites, $hoxe );
+
+		return new WP_REST_Response( array(
+			'actividade' => array( 'id' => (int) $act['id'], 'nome' => (string) $act['nome'] ),
+			'curso'      => $curso,
+			'hoxe'       => $hoxe,
+			'limites'    => $limites,
+		) + $resumo, 200 );
+	}
+
 	public static function list_actividades(): WP_REST_Response {
 		global $wpdb;
 
