@@ -105,7 +105,7 @@ class ANPA_Socios_DB {
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.43.0';
+	const DB_VERSION = '1.44.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -363,6 +363,12 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.43.0', '<' ) && ! self::migrate_to_1_43_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.43.0 (migrate_to_1_43_0): ' . $wpdb->last_error );
+			return;
+		}
+		// 1.44.0 (1.69.0): grupos remember the «grupo creado» notice (window cycle, trimester, date).
+		if ( version_compare( $installed_version, '1.44.0', '<' ) && ! self::migrate_to_1_44_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.44.0 (migrate_to_1_44_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -1561,6 +1567,9 @@ class ANPA_Socios_DB {
 			min_pupilos smallint(5) unsigned not null default 0,
 			max_pupilos smallint(5) unsigned not null default 0,
 			estado enum('aberto','pechado','deshabilitado') not null default 'aberto',
+			aviso_comezo_ciclo bigint(20) unsigned NULL DEFAULT NULL,
+			aviso_comezo_trimestre tinyint(3) unsigned NULL DEFAULT NULL,
+			aviso_comezo_en datetime NULL DEFAULT NULL,
 			creado_en datetime not null default CURRENT_TIMESTAMP,
 			actualizado_en datetime not null default CURRENT_TIMESTAMP,
 			key actividad_id (actividad_id),
@@ -4200,5 +4209,35 @@ class ANPA_Socios_DB {
 		}
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded enum migration.
 		return false !== $wpdb->query( "ALTER TABLE {$matriculas} MODIFY COLUMN estado enum('activo','lista_espera','oferta','baixa_solicitada','pendente_aprobacion','baixa') NOT NULL DEFAULT 'activo'" );
+	}
+
+	/**
+	 * Migration to 1.44.0 (plugin 1.69.0): `grupos` remembers the last «grupo
+	 * creado (comezo do trimestre)» notice — the enrolment-window cycle it was
+	 * sent in (id of the latest «ventana → pechada» transition), the trimester
+	 * of that window and the date — so Grupos e horarios can paint the group as
+	 * notified and hide the button until the window opens and closes again.
+	 * Guarded column adds; no data changes.
+	 *
+	 * @since  1.69.0
+	 * @return bool
+	 */
+	private static function migrate_to_1_44_0(): bool {
+		global $wpdb;
+		$grupos = self::tabela_grupos();
+		foreach ( array(
+			'aviso_comezo_ciclo'     => 'bigint(20) unsigned NULL DEFAULT NULL',
+			'aviso_comezo_trimestre' => 'tinyint(3) unsigned NULL DEFAULT NULL',
+			'aviso_comezo_en'        => 'datetime NULL DEFAULT NULL',
+		) as $column => $definition ) {
+			if ( self::tem_columna( $grupos, $column ) ) {
+				continue;
+			}
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$grupos} ADD COLUMN {$column} {$definition}" ) ) {
+				return false;
+			}
+		}
+		return true;
 	}
 }

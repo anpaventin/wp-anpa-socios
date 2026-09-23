@@ -3526,6 +3526,9 @@
 						activos: parseInt(slot.activos, 10) || 0,
 						espera: parseInt(slot.espera, 10) || 0,
 						pendentes: parseInt(slot.pendentes, 10) || 0,
+						notificado: !!slot.notificado,
+						notificado_trimestre: parseInt(slot.notificado_trimestre, 10) || 0,
+						notificado_en: slot.notificado_en || '',
 						nivel_ids: [],
 						slots: []
 					};
@@ -3602,6 +3605,10 @@
 			if (group.estado && group.estado !== 'aberto') {
 				card.className += ' anpa-grupos-horarios-group-card--oculto';
 			}
+			// 1.69.0: the «grupo creado» notice already went out in this window cycle.
+			if (group.notificado && group.estado === 'aberto') {
+				card.className += ' anpa-grupos-horarios-group-card--notificado';
+			}
 			var title = document.createElement('div');
 			title.className = 'anpa-grupos-horarios-slot-title';
 			title.textContent = group.grupo_nome || group.actividade_nome || 'Grupo';
@@ -3614,6 +3621,11 @@
 			var ocup = makeMetaLabel('Ocupación', group.activos + '/' + group.max_pupilos + ' inscritos · ' + group.espera + ' en espera' + (group.pendentes ? ' · ' + group.pendentes + ' pendentes' : '') + ' · mínimo ' + group.min_pupilos);
 			ocup.className = 'anpa-grupos-horarios-ocupacion' + (group.min_pupilos > 0 && group.activos < group.min_pupilos ? ' anpa-grupos-horarios-ocupacion--baixo-minimo' : '');
 			meta.appendChild(ocup);
+			if (group.notificado) {
+				var notif = makeMetaLabel('Notificado', 'grupo creado' + (group.notificado_trimestre ? ' · ' + group.notificado_trimestre + '\u00BA trimestre' : '') + (group.notificado_en ? ' · ' + formatAdminDate(group.notificado_en) : ''));
+				notif.className = 'anpa-grupos-horarios-notificado';
+				meta.appendChild(notif);
+			}
 			meta.appendChild(makeMetaLabel('Franxa', group.franxa || '—'));
 			if (group.horario_label || group.horario) {
 				meta.appendChild(makeMetaLabel('Horario', group.horario_label || group.horario));
@@ -3639,7 +3651,7 @@
 				// group below its minimum); «Pechar por non acadar o mínimo» only below the minimum.
 				var pechadas = state.matriculasAbertas === false;
 				var baixoMinimo = group.min_pupilos > 0 && group.activos < group.min_pupilos;
-				if (pechadas && group.estado === 'aberto') {
+				if (pechadas && group.estado === 'aberto' && !group.notificado) {
 				var gid = group.group_id || group.grupo_id;
 				var nomeG = group.grupo_nome || 'Grupo';
 				var nomeA = group.actividade_nome || '';
@@ -3651,7 +3663,8 @@
 					if (!window.confirm('Avisar ás familias inscritas no grupo «' + nomeG + '» de «' + nomeA + '» (e á empresa) de que o grupo queda confirmado e comeza o trimestre? As de lista de espera reciben outro correo. Envío en CCO por lotes, coa xunta como destinatario visible.')) { return; }
 					anpaAdminFetch('grupo/' + gid + '/notificar-comezo', { method: 'POST' }).then(function (r) {
 						var i = (r && r.inscritos) || {}; var e = (r && r.espera) || {};
-						showMessage('Aviso enviado. Inscritos e empresa: ' + (i.enviados || 0) + ' de ' + (i.destinatarios || 0) + '; lista de espera: ' + (e.enviados || 0) + ' de ' + (e.destinatarios || 0) + '.', (i.fallidos || e.fallidos) ? 'warning' : 'success');
+						showMessage('Aviso enviado. Inscritos e empresa: ' + (i.enviados || 0) + ' de ' + (i.destinatarios || 0) + '; lista de espera: ' + (e.enviados || 0) + ' de ' + (e.destinatarios || 0) + '. O grupo queda marcado como notificado' + (r && r.notificado_trimestre ? ' (' + r.notificado_trimestre + '\u00BA trimestre)' : '') + '.', (i.fallidos || e.fallidos) ? 'warning' : 'success');
+						renderCourse(state.curso);
 					}).catch(function (err) { showMessage(err.message, 'error'); });
 				});
 				actions.appendChild(bComezo);

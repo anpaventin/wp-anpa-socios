@@ -5,7 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.68.2] - 2026-09-23
+## [1.69.0] - 2026-09-23
+
+### Added
+
+- **Grupos e horarios lembra o aviso de «grupo creado».** Ao enviar «Notificar grupo creado (comezo do trimestre)» o
+  grupo garda o ciclo de matrículas no que se avisou (a última transición «ventá → pechada» do curso), o trimestre e a
+  data (esquema **1.44.0**, tres columnas novas en `grupos`). A tarxeta píntase en verde con «Notificado: grupo creado ·
+  Nº trimestre · data» e o botón desaparece ata que as matrículas se abran e se pechen de novo; entón volve aparecer
+  para avisar do trimestre seguinte.
 
 ### Changed
 

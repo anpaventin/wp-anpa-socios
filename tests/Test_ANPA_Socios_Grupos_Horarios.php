@@ -79,6 +79,9 @@ final class Test_ANPA_Socios_Grupos_Horarios extends TestCase {
 					'activos'         => 9,
 					'espera'          => 2,
 					'pendentes'       => 1,
+					'notificado'      => true,
+					'aviso_comezo_trimestre' => 1,
+					'aviso_comezo_en' => '2026-09-25 10:00:00',
 				),
 				array(
 					'grupo_id'        => 11,
@@ -113,6 +116,9 @@ final class Test_ANPA_Socios_Grupos_Horarios extends TestCase {
 		// 1.68.0: occupancy travels with the slot (counts only).
 		$this->assertSame( array( 8, 12, 9, 2, 1 ), array( $result['slots'][0]['min_pupilos'], $result['slots'][0]['max_pupilos'], $result['slots'][0]['activos'], $result['slots'][0]['espera'], $result['slots'][0]['pendentes'] ) );
 		$this->assertSame( 0, $result['slots'][2]['activos'], 'missing counts default to zero' );
+		// 1.69.0: the «grupo creado» notice travels with the slot; absent → not notified.
+		$this->assertSame( array( true, 1, '2026-09-25 10:00:00' ), array( $result['slots'][0]['notificado'], $result['slots'][0]['notificado_trimestre'], $result['slots'][0]['notificado_en'] ) );
+		$this->assertFalse( $result['slots'][2]['notificado'] );
 		$this->assertSame( '11:1:martes', $result['slots'][2]['slot_key'] );
 		$this->assertTrue( $result['slots'][2]['conflito_comedor'] );
 		$this->assertStringNotContainsString( 'fillo', strtolower( (string) json_encode( $result ) ) );
@@ -149,12 +155,19 @@ final class Test_ANPA_Socios_Grupos_Horarios extends TestCase {
 		$this->assertStringContainsString( "'/pechar-minimo'", $body );
 		// 1.68.1: the two buttons only exist with the window closed (=== false, i.e. read and closed).
 		$this->assertStringContainsString( 'var pechadas = state.matriculasAbertas === false;', $body );
-		$this->assertStringContainsString( "if (pechadas && group.estado === 'aberto') {", $body );
+		$this->assertStringContainsString( "if (pechadas && group.estado === 'aberto' && !group.notificado) {", $body );
 		$this->assertStringContainsString( 'var baixoMinimo = group.min_pupilos > 0 && group.activos < group.min_pupilos;', $body );
 		$this->assertStringContainsString( 'if (baixoMinimo) {', $body );
 		$this->assertStringContainsString( 'anpa-grupos-horarios-group-card--oculto', $body );
 		$this->assertStringContainsString( '.anpa-grupos-horarios-group-card--oculto', $css );
 		$this->assertStringContainsString( 'Notificar grupo creado (comezo do trimestre)', $body );
+		// 1.69.0: notified groups are painted green and lose the button until the next window cycle.
+		$this->assertStringContainsString( 'anpa-grupos-horarios-group-card--notificado', $body );
+		$this->assertStringContainsString( "if (pechadas && group.estado === 'aberto' && !group.notificado) {", $body );
+		$this->assertStringContainsString( '.anpa-grupos-horarios-group-card--notificado', $css );
+		$handler = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-grupos-handler.php' );
+		$this->assertStringContainsString( 'public static function ciclo_ventana( string $curso ): array', $handler );
+		$this->assertStringContainsString( "'aviso_comezo_ciclo' => \$ciclo['id']", $handler );
 		$this->assertStringContainsString( ".catch(function () { return true; })", $body );
 		$this->assertStringNotContainsString( "method: 'PUT'", $body );
 		$this->assertStringNotContainsString( "method: 'DELETE'", $body );
