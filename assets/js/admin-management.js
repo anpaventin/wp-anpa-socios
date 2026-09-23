@@ -3598,6 +3598,10 @@
 			if (group.conflito_comedor) {
 				card.className += ' anpa-grupos-horarios-comedor';
 			}
+			// 1.68.1: closed or disabled groups (hidden from the offer) stay in the grid, shaded.
+			if (group.estado && group.estado !== 'aberto') {
+				card.className += ' anpa-grupos-horarios-group-card--oculto';
+			}
 			var title = document.createElement('div');
 			title.className = 'anpa-grupos-horarios-slot-title';
 			title.textContent = group.grupo_nome || group.actividade_nome || 'Grupo';
@@ -3630,8 +3634,11 @@
 				});
 				actions.appendChild(edit);
 				// 1.68.1: the per-group notices only EXIST while the enrolment window is closed
-				// (and the gate could be read) and the group is open; otherwise nothing is shown.
+				// (and the gate could be read) and the group is open; closed/disabled groups only
+				// keep «Editar». «Notificar grupo creado» is always offered (a company may run a
+				// group below its minimum); «Pechar por non acadar o mínimo» only below the minimum.
 				var pechadas = state.matriculasAbertas === false;
+				var baixoMinimo = group.min_pupilos > 0 && group.activos < group.min_pupilos;
 				if (pechadas && group.estado === 'aberto') {
 				var gid = group.group_id || group.grupo_id;
 				var nomeG = group.grupo_nome || 'Grupo';
@@ -3648,13 +3655,11 @@
 					}).catch(function (err) { showMessage(err.message, 'error'); });
 				});
 				actions.appendChild(bComezo);
+				if (baixoMinimo) {
 				var bMin = document.createElement('button');
 				bMin.type = 'button';
 				bMin.className = 'anpa-mgmt-btn anpa-mgmt-btn-danger';
 				bMin.textContent = 'Pechar por non acadar o mínimo';
-				var motivoMin = group.min_pupilos < 1 ? 'O grupo non ten mínimo configurado.' : (group.activos >= group.min_pupilos ? 'O grupo acada o mínimo (' + group.activos + ' de ' + group.min_pupilos + ').' : '');
-				bMin.disabled = !!motivoMin;
-				if (motivoMin) { bMin.title = motivoMin; }
 				bMin.addEventListener('click', function () {
 					if (!window.confirm('Pechar o grupo «' + nomeG + '» de «' + nomeA + '» por non acadar o mínimo (' + group.activos + ' de ' + group.min_pupilos + ')? O grupo queda deshabilitado (desaparece de Grupos e horarios, da oferta e da área; pódese reactivar dende Actividades → grupos), as súas matrículas e as de lista de espera pasan a baixa, e as familias e a empresa reciben o correo «grupo_pechado_minimo». Esta acción non se pode desfacer.')) { return; }
 					anpaAdminFetch('grupo/' + gid + '/pechar-minimo', { method: 'POST' }).then(function (r) {
@@ -3664,6 +3669,7 @@
 					}).catch(function (err) { showMessage(err.message, 'error'); });
 				});
 				actions.appendChild(bMin);
+				}
 				}
 				card.appendChild(actions);
 			}

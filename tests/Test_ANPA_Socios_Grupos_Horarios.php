@@ -33,8 +33,8 @@ final class Test_ANPA_Socios_Grupos_Horarios extends TestCase {
 		$this->assertStringNotContainsString( 'tabela_fillos', $body );
 		$this->assertStringNotContainsString( 'tabela_socios', $body );
 		$this->assertStringNotContainsString( 'tabela_matriculas', $body );
-		// 1.68.1: a group disabled for lack of minimum disappears from the grid.
-		$this->assertStringContainsString( "AND g.estado <> 'deshabilitado'", $body );
+		// 1.68.1: closed/disabled groups stay in the grid (shaded in the client), so no state filter.
+		$this->assertStringNotContainsString( "g.estado <> 'deshabilitado'", $body );
 	}
 
 	public function test_builds_one_slot_per_group_level_and_day_without_pii(): void {
@@ -150,6 +150,10 @@ final class Test_ANPA_Socios_Grupos_Horarios extends TestCase {
 		// 1.68.1: the two buttons only exist with the window closed (=== false, i.e. read and closed).
 		$this->assertStringContainsString( 'var pechadas = state.matriculasAbertas === false;', $body );
 		$this->assertStringContainsString( "if (pechadas && group.estado === 'aberto') {", $body );
+		$this->assertStringContainsString( 'var baixoMinimo = group.min_pupilos > 0 && group.activos < group.min_pupilos;', $body );
+		$this->assertStringContainsString( 'if (baixoMinimo) {', $body );
+		$this->assertStringContainsString( 'anpa-grupos-horarios-group-card--oculto', $body );
+		$this->assertStringContainsString( '.anpa-grupos-horarios-group-card--oculto', $css );
 		$this->assertStringContainsString( 'Notificar grupo creado (comezo do trimestre)', $body );
 		$this->assertStringContainsString( ".catch(function () { return true; })", $body );
 		$this->assertStringNotContainsString( "method: 'PUT'", $body );
