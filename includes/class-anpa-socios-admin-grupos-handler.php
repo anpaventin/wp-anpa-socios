@@ -180,7 +180,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 				 FROM {$grupos} g
 				 INNER JOIN {$acts} a ON a.id = g.actividad_id
 				 INNER JOIN {$gn} gn ON gn.grupo_id = g.id
-				 WHERE g.curso_escolar = %s AND g.estado <> 'deshabilitado'
+				 WHERE g.curso_escolar = %s
 				 ORDER BY g.franxa ASC, a.nome ASC, g.nome ASC, g.id ASC, gn.nivel_id ASC",
 				$curso
 			),
@@ -877,8 +877,8 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 
 	/**
 	 * POST /admin/grupo/<id>/pechar-minimo — the group did not reach its
-	 * minimum: it becomes «deshabilitado» (hidden from the offer, the area and
-	 * Grupos e horarios; reusable from the activity's group list), its
+	 * minimum: it becomes «deshabilitado» (hidden from the offer and the area;
+	 * shown shaded in Grupos e horarios; reusable from the activity's list), its
 	 * current enrolments and waiting list become «baixa» (today) and the
 	 * families and the company get grupo_pechado_minimo. Refused while the
 	 * window is open, or when activos >= min_pupilos.

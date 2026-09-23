@@ -1130,3 +1130,12 @@
 /* 1.68.1: Xestión → Matrículas — three cards (estado, baixas de actividades, listado). */
 .anpa-estado-curso-datas { margin: 0 0 1rem; }
 .anpa-baixas-actividades h3, .anpa-listado-matriculas h3 { margin-top: 0; }
+
+/* 1.68.1: Grupos e horarios — closed/disabled groups (hidden from the offer) stay in the grid, shaded. */
+.anpa-grupos-horarios-group-card--oculto {
+	background: #f0f0f1;
+	border-style: dashed;
+	color: #646970;
+	opacity: 0.85;
+}
+.anpa-grupos-horarios-group-card--oculto .anpa-grupos-horarios-slot-title { color: #50575e; }
