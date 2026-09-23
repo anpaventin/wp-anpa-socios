@@ -2085,6 +2085,22 @@
 				editBtn.addEventListener('click', function () { renderActividadForm(row, empresaList); });
 				actionsTd.appendChild(editBtn);
 
+				// 1.69.0: per-activity course summary, toggled as a row right under the activity.
+				var resumoBtn = document.createElement('button');
+				resumoBtn.type = 'button';
+				resumoBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
+				resumoBtn.textContent = 'Resumo';
+				resumoBtn.addEventListener('click', function () {
+					var next = tr.nextElementSibling;
+					if (next && next.classList.contains('anpa-resumo-row')) { next.remove(); resumoBtn.textContent = 'Resumo'; return; }
+					resumoBtn.disabled = true;
+					anpaAdminFetch('actividad/' + row.id + '/resumo').then(function (r) {
+						resumoBtn.disabled = false; resumoBtn.textContent = 'Pechar resumo';
+						tr.parentNode.insertBefore(buildResumoRow(r, tr.children.length), tr.nextSibling);
+					}).catch(function (e) { resumoBtn.disabled = false; showMessage(e.message, 'error'); });
+				});
+				actionsTd.appendChild(resumoBtn);
+
 				// The per-activity "Grupos" panel is reachable from the edit form
 				// ("Xestionar grupos"); it was removed from this listing to reduce
 				// the number of row buttons (fase28).
@@ -2203,6 +2219,58 @@
 	 * @param {object|null} act - Existing actividad row for edit, or null for create.
 	 * @param {Array} empresaList - List of empresas for the dropdown.
 	 */
+	// 1.69.0: the summary row (option A of the «resumo por actividade» proposal).
+	function buildResumoRow(r, colSpan) {
+		var tr = document.createElement('tr');
+		tr.className = 'anpa-resumo-row';
+		var td = document.createElement('td');
+		td.colSpan = colSpan;
+		var wrap = document.createElement('div');
+		wrap.className = 'anpa-resumo';
+		var h4 = document.createElement('h4');
+		h4.textContent = ((r && r.actividade && r.actividade.nome) || 'Actividade') + ' \u2014 resumo do curso ' + (r && r.curso ? r.curso : '');
+		wrap.appendChild(h4);
+		var grupos = r && Array.isArray(r.grupos) ? r.grupos : [];
+		if (!grupos.length) {
+			wrap.appendChild(emptyEl('Sen grupos neste curso.'));
+		} else {
+			var table = document.createElement('table');
+			table.className = 'anpa-mgmt-table anpa-resumo-tabela';
+			var thead = document.createElement('thead'); var hr = document.createElement('tr');
+			['Grupo', 'Mín/Máx', '1\u00BA trimestre', '2\u00BA trimestre', '3\u00BA trimestre', 'Prazas libres', 'Aviso'].forEach(function (l) { var th = document.createElement('th'); th.textContent = l; hr.appendChild(th); });
+			thead.appendChild(hr); table.appendChild(thead);
+			var tbody = document.createElement('tbody');
+			function cellT(t) {
+				var td2 = document.createElement('td');
+				if (!t || t.estado === 'futuro') { td2.textContent = '\u2014'; td2.className = 'anpa-resumo-futuro'; return td2; }
+				td2.textContent = t.activos + ' act' + (t.espera != null ? ' \u00B7 ' + t.espera + ' esp' : '') + ' \u00B7 ' + t.baixas + ' bx';
+				if (t.estado === 'actual') { td2.className = 'anpa-resumo-actual'; td2.title = 'Trimestre en curso: datos de hoxe'; }
+				return td2;
+			}
+			grupos.forEach(function (g) {
+				var row = document.createElement('tr');
+				if (g.estado && g.estado !== 'aberto') { row.className = 'anpa-row-grupo-' + g.estado; }
+				var c0 = document.createElement('td'); c0.textContent = (g.nome || 'Grupo') + (g.franxa ? ' \u00B7 ' + g.franxa : '') + (g.dias ? ' \u00B7 ' + g.dias : '') + (g.estado && g.estado !== 'aberto' ? ' (' + grupoEstadoLabel(g.estado) + ')' : ''); row.appendChild(c0);
+				var c1 = document.createElement('td'); c1.textContent = g.min_pupilos + '/' + g.max_pupilos; row.appendChild(c1);
+				row.appendChild(cellT(g.trimestres && g.trimestres[1])); row.appendChild(cellT(g.trimestres && g.trimestres[2])); row.appendChild(cellT(g.trimestres && g.trimestres[3]));
+				var c5 = document.createElement('td'); c5.textContent = g.prazas_libres == null ? '\u2014' : String(g.prazas_libres) + (g.pendentes ? ' (' + g.pendentes + ' pendentes)' : ''); row.appendChild(c5);
+				var c6 = document.createElement('td'); c6.textContent = g.notificado ? 'Notificado' + (g.aviso_comezo_trimestre ? ' \u00B7 ' + g.aviso_comezo_trimestre + '\u00BA trim.' : '') : '\u2014'; if (g.notificado) { c6.className = 'anpa-grupo-aviso--si'; } row.appendChild(c6);
+				tbody.appendChild(row);
+			});
+			table.appendChild(tbody);
+			wrap.appendChild(table);
+			var tot = r.totais || {};
+			function n(v) { return v == null ? '\u2014' : String(v); }
+			var p = document.createElement('p');
+			p.className = 'description';
+			p.textContent = 'act = activos ao remate do trimestre (hoxe no trimestre en curso) \u00B7 esp = en lista de espera agora \u00B7 bx = baixas con data nese trimestre. Baixas por trimestre: ' + n(tot[1] && tot[1].baixas) + ' \u00B7 ' + n(tot[2] && tot[2].baixas) + ' \u00B7 ' + n(tot[3] && tot[3].baixas) + '. Pendentes de aprobaci\u00F3n agora: ' + n(r.pendentes) + '. Trimestres segundo as datas de Axustes \u2192 Cursos; hoxe ' + (r.hoxe ? String(r.hoxe).split('-').reverse().join('/') : '') + '.';
+			wrap.appendChild(p);
+		}
+		td.appendChild(wrap);
+		tr.appendChild(td);
+		return tr;
+	}
+
 	function renderActividadForm(act, empresaList) {
 		root.textContent = '';
 		var isEdit = act !== null;
@@ -2443,7 +2511,7 @@
 			table.className = 'anpa-mgmt-table anpa-mgmt-activity-groups-table';
 			var thead = document.createElement('thead');
 			var headRow = document.createElement('tr');
-			['Grupo', 'Horario', 'Franxa', 'Días', 'Niveis', 'Min', 'Max', 'Estado', ''].forEach(function (label) {
+			['Grupo', 'Horario', 'Franxa', 'Días', 'Niveis', 'Min', 'Max', 'Estado', 'Aviso', ''].forEach(function (label) {
 				var th = document.createElement('th'); th.textContent = label; headRow.appendChild(th);
 			});
 			thead.appendChild(headRow); table.appendChild(thead);
@@ -2473,6 +2541,15 @@
 					}
 					tr.appendChild(td);
 				});
+				// 1.69.0: «grupo creado» notice state of the current window cycle.
+				var tdAviso = document.createElement('td');
+				if (grupo.ten_grupo_actual) {
+					var aviso = document.createElement('span');
+					aviso.className = 'anpa-grupo-aviso ' + (grupo.notificado ? 'anpa-grupo-aviso--si' : 'anpa-grupo-aviso--non');
+					aviso.textContent = grupo.notificado ? ('Notificado' + (grupo.aviso_comezo_trimestre ? ' · ' + grupo.aviso_comezo_trimestre + '\u00BA trim.' : '') + (grupo.aviso_comezo_en ? ' · ' + formatAdminDate(grupo.aviso_comezo_en) : '')) : 'Sen notificar';
+					tdAviso.appendChild(aviso);
+				}
+				tr.appendChild(tdAviso);
 				var tdActions = document.createElement('td'); tdActions.className = 'anpa-mgmt-actions';
 				var edit = document.createElement('button'); edit.type = 'button'; edit.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary'; edit.textContent = grupo.ten_grupo_actual ? 'Editar' : 'Crear grupo actual';
 				edit.addEventListener('click', function () {
@@ -2483,6 +2560,19 @@
 					}
 				});
 				tdActions.appendChild(edit);
+				if (grupo.ten_grupo_actual) {
+					var avisoBtn = document.createElement('button'); avisoBtn.type = 'button'; avisoBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
+					avisoBtn.textContent = grupo.notificado ? 'Marcar sen notificar' : 'Marcar notificado (sen correo)';
+					avisoBtn.title = grupo.notificado ? 'Quita a marca: o botón «Notificar grupo creado» volve aparecer en Grupos e horarios (coas matrículas pechadas).' : 'Marca o grupo como xa avisado neste ciclo de matrículas sen enviar ningún correo (por exemplo, se o aviso saíu dende Gmail).';
+					avisoBtn.addEventListener('click', function () {
+						if (!window.confirm(grupo.notificado ? 'Quitar a marca de «notificado» ao grupo «' + (grupo.nome || '') + '»?' : 'Marcar o grupo «' + (grupo.nome || '') + '» como notificado neste ciclo de matrículas? Non se envía ningún correo.')) { return; }
+						anpaAdminFetch('grupo/' + grupo.id + '/aviso-comezo', { method: 'POST', body: { notificado: !grupo.notificado } }).then(function (r) {
+							showMessage(r && r.notificado ? 'Grupo marcado como notificado' + (r.aviso_comezo_trimestre ? ' (' + r.aviso_comezo_trimestre + '\u00BA trimestre)' : '') + '.' : 'Marca de notificado retirada.', 'success');
+							renderGroupSeriesList(container, actividad, opts);
+						}).catch(function (e) { showMessage(e.message, 'error'); });
+					});
+					tdActions.appendChild(avisoBtn);
+				}
 				// E6 (1.50.0): the server already refuses to delete groups with history; the
 				// button only shows when the count says there is nothing to lose.
 				if (grupo.ten_grupo_actual && grupo.curso_escolar === activeCourse && Number(grupo.matriculas_total || 0) === 0) {
@@ -2503,7 +2593,7 @@
 					var historyRow = document.createElement('tr');
 					historyRow.className = 'anpa-history-row';
 					var historyCell = document.createElement('td');
-					historyCell.colSpan = 9;
+					historyCell.colSpan = 10;
 					historyCell.appendChild(historyDetails(grupo));
 					historyRow.appendChild(historyCell);
 					tbody.appendChild(historyRow);

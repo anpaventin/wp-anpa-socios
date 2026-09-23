@@ -89,6 +89,12 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			'callback'            => array( __CLASS__, 'pechar_minimo' ),
 			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
 		) );
+		// 1.69.0: set or clear the «grupo creado» notice state by hand (no email).
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/grupo/(?P<id>\d+)/aviso-comezo', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( __CLASS__, 'set_aviso_comezo' ),
+			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+		) );
 	}
 
 	/**
@@ -209,6 +215,44 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 	}
 
 	/**
+	 * POST /admin/grupo/<id>/aviso-comezo — body { notificado: bool }. Marks the
+	 * group as already notified for the current window cycle (without sending
+	 * any email) or clears the mark so the button comes back. For the cases the
+	 * junta handles by hand: a notice sent from Gmail, or one sent by mistake.
+	 *
+	 * @since  1.69.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function set_aviso_comezo( WP_REST_Request $request ) {
+		global $wpdb;
+		$id  = (int) $request->get_param( 'id' );
+		$row = self::get_grupo_row( $id );
+		if ( null === $row ) {
+			return new WP_Error( 'anpa_admin_grupo_not_found', __( 'Grupo non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
+		}
+		$body       = ANPA_Socios_Admin_Shared::json_body( $request );
+		$notificado = ! empty( $body['notificado'] );
+		$curso      = (string) ( $row['curso_escolar'] ?? '' );
+		if ( $notificado ) {
+			$ciclo = self::ciclo_ventana( $curso );
+			$tri   = $ciclo['trimestre'] > 0 ? $ciclo['trimestre'] : (int) ( ANPA_Socios_Matricula_Gate_Repo::para_curso( $curso )['trimestre'] ?? 0 );
+			$data  = array( 'aviso_comezo_ciclo' => $ciclo['id'], 'aviso_comezo_trimestre' => $tri, 'aviso_comezo_en' => current_time( 'mysql' ) );
+			$fmt   = array( '%d', '%d', '%s' );
+		} else {
+			$tri  = 0;
+			$data = array( 'aviso_comezo_ciclo' => null, 'aviso_comezo_trimestre' => null, 'aviso_comezo_en' => null );
+			$fmt  = array( '%d', '%d', '%s' );
+		}
+		$ok = $wpdb->update( ANPA_Socios_DB::tabela_grupos(), $data, array( 'id' => $id ), $fmt, array( '%d' ) );
+		if ( false === $ok ) {
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $id, $notificado ? 'aviso_marcado' : 'aviso_borrado' );
+		return new WP_REST_Response( array( 'id' => $id, 'notificado' => $notificado, 'aviso_comezo_trimestre' => $tri, 'aviso_comezo_en' => $notificado ? (string) $data['aviso_comezo_en'] : '' ), 200 );
+	}
+
+	/**
 	 * The current enrolment-window cycle of a course: the latest «ventana →
 	 * pechada» transition (id + trimester). A «grupo creado» notice is tied to
 	 * this id, so the button comes back only after the window opens and closes
@@ -273,7 +317,8 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		$rows         = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT id, actividad_id, curso_escolar, serie_uid, nome, horario, franxa, dias,
-				        min_pupilos, max_pupilos, estado
+				        min_pupilos, max_pupilos, estado,
+				        aviso_comezo_ciclo, aviso_comezo_trimestre, aviso_comezo_en
 				 FROM {$table} WHERE actividad_id = %d
 				 ORDER BY nome ASC, curso_escolar DESC, id ASC",
 				$actividad_id
@@ -284,6 +329,8 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		// Enrolment counts per annual group (1.50.0): the UI needs them to offer
 		// «Eliminar» (no rows at all) and to allow «deshabilitado» (no current ones).
 		$counts = self::matriculas_counts( array_map( static function ( array $r ): int { return (int) $r['id']; }, is_array( $rows ) ? $rows : array() ) );
+		// 1.69.0: «grupo creado» notice state for the current window cycle.
+		$ciclo  = '' !== $curso_activo ? self::ciclo_ventana( $curso_activo ) : array( 'id' => 0, 'trimestre' => 0 );
 
 		$series = array();
 		foreach ( is_array( $rows ) ? $rows : array() as $row ) {
@@ -313,6 +360,9 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 				'nivel_ids'     => ANPA_Socios_DB::get_niveis_for_grupo( (int) $row['id'] ),
 				'matriculas_vixentes' => (int) ( $counts[ (int) $row['id'] ]['vixentes'] ?? 0 ),
 				'matriculas_total'    => (int) ( $counts[ (int) $row['id'] ]['total'] ?? 0 ),
+				'notificado'             => ( null !== $row['aviso_comezo_en'] && (int) $row['aviso_comezo_ciclo'] === (int) $ciclo['id'] ),
+				'aviso_comezo_trimestre' => (int) ( $row['aviso_comezo_trimestre'] ?? 0 ),
+				'aviso_comezo_en'        => (string) ( $row['aviso_comezo_en'] ?? '' ),
 			);
 			if ( $curso_activo === (string) $row['curso_escolar'] ) {
 				$series[ $key ] = array_merge( $series[ $key ], $annual, array( 'ten_grupo_actual' => true ) );

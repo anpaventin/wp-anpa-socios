@@ -1146,3 +1146,13 @@
 	border-color: #7fbf94;
 }
 .anpa-grupos-horarios-notificado { color: #1f6b3a; font-weight: 600; }
+
+/* 1.69.0: «grupo creado» notice state in the activity's group list, and the summary row. */
+.anpa-grupo-aviso { font-size: 12px; white-space: nowrap; }
+.anpa-grupo-aviso--si { color: #1f6b3a; font-weight: 600; }
+.anpa-grupo-aviso--non { color: #646970; }
+.anpa-mgmt-table .anpa-resumo-row > td { background: #f6f7f7; padding: 0.75rem 1rem 1rem; }
+.anpa-resumo h4 { margin: 0 0 0.5rem; }
+.anpa-resumo-tabela { max-width: 1000px; }
+.anpa-resumo-tabela td.anpa-resumo-actual { font-weight: 600; }
+.anpa-resumo-tabela td.anpa-resumo-futuro { color: #8c8f94; }

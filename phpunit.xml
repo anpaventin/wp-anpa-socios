@@ -130,6 +130,7 @@
       <file>tests/Test_ANPA_Socios_Matricula_Estado.php</file>
       <file>tests/Test_ANPA_Socios_Extraescolares_Control_Emails.php</file>
       <file>tests/Test_ANPA_Socios_Oferta_Seccions.php</file>
+      <file>tests/Test_ANPA_Socios_Resumo_Actividade.php</file>
       <file>tests/Test_ANPA_Socios_Area_Layout.php</file>
       <file>tests/Test_ANPA_Socios_Contenido_Config.php</file>
       <file>tests/Test_ANPA_Socios_Contenido_Admin.php</file>
