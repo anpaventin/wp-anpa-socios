@@ -105,7 +105,7 @@ final class Test_ANPA_Socios_Lista_Gmail extends TestCase {
 		$this->assertStringContainsString( "'Abrir Google Contactos'", $js );
 		$this->assertStringContainsString( "window.open(d.google_url || 'https://contacts.google.com/', '_blank', 'noopener')", $js );
 		// The instructions the junta asked for.
-		$this->assertStringContainsString( 'Confirma primeiro as baixas pendentes en Xestión → Socios → Baixas solicitadas. Se unha baixa non se confirma, esa persoa segue sendo socio/a activo/a e o seu correo NON sae da lista.', $js );
+		$this->assertStringContainsString( 'Confirma primeiro as baixas pendentes en Xestión → Socios → Baixas de socios. Se unha baixa non se confirma, esa persoa segue sendo socio/a activo/a e o seu correo NON sae da lista.', $js );
 		$this->assertStringContainsString( '«Eliminar etiqueta» → «Eliminar todos os contactos e a etiqueta»', $js );
 		$this->assertStringContainsString( 'Pulsa «Importar» → «Seleccionar ficheiro» → escolle o CSV descargado → «Importar».', $js );
 		$this->assertStringContainsString( 'seguen sendo socios activos e IRÁN na lista exportada', $js );

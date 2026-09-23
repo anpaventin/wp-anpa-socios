@@ -2658,7 +2658,7 @@ final class ANPA_Socios_Admin_Settings {
 		$h3( __( 'Fin de curso', 'anpa-socios' ) );
 		echo '<ol>';
 		$li( __( 'En Xestión → Extraescolares → Matrículas, «Notificar fin de curso» pecha os trimestres, as matrículas, os grupos e o curso, e agradece ás familias a participación.', 'anpa-socios' ) );
-		$li( __( 'Confirma en Xestión → Socios → Baixas solicitadas as baixas pendentes (socios e matrículas) e exporta os listados que necesite a tesourería.', 'anpa-socios' ) );
+		$li( __( 'Confirma as baixas pendentes de socios/as (Xestión → Socios → Baixas de socios) e de actividades (Xestión → Extraescolares → Matrículas) e exporta os listados que necesite a tesourería.', 'anpa-socios' ) );
 		$li( __( 'Fai unha copia completa (UpdraftPlus e o ficheiro cifrado .anpabak) antes do 20 de xuño.', 'anpa-socios' ) );
 		echo '</ol>';
 		echo '<p class="description">' . esc_html__( 'Nota: «aula» (clase ordinaria, por exemplo 4ºB) non é o mesmo que «grupo de actividade» (agrupamento por niveis dunha extraescolar, por exemplo 1º-2º-3º). A estrutura escolar define aulas; os grupos configúranse na ficha de cada actividade.', 'anpa-socios' ) . '</p>';
@@ -2675,14 +2675,14 @@ final class ANPA_Socios_Admin_Settings {
 		echo '</ul>';
 		$h3( __( 'Baixas e reactivacións', 'anpa-socios' ) );
 		echo '<ul>';
-		$li( __( 'A familia solicita a baixa desde a área (queda «baixa solicitada» e pode anulala). A xunta confírmaa ou rexéitaa en Xestión → Socios → Baixas solicitadas, onde tamén aparecen as baixas de actividades pedidas polas familias; é efectiva a fin de curso e a cota do curso completo mantense.', 'anpa-socios' ) );
+		$li( __( 'A familia solicita a baixa desde a área (queda «baixa solicitada» e pode anulala). A xunta confírmaa ou rexéitaa en Xestión → Socios → Baixas de socios (as baixas de actividades pedidas polas familias están en Xestión → Extraescolares → Matrículas); é efectiva a fin de curso e a cota do curso completo mantense.', 'anpa-socios' ) );
 		$li( __( 'Unha familia dada de baixa pode pedir a reactivación desde a páxina pública; a xunta a aproba como unha alta pendente.', 'anpa-socios' ) );
 		$li( __( 'A conta do equipo administrador non pode solicitar a baixa: perdería o acceso.', 'anpa-socios' ) );
 		echo '</ul>';
 		$h3( __( 'Lista de correo en Gmail («Socios Web ANPA»)', 'anpa-socios' ) );
 		echo '<ul>';
 		$li( __( 'Xestión → Socios → Lista Gmail exporta os socios/as activos nun CSV co formato de Google Contactos (etiqueta «Socios Web ANPA» incluída) e lembra a última exportación: amosa cantas altas e baixas houbo desde entón e se fai falta importar de novo.', 'anpa-socios' ) );
-		$li( __( 'Pasos: confirmar as baixas pendentes en Baixas solicitadas (se non se confirman, eses correos seguen na lista) → Descargar CSV → Abrir Google Contactos coa conta da xunta → eliminar a etiqueta «Socios Web ANPA» cos seus contactos → Importar o CSV. A web non escribe en Google: é un proceso manual de tres pulsacións.', 'anpa-socios' ) );
+		$li( __( 'Pasos: confirmar as baixas pendentes en Baixas de socios (se non se confirman, eses correos seguen na lista) → Descargar CSV → Abrir Google Contactos coa conta da xunta → eliminar a etiqueta «Socios Web ANPA» cos seus contactos → Importar o CSV. A web non escribe en Google: é un proceso manual de tres pulsacións.', 'anpa-socios' ) );
 		$li( __( 'Se desde a última exportación só houbo altas, «Descargar só as altas novas» dá un CSV cos correos novos para importalos SEN eliminar a etiqueta (súmanse á que xa existe); as baixas seguen en Google ata facer o proceso completo.', 'anpa-socios' ) );
 		$li( __( 'Gmail limita os envíos a 500 destinatarios ao día (2.000 nunha conta de Google Workspace): usa a etiqueta en CCO. É o único camiño para avisos a toda a asociación; a web non fai envíos masivos.', 'anpa-socios' ) );
 		$li( __( 'Correo de inicio de curso: na mesma pantalla, «Enviar o correo de inicio de curso á conta da xunta» manda UNHA soa vez a plantilla «inicio_curso» (como entrar como socio/a, darse de alta, modificar datos e inscribirse nas extraescolares) á conta da xunta; dende Gmail reenvíase á etiqueta «Socios Web ANPA» en CCO. O texto edítase en Axustes → Plantillas de email.', 'anpa-socios' ) );
@@ -2690,7 +2690,7 @@ final class ANPA_Socios_Admin_Settings {
 		$h3( __( 'Correos automáticos ás familias nas baixas', 'anpa-socios' ) );
 		echo '<ul>';
 		$li( __( 'Ao solicitar a baixa desde a área (como socio/a ou dunha actividade), a familia recibe un acuse de recibo («baixa_socio_solicitada», «baixa_extraescolar_solicitada»): a baixa non é automática, confírmaa unha persoa da directiva e pode tardar uns días, e avisarase por correo ao confirmarse.', 'anpa-socios' ) );
-		$li( __( 'Ao confirmar ou rexeitar unha solicitude en Xestión → Socios → Baixas solicitadas, a familia recibe un correo coa plantilla correspondente: «baixa_socio_confirmada», «baixa_socio_rexeitada», «baixa_extraescolar_confirmada» ou «baixa_extraescolar_rexeitada» (Axustes → Plantillas de email, coa sinatura de Axustes → Xeral).', 'anpa-socios' ) );
+		$li( __( 'Ao confirmar ou rexeitar unha solicitude en Xestión → Socios → Baixas de socios ou en Xestión → Extraescolares → Matrículas (baixas de actividades), a familia recibe un correo coa plantilla correspondente: «baixa_socio_confirmada», «baixa_socio_rexeitada», «baixa_extraescolar_confirmada» ou «baixa_extraescolar_rexeitada» (Axustes → Plantillas de email, coa sinatura de Axustes → Xeral).', 'anpa-socios' ) );
 		$li( __( 'A baixa de socio/a confirmada aplícase a toda a unidade familiar (proxenitor/a principal e secundario/a): todos pasan a «baixa», perden o acceso á área e cada un recibe o correo coa lista dos enderezos dados de baixa. Se a familia ten dous correos, saen dous correos.', 'anpa-socios' ) );
 		$li( __( 'Baixa dunha actividade: mentres a ventá de inscrición do trimestre en curso estea ABERTA (Xestión → Extraescolares → Matrículas), o correo di que a baixa é efectiva desde ese momento e sen ningún cobro, porque as clases aínda non están confirmadas; cando a ventá xa está PECHADA (listado enviado ás empresas, clases en marcha), di que é efectiva ao remate do trimestre, coa data de peche operativo, e que a cota se mantén ata entón. Vale para os tres trimestres.', 'anpa-socios' ) );
 		$li( __( 'Os correos de rexeitamento indican á familia que, se cre que houbo un erro, escriba á directiva ao correo de contacto de Axustes → Xeral.', 'anpa-socios' ) );

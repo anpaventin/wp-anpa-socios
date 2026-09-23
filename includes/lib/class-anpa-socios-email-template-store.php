@@ -312,70 +312,73 @@ final class ANPA_Socios_Email_Template_Store {
 					__( 'Comeza o curso: socios/as e actividades extraescolares — %s', 'anpa-socios' ),
 					array( 'association_name' ),
 				),
-				// 1.63.0: modelled on the junta's own mail of September 2026. No dates
-				// except the start of the activities; the rest are relative.
+				// 1.68.1: modelled on the junta's own start-of-year mail (2026-09): short, links first,
+				// relative calendar (the only date is the start of the activities).
 				'html' => array(
 					'<p>' . __( 'Prezadas familias,', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Comeza o novo curso e con el o prazo para facerse socio/a de %s e para inscribirse nas actividades extraescolares.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Toda a xestión faise na nosa web, sen papeis e sen contrasinais (recibes un código de acceso no teu correo). Deixámosvos os enlaces e as instrucións principais:', 'anpa-socios' ) . '</p>' .
+					'<p><strong>' . __( 'Xa está aberta a inscrición nas actividades extraescolares!', 'anpa-socios' ) . '</strong> ' . __( 'E con ela o prazo para facerse socio/a de %s.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Toda a información sobre como darse de alta como socios/as e o proceso paso a paso para a inscrición nas actividades está neste enlace:', 'anpa-socios' ) . ' <a href="%s">%s</a></p>' .
 					'<ul>' .
-					'<li><strong>' . __( 'Instrucións paso a paso', 'anpa-socios' ) . '</strong> ' . __( '(alta de socios/as, acceso, modificación de datos, inscrición nas extraescolares e baixas):', 'anpa-socios' ) . ' <a href="%s">%s</a></li>' .
-					'<li><strong>' . __( 'Oferta de actividades e horarios:', 'anpa-socios' ) . '</strong> <a href="%s">%s</a></li>' .
+					'<li><strong>' . __( 'Oferta de actividades e horarios semanais:', 'anpa-socios' ) . '</strong> <a href="%s">%s</a></li>' .
 					'<li><strong>' . __( 'Área de socios/as', 'anpa-socios' ) . '</strong> ' . __( '(entrar co teu correo, darse de alta, revisar os datos e matricular):', 'anpa-socios' ) . ' <a href="%s">%s</a></li>' .
 					'</ul>' .
-					'<p><strong>' . __( 'Calendario de inicio:', 'anpa-socios' ) . '</strong></p>' .
-					'<ul>' .
-					'<li>' . __( 'As actividades extraescolares comezan o 1 de outubro.', 'anpa-socios' ) . '</li>' .
-					'<li>' . __( 'Cinco días antes do inicio péchase o prazo de inscrición na web e envíase o listado ás empresas que imparten as actividades, deixando dous días para que poidades dar de baixa unha actividade se non estades seguros/as ou inscribirvos noutra.', 'anpa-socios' ) . '</li>' .
-					'</ul>' .
-					'<p><strong>' . __( 'Avisos automáticos:', 'anpa-socios' ) . '</strong> ' . __( 'a web envíavos un correo en cada paso: ao facer a alta, ao matricular ou quedar en lista de espera, cando se vos ofrece unha praza, ao solicitar unha baixa e cando a directiva a confirma.', 'anpa-socios' ) . '</p>' .
+					'<p><strong>' . __( 'Calendario:', 'anpa-socios' ) . '</strong> ' . __( 'as actividades comezan o 1 de outubro. Uns días antes péchase o prazo de inscrición na web e envíase o listado ás empresas que imparten as actividades; avisaremos por correo da data exacta de peche, con marxe para revisar as inscricións.', 'anpa-socios' ) . '</p>' .
 					'<p><strong>' . __( 'Aviso importante sobre os pagos:', 'anpa-socios' ) . '</strong> ' . __( 'a ANPA encárgase unicamente de xestionar as inscricións e a organización. O cobro das actividades faino directamente cada empresa coas familias inscritas.', 'anpa-socios' ) . '</p>' .
 					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Moitas grazas pola vosa colaboración. Un saúdo.', 'anpa-socios' ) . '</p>',
+					'<p>' . __( 'Grazas pola vosa colaboración. Un saúdo.', 'anpa-socios' ) . '</p>',
 					array( 'association_name', 'instrucions_url', 'instrucions_url', 'extraescolares_url', 'extraescolares_url', 'login_url', 'login_url', 'contact_email' ),
 				),
 				'text' => array(
 					__( 'Prezadas familias,', 'anpa-socios' ) . "\n\n" .
-					__( 'Comeza o novo curso e con el o prazo para facerse socio/a de %s e para inscribirse nas actividades extraescolares.', 'anpa-socios' ) . "\n\n" .
-					__( 'Toda a xestión faise na nosa web, sen papeis e sen contrasinais (recibes un código de acceso no teu correo). Deixámosvos os enlaces e as instrucións principais:', 'anpa-socios' ) . "\n\n" .
-					'- ' . __( 'Instrucións paso a paso', 'anpa-socios' ) . ' ' . __( '(alta de socios/as, acceso, modificación de datos, inscrición nas extraescolares e baixas):', 'anpa-socios' ) . ' %s' . "\n" .
-					'- ' . __( 'Oferta de actividades e horarios:', 'anpa-socios' ) . ' %s' . "\n" .
+					__( 'Xa está aberta a inscrición nas actividades extraescolares!', 'anpa-socios' ) . ' ' . __( 'E con ela o prazo para facerse socio/a de %s.', 'anpa-socios' ) . "\n\n" .
+					__( 'Toda a información sobre como darse de alta como socios/as e o proceso paso a paso para a inscrición nas actividades está neste enlace:', 'anpa-socios' ) . ' %s' . "\n\n" .
+					'- ' . __( 'Oferta de actividades e horarios semanais:', 'anpa-socios' ) . ' %s' . "\n" .
 					'- ' . __( 'Área de socios/as', 'anpa-socios' ) . ' ' . __( '(entrar co teu correo, darse de alta, revisar os datos e matricular):', 'anpa-socios' ) . ' %s' . "\n\n" .
-					__( 'Calendario de inicio:', 'anpa-socios' ) . "\n" .
-					'- ' . __( 'As actividades extraescolares comezan o 1 de outubro.', 'anpa-socios' ) . "\n" .
-					'- ' . __( 'Cinco días antes do inicio péchase o prazo de inscrición na web e envíase o listado ás empresas que imparten as actividades, deixando dous días para que poidades dar de baixa unha actividade se non estades seguros/as ou inscribirvos noutra.', 'anpa-socios' ) . "\n\n" .
-					__( 'Avisos automáticos:', 'anpa-socios' ) . ' ' . __( 'a web envíavos un correo en cada paso: ao facer a alta, ao matricular ou quedar en lista de espera, cando se vos ofrece unha praza, ao solicitar unha baixa e cando a directiva a confirma.', 'anpa-socios' ) . "\n\n" .
+					__( 'Calendario:', 'anpa-socios' ) . ' ' . __( 'as actividades comezan o 1 de outubro. Uns días antes péchase o prazo de inscrición na web e envíase o listado ás empresas que imparten as actividades; avisaremos por correo da data exacta de peche, con marxe para revisar as inscricións.', 'anpa-socios' ) . "\n\n" .
 					__( 'Aviso importante sobre os pagos:', 'anpa-socios' ) . ' ' . __( 'a ANPA encárgase unicamente de xestionar as inscricións e a organización. O cobro das actividades faino directamente cada empresa coas familias inscritas.', 'anpa-socios' ) . "\n\n" .
 					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . "\n\n" .
-					__( 'Moitas grazas pola vosa colaboración. Un saúdo.', 'anpa-socios' ),
+					__( 'Grazas pola vosa colaboración. Un saúdo.', 'anpa-socios' ),
 					array( 'association_name', 'instrucions_url', 'extraescolares_url', 'login_url', 'contact_email' ),
 				),
 			),
 			// ── 1.68.0: ciclo do curso e control das extraescolares dende Xestión → Matrículas ──
 			// Correos masivos ás familias (destinatario visible: a xunta; familias en CCO por lotes).
 			'prazo_matriculas' => array(
+				// 1.68.1: modelled on the junta's «últimos días de revisión» mail (2026-09).
 				'subject' => array(
-					__( 'Lembranza: o prazo de inscrición nas extraescolares remata o %s — %s', 'anpa-socios' ),
+					__( 'Últimos días para revisar as inscricións nas extraescolares: o prazo remata o %s — %s', 'anpa-socios' ),
 					array( 'data_peche', 'association_name' ),
 				),
 				'html' => array(
 					'<p>' . __( 'Prezadas familias,', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Lembrámosvos que o prazo para inscribirse (ou darse de baixa) nas actividades extraescolares a través da web remata o <strong>%s</strong>. As actividades comezan o <strong>%s</strong>.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Estamos na fase final do proceso de inscrición e revisión das actividades extraescolares. O prazo de revisión e axustes remata o <strong>%s</strong>: ese día péchanse as inscricións na web e envíase a lista definitiva ás empresas que imparten as actividades, para que organicen os grupos e a xestión dos pagos antes do comezo das clases, que comezan o <strong>%s</strong>.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Neste momento estamos a avaliar a viabilidade de cada grupo: para que unha actividade saia adiante debe acadar o número mínimo de participantes que esixe a empresa organizadora, e as que non o acaden terán que descartarse. Por iso pedímosvos que teñades en conta estes puntos:', 'anpa-socios' ) . '</p>' .
+					'<ul>' .
+					'<li><strong>' . __( 'Inscricións en grupos activos:', 'anpa-socios' ) . '</strong> ' . __( 'animámosvos a inscribir aos vosos fillos e fillas nas actividades que aínda precisan duns poucos alumnos/as para chegar ao mínimo, ou nas que xa teñen grupo creado e prazas dispoñibles.', 'anpa-socios' ) . '</li>' .
+					'<li><strong>' . __( 'Listas de espera:', 'anpa-socios' ) . '</strong> ' . __( 'se o voso fillo ou filla quedou en lista de espera polo límite de prazas, podedes mantervos nesa lista ou inscribilo/a noutra actividade que si teña prazas libres.', 'anpa-socios' ) . '</li>' .
+					'<li><strong>' . __( 'Revisión dos datos:', 'anpa-socios' ) . '</strong> ' . __( 'comprobade con atención que a actividade e o horario escollidos son os correctos. Un erro na selección pode facer que un grupo non se forme ou que outra familia quede sen praza.', 'anpa-socios' ) . '</li>' .
+					'</ul>' .
+					'<p>' . __( 'Consultade a oferta e xestionade as inscricións na web:', 'anpa-socios' ) . '</p>' .
 					'<ul>' .
 					'<li><strong>' . __( 'Oferta de actividades e horarios:', 'anpa-socios' ) . '</strong> <a href="%s">%s</a></li>' .
-					'<li><strong>' . __( 'Área de socios/as (matricular ou dar de baixa):', 'anpa-socios' ) . '</strong> <a href="%s">%s</a></li>' .
+					'<li><strong>' . __( 'Área de socios/as (matricular, cambiar ou dar de baixa):', 'anpa-socios' ) . '</strong> <a href="%s">%s</a></li>' .
 					'</ul>' .
-					'<p>' . __( 'Pasada esa data, as solicitudes quedan pendentes de aprobación pola directiva e só se atenden se hai prazas.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
+					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Moitas grazas pola vosa axuda e colaboración para que todo saia o mellor posible. Un saúdo.', 'anpa-socios' ) . '</p>',
 					array( 'data_peche', 'data_inicio_actividades', 'extraescolares_url', 'extraescolares_url', 'login_url', 'login_url', 'contact_email' ),
 				),
 				'text' => array(
 					__( 'Prezadas familias,', 'anpa-socios' ) . "\n\n" .
-					__( 'Lembrámosvos que o prazo para inscribirse (ou darse de baixa) nas actividades extraescolares a través da web remata o %s. As actividades comezan o %s.', 'anpa-socios' ) . "\n\n" .
+					__( 'Estamos na fase final do proceso de inscrición e revisión das actividades extraescolares. O prazo de revisión e axustes remata o %s: ese día péchanse as inscricións na web e envíase a lista definitiva ás empresas que imparten as actividades, para que organicen os grupos e a xestión dos pagos antes do comezo das clases, que comezan o %s.', 'anpa-socios' ) . "\n\n" .
+					__( 'Neste momento estamos a avaliar a viabilidade de cada grupo: para que unha actividade saia adiante debe acadar o número mínimo de participantes que esixe a empresa organizadora, e as que non o acaden terán que descartarse. Por iso pedímosvos que teñades en conta estes puntos:', 'anpa-socios' ) . "\n\n" .
+					'- ' . __( 'Inscricións en grupos activos:', 'anpa-socios' ) . ' ' . __( 'animámosvos a inscribir aos vosos fillos e fillas nas actividades que aínda precisan duns poucos alumnos/as para chegar ao mínimo, ou nas que xa teñen grupo creado e prazas dispoñibles.', 'anpa-socios' ) . "\n" .
+					'- ' . __( 'Listas de espera:', 'anpa-socios' ) . ' ' . __( 'se o voso fillo ou filla quedou en lista de espera polo límite de prazas, podedes mantervos nesa lista ou inscribilo/a noutra actividade que si teña prazas libres.', 'anpa-socios' ) . "\n" .
+					'- ' . __( 'Revisión dos datos:', 'anpa-socios' ) . ' ' . __( 'comprobade con atención que a actividade e o horario escollidos son os correctos. Un erro na selección pode facer que un grupo non se forme ou que outra familia quede sen praza.', 'anpa-socios' ) . "\n\n" .
+					__( 'Consultade a oferta e xestionade as inscricións na web:', 'anpa-socios' ) . "\n" .
 					'- ' . __( 'Oferta de actividades e horarios:', 'anpa-socios' ) . ' %s' . "\n" .
-					'- ' . __( 'Área de socios/as (matricular ou dar de baixa):', 'anpa-socios' ) . ' %s' . "\n\n" .
-					__( 'Pasada esa data, as solicitudes quedan pendentes de aprobación pola directiva e só se atenden se hai prazas.', 'anpa-socios' ) . "\n\n" .
-					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
+					'- ' . __( 'Área de socios/as (matricular, cambiar ou dar de baixa):', 'anpa-socios' ) . ' %s' . "\n\n" .
+					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . "\n\n" .
+					__( 'Moitas grazas pola vosa axuda e colaboración para que todo saia o mellor posible. Un saúdo.', 'anpa-socios' ),
 					array( 'data_peche', 'data_inicio_actividades', 'extraescolares_url', 'login_url', 'contact_email' ),
 				),
 			),

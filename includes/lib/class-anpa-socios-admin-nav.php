@@ -76,7 +76,7 @@ final class ANPA_Socios_Admin_Nav {
 			'sections' => array(
 				'socios'      => 'Socios/as',
 				'aprobacions' => 'Aprobacións',
-				'baixas'      => 'Baixas solicitadas',
+				'baixas'      => 'Baixas de socios',
 				'lista-gmail' => 'Lista Gmail',
 				'fillos'      => 'Fillos/as',
 				'empresas'    => 'Empresas',
