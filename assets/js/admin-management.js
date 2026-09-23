@@ -3629,18 +3629,17 @@
 					openGroupEditor(group.actividade_id || group.activity_id, group.group_id || group.grupo_id, group.serie_uid);
 				});
 				actions.appendChild(edit);
-				// 1.68.0: notices per group, only while enrolments are closed and the group is open.
-				var abertas = state.matriculasAbertas !== false;
-				var motivo = abertas ? 'As matrículas do curso están abertas: pecha o prazo en Extraescolares → Matrículas antes de avisar.' : (group.estado !== 'aberto' ? 'Só para grupos abertos.' : '');
+				// 1.68.1: the per-group notices only EXIST while the enrolment window is closed
+				// (and the gate could be read) and the group is open; otherwise nothing is shown.
+				var pechadas = state.matriculasAbertas === false;
+				if (pechadas && group.estado === 'aberto') {
 				var gid = group.group_id || group.grupo_id;
 				var nomeG = group.grupo_nome || 'Grupo';
 				var nomeA = group.actividade_nome || '';
 				var bComezo = document.createElement('button');
 				bComezo.type = 'button';
 				bComezo.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
-				bComezo.textContent = 'Notificar comezo do trimestre';
-				bComezo.disabled = !!motivo;
-				if (motivo) { bComezo.title = motivo; }
+				bComezo.textContent = 'Notificar grupo creado (comezo do trimestre)';
 				bComezo.addEventListener('click', function () {
 					if (!window.confirm('Avisar ás familias inscritas no grupo «' + nomeG + '» de «' + nomeA + '» (e á empresa) de que o grupo queda confirmado e comeza o trimestre? As de lista de espera reciben outro correo. Envío en CCO por lotes, coa xunta como destinatario visible.')) { return; }
 					anpaAdminFetch('grupo/' + gid + '/notificar-comezo', { method: 'POST' }).then(function (r) {
@@ -3653,18 +3652,19 @@
 				bMin.type = 'button';
 				bMin.className = 'anpa-mgmt-btn anpa-mgmt-btn-danger';
 				bMin.textContent = 'Pechar por non acadar o mínimo';
-				var motivoMin = motivo || (group.min_pupilos < 1 ? 'O grupo non ten mínimo configurado.' : (group.activos >= group.min_pupilos ? 'O grupo acada o mínimo (' + group.activos + ' de ' + group.min_pupilos + ').' : ''));
+				var motivoMin = group.min_pupilos < 1 ? 'O grupo non ten mínimo configurado.' : (group.activos >= group.min_pupilos ? 'O grupo acada o mínimo (' + group.activos + ' de ' + group.min_pupilos + ').' : '');
 				bMin.disabled = !!motivoMin;
 				if (motivoMin) { bMin.title = motivoMin; }
 				bMin.addEventListener('click', function () {
-					if (!window.confirm('Pechar o grupo «' + nomeG + '» de «' + nomeA + '» por non acadar o mínimo (' + group.activos + ' de ' + group.min_pupilos + ')? O grupo pasa a pechado (deixa de aparecer na oferta e na área), as súas matrículas e as de lista de espera pasan a baixa, e as familias e a empresa reciben o correo «grupo_pechado_minimo». Esta acción non se pode desfacer.')) { return; }
+					if (!window.confirm('Pechar o grupo «' + nomeG + '» de «' + nomeA + '» por non acadar o mínimo (' + group.activos + ' de ' + group.min_pupilos + ')? O grupo queda deshabilitado (desaparece de Grupos e horarios, da oferta e da área; pódese reactivar dende Actividades → grupos), as súas matrículas e as de lista de espera pasan a baixa, e as familias e a empresa reciben o correo «grupo_pechado_minimo». Esta acción non se pode desfacer.')) { return; }
 					anpaAdminFetch('grupo/' + gid + '/pechar-minimo', { method: 'POST' }).then(function (r) {
 						var e = (r && r.envio) || {};
-						showMessage('Grupo pechado; matrículas dadas de baixa: ' + (r && r.matriculas_baixa) + '. Correo enviado a ' + (e.enviados || 0) + ' de ' + (e.destinatarios || 0) + ' destinatarios.', e.fallidos ? 'warning' : 'success');
+						showMessage('Grupo deshabilitado; matrículas dadas de baixa: ' + (r && r.matriculas_baixa) + '. Correo enviado a ' + (e.enviados || 0) + ' de ' + (e.destinatarios || 0) + ' destinatarios.', e.fallidos ? 'warning' : 'success');
 						renderCourse(state.curso);
 					}).catch(function (err) { showMessage(err.message, 'error'); });
 				});
 				actions.appendChild(bMin);
+				}
 				card.appendChild(actions);
 			}
 			return card;
@@ -3819,7 +3819,7 @@
 			Promise.all([anpaAdminFetch('grupos-horarios?curso_escolar=' + encodeURIComponent(curso)), gateReq]).then(function (res) {
 				var resp = res[0];
 				state.matriculasAbertas = res[1];
-				status.textContent = 'Curso cargado: ' + curso + (res[1] ? ' · matrículas ABERTAS (os avisos por grupo actívanse ao pechar o prazo)' : ' · matrículas pechadas');
+				status.textContent = 'Curso cargado: ' + curso + (res[1] ? ' · matrículas ABERTAS (os avisos por grupo aparecen ao pechar o prazo)' : ' · matrículas pechadas: cada grupo aberto ten os botóns de aviso');
 				renderView(resp);
 			}).catch(function (e) {
 				status.textContent = 'Erro ao cargar ' + curso + '.';
