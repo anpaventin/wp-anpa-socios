@@ -89,7 +89,7 @@
 				return null;
 			}
 			var ct = resp.headers.get('content-type') || '';
-			if (ct.indexOf('text/csv') !== -1) {
+			if (ct.indexOf('text/csv') !== -1 || ct.indexOf('opendocument') !== -1) {
 				return resp.blob();
 			}
 			return resp.json();
@@ -500,7 +500,22 @@
 			exportServerCsv(section, 'anpa-' + section + '.csv', onDone);
 		});
 		container.appendChild(btn);
+		// 1.74.0: the same listing as a spreadsheet (.ods). The CSV stays: it is the import format.
+		var ods = document.createElement('button');
+		ods.type = 'button';
+		ods.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
+		ods.textContent = 'Exportar folla (.ods)';
+		ods.addEventListener('click', function () {
+			var d = new Date();
+			var data = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+			anpaAdminFetch('export/' + section + '?formato=ods').then(function (blob) {
+				downloadBlob(blob, 'ANPA - ' + (ODS_LABELS[section] || section) + ' - ' + data + '.ods');
+				if (typeof onDone === 'function') { onDone(); }
+			}).catch(function (e) { showMessage(e.message || 'Erro ao exportar', 'error'); });
+		});
+		container.appendChild(ods);
 	}
+	var ODS_LABELS = { socios: 'Socios', fillos: 'Fillos', empresas: 'Empresas', actividades: 'Actividades', matriculas: 'Matriculas' };
 
 	// ── Server CSV export (via REST) ──────────────────────────────────
 	function exportServerCsv(entity, filename, onDone) {
@@ -1048,9 +1063,17 @@
 
 	/** 1.73.0: «Aprobacións (N)» on the nav button, N = everything waiting for the junta. */
 	function setAprobacionsCount(n) {
+		setNavCount('aprobacions', 'Aprobacións', n);
+	}
+
+	/** 1.74.0: «Label (N)» on a nav button; buttons with something pending stand out. */
+	function setNavCount(section, label, n) {
 		if (!navEl) { return; }
-		var btn = navEl.querySelector('button[data-section="aprobacions"]');
-		if (btn) { btn.textContent = 'Aprobacións (' + (parseInt(n, 10) || 0) + ')'; }
+		var btn = navEl.querySelector('button[data-section="' + section + '"]');
+		if (!btn) { return; }
+		var num = parseInt(n, 10) || 0;
+		btn.textContent = label + ' (' + num + ')';
+		btn.classList.toggle('anpa-mgmt-nav-pendente', num > 0);
 	}
 
 	function renderApprovals(rows, historyRows, pendentes, baixas) {
@@ -3075,6 +3098,7 @@
 		anpaAdminFetch('baixas-pendentes').then(function (data) {
 			card.textContent = '';
 			var mats = data && Array.isArray(data.matriculas) ? data.matriculas : [];
+			setNavCount('matriculas', 'Matrículas', mats.length);
 			var h3m = document.createElement('h3');
 			h3m.textContent = 'Baixas de actividades pendentes (' + mats.length + ')';
 			card.appendChild(h3m);

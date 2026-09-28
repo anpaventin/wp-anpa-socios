@@ -573,6 +573,11 @@ class ANPA_Socios_Empresa_REST {
 		if ( $empresa_id <= 0 && ! self::is_comedor_profile( $profile ) ) {
 			return new WP_Error( 'anpa_empresa_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
+		// 1.74.0: spreadsheet in the panel's format — one file per activity for a company,
+		// the complete list for the canteen.
+		if ( 'ods' === sanitize_key( (string) $request->get_param( 'formato' ) ) ) {
+			return self::export_ods( $request, is_array( $profile ) ? $profile : array(), $empresa_id );
+		}
 
 		// 1.55.0: ?ambito=activos (default) | todos — the current course's groups only.
 		$ambito  = sanitize_key( (string) $request->get_param( 'ambito' ) );
@@ -622,6 +627,55 @@ class ANPA_Socios_Empresa_REST {
 		}, 10, 2 );
 
 		return $response;
+	}
+
+	/**
+	 * GET /empresa/me/export?formato=ods[&actividad_id=N] (1.74.0).
+	 *
+	 * Company: one activity of its own (404 otherwise), every state, as the panel
+	 * shows it. Canteen: every company's active pupils. File name: «Empresa -
+	 * Actividade - data.ods» / «Comedor - Listado completo - data.ods».
+	 *
+	 * @param  WP_REST_Request     $request    Incoming request.
+	 * @param  array<string,mixed> $profile    Authenticated principal.
+	 * @param  int                 $empresa_id Company id (0 for the canteen).
+	 * @return WP_REST_Response|WP_Error
+	 */
+	private static function export_ods( WP_REST_Request $request, array $profile, int $empresa_id ) {
+		global $wpdb;
+		$comedor = self::is_comedor_profile( $profile );
+		$curso   = ANPA_Socios_Curso_Activo::get();
+		if ( $comedor ) {
+			$rows   = ANPA_Socios_Alumnos_Export::rows_panel_empresa( 0, $curso, true );
+			$folla  = __( 'Listado completo', 'anpa-socios' );
+			$partes = array( __( 'Comedor', 'anpa-socios' ), __( 'Listado completo', 'anpa-socios' ) );
+		} else {
+			$act_id = (int) $request->get_param( 'actividad_id' );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- ownership check scoped to the authenticated company.
+			$act = $act_id > 0 ? $wpdb->get_row( $wpdb->prepare( 'SELECT id, nome FROM ' . ANPA_Socios_DB::tabela_actividades() . ' WHERE id = %d AND empresa_id = %d', $act_id, $empresa_id ), ARRAY_A ) : null;
+			if ( ! is_array( $act ) ) {
+				return new WP_Error( 'anpa_empresa_actividade', __( 'Actividade non atopada', 'anpa-socios' ), array( 'status' => 404 ) );
+			}
+			$todas = ANPA_Socios_Alumnos_Export::rows_panel_empresa( $empresa_id, $curso, false );
+			$rows  = null === $todas ? null : array_values( array_filter( $todas, static function ( array $r ) use ( $act_id ): bool {
+				return (int) ( $r['actividad_id'] ?? 0 ) === $act_id;
+			} ) );
+			$folla  = (string) $act['nome'];
+			$partes = array( (string) ( $profile['nome'] ?? '' ), (string) $act['nome'] );
+		}
+		if ( null === $rows ) {
+			return new WP_Error( 'anpa_empresa_db_error', 'Erro interno ao exportar', array( 'status' => 500 ) );
+		}
+		$filas = array();
+		foreach ( $rows as $r ) {
+			$filas[] = ANPA_Socios_Listado_Empresa::fila( $r, $comedor );
+		}
+		$bytes = ANPA_Socios_Ods::documento( array( array( 'nome' => $folla, 'cabeceira' => ANPA_Socios_Listado_Empresa::cabeceira( $comedor ), 'filas' => $filas ) ) );
+		if ( null === $bytes ) {
+			return new WP_Error( 'anpa_empresa_ods', __( 'Non se puido xerar a folla de cálculo neste servidor. Descarga o CSV.', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		ANPA_Socios_Admin_Shared::write_audit_actor( (string) ( $profile['email'] ?? '' ), 'empresa', 'export', (string) count( $rows ), $comedor ? 'export_ods_comedor' : 'export_ods_empresa' );
+		return ANPA_Socios_Descarga::resposta( $bytes, ANPA_Socios_Ods::MIME, ANPA_Socios_Listado_Empresa::nome_ficheiro( $partes, current_time( 'Y-m-d' ), 'ods' ) );
 	}
 
 	// ──────────────────────────────────────────────

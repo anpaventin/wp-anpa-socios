@@ -881,3 +881,10 @@
 /* 1.70.0: parents' contact cells in the company / canteen listing. */
 #anpa-area .anpa-empresa-alumnos td.anpa-empresa-contacto { min-width: 11rem; }
 #anpa-area .anpa-empresa-alumnos td.anpa-empresa-contacto a { overflow-wrap: anywhere; }
+
+/* 1.74.0: per-activity spreadsheet button and the CSV column guide. */
+#anpa-area .anpa-empresa-ods { margin: 0 0 0.5rem; }
+#anpa-area .anpa-empresa-csv-guia { margin: 0.5rem 0 1rem; }
+#anpa-area .anpa-empresa-csv-guia dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 0.75rem; margin: 0.5rem 0 0; font-size: 0.9em; }
+#anpa-area .anpa-empresa-csv-guia dd { margin: 0; }
+@media (max-width: 600px) { #anpa-area .anpa-empresa-csv-guia dl { grid-template-columns: 1fr; } }

@@ -27,7 +27,9 @@ final class Test_ANPA_Socios_Aprobacions_Operacions extends TestCase {
 		$this->assertStringContainsString( "WHERE baixa_estado = 'solicitada' AND estado = 'activo' AND rol <> 'master'", $h );
 		$this->assertStringContainsString( "\$out['total']  = \$out['socios'] + \$out['matriculas'] + \$out['baixas'];", $h );
 		$page = $this->src( 'includes/class-anpa-socios-admin-management-page.php' );
-		$this->assertStringContainsString( "\$label  = (string) \$label . ' (' . (int) \$contas['total'] . ')';", $page );
+		$this->assertStringContainsString( "\$pendentes = (int) ( 'aprobacions' === \$slug ? \$contas['total'] : \$contas['baixas_actividades'] );", $page );
+		$this->assertStringContainsString( "\$label     = (string) \$label . ' (' . \$pendentes . ')';", $page );
+		$this->assertStringContainsString( "\$pendentes > 0 ? ' class=\"anpa-mgmt-nav-pendente\"' : ''", $page );
 	}
 
 	public function test_contas_are_zero_without_a_database(): void {
@@ -35,7 +37,7 @@ final class Test_ANPA_Socios_Aprobacions_Operacions extends TestCase {
 		$saved = $GLOBALS['wpdb'] ?? null;
 		$GLOBALS['wpdb'] = null;
 		try {
-			$this->assertSame( array( 'socios' => 0, 'matriculas' => 0, 'baixas' => 0, 'total' => 0 ), ANPA_Socios_Admin_Approvals_Handler::contas_pendentes() );
+			$this->assertSame( array( 'socios' => 0, 'matriculas' => 0, 'baixas' => 0, 'total' => 0, 'baixas_actividades' => 0 ), ANPA_Socios_Admin_Approvals_Handler::contas_pendentes() );
 		} finally {
 			$GLOBALS['wpdb'] = $saved;
 		}
@@ -58,7 +60,10 @@ final class Test_ANPA_Socios_Aprobacions_Operacions extends TestCase {
 		$this->assertLessThan( $hist, $baixa );
 		$this->assertStringContainsString( "introS.textContent = 'Altas na asociación feitas polas familias", $body );
 		$this->assertStringContainsString( 'setAprobacionsCount(list.length + pendCount + baixasSocios.length);', $body );
-		$this->assertStringContainsString( "btn.textContent = 'Aprobacións (' + (parseInt(n, 10) || 0) + ')';", $js );
+		$this->assertStringContainsString( "setNavCount('aprobacions', 'Aprobacións', n);", $js );
+		$this->assertStringContainsString( "btn.textContent = label + ' (' + num + ')';", $js );
+		$this->assertStringContainsString( "btn.classList.toggle('anpa-mgmt-nav-pendente', num > 0);", $js );
+		$this->assertStringContainsString( "setNavCount('matriculas', 'Matrículas', mats.length);", $js );
 		// After confirming or rejecting a baixa the whole Aprobacións view reloads.
 		$block = substr( $js, (int) strpos( $js, 'function renderBaixasSocios(data)' ), 6000 );
 		$this->assertStringContainsString( 'loadApprovals();', $block );

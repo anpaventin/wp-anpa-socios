@@ -794,6 +794,24 @@ class ANPA_Socios_Email {
 	}
 
 	/**
+	 * 1.74.0: Monday reminder to the junta of what waits in Operacións → Aprobacións.
+	 *
+	 * @since  1.74.0
+	 * @param  array<string,int> $contas ANPA_Socios_Admin_Approvals_Handler::contas_pendentes().
+	 * @return bool
+	 */
+	public static function enviar_aprobacions_pendentes( array $contas ): bool {
+		$url = function_exists( 'admin_url' ) ? admin_url( 'admin.php?page=' . ANPA_Socios_Admin_Management_Page::MANAGEMENT_SLUG . '&section=aprobacions' ) : '';
+		return self::send_template( self::junta_email(), 'aprobacions_pendentes_semanal', array(
+			'total'       => (string) (int) ( $contas['total'] ?? 0 ),
+			'socios'      => (string) (int) ( $contas['socios'] ?? 0 ),
+			'matriculas'  => (string) (int) ( $contas['matriculas'] ?? 0 ),
+			'baixas'      => (string) (int) ( $contas['baixas'] ?? 0 ),
+			'xestion_url' => $url,
+		) );
+	}
+
+	/**
 	 * 1.71.0: the family accepted a waitlist offer and the pupil is in the group.
 	 *
 	 * @since  1.71.0

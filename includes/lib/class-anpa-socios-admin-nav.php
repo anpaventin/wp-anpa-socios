@@ -75,7 +75,6 @@ final class ANPA_Socios_Admin_Nav {
 			'label'    => 'Socios',
 			'sections' => array(
 				'socios'      => 'Socios/as',
-				'lista-gmail' => 'Lista Gmail',
 				'fillos'      => 'Fillos/as',
 			),
 		),
@@ -95,6 +94,8 @@ final class ANPA_Socios_Admin_Nav {
 				// 1.73.0: one place for everything waiting for the junta (member signups,
 				// out-of-window enrolments, member baixas).
 				'aprobacions'       => 'Aprobacións',
+				// 1.74.0: a periodic export task, next to the other operations.
+				'lista-gmail'       => 'Lista Gmail',
 				'importar-listados' => 'Importar listados',
 				'auditoria'         => 'Auditoría',
 			),

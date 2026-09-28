@@ -95,6 +95,7 @@ final class ANPA_Socios_Admin_Management_Page {
 
 		// Section navigation grouped by domain.
 		echo '<nav class="anpa-mgmt-nav" aria-label="' . esc_attr__( 'Seccións de xestión', 'anpa-socios' ) . '">';
+		$contas = null;
 		foreach ( $groups as $group_slug => $group ) {
 			$group_id    = 'anpa-mgmt-nav-group-' . $group_slug;
 			$group_label = isset( $group['label'] ) ? (string) $group['label'] : ucfirst( (string) $group_slug );
@@ -105,14 +106,20 @@ final class ANPA_Socios_Admin_Management_Page {
 			echo '<div class="anpa-mgmt-nav-buttons" role="tablist" aria-label="' . esc_attr( $group_label ) . '">';
 			foreach ( $sections as $slug => $label ) {
 				// 1.73.0: «Aprobacións (N)», N = everything waiting for the junta (0 included).
-				if ( 'aprobacions' === $slug && class_exists( 'ANPA_Socios_Admin_Approvals_Handler' ) ) {
-					$contas = ANPA_Socios_Admin_Approvals_Handler::contas_pendentes();
-					$label  = (string) $label . ' (' . (int) $contas['total'] . ')';
+				// 1.74.0: «Matrículas (N)» = activity baixas to confirm; buttons with N > 0 stand out.
+				$pendentes = -1;
+				if ( in_array( $slug, array( 'aprobacions', 'matriculas' ), true ) && class_exists( 'ANPA_Socios_Admin_Approvals_Handler' ) ) {
+					if ( null === $contas ) {
+						$contas = ANPA_Socios_Admin_Approvals_Handler::contas_pendentes();
+					}
+					$pendentes = (int) ( 'aprobacions' === $slug ? $contas['total'] : $contas['baixas_actividades'] );
+					$label     = (string) $label . ' (' . $pendentes . ')';
 				}
 				printf(
-					'<button type="button" role="tab" data-section="%s" aria-controls="anpa-management-root" aria-selected="%s">%s</button>',
+					'<button type="button" role="tab" data-section="%s" aria-controls="anpa-management-root" aria-selected="%s"%s>%s</button>',
 					esc_attr( $slug ),
 					$active_section === $slug ? 'true' : 'false',
+					$pendentes > 0 ? ' class="anpa-mgmt-nav-pendente"' : '',
 					esc_html( (string) $label )
 				);
 			}

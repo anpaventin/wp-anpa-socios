@@ -1159,3 +1159,7 @@
 
 /* 1.71.0: state + notice summary at the top of the group form. */
 .anpa-grupo-form-resumo { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 0 0 1rem; }
+
+/* 1.74.0: nav buttons with something pending (Aprobacións, Matrículas). */
+.anpa-mgmt-nav button.anpa-mgmt-nav-pendente { background: #fff4e5; border-color: #d98300; color: #6b3f00; font-weight: 600; }
+.anpa-mgmt-nav button.anpa-mgmt-nav-pendente[aria-selected="true"] { box-shadow: inset 0 -3px 0 #d98300; }

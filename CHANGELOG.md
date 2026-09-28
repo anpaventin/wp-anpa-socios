@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.74.0] - 2026-09-30
+
+### Added
+
+- **Follas de cálculo (.ods).** Xerador propio (sen librarías; todas as celas como texto, sen fórmulas) que se abre en
+  Excel, LibreOffice e Google Sheets.
+  - **Empresa:** botón «Descargar folla de cálculo (.ods)» en cada actividade do panel (só as súas: comprobación
+    `id + empresa_id`); todas as matrículas desa actividade co mesmo formato ca a táboa da web (Actividade, Grupo,
+    Alumno/a, Curso, Estado, Opcións e autorizacións, 1º e 2º proxenitor con nome, teléfono e correo en liñas).
+  - **Comedor:** «Descargar listado completo (.ods)» co alumnado activo de todas as empresas e a columna Empresa.
+  - **Xestión:** «Exportar folla (.ods)» xunto a cada «Exportar CSV» (mesmas columnas; o CSV segue sendo o formato de
+    importación). `GET …/export?formato=ods`.
+  - Nomes descritivos: «Empresa - Actividade - AAAA-MM-DD.ods», «Comedor - Listado completo - AAAA-MM-DD.ods»,
+    «Empresa - Activos - …csv», «ANPA - Matriculas - …ods» (cabeceira `filename*` UTF-8).
+- **Guía do CSV** no panel de empresa e comedor: «Que significa cada columna do CSV?» con cada campo e os seus códigos
+  (`si/non/na`, `comedor/familia/na`, `0/1`, estados).
+- **Aviso semanal á xunta** os luns ás 10:00 (hora de WordPress) só se hai algo en Operacións → Aprobacións (plantilla
+  editable `aprobacions_pendentes_semanal`, coas tres contas e a ligazón). Evento único que se reprograma cada semana
+  (a hora non se despraza co cambio de hora). WP-Cron execútase coas visitas: sen visitas ás 10:00 sae coa primeira
+  seguinte.
+- **Menú:** Lista Gmail pasa a Operacións (tras Aprobacións); «Matrículas (N)» coas baixas de actividades pendentes;
+  os botóns con pendentes (N > 0) destácanse en ámbar.
+
+### Changed
+
+- Exportación de matrículas de Xestión (CSV e .ods) e importación: engaden `autorizacion_comedor`,
+  `tarde_transicion`, `tardes_divertidas_continua`, `recollida_autorizada` e `cesion_datos_empresa` (a importación
+  valídaas: `Si`/` si` tamén valen; valor seguro por defecto).
+- Os botóns CSV do panel pasan a secundarios («CSV: só activos», «CSV: listado completo»).
+
 ## [1.73.0] - 2026-09-29
 
 ### Changed

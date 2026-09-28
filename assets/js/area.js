@@ -1632,7 +1632,7 @@
 			return data;
 		}
 
-		const EMPRESA_ESTADO_LABELS = { activo: 'Activa', lista_espera: 'Lista de espera', oferta: 'Oferta de praza', baixa_solicitada: 'Baixa solicitada', baixa: 'Baixa' };
+		const EMPRESA_ESTADO_LABELS = { activo: 'Activa', lista_espera: 'Lista de espera', oferta: 'Oferta de praza', baixa_solicitada: 'Baixa solicitada', pendente_aprobacion: 'Pendente de aprobación', baixa: 'Baixa' };
 
 		/** Human summary of the options and authorisations chosen by the family (1.56.0). */
 		function opcionsLabel(r) {
@@ -1683,7 +1683,13 @@
 			const btnTodos = root.querySelector('[data-action="empresa-export"][data-ambito="todos"]');
 			if (btnTodos) { btnTodos.hidden = comedor; }
 			const btnActivos = root.querySelector('[data-action="empresa-export"][data-ambito="activos"]');
-			if (btnActivos) { btnActivos.textContent = comedor ? __( 'Descargar listado completo sen baixas (CSV)', 'anpa-socios' ) : __( 'Descargar só activos (CSV)', 'anpa-socios' ); }
+			if (btnActivos) { btnActivos.textContent = comedor ? __( 'CSV: listado completo sen baixas', 'anpa-socios' ) : __( 'CSV: só activos', 'anpa-socios' ); }
+			// 1.74.0: the canteen downloads the complete list as a spreadsheet; companies get one per activity below.
+			const btnOdsComedor = root.querySelector('[data-action="empresa-export-ods-comedor"]');
+			if (btnOdsComedor) { btnOdsComedor.hidden = !comedor; }
+			const odsAxuda = root.querySelector('[data-empresa-ods-axuda]');
+			if (odsAxuda) { odsAxuda.hidden = comedor; }
+			empresaPerfil = profile;
 			set('[data-empresa-nome]', profile.nome);
 			set('[data-empresa-email]', profile.email);
 			set('[data-empresa-responsable]', profile.responsable);
@@ -1707,6 +1713,17 @@
 				}
 				acts.forEach(function (a) {
 					const h4 = document.createElement('h4'); h4.textContent = a.nome + (comedor && a.empresa ? ' — ' + a.empresa : '') + (a.estado === 'inactivo' ? ' (' + __( 'inactiva', 'anpa-socios' ) + ')' : ''); actHost.appendChild(h4);
+					// 1.74.0: one spreadsheet per activity for the company: «Empresa - Actividade - data.ods».
+					if (!comedor) {
+						const odsBtn = document.createElement('button');
+						odsBtn.type = 'button';
+						odsBtn.className = 'anpa-empresa-ods';
+						odsBtn.textContent = __( 'Descargar folla de cálculo (.ods)', 'anpa-socios' );
+						odsBtn.addEventListener('click', function () {
+							descargarEmpresa('formato=ods&actividad_id=' + encodeURIComponent(String(a.id)), nomeFicheiro([profile.nome, a.nome], 'ods'));
+						});
+						actHost.appendChild(odsBtn);
+					}
 					const ul = document.createElement('ul'); ul.className = 'anpa-extra-mine';
 					(a.grupos || []).forEach(function (g) {
 						const li = document.createElement('li');
@@ -1881,9 +1898,26 @@
 			showSessionHeader(profile.email || '');
 		}
 
-		// Empresa export: download CSV via authenticated fetch (two scopes: activos | todos).
-		root.querySelectorAll('[data-action="empresa-export"]').forEach(function (exportBtn) { exportBtn.addEventListener('click', async () => {
-			const ambito = exportBtn.dataset.ambito === 'todos' ? 'todos' : 'activos';
+		// 1.74.0: every download of the company / canteen panel goes through here:
+		// CSV (activos | todos) and the .ods spreadsheet (one per activity for a
+		// company, the complete list for the canteen). The file name comes from the
+		// server (Content-Disposition) and falls back to a descriptive one.
+		let empresaPerfil = null;
+		function hoxeIso() {
+			const d = new Date();
+			return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+		}
+		function nomeFicheiro(partes, ext) {
+			const limpas = partes.map(function (p) { return String(p || '').replace(/[\/\\]/g, '-').replace(/[<>:"|?*]/g, '').replace(/\s+/g, ' ').trim(); }).filter(Boolean);
+			return (limpas.length ? limpas.join(' - ') : 'Listado') + ' - ' + hoxeIso() + '.' + ext;
+		}
+		function nomeDaResposta(response, fallback) {
+			const cd = response.headers.get('Content-Disposition') || '';
+			const m = /filename\*=UTF-8''([^;]+)/i.exec(cd);
+			if (m) { try { return decodeURIComponent(m[1]); } catch (_) { /* fall back */ } }
+			return fallback;
+		}
+		async function descargarEmpresa(query, nomeFallback) {
 			showMessage(root, '', 'info');
 			if (!empresaToken) {
 				showStep(root, 'email');
@@ -1894,7 +1928,7 @@
 			let response;
 			try {
 				const sepx = String(root.dataset.empresaExportUrl || '').indexOf('?') === -1 ? '?' : '&';
-				response = await fetch(root.dataset.empresaExportUrl + sepx + 'ambito=' + ambito, {
+				response = await fetch(root.dataset.empresaExportUrl + sepx + query, {
 					method: 'GET',
 					headers: { 'X-Anpa-Empresa-Token': empresaToken },
 				});
@@ -1911,7 +1945,9 @@
 			}
 
 			if (!response.ok) {
-				showMessage(root, __( 'Non foi posible descargar o ficheiro.', 'anpa-socios' ), 'error');
+				let msg = __( 'Non foi posible descargar o ficheiro.', 'anpa-socios' );
+				try { const j = await response.json(); if (j && j.message) { msg = j.message; } } catch (_) { /* keep the generic message */ }
+				showMessage(root, msg, 'error');
 				return;
 			}
 
@@ -1919,7 +1955,7 @@
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement('a');
 			a.href = url;
-			a.download = 'alumnos-empresa-' + ambito + '.csv';
+			a.download = nomeDaResposta(response, nomeFallback);
 			a.rel = 'noopener';
 			a.style.display = 'none';
 			document.body.appendChild(a);
@@ -1937,7 +1973,22 @@
 					? __( 'Aviso: as matrículas do %dº trimestre están abertas; este listado pode cambiar por altas e baixas.', 'anpa-socios' ).replace('%d', String(tri))
 					: __( 'Aviso: as matrículas están abertas; este listado pode cambiar por altas e baixas.', 'anpa-socios' )), 'warning');
 			}
+		}
+
+		// CSV (secondary): «Empresa - Activos - data.csv» / «Comedor - Listado completo - data.csv».
+		root.querySelectorAll('[data-action="empresa-export"]').forEach(function (exportBtn) { exportBtn.addEventListener('click', function () {
+			const ambito = exportBtn.dataset.ambito === 'todos' ? 'todos' : 'activos';
+			const comedor = empresaPerfil && empresaPerfil.tipo === 'comedor';
+			const partes = comedor
+				? [__( 'Comedor', 'anpa-socios' ), __( 'Listado completo', 'anpa-socios' )]
+				: [empresaPerfil ? empresaPerfil.nome : '', ambito === 'todos' ? __( 'Listado completo', 'anpa-socios' ) : __( 'Activos', 'anpa-socios' )];
+			descargarEmpresa('ambito=' + ambito, nomeFicheiro(partes, 'csv'));
 		}); });
+
+		// Spreadsheet for the canteen: the complete list.
+		bind('[data-action="empresa-export-ods-comedor"]', 'click', function () {
+			descargarEmpresa('formato=ods', nomeFicheiro([__( 'Comedor', 'anpa-socios' ), __( 'Listado completo', 'anpa-socios' )], 'ods'));
+		});
 
 		// Empresa logout
 		bind('[data-action="empresa-logout"]', 'click', async () => {

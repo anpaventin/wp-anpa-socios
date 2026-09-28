@@ -758,7 +758,7 @@ final class ANPA_Socios_Admin_Settings {
 			'<tr><th scope="row"><label for="cfg-google">%s</label></th><td><input name="google_contacts_email" id="cfg-google" type="email" class="regular-text" value="%s"><p class="description">%s</p></td></tr>',
 			esc_html__( 'Conta de Google da xunta (Lista Gmail)', 'anpa-socios' ),
 			esc_attr( ANPA_Socios_Config::google_contacts_email() ),
-			esc_html__( 'Opcional. Correo da conta de Gmail onde se mantén a etiqueta «Socios Web ANPA». Só serve para que o botón «Abrir Google Contactos» de Xestión → Socios → Lista Gmail abra esa conta cando hai varias sesións de Google iniciadas; a web nunca escribe en Google.', 'anpa-socios' )
+			esc_html__( 'Opcional. Correo da conta de Gmail onde se mantén a etiqueta «Socios Web ANPA». Só serve para que o botón «Abrir Google Contactos» de Xestión → Operacións → Lista Gmail abra esa conta cando hai varias sesións de Google iniciadas; a web nunca escribe en Google.', 'anpa-socios' )
 		);
 
 		// 1.63.0: links used by the start-of-year email (template «inicio_curso»).
@@ -766,7 +766,7 @@ final class ANPA_Socios_Admin_Settings {
 			'<tr><th scope="row"><label for="cfg-instrucions">%s</label></th><td><input name="instrucions_url" id="cfg-instrucions" type="url" class="regular-text" value="%s" placeholder="https://"><p class="description">%s</p></td></tr>',
 			esc_html__( 'Entrada coas instrucións para as familias', 'anpa-socios' ),
 			esc_attr( ANPA_Socios_Config::instrucions_url() ),
-			esc_html__( 'URL da entrada do blog coas instrucións de alta, acceso, modificación de datos, extraescolares e baixas. Vai no correo de inicio de curso (Xestión → Socios → Lista Gmail). Se queda baleira, o correo liga á área de socios.', 'anpa-socios' )
+			esc_html__( 'URL da entrada do blog coas instrucións de alta, acceso, modificación de datos, extraescolares e baixas. Vai no correo de inicio de curso (Xestión → Operacións → Lista Gmail). Se queda baleira, o correo liga á área de socios.', 'anpa-socios' )
 		);
 		printf(
 			'<tr><th scope="row"><label for="cfg-extraescolares">%s</label></th><td><input name="extraescolares_url" id="cfg-extraescolares" type="url" class="regular-text" value="%s" placeholder="https://"><p class="description">%s</p></td></tr>',
@@ -2718,7 +2718,7 @@ final class ANPA_Socios_Admin_Settings {
 		echo '</ul>';
 		$h3( __( 'Lista de correo en Gmail («Socios Web ANPA»)', 'anpa-socios' ) );
 		echo '<ul>';
-		$li( __( 'Xestión → Socios → Lista Gmail exporta os socios/as activos nun CSV co formato de Google Contactos (etiqueta «Socios Web ANPA» incluída) e lembra a última exportación: amosa cantas altas e baixas houbo desde entón e se fai falta importar de novo.', 'anpa-socios' ) );
+		$li( __( 'Xestión → Operacións → Lista Gmail exporta os socios/as activos nun CSV co formato de Google Contactos (etiqueta «Socios Web ANPA» incluída) e lembra a última exportación: amosa cantas altas e baixas houbo desde entón e se fai falta importar de novo.', 'anpa-socios' ) );
 		$li( __( 'Pasos: confirmar as baixas pendentes en Operacións → Aprobacións (se non se confirman, eses correos seguen na lista) → Descargar CSV → Abrir Google Contactos coa conta da xunta → eliminar a etiqueta «Socios Web ANPA» cos seus contactos → Importar o CSV. A web non escribe en Google: é un proceso manual de tres pulsacións.', 'anpa-socios' ) );
 		$li( __( 'Se desde a última exportación só houbo altas, «Descargar só as altas novas» dá un CSV cos correos novos para importalos SEN eliminar a etiqueta (súmanse á que xa existe); as baixas seguen en Google ata facer o proceso completo.', 'anpa-socios' ) );
 		$li( __( 'Gmail limita os envíos a 500 destinatarios ao día (2.000 nunha conta de Google Workspace): usa a etiqueta en CCO. É o único camiño para avisos a toda a asociación; a web non fai envíos masivos.', 'anpa-socios' ) );
@@ -2764,7 +2764,7 @@ final class ANPA_Socios_Admin_Settings {
 		// 5. Comunicacións.
 		echo '<section id="comunicacions" class="card"><h2>' . esc_html( $sections['comunicacions'] ) . '</h2><ul>';
 		$li( __( 'Plantillas de Email: dez correos automáticos (código de verificación, benvida, alta pendente, aprobación, rexeitamento, baixa, oferta de praza, aviso á xunta…). Admiten variables, teñen vista previa e envíanse ao momento. «Restaurar» volve ao texto por defecto en galego.', 'anpa-socios' ) );
-		$li( __( 'Envíos masivos ás familias: NON se fan desde a web. A cola de campañas da fase 35 («Rexistro de envíos») retirouse na 1.64.0 porque nunca chegou a ter unha pantalla para lanzar campañas e quedaba sempre baleira. O camiño é Xestión → Socios → Lista Gmail: exportar os socios/as á etiqueta de Google Contactos e enviar dende a conta da xunta (en CCO), onde ademais chegan as respostas das familias.', 'anpa-socios' ) );
+		$li( __( 'Envíos masivos ás familias: NON se fan desde a web. A cola de campañas da fase 35 («Rexistro de envíos») retirouse na 1.64.0 porque nunca chegou a ter unha pantalla para lanzar campañas e quedaba sempre baleira. O camiño é Xestión → Operacións → Lista Gmail: exportar os socios/as á etiqueta de Google Contactos e enviar dende a conta da xunta (en CCO), onde ademais chegan as respostas das familias.', 'anpa-socios' ) );
 		$li( __( 'O envío real dos correos automáticos depende de WP Mail SMTP: se algún non chega, revisa alí a autorización da conta.', 'anpa-socios' ) );
 		echo '</ul></section>';
 

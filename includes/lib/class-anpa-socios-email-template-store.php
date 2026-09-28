@@ -305,7 +305,7 @@ final class ANPA_Socios_Email_Template_Store {
 				),
 			),
 			// 1.62.0: start-of-year email. Sent to the junta's own inbox (Xestión →
-			// Socios → Lista Gmail) and forwarded from Gmail to the «Socios Web ANPA»
+			// Operacións → Lista Gmail) and forwarded from Gmail to the «Socios Web ANPA»
 			// label, so WordPress never mails hundreds of families at once.
 			'inicio_curso' => array(
 				'subject' => array(
@@ -599,6 +599,31 @@ final class ANPA_Socios_Email_Template_Store {
 					__( 'Opcións e autorizacións: %s', 'anpa-socios' ) . "\n\n" .
 					__( 'O listado actualizado está sempre no panel de empresa e do comedor da web. Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
 					array( 'actividade', 'grupo_orixe', 'grupo', 'trimestre', 'alumno', 'curso', 'empresa', 'proxenitor1', 'proxenitor2', 'opcions', 'contact_email' ),
+				),
+			),
+			// 1.74.0: aviso semanal á xunta (luns 10:00) se hai algo en Operacións → Aprobacións.
+			'aprobacions_pendentes_semanal' => array(
+				'subject' => array(
+					__( 'Aprobacións pendentes na web (%s) — %s', 'anpa-socios' ),
+					array( 'total', 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Hai solicitudes esperando pola xunta en Xestión → Operacións → Aprobacións:', 'anpa-socios' ) . '</p>' .
+					'<ul><li>' . __( 'Altas de socios/as: %s', 'anpa-socios' ) . '</li>' .
+					'<li>' . __( 'Matrículas pendentes de aprobación: %s', 'anpa-socios' ) . '</li>' .
+					'<li>' . __( 'Baixas de socios/as: %s', 'anpa-socios' ) . '</li></ul>' .
+					'<p><a href="%s">' . __( 'Abrir Aprobacións', 'anpa-socios' ) . '</a></p>' .
+					'<p>' . __( 'Este aviso envíase os luns ás 10:00 só cando hai algo pendente. Contacto da directiva: %s.', 'anpa-socios' ) . '</p>',
+					array( 'socios', 'matriculas', 'baixas', 'xestion_url', 'contact_email' ),
+				),
+				'text' => array(
+					__( 'Hai solicitudes esperando pola xunta en Xestión → Operacións → Aprobacións:', 'anpa-socios' ) . "\n\n" .
+					__( 'Altas de socios/as: %s', 'anpa-socios' ) . "\n" .
+					__( 'Matrículas pendentes de aprobación: %s', 'anpa-socios' ) . "\n" .
+					__( 'Baixas de socios/as: %s', 'anpa-socios' ) . "\n\n" .
+					__( 'Abrir Aprobacións: %s', 'anpa-socios' ) . "\n\n" .
+					__( 'Este aviso envíase os luns ás 10:00 só cando hai algo pendente. Contacto da directiva: %s.', 'anpa-socios' ),
+					array( 'socios', 'matriculas', 'baixas', 'xestion_url', 'contact_email' ),
 				),
 			),
 			'oferta_aceptada' => array(

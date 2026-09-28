@@ -56,7 +56,8 @@ final class ANPA_Socios_Admin_Export_Handler {
 		'empresas'    => array( 'nome', 'email', 'responsable', 'telefono', 'url_web', 'estado' ),
 		'actividades' => array( 'empresa_email', 'nome', 'icono', 'descripcion', 'custo', 'estado' ),
 		'grupos'      => array( 'actividade_nome', 'empresa_email', 'curso_escolar', 'grupo_nome', 'serie_uid', 'niveis_codigos', 'horario', 'franxa', 'dias', 'min_pupilos', 'max_pupilos', 'estado' ),
-		'matriculas'  => array( 'proxenitor_email', 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar', 'grupo_nome', 'grupo_curso_range', 'grupo_franxa', 'grupo_dias', 'trimestre', 'posicion', 'comedor', 'tarde', 'observaciones', 'estado' ),
+		// 1.74.0: plus the options and authorisations the family chose (the importer reads them back).
+		'matriculas'  => array( 'proxenitor_email', 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar', 'grupo_nome', 'grupo_curso_range', 'grupo_franxa', 'grupo_dias', 'trimestre', 'posicion', 'comedor', 'tarde', 'observaciones', 'estado', 'autorizacion_comedor', 'tarde_transicion', 'tardes_divertidas_continua', 'recollida_autorizada', 'cesion_datos_empresa' ),
 		'fillos'      => array( 'proxenitor_email', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'curso_escolar', 'image_consent', 'estado' ),
 	);
 
@@ -67,6 +68,44 @@ final class ANPA_Socios_Admin_Export_Handler {
 	 * @var string[]
 	 */
 	private const JOIN_ENTITIES = array( 'actividades', 'grupos', 'matriculas', 'socios', 'fillos' );
+
+	/**
+	 * 1.74.0: sheet / file names of the .ods exports.
+	 *
+	 * @var array<string,string>
+	 */
+	private const ENTITY_LABELS = array(
+		'socios'      => 'Socios',
+		'empresas'    => 'Empresas',
+		'actividades' => 'Actividades',
+		'grupos'      => 'Grupos',
+		'matriculas'  => 'Matriculas',
+		'fillos'      => 'Fillos',
+	);
+
+	/**
+	 * 1.74.0: .ods with the same columns as the CSV (the CSV stays the import format).
+	 *
+	 * @param  string                          $label   Sheet / file label.
+	 * @param  string[]                        $columns Columns.
+	 * @param  array<int,array<string,mixed>>  $rows    Rows.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	private static function resposta_ods( string $label, array $columns, array $rows ) {
+		$filas = array();
+		foreach ( $rows as $row ) {
+			$fila = array();
+			foreach ( $columns as $c ) {
+				$fila[] = (string) ( $row[ $c ] ?? '' );
+			}
+			$filas[] = $fila;
+		}
+		$bytes = ANPA_Socios_Ods::documento( array( array( 'nome' => $label, 'cabeceira' => $columns, 'filas' => $filas ) ) );
+		if ( null === $bytes ) {
+			return new WP_Error( 'anpa_admin_ods', __( 'Non se puido xerar a folla de cálculo neste servidor. Descarga o CSV.', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		return ANPA_Socios_Descarga::resposta( $bytes, ANPA_Socios_Ods::MIME, ANPA_Socios_Listado_Empresa::nome_ficheiro( array( 'ANPA', $label ), current_time( 'Y-m-d' ), 'ods' ) );
+	}
 
 	/**
 	 * Registers export admin routes.
@@ -123,6 +162,11 @@ final class ANPA_Socios_Admin_Export_Handler {
 			);
 		}
 
+		if ( 'ods' === sanitize_key( (string) $request->get_param( 'formato' ) ) ) {
+			ANPA_Socios_Admin_Shared::write_audit( $request, 'export', $entity, 'export_ods' );
+			return self::resposta_ods( self::ENTITY_LABELS[ $entity ], $columns, $rows );
+		}
+
 		// Audit: log the export action.
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'export', $entity, 'export_csv' );
 
@@ -177,6 +221,10 @@ final class ANPA_Socios_Admin_Export_Handler {
 		}
 
 		$columns  = ANPA_Socios_Alumnos_Export::columns( true );
+		if ( 'ods' === sanitize_key( (string) $request->get_param( 'formato' ) ) ) {
+			ANPA_Socios_Admin_Shared::write_audit( $request, 'export', (string) count( $rows ), 'export_alumnos_ods' );
+			return self::resposta_ods( 'Alumnado', $columns, $rows );
+		}
 		$csv      = ANPA_Socios_Csv::document( $columns, $rows );
 		$filename = 'alumnos-todos.csv';
 
@@ -276,7 +324,8 @@ final class ANPA_Socios_Admin_Export_Handler {
 			$sql = "SELECT f.socio_email AS proxenitor_email, f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
 					e.email AS empresa_email, act.nome AS actividade_nome,
 					g.curso_escolar, g.nome AS grupo_nome, g.curso_range AS grupo_curso_range, g.franxa AS grupo_franxa,
-					g.dias AS grupo_dias, m.trimestre, m.posicion, m.comedor, m.tarde, m.observaciones, m.estado
+					g.dias AS grupo_dias, m.trimestre, m.posicion, m.comedor, m.tarde, m.observaciones, m.estado,
+					m.autorizacion_comedor, m.tarde_transicion, m.tardes_divertidas_continua, m.recollida_autorizada, m.cesion_datos_empresa
 					FROM {$prefix}anpa_matriculas m
 					LEFT JOIN {$prefix}anpa_fillos f ON f.id = m.fillo_id
 					LEFT JOIN {$prefix}anpa_grupos g ON g.id = m.grupo_id

@@ -318,10 +318,21 @@ class ANPA_Socios_Area_Page {
 				</div>
 				<?php // Downloads first: the buttons must be visible as soon as the panel opens, before the (long) pupils list. ?>
 				<div class="anpa-area-actions anpa-empresa-toolbar">
-					<button type="button" data-action="empresa-export" data-ambito="activos"><?php esc_html_e( 'Descargar só activos (CSV)', 'anpa-socios' ); ?></button>
-					<button type="button" data-action="empresa-export" data-ambito="todos"><?php esc_html_e( 'Descargar listado completo (CSV)', 'anpa-socios' ); ?></button>
+					<?php // 1.74.0: spreadsheet first (canteen); CSV stays as the secondary format. ?>
+					<button type="button" data-action="empresa-export-ods-comedor" hidden><?php esc_html_e( 'Descargar listado completo (.ods)', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary" data-action="empresa-export" data-ambito="activos"><?php esc_html_e( 'CSV: só activos', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary" data-action="empresa-export" data-ambito="todos"><?php esc_html_e( 'CSV: listado completo', 'anpa-socios' ); ?></button>
 					<button type="button" class="anpa-area-secondary" data-action="empresa-logout"><?php esc_html_e( 'Pechar sesión', 'anpa-socios' ); ?></button>
 				</div>
+				<p class="anpa-area-muted" data-empresa-ods-axuda><?php esc_html_e( 'A folla de cálculo (.ods, ábrese con Excel, LibreOffice ou Google Sheets) descárgase por actividade no apartado «Actividades ofertadas», máis abaixo.', 'anpa-socios' ); ?></p>
+				<details class="anpa-empresa-csv-guia">
+					<summary><?php esc_html_e( 'Que significa cada columna do CSV?', 'anpa-socios' ); ?></summary>
+					<dl>
+						<?php foreach ( ANPA_Socios_Listado_Empresa::guia_csv( true ) as $anpa_col => $anpa_desc ) : ?>
+							<dt><code><?php echo esc_html( $anpa_col ); ?></code></dt><dd><?php echo esc_html( $anpa_desc ); ?><?php echo 'empresa_nome' === $anpa_col ? ' ' . esc_html__( '(só no listado do comedor)', 'anpa-socios' ) : ''; ?></dd>
+						<?php endforeach; ?>
+					</dl>
+				</details>
 				<dl class="anpa-empresa-datos">
 					<dt><?php esc_html_e( 'Empresa', 'anpa-socios' ); ?></dt><dd data-empresa-nome></dd>
 					<dt><?php esc_html_e( 'Email', 'anpa-socios' ); ?></dt><dd data-empresa-email></dd>

@@ -80,8 +80,9 @@ final class Test_ANPA_Socios_Lista_Gmail extends TestCase {
 		$this->assertStringContainsString( 'ANPA_Socios_Admin_Contactos_Google_Handler::register_routes();', $this->src( 'includes/class-anpa-socios-admin-rest.php' ) );
 		$this->assertStringContainsString( "includes/class-anpa-socios-admin-contactos-google-handler.php';", $this->src( 'anpa-socios.php' ) );
 		require_once dirname( __DIR__ ) . '/includes/lib/class-anpa-socios-admin-nav.php';
-		$keys = array_keys( ANPA_Socios_Admin_Nav::management_sections()['socios']['sections'] );
-		$this->assertSame( array_search( 'baixas', $keys, true ) + 1, array_search( 'lista-gmail', $keys, true ) );
+		// 1.74.0: Lista Gmail sits in Operacións, right after Aprobacións.
+		$keys = array_keys( ANPA_Socios_Admin_Nav::management_sections()['operacions']['sections'] );
+		$this->assertSame( array_search( 'aprobacions', $keys, true ) + 1, array_search( 'lista-gmail', $keys, true ) );
 	}
 
 	public function test_google_url_pins_the_configured_account(): void {

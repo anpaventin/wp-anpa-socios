@@ -49,7 +49,7 @@ final class ANPA_Socios_Csv_Import {
 		'fillos'      => array( 'proxenitor_email', 'nome', 'apelidos', 'data_nacemento', 'curso', 'aula', 'curso_escolar', 'image_consent', 'estado' ),
 		'empresas'    => array( 'nome', 'email', 'responsable', 'telefono', 'url_web', 'estado' ),
 		'actividades' => array( 'empresa_email', 'nome', 'icono', 'descripcion', 'custo', 'estado' ),
-		'matriculas'  => array( 'proxenitor_email', 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar', 'grupo_nome', 'grupo_curso_range', 'grupo_franxa', 'grupo_dias', 'trimestre', 'posicion', 'comedor', 'tarde', 'observaciones', 'estado' ),
+		'matriculas'  => array( 'proxenitor_email', 'fillo_nome', 'fillo_apelidos', 'empresa_email', 'actividade_nome', 'curso_escolar', 'grupo_nome', 'grupo_curso_range', 'grupo_franxa', 'grupo_dias', 'trimestre', 'posicion', 'comedor', 'tarde', 'observaciones', 'estado', 'autorizacion_comedor', 'tarde_transicion', 'tardes_divertidas_continua', 'recollida_autorizada', 'cesion_datos_empresa' ),
 		'socios_iban' => array( 'id_familia', 'titular_nome', 'titular_apelidos', 'titular_nif', 'iban', 'entidade_bancaria', 'autorizacion' ),
 		'grupos'      => array( 'actividade_nome', 'empresa_email', 'curso_escolar', 'grupo_nome', 'serie_uid', 'niveis_codigos', 'horario', 'franxa', 'dias', 'min_pupilos', 'max_pupilos', 'estado' ),
 	);

@@ -189,7 +189,7 @@ final class ANPA_Socios_Alumnos_Export {
 		$fc          = ANPA_Socios_DB::tabela_fillos_cursos();
 		$empresas    = ANPA_Socios_DB::tabela_empresas();
 		$socios      = ANPA_Socios_DB::tabela_socios();
-		return "SELECT {$extra}COALESCE(e.nome, '') AS empresa_nome, a.nome AS actividade_nome, COALESCE(g.nome, '') AS grupo_nome, COALESCE(g.horario, '') AS horario, COALESCE(g.franxa, '') AS franxa, COALESCE(g.dias, '') AS dias, "
+		return "SELECT {$extra}a.id AS actividad_id, COALESCE(e.nome, '') AS empresa_nome, a.nome AS actividade_nome, COALESCE(g.nome, '') AS grupo_nome, COALESCE(g.horario, '') AS horario, COALESCE(g.franxa, '') AS franxa, COALESCE(g.dias, '') AS dias, "
 			. "f.nome, f.apelidos, COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula, '') AS aula, m.estado, m.trimestre, m.comedor, m.tarde, m.autorizacion_comedor, m.tarde_transicion, m.tardes_divertidas_continua, m.recollida_autorizada, m.cesion_datos_empresa, "
 			. "TRIM(CONCAT(COALESCE(p1.nome, ''), ' ', COALESCE(p1.apelidos, ''))) AS proxenitor1_nome, COALESCE(p1.telefono, '') AS proxenitor1_telefono, COALESCE(NULLIF(p1.email, ''), f.socio_email, '') AS proxenitor1_email, "
 			. "TRIM(CONCAT(COALESCE(p2.nome, ''), ' ', COALESCE(p2.apelidos, ''))) AS proxenitor2_nome, COALESCE(p2.telefono, '') AS proxenitor2_telefono, COALESCE(p2.email, '') AS proxenitor2_email "

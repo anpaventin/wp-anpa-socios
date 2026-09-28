@@ -970,7 +970,12 @@ final class ANPA_Socios_Admin_Import_Handler {
 				'observaciones' => $row['observaciones'] ?? '',
 				// 1.70.0: every family gave the data-sharing consent (mandatory to enrol).
 				'cesion_datos_empresa' => 1,
-			), array( '%d', '%d', '%d', '%d', '%s', '%d', '%d', '%d', '%s', '%d' ) );
+				// 1.74.0: the family's options travel in the export / import round trip (safe defaults).
+				'autorizacion_comedor'       => in_array( strtolower( trim( (string) ( $row['autorizacion_comedor'] ?? '' ) ) ), array( 'si', 'non', 'na' ), true ) ? strtolower( trim( (string) $row['autorizacion_comedor'] ) ) : 'na',
+				'tarde_transicion'           => in_array( strtolower( trim( (string) ( $row['tarde_transicion'] ?? '' ) ) ), array( 'comedor', 'familia', 'na' ), true ) ? strtolower( trim( (string) $row['tarde_transicion'] ) ) : 'na',
+				'tardes_divertidas_continua' => '1' === trim( (string) ( $row['tardes_divertidas_continua'] ?? '0' ) ) ? 1 : 0,
+				'recollida_autorizada'       => '1' === trim( (string) ( $row['recollida_autorizada'] ?? '0' ) ) ? 1 : 0,
+			), array( '%d', '%d', '%d', '%d', '%s', '%d', '%d', '%d', '%s', '%d', '%s', '%s', '%d', '%d' ) );
 
 			if ( false === $ok ) {
 				$errors[] = array( 'row' => $idx, 'msg' => 'Non se puido inserir a matrícula.' );

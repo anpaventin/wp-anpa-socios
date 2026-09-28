@@ -67,11 +67,12 @@ final class ANPA_Socios_Admin_Approvals_Handler {
 	 * enrolment requests and member baixa requests. For the nav button.
 	 *
 	 * @since  1.73.0
-	 * @return array{socios:int,matriculas:int,baixas:int,total:int}
+	 * @return array{socios:int,matriculas:int,baixas:int,total:int,baixas_actividades:int}
 	 */
 	public static function contas_pendentes(): array {
 		global $wpdb;
-		$out = array( 'socios' => 0, 'matriculas' => 0, 'baixas' => 0, 'total' => 0 );
+		// 1.74.0: baixas_actividades (Extraescolares → Matrículas) is reported apart, outside the total.
+		$out = array( 'socios' => 0, 'matriculas' => 0, 'baixas' => 0, 'total' => 0, 'baixas_actividades' => 0 );
 		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_var' ) || ! method_exists( $wpdb, 'prepare' ) ) {
 			return $out;
 		}
@@ -84,6 +85,11 @@ final class ANPA_Socios_Admin_Approvals_Handler {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only counts, ASCII SQL.
 		$out['baixas'] = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$soc_t} WHERE baixa_estado = 'solicitada' AND estado = 'activo' AND rol <> 'master'" );
 		$out['total']  = $out['socios'] + $out['matriculas'] + $out['baixas'];
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only count, ASCII SQL.
+		// Same joins as Extraescolares → Matrículas (baixas-pendentes): no orphan rows in the count.
+		$fil_t = $wpdb->prefix . 'anpa_fillos';
+		$act_t = $wpdb->prefix . 'anpa_actividades';
+		$out['baixas_actividades'] = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$mat_t} m INNER JOIN {$fil_t} f ON f.id = m.fillo_id INNER JOIN {$act_t} a ON a.id = m.activitad_id WHERE m.estado = 'baixa_solicitada'" );
 		return $out;
 	}
 
