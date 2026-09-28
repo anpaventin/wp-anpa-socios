@@ -118,6 +118,7 @@
       <file>tests/Test_ANPA_Socios_Avisos_Metade_Curso.php</file>
       <file>tests/Test_ANPA_Socios_Aprobacions_Operacions.php</file>
       <file>tests/Test_ANPA_Socios_Ods_Listados.php</file>
+      <file>tests/Test_ANPA_Socios_Lista_Gmail_Contacto.php</file>
       <file>tests/Test_ANPA_Socios_Area_Matriculas_List.php</file>
       <file>tests/Test_ANPA_Socios_Area_Fillos_Nivel.php</file>
       <file>tests/Test_ANPA_Socios_Admin_Baixas_Panel.php</file>

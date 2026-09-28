@@ -206,29 +206,106 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 	 * A member with a PENDING baixa request is still active and is still listed:
 	 * only a confirmed baixa (Baixas solicitadas → Confirmar) removes them.
 	 *
+	 * 1.75.0: also the phone and a note naming the family's active children
+	 * (course of the active school year) for Google's «Notes» column.
+	 *
 	 * @since  1.58.0
-	 * @return array<int,array{email:string,nome:string,apelidos:string}>
+	 * @return array<int,array{email:string,nome:string,apelidos:string,telefono:string,notas:string}>
 	 */
 	private static function socios_activos(): array {
 		global $wpdb;
 
 		$soc_t = ANPA_Socios_DB::tabela_socios();
 		$rows  = $wpdb->get_results(
-			"SELECT email, nome, apelidos FROM {$soc_t}
+			"SELECT id, email, nome, apelidos, telefono, rol_familia, familia_id FROM {$soc_t}
 			 WHERE estado = 'activo' AND rol <> 'master' AND email <> ''
 			 ORDER BY apelidos ASC, nome ASC, email ASC",
 			ARRAY_A
 		);
+
+		// Active children by family id and by the owning email (older rows without a family id).
+		$fil_t  = ANPA_Socios_DB::tabela_fillos();
+		$fc_t   = ANPA_Socios_DB::tabela_fillos_cursos();
+		$curso  = class_exists( 'ANPA_Socios_Curso_Activo' ) ? (string) ANPA_Socios_Curso_Activo::get() : '';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only, ASCII SQL.
+		$fillos = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT f.id, COALESCE(f.familia_id, 0) AS familia_id, LOWER(TRIM(f.socio_email)) AS socio_email, f.nome, f.apelidos,
+				        COALESCE(fc.curso, f.curso, '') AS curso, COALESCE(fc.aula, f.aula, '') AS aula
+				 FROM {$fil_t} f
+				 LEFT JOIN {$fc_t} fc ON fc.fillo_id = f.id AND fc.curso_escolar = %s
+				 WHERE f.estado = 'activo'
+				 ORDER BY f.apelidos ASC, f.nome ASC",
+				$curso
+			),
+			ARRAY_A
+		);
+		$por_familia = array();
+		$por_email   = array();
+		foreach ( is_array( $fillos ) ? $fillos : array() as $f ) {
+			if ( (int) $f['familia_id'] > 0 ) {
+				$por_familia[ (int) $f['familia_id'] ][ (int) $f['id'] ] = $f;
+			}
+			if ( '' !== (string) $f['socio_email'] ) {
+				$por_email[ (string) $f['socio_email'] ][ (int) $f['id'] ] = $f;
+			}
+		}
+
 		$out = array();
 		foreach ( is_array( $rows ) ? $rows : array() as $r ) {
+			$email   = strtolower( trim( (string) $r['email'] ) );
+			$familia = (int) $r['familia_id'] > 0 ? (int) $r['familia_id'] : (int) $r['id'];
+			// Union by child id: the same child may be found by family and by email.
+			$seus  = ( $por_familia[ $familia ] ?? array() ) + ( $por_email[ $email ] ?? array() );
 			$out[] = array(
-				'email'    => strtolower( trim( (string) $r['email'] ) ),
+				'email'    => $email,
 				'nome'     => trim( (string) $r['nome'] ),
 				'apelidos' => trim( (string) $r['apelidos'] ),
+				'telefono' => trim( (string) $r['telefono'] ),
+				'notas'    => self::nota_proxenitor( (string) $r['rol_familia'], array_values( $seus ) ),
 			);
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Note for Google's «Notes» column: which parent this contact is and of whom.
+	 * «1º proxenitor/a de: Uxía Pérez Souto (3º A); Brais Pérez Souto (1º)». Pure.
+	 *
+	 * @since  1.75.0
+	 * @param  string                            $rol    rol_familia (principal | secundario).
+	 * @param  array<int,array<string,string>>   $fillos Children (nome, apelidos, curso, aula).
+	 * @return string '' when the family has no active child.
+	 */
+	public static function nota_proxenitor( string $rol, array $fillos ): string {
+		$partes = array();
+		foreach ( $fillos as $f ) {
+			$nome  = trim( trim( (string) ( $f['nome'] ?? '' ) ) . ' ' . trim( (string) ( $f['apelidos'] ?? '' ) ) );
+			$curso = trim( trim( (string) ( $f['curso'] ?? '' ) ) . ' ' . trim( (string) ( $f['aula'] ?? '' ) ) );
+			if ( '' === $nome ) {
+				continue;
+			}
+			$partes[] = '' !== $curso ? $nome . ' (' . $curso . ')' : $nome;
+		}
+		if ( array() === $partes ) {
+			return '';
+		}
+		$quen = 'secundario' === $rol ? __( '2º proxenitor/a de', 'anpa-socios' ) : __( '1º proxenitor/a de', 'anpa-socios' );
+		return $quen . ': ' . implode( '; ', $partes );
+	}
+
+	/**
+	 * Phone for Google: trimmed, and a leading «+» written as «00» so the CSV
+	 * formula guard never turns it into «'+34…» (Google would import it literally). Pure.
+	 *
+	 * @since  1.75.0
+	 * @param  string $telefono Stored phone.
+	 * @return string
+	 */
+	public static function telefono_google( string $telefono ): string {
+		$telefono = trim( $telefono );
+		return 0 === strpos( $telefono, '+' ) ? '00' . ltrim( substr( $telefono, 1 ) ) : $telefono;
 	}
 
 	/**
@@ -445,7 +522,7 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 	 * list, present in its own exports) separated by ":::".
 	 *
 	 * @since  1.58.0
-	 * @param  array<int,array{email:string,nome:string,apelidos:string}> $socios Members.
+	 * @param  array<int,array<string,string>> $socios Members (email, nome, apelidos; telefono and notas since 1.75.0).
 	 * @return string
 	 */
 	public static function build_csv( array $socios ): string {
@@ -454,8 +531,15 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 			$row = array_fill( 0, count( self::GOOGLE_HEADERS ), '' );
 			$row[0]  = (string) $s['nome'];
 			$row[2]  = (string) $s['apelidos'];
+			// 1.75.0: who this parent is and of whom (Notes), and their phone.
+			$row[14] = (string) ( $s['notas'] ?? '' );
 			$row[16] = self::LABEL . ' ::: * myContacts';
 			$row[18] = (string) $s['email'];
+			$tel     = self::telefono_google( (string) ( $s['telefono'] ?? '' ) );
+			if ( '' !== $tel ) {
+				$row[19] = 'Mobile';
+				$row[20] = $tel;
+			}
 			$csv    .= ANPA_Socios_Csv::row( $row );
 		}
 
@@ -479,7 +563,10 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 		$previos  = self::socios_do_snapshot( is_array( $snapshot ) ? $snapshot : null );
 		$socios   = $so_novas ? self::socios_novos( $actuais, $previos ) : $actuais;
 		$csv      = self::build_csv( $socios );
-		$gardados = self::socios_tras_exportacion( $so_novas, $socios, $previos );
+		// 1.75.0: the stored list keeps only email, name and surname (no phones or children's names).
+		$gardados = array_map( static function ( array $x ): array {
+			return array( 'email' => (string) $x['email'], 'nome' => (string) $x['nome'], 'apelidos' => (string) $x['apelidos'] );
+		}, self::socios_tras_exportacion( $so_novas, $socios, $previos ) );
 
 		// 1.66.0: the file is served now, but it is RECORDED only when the junta confirms
 		// the browser saved it (confirmar_exportacion). Until then altas/baixas stay as they are.

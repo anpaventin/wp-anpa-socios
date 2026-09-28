@@ -1481,6 +1481,7 @@
 		open.addEventListener('click', function () { window.open(d.google_url || 'https://contacts.google.com/', '_blank', 'noopener'); });
 		acts.appendChild(dl); acts.appendChild(dlNovas); acts.appendChild(open);
 		card.appendChild(acts);
+		card.appendChild(el('p', 'Cada contacto leva nome, apelidos, correo, teléfono e, en «Notas», que proxenitor é e de quen (por exemplo «1º proxenitor/a de: Nome Apelidos (3º A)»).', 'description'));
 		card.appendChild(el('p', '«Descargar CSV para Google Contactos» leva todos os socios/as activos (para refacer a etiqueta enteira, quitando as baixas). «Descargar só as altas novas» leva só os correos dados de alta desde a última exportación, para engadilos á etiqueta que xa existe sen tocar o resto; as baixas seguen en Google ata facer o proceso completo.', 'description'));
 		card.appendChild(confirmBox);
 		root.appendChild(card);

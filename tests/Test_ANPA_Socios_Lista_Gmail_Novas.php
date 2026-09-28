@@ -64,7 +64,8 @@ final class Test_ANPA_Socios_Lista_Gmail_Novas extends TestCase {
 		$h = $this->src( 'includes/class-anpa-socios-admin-contactos-google-handler.php' );
 		$this->assertStringContainsString( "\$so_novas = 'novas' === sanitize_key( (string) \$request->get_param( 'ambito' ) );", $h );
 		$this->assertStringContainsString( '$socios   = $so_novas ? self::socios_novos( $actuais, $previos ) : $actuais;', $h );
-		$this->assertStringContainsString( '$gardados = self::socios_tras_exportacion( $so_novas, $socios, $previos );', $h );
+		// 1.75.0: the stored list is reduced to email, name and surname.
+		$this->assertStringContainsString( '}, self::socios_tras_exportacion( $so_novas, $socios, $previos ) );', $h );
 		$this->assertStringContainsString( "'tipo'         => \$so_novas ? 'novas' : 'completa',", $h );
 		$this->assertStringContainsString( "\$so_novas ? 'export_csv_novas' : 'export_csv'", $h );
 		$this->assertStringContainsString( "( \$so_novas ? 'novas-' : '' ) . gmdate( 'Y-m-d' )", $h );
@@ -76,7 +77,8 @@ final class Test_ANPA_Socios_Lista_Gmail_Novas extends TestCase {
 	public function test_state_counts_families_and_emails_separately_and_exports_both_parents(): void {
 		$h = $this->src( 'includes/class-anpa-socios-admin-contactos-google-handler.php' );
 		// One row per parent with an email (both parents go to the list)…
-		$this->assertStringContainsString( "SELECT email, nome, apelidos FROM {\$soc_t}\n\t\t\t WHERE estado = 'activo' AND rol <> 'master' AND email <> ''", $h );
+		// 1.75.0: plus phone, role and family (Google phone and note columns).
+		$this->assertStringContainsString( "SELECT id, email, nome, apelidos, telefono, rol_familia, familia_id FROM {\$soc_t}\n\t\t\t WHERE estado = 'activo' AND rol <> 'master' AND email <> ''", $h );
 		// …and a family count for the fee (one fee per family unit).
 		$this->assertStringContainsString( "'total_familias'    => (int) \$wpdb->get_var( \"SELECT COUNT(DISTINCT COALESCE(NULLIF(familia_id, 0), id)) FROM {\$soc_t} WHERE estado = 'activo' AND rol <> 'master' AND email <> ''\" )", $h );
 		$js = $this->src( 'assets/js/admin-management.js' );

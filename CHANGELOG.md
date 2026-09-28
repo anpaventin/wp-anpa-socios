@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.75.0] - 2026-09-30
+
+### Added
+
+- **Lista Gmail: teléfono e nota por proxenitor.** O CSV para Google Contactos enche agora «Phone 1» (etiqueta
+  Mobile; un prefixo `+34` escríbese `0034` para que a protección contra fórmulas non o estrague) e «Notes» con que
+  proxenitor é e de quen: «1º proxenitor/a de: Uxía Pérez Souto (3º A); Brais Pérez Souto (1º B)» (fillos/as activos
+  da familia, curso e letra do curso activo). A lista gardada de cada exportación segue levando só correo, nome e
+  apelidos. As altas e baixas seguen calculándose por correo: un cambio só de teléfono ou de curso non marca a lista
+  como pendente, pero sae na seguinte exportación completa.
+
 ## [1.74.0] - 2026-09-30
 
 ### Added
