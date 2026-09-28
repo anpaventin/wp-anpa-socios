@@ -103,7 +103,7 @@ final class ANPA_Socios_Oferta_Publica {
 	/**
 	 * What the public page does with a group of the active course.
 	 *
-	 * - aberto → shown as today.
+	 * - aberto → shown as today; «Creado» when it was already created and has pupils (reopened, 1.72.0).
 	 * - pechado, notified «grupo creado» and with pupils → «Creado».
 	 * - pechado below the minimum → «Non acadaron o mínimo».
 	 * - deshabilitado that had enrolments and is below the minimum → «Non acadaron o
@@ -119,7 +119,8 @@ final class ANPA_Socios_Oferta_Publica {
 	 */
 	public static function estado_grupo( string $estado, ?string $aviso_en, int $activos, int $minimo, int $total = 0 ): string {
 		if ( 'aberto' === $estado ) {
-			return self::ABERTO;
+			// 1.72.0: a created group reopened for the next trimester keeps «Creado».
+			return ( null !== $aviso_en && '' !== trim( $aviso_en ) && $activos > 0 ) ? self::CREADO : self::ABERTO;
 		}
 		if ( 'pechado' === $estado ) {
 			if ( null !== $aviso_en && '' !== trim( $aviso_en ) && $activos > 0 ) {

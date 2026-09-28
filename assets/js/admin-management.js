@@ -2567,7 +2567,7 @@
 					avisoBtn.textContent = grupo.notificado ? 'Marcar sen notificar' : 'Marcar notificado (sen correo)';
 					avisoBtn.title = grupo.notificado ? 'Quita a marca: o botón «Notificar grupo creado» volve aparecer en Grupos e horarios (coas matrículas pechadas).' : 'Marca o grupo como xa avisado neste ciclo de matrículas sen enviar ningún correo (por exemplo, se o aviso saíu dende Gmail).';
 					avisoBtn.addEventListener('click', function () {
-						if (!window.confirm(grupo.notificado ? 'Quitar a marca de «notificado» ao grupo «' + (grupo.nome || '') + '»?' : 'Marcar o grupo «' + (grupo.nome || '') + '» como notificado neste ciclo de matrículas? Non se envía ningún correo.')) { return; }
+						if (!window.confirm(grupo.notificado ? 'Quitar a marca de «notificado» ao grupo «' + (grupo.nome || '') + '»?\n\nO grupo deixa de contar como creado: xa non se avisará á empresa nin ao comedor de cada cambio, as solicitudes novas deixan de quedar pendentes de aprobación e perde o distintivo «Creado» da páxina pública ata que se volva notificar.' : 'Marcar o grupo «' + (grupo.nome || '') + '» como notificado neste ciclo de matrículas? Non se envía ningún correo.')) { return; }
 						anpaAdminFetch('grupo/' + grupo.id + '/aviso-comezo', { method: 'POST', body: { notificado: !grupo.notificado } }).then(function (r) {
 							showMessage(r && r.notificado ? 'Grupo marcado como notificado' + (r.aviso_comezo_trimestre ? ' (' + r.aviso_comezo_trimestre + '\u00BA trimestre)' : '') + '.' : 'Marca de notificado retirada.', 'success');
 							renderGroupSeriesList(container, actividad, opts);
@@ -2663,7 +2663,7 @@
 			var rBtn = document.createElement('button'); rBtn.type = 'button'; rBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
 			rBtn.textContent = grupo.notificado ? 'Marcar sen notificar' : 'Marcar notificado (sen correo)';
 			rBtn.addEventListener('click', function () {
-				if (!window.confirm((grupo.notificado ? 'Quitar a marca de «notificado» ao grupo «' + (grupo.nome || '') + '»?' : 'Marcar o grupo «' + (grupo.nome || '') + '» como notificado neste ciclo de matrículas? Non se envía ningún correo.') + '\n\nOs cambios do formulario que non gardases pérdense.')) { return; }
+				if (!window.confirm((grupo.notificado ? 'Quitar a marca de «notificado» ao grupo «' + (grupo.nome || '') + '»?\n\nO grupo deixa de contar como creado: xa non se avisará á empresa nin ao comedor de cada cambio, as solicitudes novas deixan de quedar pendentes de aprobación e perde o distintivo «Creado» da páxina pública ata que se volva notificar.' : 'Marcar o grupo «' + (grupo.nome || '') + '» como notificado neste ciclo de matrículas? Non se envía ningún correo.') + '\n\nOs cambios do formulario que non gardases pérdense.')) { return; }
 				anpaAdminFetch('grupo/' + grupo.id + '/aviso-comezo', { method: 'POST', body: { notificado: !grupo.notificado } }).then(function (r) {
 					showMessage(r && r.notificado ? 'Grupo marcado como notificado.' : 'Marca de notificado retirada.', 'success');
 					openGroupEditor(actividad.id, grupo.id, grupo.serie_uid);

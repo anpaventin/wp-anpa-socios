@@ -166,7 +166,7 @@ final class ANPA_Socios_Alumnos_Export {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table names from DB helper.
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				self::panel_select_sql( "COALESCE(e.email, '') AS empresa_email, COALESCE(g.curso_escolar, '') AS curso_escolar, " ) . 'WHERE m.id = %d',
+				self::panel_select_sql( "COALESCE(e.email, '') AS empresa_email, COALESCE(g.curso_escolar, '') AS curso_escolar, g.aviso_comezo_en AS grupo_aviso_en, " ) . 'WHERE m.id = %d',
 				$matricula_id
 			),
 			ARRAY_A

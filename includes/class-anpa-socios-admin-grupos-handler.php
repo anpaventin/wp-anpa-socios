@@ -633,7 +633,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		$wpdb->last_error = '';
 		$mat = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, fillo_id, activitad_id, trimestre, grupo_id FROM {$mat_t}
+				"SELECT id, fillo_id, activitad_id, trimestre, grupo_id, estado FROM {$mat_t}
 				 WHERE id = %d AND estado <> 'baixa' FOR UPDATE",
 				$mat_id
 			),
@@ -744,6 +744,10 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'matricula', (string) $mat_id, 'mover' );
+		// 1.72.0: change of group (or alta from the waiting list) in a created group → company + canteen.
+		if ( (int) $mat['grupo_id'] !== $target ) {
+			ANPA_Socios_Email::avisar_cambio_grupo( $mat_id, (int) $mat['grupo_id'], (string) ( $mat['estado'] ?? '' ) );
+		}
 		return new WP_REST_Response( array( 'id' => $mat_id, 'grupo_id' => $target, 'estado' => 'activo' ), 200 );
 	}
 

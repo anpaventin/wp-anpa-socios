@@ -458,14 +458,14 @@ final class ANPA_Socios_Email_Template_Store {
 				),
 				'html' => array(
 					'<p>' . __( 'Recibimos a solicitude de matrícula de <strong>%s</strong> na actividade <strong>%s</strong> (%s).', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'O prazo de matrícula está pechado, así que a solicitude queda <strong>pendente de aprobación</strong> pola directiva. Cando a revisemos recibiredes outro correo dicindo se hai praza ou se queda en lista de espera.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'O prazo de matrícula está pechado ou o grupo xa está en marcha, así que a solicitude queda <strong>pendente de aprobación</strong> pola directiva. Cando a revisemos recibiredes outro correo dicindo se hai praza ou se queda en lista de espera.', 'anpa-socios' ) . '</p>' .
 					'<p>' . __( 'Se xa non a queredes manter, podedes retirala dende a área de socios/as, no apartado «Extraescolares».', 'anpa-socios' ) . '</p>' .
 					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
 					array( 'alumno', 'actividade', 'grupo', 'contact_email' ),
 				),
 				'text' => array(
 					__( 'Recibimos a solicitude de matrícula de %s na actividade %s (%s).', 'anpa-socios' ) . "\n\n" .
-					__( 'O prazo de matrícula está pechado, así que a solicitude queda pendente de aprobación pola directiva. Cando a revisemos recibiredes outro correo dicindo se hai praza ou se queda en lista de espera.', 'anpa-socios' ) . "\n\n" .
+					__( 'O prazo de matrícula está pechado ou o grupo xa está en marcha, así que a solicitude queda pendente de aprobación pola directiva. Cando a revisemos recibiredes outro correo dicindo se hai praza ou se queda en lista de espera.', 'anpa-socios' ) . "\n\n" .
 					__( 'Se xa non a queredes manter, podedes retirala dende a área de socios/as, no apartado «Extraescolares».', 'anpa-socios' ) . "\n\n" .
 					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
 					array( 'alumno', 'actividade', 'grupo', 'contact_email' ),
@@ -573,6 +573,32 @@ final class ANPA_Socios_Email_Template_Store {
 					__( '2º proxenitor: %s', 'anpa-socios' ) . "\n\n" .
 					__( 'O listado actualizado está sempre no panel de empresa e do comedor da web. Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
 					array( 'grupo', 'actividade', 'efectos', 'alumno', 'curso', 'empresa', 'proxenitor1', 'proxenitor2', 'contact_email' ),
+				),
+			),
+			'matricula_cambio_grupo_aviso' => array(
+				'subject' => array(
+					__( 'Cambio de grupo: %s — %s (%s) — %s', 'anpa-socios' ),
+					array( 'alumno', 'actividade', 'grupo', 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Un alumno/a cambia de grupo na actividade <strong>%s</strong>: deixa <strong>%s</strong> e pasa a <strong>%s</strong> (%sº trimestre).', 'anpa-socios' ) . '</p>' .
+					'<ul><li>' . __( 'Alumno/a: <strong>%s</strong> (%s)', 'anpa-socios' ) . '</li>' .
+					'<li>' . __( 'Empresa: %s', 'anpa-socios' ) . '</li>' .
+					'<li>' . __( '1º proxenitor: %s', 'anpa-socios' ) . '</li>' .
+					'<li>' . __( '2º proxenitor: %s', 'anpa-socios' ) . '</li>' .
+					'<li>' . __( 'Opcións e autorizacións: %s', 'anpa-socios' ) . '</li></ul>' .
+					'<p>' . __( 'O listado actualizado está sempre no panel de empresa e do comedor da web. Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
+					array( 'actividade', 'grupo_orixe', 'grupo', 'trimestre', 'alumno', 'curso', 'empresa', 'proxenitor1', 'proxenitor2', 'opcions', 'contact_email' ),
+				),
+				'text' => array(
+					__( 'Un alumno/a cambia de grupo na actividade %s: deixa %s e pasa a %s (%sº trimestre).', 'anpa-socios' ) . "\n\n" .
+					__( 'Alumno/a: %s (%s)', 'anpa-socios' ) . "\n" .
+					__( 'Empresa: %s', 'anpa-socios' ) . "\n" .
+					__( '1º proxenitor: %s', 'anpa-socios' ) . "\n" .
+					__( '2º proxenitor: %s', 'anpa-socios' ) . "\n" .
+					__( 'Opcións e autorizacións: %s', 'anpa-socios' ) . "\n\n" .
+					__( 'O listado actualizado está sempre no panel de empresa e do comedor da web. Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
+					array( 'actividade', 'grupo_orixe', 'grupo', 'trimestre', 'alumno', 'curso', 'empresa', 'proxenitor1', 'proxenitor2', 'opcions', 'contact_email' ),
 				),
 			),
 			'oferta_aceptada' => array(

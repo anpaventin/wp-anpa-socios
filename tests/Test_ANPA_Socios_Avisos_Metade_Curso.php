@@ -54,14 +54,48 @@ final class Test_ANPA_Socios_Avisos_Metade_Curso extends TestCase {
 
 	// ── Sending ──
 
-	public function test_company_and_canteen_get_one_bcc_message_only_mid_course(): void {
-		$body = $this->method_body( $this->src( 'includes/class-anpa-socios-email.php' ), 'public static function avisar_empresa_comedor(' );
+	public function test_company_and_canteen_get_one_bcc_message_once_the_group_is_created(): void {
+		$email = $this->src( 'includes/class-anpa-socios-email.php' );
+		$body  = $this->method_body( $email, 'public static function avisar_empresa_comedor(' );
 		$this->assertStringContainsString( 'ANPA_Socios_Alumnos_Export::row_panel_matricula( $matricula_id )', $body );
-		$this->assertStringContainsString( "self::e_metade_de_curso( (string) \$row['curso_escolar'] )", $body );
-		$this->assertStringContainsString( "ANPA_Socios_Aviso_Matricula::destinatarios( (string) \$row['empresa_email'], ANPA_Socios_Config::comedor_email() )", $body );
+		$this->assertStringContainsString( 'if ( ! self::e_grupo_creado( $row ) ) {', $body );
+		$this->assertStringContainsString( 'return self::enviar_aviso_empresa_comedor( $row, $template_id, $extra );', $body );
+		// 1.72.0 rule: the group was created in an active course (no longer «window closed»).
+		$this->assertStringContainsString( "ANPA_Socios_Aviso_Matricula::grupo_creado( (string) ( \$gate['estado_curso'] ?? '' ), isset( \$row['grupo_aviso_en'] ) ? (string) \$row['grupo_aviso_en'] : null )", $email );
+		$this->assertStringNotContainsString( 'e_metade_de_curso', $email );
+		$send = $this->method_body( $email, 'private static function enviar_aviso_empresa_comedor(' );
+		$this->assertStringContainsString( "ANPA_Socios_Aviso_Matricula::destinatarios( (string) \$row['empresa_email'], ANPA_Socios_Config::comedor_email() )", $send );
 		// enviar_masivo = To the junta, the recipients in Bcc.
-		$this->assertStringContainsString( 'self::enviar_masivo( $dest, $template_id,', $body );
-		$this->assertStringContainsString( 'ANPA_Socios_Aviso_Matricula::debe_avisar( ANPA_Socios_Matricula_Gate_Repo::para_curso( $curso ) )', $this->src( 'includes/class-anpa-socios-email.php' ) );
+		$this->assertStringContainsString( 'self::enviar_masivo( $dest, $template_id,', $send );
+		$this->assertStringContainsString( 'g.aviso_comezo_en AS grupo_aviso_en, ', $this->src( 'includes/lib/class-anpa-socios-alumnos-export.php' ) );
+	}
+
+	public function test_admin_create_delete_and_move_notify_created_groups(): void {
+		$m = $this->src( 'includes/class-anpa-socios-admin-matriculas-handler.php' );
+		$create = $this->method_body( $m, 'public static function create_matricula(' );
+		$this->assertStringContainsString( 'ANPA_Socios_Email::avisar_empresa_comedor( $new_id, ANPA_Socios_Aviso_Matricula::PLANTILLA_ALTA );', $create );
+		$delete = $this->method_body( $m, 'public static function delete_matricula(' );
+		$this->assertStringContainsString( "if ( ANPA_Socios_Aviso_Matricula::estaba_no_grupo( (string) \$row['estado'] ) ) {", $delete );
+		$this->assertStringContainsString( "ANPA_Socios_Aviso_Matricula::PLANTILLA_BAIXA, array( 'efectos' => '' ) );", $delete );
+		$g = $this->src( 'includes/class-anpa-socios-admin-grupos-handler.php' );
+		$mover = $this->method_body( $g, 'public static function mover(' );
+		$this->assertStringContainsString( 'SELECT id, fillo_id, activitad_id, trimestre, grupo_id, estado FROM {$mat_t}', $mover );
+		$this->assertStringContainsString( "if ( (int) \$mat['grupo_id'] !== \$target ) {", $mover, 'moving to the same group sends nothing' );
+		$notice = strpos( $mover, "ANPA_Socios_Email::avisar_cambio_grupo( \$mat_id, (int) \$mat['grupo_id'], (string) ( \$mat['estado'] ?? '' ) );" );
+		$this->assertStringContainsString( "is_array( \$orixe ) ? \$estado_previo : 'lista_espera'", $this->src( 'includes/class-anpa-socios-email.php' ), 'no origin group = alta' );
+		$this->assertStringContainsString( 'O grupo deixa de contar como creado', $this->src( 'assets/js/admin-management.js' ) );
+		$this->assertNotFalse( $notice );
+		$this->assertGreaterThan( (int) strpos( $mover, "query( 'COMMIT' )" ), (int) $notice, 'emails only after the commit' );
+		$this->assertArrayHasKey( 'matricula_cambio_grupo_aviso', ANPA_Socios_Email_Template_Store::get_all_defaults() );
+		$this->assertContains( 'grupo_orixe', ANPA_Socios_Email_Template_Store::get_variables( 'matricula_cambio_grupo_aviso' )['html'] );
+	}
+
+	public function test_a_created_group_takes_new_requests_pending_the_junta(): void {
+		$body = $this->method_body( $this->src( 'includes/class-anpa-socios-extraescolares-rest.php' ), 'public static function enrol(' );
+		$this->assertStringContainsString( 'max_pupilos, estado, aviso_comezo_en FROM {$gru_t} WHERE id = %d FOR UPDATE', $body );
+		$this->assertStringContainsString( "if ( ANPA_Socios_Aviso_Matricula::grupo_creado( ANPA_Socios_Season::ESTADO_ACTIVO,", $body );
+		$this->assertStringContainsString( '$pendente = true;', $body );
+		$this->assertStringContainsString( 'o grupo xa está en marcha', ANPA_Socios_Email_Template_Store::get_all_defaults()['matricula_pendente']['html'] );
 	}
 
 	public function test_approval_with_a_place_notifies_but_not_from_the_trimester_activation(): void {
@@ -82,7 +116,7 @@ final class Test_ANPA_Socios_Avisos_Metade_Curso extends TestCase {
 		$this->assertStringContainsString( "self::course_is_active( (string) ( \$mat['curso_escolar'] ?? '' ) )", $body );
 		$this->assertStringNotContainsString( 'self::course_is_open(', $body );
 		$this->assertStringContainsString( '$course_error = self::lock_open_course_mode( $curso );', $body );
-		$notice = strpos( $body, 'if ( ANPA_Socios_Email::e_metade_de_curso( $curso ) ) {' );
+		$notice = strpos( $body, "if ( ANPA_Socios_Email::matricula_en_grupo_creado( (int) \$mat['id'] ) ) {" );
 		$commit = strpos( $body, "query( 'COMMIT' )" );
 		$this->assertNotFalse( $notice );
 		$this->assertGreaterThan( (int) $commit, (int) $notice, 'emails only after the commit' );

@@ -340,7 +340,7 @@ final class ANPA_Socios_Extraescolares_REST {
 
 		$wpdb->last_error = '';
 		$locked = $wpdb->get_row(
-			$wpdb->prepare( "SELECT id, curso_escolar, horario, franxa, dias, max_pupilos, estado FROM {$gru_t} WHERE id = %d FOR UPDATE", $grupo_id ),
+			$wpdb->prepare( "SELECT id, curso_escolar, horario, franxa, dias, max_pupilos, estado, aviso_comezo_en FROM {$gru_t} WHERE id = %d FOR UPDATE", $grupo_id ),
 			ARRAY_A
 		);
 		if ( '' !== (string) $wpdb->last_error ) {
@@ -355,6 +355,11 @@ final class ANPA_Socios_Extraescolares_REST {
 			// 1.50.0: «pechado» still queues new requests; «deshabilitado» rejects them outright.
 			$wpdb->query( 'ROLLBACK' );
 			return self::err( 'anpa_extra_grupo_deshabilitado', 'Este grupo está deshabilitado e non admite matrículas.', 409 );
+		}
+		// 1.72.0: a group already created (reopened before the 2nd/3rd trimester) takes
+		// new requests like an out-of-window one: pending the junta's approval.
+		if ( ANPA_Socios_Aviso_Matricula::grupo_creado( ANPA_Socios_Season::ESTADO_ACTIVO, null === ( $locked['aviso_comezo_en'] ?? null ) ? null : (string) $locked['aviso_comezo_en'] ) ) {
+			$pendente = true;
 		}
 
 		$wpdb->last_error = '';
@@ -889,9 +894,9 @@ final class ANPA_Socios_Extraescolares_REST {
 		// posición is the immutable registration order in the activity.
 		ANPA_Socios_Admin_Shared::write_audit_actor( self::current_email( $request ), 'socio', 'matricula', (string) $mat['id'], 'oferta_aceptada' );
 
-		// 1.71.0: mid-course, the family, the company and the canteen are told (the
-		// start of the course and the trimester changes use the mass notices).
-		if ( ANPA_Socios_Email::e_metade_de_curso( $curso ) ) {
+		// 1.71.0 / 1.72.0: once the group was created, the family, the company and the
+		// canteen are told (before that, the group's creation is the mass notice).
+		if ( ANPA_Socios_Email::matricula_en_grupo_creado( (int) $mat['id'] ) ) {
 			$detalle = ANPA_Socios_Admin_Matriculas_Handler::detalle_para_correo( (int) $mat['id'] );
 			if ( is_array( $detalle ) ) {
 				foreach ( $detalle['emails'] as $email ) {

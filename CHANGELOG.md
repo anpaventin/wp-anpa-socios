@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.72.0] - 2026-09-29
+
+### Changed
+
+- **Cando se avisa á empresa e ao comedor.** A regra deixa de ser «matrículas pechadas» e pasa a ser **grupo xa
+  creado**: dende que se enviou (ou marcou) o aviso «grupo creado» dun grupo, calquera cambio nel xera un correo Para:
+  xunta, CCO: empresa + comedor, tamén co prazo aberto antes do 2º ou 3º trimestre. Antes da creación non se envía
+  nada: a creación (no 1º trimestre ou no comezo do 2º/3º) é o aviso masivo de sempre.
+- **Grupos creados reabertos.** Unha solicitude nun grupo xa creado queda **pendente de aprobación** da directiva
+  aínda que o prazo estea aberto (igual ca fóra de prazo). O correo de «solicitude recibida» di agora «O prazo de
+  matrícula está pechado ou o grupo xa está en marcha…».
+- Páxina pública: un grupo creado e reaberto (aberto, notificado, con alumnado) mantén «Creado» e non amosa o mínimo.
+
+### Added
+
+- Avisos tamén en **Xestión**: alta de matrícula (`POST admin/matriculas`, se queda activa nun grupo creado; a API
+  actual crea a matrícula sen grupo, así que o aviso sae ao movela a un grupo creado), eliminación
+  (`DELETE admin/matricula/<id>`, se o alumno/a estaba no grupo) e **mover de grupo**: «Cambio de grupo» (plantilla
+  nova `matricula_cambio_grupo_aviso`, co grupo de orixe e o de destino) se estaba no grupo de orixe e algún dos dous
+  está creado; «Alta no grupo» se vén da lista de espera (ou dunha matrícula sen grupo) a un grupo creado. Mover ao
+  mesmo grupo non envía nada. Quitar a marca de «notificado» avisa de que o grupo deixa de contar como creado.
+
 ## [1.71.0] - 2026-09-28
 
 ### Added

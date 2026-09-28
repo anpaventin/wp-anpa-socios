@@ -688,23 +688,37 @@ class ANPA_Socios_Email {
 	}
 
 	/**
-	 * 1.71.0: whether the course is «mid-course» (active, enrolment window
-	 * closed). Only then do per-pupil notices go to the company and the canteen;
-	 * the start of the course and the trimester changes use the mass notices.
+	 * 1.72.0: whether the enrolment's group was already created («grupo creado»
+	 * notice sent or marked) in an active course. Only then do per-pupil
+	 * notices go out; the creation itself is the mass notice.
 	 *
-	 * @since  1.71.0
-	 * @param  string $curso School year.
+	 * @since  1.72.0
+	 * @param  array<string,mixed>|null $row ANPA_Socios_Alumnos_Export::row_panel_matricula() row.
 	 * @return bool
 	 */
-	public static function e_metade_de_curso( string $curso ): bool {
-		return ANPA_Socios_Aviso_Matricula::debe_avisar( ANPA_Socios_Matricula_Gate_Repo::para_curso( $curso ) );
+	public static function e_grupo_creado( ?array $row ): bool {
+		if ( null === $row ) {
+			return false;
+		}
+		$gate = ANPA_Socios_Matricula_Gate_Repo::para_curso( (string) $row['curso_escolar'] );
+		return ANPA_Socios_Aviso_Matricula::grupo_creado( (string) ( $gate['estado_curso'] ?? '' ), isset( $row['grupo_aviso_en'] ) ? (string) $row['grupo_aviso_en'] : null );
+	}
+
+	/**
+	 * @since  1.72.0
+	 * @param  int $matricula_id Enrolment id.
+	 * @return bool Whether the enrolment's group was already created.
+	 */
+	public static function matricula_en_grupo_creado( int $matricula_id ): bool {
+		return self::e_grupo_creado( ANPA_Socios_Alumnos_Export::row_panel_matricula( $matricula_id ) );
 	}
 
 	/**
 	 * 1.71.0: tells the company of the activity and the canteen that a pupil
 	 * joined (PLANTILLA_ALTA) or left (PLANTILLA_BAIXA) a group, with the
 	 * pupil's data and both parents' contact. One message: To the junta, Bcc
-	 * company + canteen. Mid-course only; best-effort, never throws.
+	 * company + canteen. Only for a group already created (1.72.0); best-effort,
+	 * never throws.
 	 *
 	 * @since  1.71.0
 	 * @param  int                  $matricula_id Enrolment id.
@@ -715,17 +729,68 @@ class ANPA_Socios_Email {
 	public static function avisar_empresa_comedor( int $matricula_id, string $template_id, array $extra = array() ): ?array {
 		try {
 			$row = ANPA_Socios_Alumnos_Export::row_panel_matricula( $matricula_id );
-			if ( null === $row || ! self::e_metade_de_curso( (string) $row['curso_escolar'] ) ) {
+			if ( ! self::e_grupo_creado( $row ) ) {
 				return null;
 			}
-			$dest = ANPA_Socios_Aviso_Matricula::destinatarios( (string) $row['empresa_email'], ANPA_Socios_Config::comedor_email() );
-			if ( array() === $dest ) {
-				return null;
-			}
-			return self::enviar_masivo( $dest, $template_id, $extra + ANPA_Socios_Aviso_Matricula::contexto( $row ) );
+			return self::enviar_aviso_empresa_comedor( $row, $template_id, $extra );
 		} catch ( \Throwable $e ) {
 			return null;
 		}
+	}
+
+	/**
+	 * 1.72.0: a pupil moved to another group of the activity (Xestión → Mover).
+	 * «Cambio de grupo» when the pupil was in the origin group and either group
+	 * was created; «Alta no grupo» when moved from the waiting list into a
+	 * created group. Best-effort, never throws.
+	 *
+	 * @since  1.72.0
+	 * @param  int    $matricula_id   Enrolment id (already in the destination).
+	 * @param  int    $grupo_orixe_id Origin group id.
+	 * @param  string $estado_previo  Enrolment state before the move.
+	 * @return array<string,int>|null
+	 */
+	public static function avisar_cambio_grupo( int $matricula_id, int $grupo_orixe_id, string $estado_previo ): ?array {
+		global $wpdb;
+		try {
+			$row = ANPA_Socios_Alumnos_Export::row_panel_matricula( $matricula_id );
+			if ( null === $row ) {
+				return null;
+			}
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only origin group lookup.
+			$orixe = $wpdb->get_row( $wpdb->prepare( 'SELECT nome, franxa, dias, aviso_comezo_en FROM ' . ANPA_Socios_DB::tabela_grupos() . ' WHERE id = %d', $grupo_orixe_id ), ARRAY_A );
+			$gate  = ANPA_Socios_Matricula_Gate_Repo::para_curso( (string) $row['curso_escolar'] );
+			$curso = (string) ( $gate['estado_curso'] ?? '' );
+			$orixe_creado = is_array( $orixe ) && ANPA_Socios_Aviso_Matricula::grupo_creado( $curso, null === $orixe['aviso_comezo_en'] ? null : (string) $orixe['aviso_comezo_en'] );
+			// No origin group (e.g. an enrolment created by the admin API without a group): it is an alta.
+			$tipo = ANPA_Socios_Aviso_Matricula::tipo_movemento( is_array( $orixe ) ? $estado_previo : 'lista_espera', $orixe_creado, self::e_grupo_creado( $row ) );
+			if ( 'cambio' === $tipo ) {
+				$label = is_array( $orixe ) ? ANPA_Socios_Aviso_Matricula::grupo_label( (string) $orixe['nome'], (string) $orixe['franxa'], (string) $orixe['dias'] ) : '';
+				return self::enviar_aviso_empresa_comedor( $row, ANPA_Socios_Aviso_Matricula::PLANTILLA_CAMBIO, array( 'grupo_orixe' => '' !== $label ? $label : '—' ) );
+			}
+			if ( 'alta' === $tipo ) {
+				return self::enviar_aviso_empresa_comedor( $row, ANPA_Socios_Aviso_Matricula::PLANTILLA_ALTA );
+			}
+			return null;
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+	}
+
+	/**
+	 * One message To the junta, Bcc the activity's company and the canteen.
+	 *
+	 * @param  array<string,mixed>  $row         row_panel_matricula() row.
+	 * @param  string               $template_id Template id.
+	 * @param  array<string,string> $extra       Extra variables.
+	 * @return array<string,int>|null Null when there is no recipient.
+	 */
+	private static function enviar_aviso_empresa_comedor( array $row, string $template_id, array $extra = array() ): ?array {
+		$dest = ANPA_Socios_Aviso_Matricula::destinatarios( (string) $row['empresa_email'], ANPA_Socios_Config::comedor_email() );
+		if ( array() === $dest ) {
+			return null;
+		}
+		return self::enviar_masivo( $dest, $template_id, $extra + ANPA_Socios_Aviso_Matricula::contexto( $row ) );
 	}
 
 	/**

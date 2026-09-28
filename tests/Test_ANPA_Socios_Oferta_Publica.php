@@ -73,11 +73,38 @@ final class Test_ANPA_Socios_Oferta_Publica extends TestCase {
 		);
 	}
 
-	public function test_mid_course_notice_only_with_active_course_and_closed_window(): void {
-		$this->assertTrue( ANPA_Socios_Aviso_Matricula::debe_avisar( array( 'estado_curso' => 'activo', 'abertas' => false ) ) );
-		$this->assertFalse( ANPA_Socios_Aviso_Matricula::debe_avisar( array( 'estado_curso' => 'activo', 'abertas' => true ) ), 'window open = mass moments, no per-pupil notice' );
-		$this->assertFalse( ANPA_Socios_Aviso_Matricula::debe_avisar( array( 'estado_curso' => 'pechado', 'abertas' => false ) ) );
-		$this->assertFalse( ANPA_Socios_Aviso_Matricula::debe_avisar( array() ) );
+	public function test_notice_once_the_group_was_created_in_an_active_course(): void {
+		// 1.72.0: every change after the «grupo creado» notice, whatever the window state.
+		$this->assertTrue( ANPA_Socios_Aviso_Matricula::grupo_creado( 'activo', '2026-09-30 10:00:00' ) );
+		$this->assertFalse( ANPA_Socios_Aviso_Matricula::grupo_creado( 'activo', null ), 'before the group is created: the mass notice covers it' );
+		$this->assertFalse( ANPA_Socios_Aviso_Matricula::grupo_creado( 'activo', '' ) );
+		$this->assertFalse( ANPA_Socios_Aviso_Matricula::grupo_creado( 'pechado', '2026-09-30 10:00:00' ), 'course no longer active' );
+	}
+
+	public function test_which_notice_a_group_move_sends(): void {
+		// A pupil who was in the origin group: «cambio de grupo» if either group was created.
+		$this->assertSame( 'cambio', ANPA_Socios_Aviso_Matricula::tipo_movemento( 'activo', true, false ) );
+		$this->assertSame( 'cambio', ANPA_Socios_Aviso_Matricula::tipo_movemento( 'activo', false, true ) );
+		$this->assertSame( 'cambio', ANPA_Socios_Aviso_Matricula::tipo_movemento( 'baixa_solicitada', true, true ) );
+		$this->assertSame( '', ANPA_Socios_Aviso_Matricula::tipo_movemento( 'activo', false, false ) );
+		// From the waiting list (or pending): it is an alta in the destination.
+		$this->assertSame( 'alta', ANPA_Socios_Aviso_Matricula::tipo_movemento( 'lista_espera', true, true ) );
+		$this->assertSame( 'alta', ANPA_Socios_Aviso_Matricula::tipo_movemento( 'oferta', false, true ) );
+		$this->assertSame( '', ANPA_Socios_Aviso_Matricula::tipo_movemento( 'lista_espera', true, false ) );
+	}
+
+	public function test_only_pupils_in_the_group_trigger_a_baixa_notice(): void {
+		$this->assertTrue( ANPA_Socios_Aviso_Matricula::estaba_no_grupo( 'activo' ) );
+		$this->assertTrue( ANPA_Socios_Aviso_Matricula::estaba_no_grupo( 'baixa_solicitada' ) );
+		$this->assertFalse( ANPA_Socios_Aviso_Matricula::estaba_no_grupo( 'lista_espera' ) );
+		$this->assertFalse( ANPA_Socios_Aviso_Matricula::estaba_no_grupo( 'pendente_aprobacion' ) );
+		$this->assertFalse( ANPA_Socios_Aviso_Matricula::estaba_no_grupo( 'baixa' ) );
+	}
+
+	public function test_a_created_group_reopened_for_the_next_trimester_still_shows_created(): void {
+		$this->assertSame( 'creado', ANPA_Socios_Oferta_Publica::estado_grupo( 'aberto', '2026-09-30 10:00:00', 9, 8 ) );
+		$this->assertSame( 'aberto', ANPA_Socios_Oferta_Publica::estado_grupo( 'aberto', '2026-09-30 10:00:00', 0, 8 ) );
+		$this->assertSame( 'aberto', ANPA_Socios_Oferta_Publica::estado_grupo( 'aberto', null, 9, 8 ) );
 	}
 
 	public function test_recipients_are_company_and_canteen_deduplicated(): void {

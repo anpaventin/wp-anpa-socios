@@ -222,9 +222,14 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
-		ANPA_Socios_Admin_Shared::write_audit( $request, 'matricula', (string) $wpdb->insert_id, 'create' );
+		$new_id = (int) $wpdb->insert_id;
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'matricula', (string) $new_id, 'create' );
+		// 1.72.0: a pupil added to a created group → company + canteen.
+		if ( 'activo' === (string) $payload['estado'] ) {
+			ANPA_Socios_Email::avisar_empresa_comedor( $new_id, ANPA_Socios_Aviso_Matricula::PLANTILLA_ALTA );
+		}
 
-		return new WP_REST_Response( $payload + array( 'id' => $wpdb->insert_id ), 201 );
+		return new WP_REST_Response( $payload + array( 'id' => $new_id ), 201 );
 	}
 
 	/**
@@ -297,6 +302,10 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 		// Freeing an active seat: offer it to the next waitlisted pupil.
 		if ( 'activo' === (string) $row['estado'] && ! empty( $row['grupo_id'] ) && class_exists( 'ANPA_Socios_Extraescolar_Offers' ) ) {
 			ANPA_Socios_Extraescolar_Offers::offer_next( (int) $row['grupo_id'], (int) $row['trimestre'] );
+		}
+		// 1.72.0: a pupil removed from a created group → company + canteen.
+		if ( ANPA_Socios_Aviso_Matricula::estaba_no_grupo( (string) $row['estado'] ) ) {
+			ANPA_Socios_Email::avisar_empresa_comedor( $id, ANPA_Socios_Aviso_Matricula::PLANTILLA_BAIXA, array( 'efectos' => '' ) );
 		}
 
 		return new WP_REST_Response( null, 204 );
