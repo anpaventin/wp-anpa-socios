@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.71.0] - 2026-09-28
+
+### Added
+
+- **Avisos a metade de curso á empresa e ao comedor.** Coas matrículas pechadas e o curso activo, cando un alumno/a
+  entra nun grupo (a xunta aproba unha solicitude e hai praza, ou a familia acepta unha praza ofrecida dende a lista
+  de espera) ou sae del (a xunta confirma a baixa), sae un único correo **Para: xunta, CCO: empresa da actividade e
+  comedor** cos datos do alumno/a (curso, actividade, grupo, trimestre, opcións e autorizacións) e o contacto dos dous
+  proxenitores. Plantillas novas editables: `matricula_alta_aviso`, `matricula_baixa_aviso` e `oferta_aceptada` (á
+  familia cando acepta a praza). A activación dun trimestre e o inicio de curso seguen cos avisos masivos, sen estes
+  correos individuais. Aprobacións que quedan en lista de espera: só se avisa á familia.
+- **Páxina pública de extraescolares.** Os grupos **pechados, notificados como «grupo creado»** (envío ou marca
+  manual) **e con alumnado activo** seguen á vista co distintivo **«Creado»** (sen a liña do mínimo) e tamén no
+  horario, co mesmo filtro de horario de comedor ca os abertos. Os pechados por debaixo do mínimo e os deshabilitados
+  con «Pechar por non acadar o mínimo» (tiveron inscricións) van ao bloque informativo **«Non acadaron o mínimo»** (só
+  actividade e grupos, sen descrición, horario nin prezo). Os deshabilitados sen inscricións nunca se amosan.
+- **Datas das actividades** en *Axustes → Xeral*: «Comezo das actividades extraescolares» e «Remate das actividades
+  extraescolares» (opcións `anpa_socios_data_inicio_actividades` / `anpa_socios_data_remate_actividades`, baleiras por
+  defecto). A páxina pública amosa arriba «As actividades extraescolares comezan o … e rematan o …» e en cada
+  actividade «Do … ao …»; unha data baleira non se amosa. O aviso de «prazo de matrículas» énchese co comezo.
+- **Editar grupo** amosa arriba o estado e o aviso «grupo creado» (Notificado · trimestre · data / Sen notificar) co
+  mesmo botón «Marcar notificado (sen correo)» / «Marcar sen notificar» ca lista de grupos da actividade.
+- **Lista Gmail**: columna «Motivo» en «Altas / Baixas desde a última exportación» (alta nova, xa era socio/a con
+  correo novo, 2º proxenitor, correo que xa non está na web, baixa confirmada) e nota: un correo cambiado conta como
+  unha alta e unha baixa ata a seguinte exportación completa.
+
+### Fixed
+
+- **Ofertas de praza a metade de curso.** Ao confirmar unha baixa a praza ofrecíase ao primeiro da lista de espera,
+  pero a familia non podía aceptala coas matrículas pechadas e a oferta caducaba en cadea. Agora pódese aceptar
+  mentres o curso estea activo.
+- **Auditoría**: `accion` pasa de 20 a 40 caracteres e `target_id` de 40 a 190 (esquema **1.46.0**);
+  `baixa_confirm_familia` (21) e os correos longos perdíanse ou truncábanse.
+
 ## [1.70.0] - 2026-09-28
 
 ### Added

@@ -915,6 +915,8 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 				$efectos
 			);
 		}
+		// 1.71.0: mid-course baixa → company + canteen (Bcc).
+		ANPA_Socios_Email::avisar_empresa_comedor( $id, ANPA_Socios_Aviso_Matricula::PLANTILLA_BAIXA, array( 'efectos' => $efectos ) );
 
 		return new WP_REST_Response( array( 'id' => $id, 'estado' => 'baixa', 'correo_enviado' => $correo_enviado, 'efectos' => $efectos ), 200 );
 	}

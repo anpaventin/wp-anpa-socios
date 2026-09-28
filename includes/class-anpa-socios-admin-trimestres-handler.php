@@ -228,7 +228,8 @@ final class ANPA_Socios_Admin_Trimestres_Handler {
 		} else {
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'curso', $curso, 'trimestre_activo_' . (int) $destino );
 			foreach ( $pendentes as $id ) {
-				$r = ANPA_Socios_Admin_Matriculas_Handler::aprobar( (int) $id, $actor, (string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_ROL ) );
+				// 1.71.0: trimester activation is a mass moment → no per-pupil company/canteen notice.
+				$r = ANPA_Socios_Admin_Matriculas_Handler::aprobar( (int) $id, $actor, (string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_ROL ), false );
 				if ( is_wp_error( $r ) ) {
 					++$aprobacions['erros'];
 				} elseif ( ANPA_Socios_Matricula_Estado::ACTIVO === (string) ( $r['estado'] ?? '' ) ) {

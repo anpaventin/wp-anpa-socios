@@ -100,8 +100,8 @@ final class Test_ANPA_Socios_Contacto_Proxenitores extends TestCase {
 
 	public function test_migration_1_45_0_marks_every_enrolment_and_defaults_to_consent(): void {
 		$db = $this->src( 'includes/class-anpa-socios-db.php' );
-		$this->assertStringContainsString( "const DB_VERSION = '1.45.0';", $db );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.45.0' )", $this->src( 'anpa-socios.php' ) );
+		$this->assertStringContainsString( "const DB_VERSION = '1.46.0';", $db );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.46.0' )", $this->src( 'anpa-socios.php' ) );
 		$this->assertStringContainsString( "version_compare( \$installed_version, '1.45.0', '<' ) && ! self::migrate_to_1_45_0()", $db );
 		$start = strpos( $db, 'private static function migrate_to_1_45_0(): bool' );
 		$this->assertNotFalse( $start );

@@ -390,9 +390,11 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 	 * @param  int    $id         Matrícula id.
 	 * @param  string $actor      Actor email for the audit row.
 	 * @param  string $actor_tipo Actor type for the audit row.
+	 * @param  bool   $avisar_empresa 1.71.0: tell the company and the canteen when a place is granted
+	 *                                mid-course (false for the trimester activation, a mass moment).
 	 * @return array{id:int,estado:string,posicion:int,correos:int}|WP_Error
 	 */
-	public static function aprobar( int $id, string $actor, string $actor_tipo ) {
+	public static function aprobar( int $id, string $actor, string $actor_tipo, bool $avisar_empresa = true ) {
 		global $wpdb;
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
 		$gru_t = ANPA_Socios_DB::tabela_grupos();
@@ -451,6 +453,10 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 					++$correos;
 				}
 			}
+		}
+		// 1.71.0: a place granted mid-course → company + canteen (Bcc), with the family's contact.
+		if ( $avisar_empresa && ANPA_Socios_Matricula_Estado::ACTIVO === $destino ) {
+			ANPA_Socios_Email::avisar_empresa_comedor( $id, ANPA_Socios_Aviso_Matricula::PLANTILLA_ALTA );
 		}
 
 		return array( 'id' => $id, 'estado' => $destino, 'posicion' => $posicion, 'correos' => $correos );

@@ -775,6 +775,20 @@ final class ANPA_Socios_Admin_Settings {
 			esc_html__( 'URL da páxina coa oferta de actividades e o horario. Vai no correo de inicio de curso. Se queda baleira, búscase a páxina que leva o shortcode [anpa_extraescolares_ofertadas].', 'anpa-socios' )
 		);
 
+		// 1.71.0: activity dates shown on the public page and used to prefill the «prazo de matrículas» notice.
+		printf(
+			'<tr><th scope="row"><label for="cfg-inicio-actividades">%s</label></th><td><input name="data_inicio_actividades" id="cfg-inicio-actividades" type="date" value="%s"><p class="description">%s</p></td></tr>',
+			esc_html__( 'Comezo das actividades extraescolares', 'anpa-socios' ),
+			esc_attr( ANPA_Socios_Config::data_inicio_actividades() ),
+			esc_html__( 'Primeiro día das actividades. Aparece na páxina pública de extraescolares (arriba e en cada actividade) e énchese no aviso de «prazo de matrículas». Se queda baleira non se amosa.', 'anpa-socios' )
+		);
+		printf(
+			'<tr><th scope="row"><label for="cfg-remate-actividades">%s</label></th><td><input name="data_remate_actividades" id="cfg-remate-actividades" type="date" value="%s"><p class="description">%s</p></td></tr>',
+			esc_html__( 'Remate das actividades extraescolares', 'anpa-socios' ),
+			esc_attr( ANPA_Socios_Config::data_remate_actividades() ),
+			esc_html__( 'Último día das actividades (por exemplo, o 15 de xuño). Aparece na páxina pública de extraescolares. Se queda baleira non se amosa.', 'anpa-socios' )
+		);
+
 		echo '</tbody></table>';
 		submit_button( __( 'Gardar configuración', 'anpa-socios' ) );
 		echo '</form>';
@@ -1855,6 +1869,27 @@ final class ANPA_Socios_Admin_Settings {
 			}
 		}
 
+		// 1.71.0: activity dates (optional; empty deletes the option).
+		foreach ( array( 'data_inicio_actividades' => ANPA_Socios_Config::OPTION_DATA_INICIO_ACTIVIDADES, 'data_remate_actividades' => ANPA_Socios_Config::OPTION_DATA_REMATE_ACTIVIDADES ) as $field => $option ) {
+			if ( ! array_key_exists( $field, $_POST ) ) {
+				continue;
+			}
+			$raw  = trim( sanitize_text_field( (string) wp_unslash( $_POST[ $field ] ) ) );
+			$data = ANPA_Socios_Oferta_Publica::data_valida( $raw );
+			if ( '' === $raw ) {
+				delete_option( $option );
+			} elseif ( '' === $data ) {
+				$msg = 'data_invalida';
+			} else {
+				update_option( $option, $data );
+			}
+		}
+		$ini = ANPA_Socios_Config::data_inicio_actividades();
+		$rem = ANPA_Socios_Config::data_remate_actividades();
+		if ( '' !== $ini && '' !== $rem && strcmp( $rem, $ini ) < 0 ) {
+			$msg = 'datas_orde';
+		}
+
 		if ( array_key_exists( 'landing_page_id', $_POST ) ) {
 			$landing = (int) $_POST['landing_page_id'];
 			update_option( self::LANDING_OPTION, $landing > 0 ? $landing : 0 );
@@ -2547,6 +2582,8 @@ final class ANPA_Socios_Admin_Settings {
 			'comedor_email_invalid'  => array( 'error', __( 'O correo do comedor non é válido; o resto da configuración gardouse.', 'anpa-socios' ) ),
 			'comedor_email_conflict' => array( 'error', __( 'O correo do comedor xa pertence a un socio/a ou a unha empresa e non se gardou; o resto da configuración gardouse. Un mesmo correo só pode ter un rol.', 'anpa-socios' ) ),
 			'google_email_invalid'   => array( 'error', __( 'A conta de Google da xunta non é un correo válido; o resto da configuración gardouse.', 'anpa-socios' ) ),
+			'data_invalida'          => array( 'error', __( 'Unha das datas das actividades non é válida. O resto da configuración gardouse.', 'anpa-socios' ) ),
+			'datas_orde'             => array( 'error', __( 'O remate das actividades é anterior ao comezo: revisa as dúas datas. Gardáronse tal como se escribiron.', 'anpa-socios' ) ),
 			'url_invalid'            => array( 'error', __( 'Unha das URL (entrada de instrucións ou páxina de extraescolares) non é válida: ten que empezar por http:// ou https://. O resto da configuración gardouse.', 'anpa-socios' ) ),
 			'pw_ok'          => array( 'success', __( 'Contrasinal de admin actualizado.', 'anpa-socios' ) ),
 			'pw_bad'         => array( 'error', __( 'O contrasinal non cumpre os requisitos (mín. 8 caracteres, unha maiúscula e un símbolo).', 'anpa-socios' ) ),

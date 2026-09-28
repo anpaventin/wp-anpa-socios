@@ -284,6 +284,72 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 	}
 
 	/**
+	 * Why a row is in «Altas / Baixas desde a última exportación» (1.71.0). A
+	 * changed email (member's own, or the 2nd parent saved again with another
+	 * address) shows up as one alta (new address) plus one baixa (old address)
+	 * although nobody joined or left. Pure.
+	 *
+	 * @since  1.71.0
+	 * @param  string                    $tipo         'alta' | 'baixa'.
+	 * @param  array<string,string>|null $fila         socios row for that email (estado, creado_en, rol_familia) or null.
+	 * @param  string                    $exportado_en Last confirmed export (MySQL local time).
+	 * @return string Galician explanation.
+	 */
+	public static function motivo( string $tipo, ?array $fila, string $exportado_en ): string {
+		$segundo = is_array( $fila ) && 'secundario' === (string) ( $fila['rol_familia'] ?? '' ) ? ' ' . __( '(2º proxenitor)', 'anpa-socios' ) : '';
+		if ( 'alta' === $tipo ) {
+			$creado = is_array( $fila ) ? (string) ( $fila['creado_en'] ?? '' ) : '';
+			if ( '' !== $creado && '' !== $exportado_en && strcmp( $creado, $exportado_en ) <= 0 ) {
+				return __( 'Xa era socio/a: correo novo (cambiado ou recuperado dunha baixa)', 'anpa-socios' ) . $segundo;
+			}
+			return __( 'Alta nova', 'anpa-socios' ) . $segundo;
+		}
+		if ( null === $fila ) {
+			return __( 'Este correo xa non está na web: cambiouse por outro ou eliminouse', 'anpa-socios' );
+		}
+		if ( 'baixa' === (string) ( $fila['estado'] ?? '' ) ) {
+			return __( 'Baixa confirmada', 'anpa-socios' ) . $segundo;
+		}
+		return sprintf( __( 'Xa non está activo/a (estado: %s)', 'anpa-socios' ), (string) ( $fila['estado'] ?? '' ) ) . $segundo;
+	}
+
+	/**
+	 * Adds «motivo» to each alta / baixa row (one read-only query).
+	 *
+	 * @since  1.71.0
+	 * @param  array<int,array<string,string>> $altas        Rows.
+	 * @param  array<int,array<string,string>> $baixas       Rows.
+	 * @param  string                          $exportado_en Last confirmed export.
+	 * @return array{0:array<int,array<string,string>>,1:array<int,array<string,string>>}
+	 */
+	private static function con_motivos( array $altas, array $baixas, string $exportado_en ): array {
+		global $wpdb;
+		$emails = array();
+		foreach ( array_merge( $altas, $baixas ) as $r ) {
+			$emails[] = strtolower( trim( (string) $r['email'] ) );
+		}
+		$filas = array();
+		if ( array() !== $emails ) {
+			$soc_t = ANPA_Socios_DB::tabela_socios();
+			$ph    = implode( ',', array_fill( 0, count( $emails ), '%s' ) );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- read-only lookup, placeholders built above.
+			$rows = $wpdb->get_results( $wpdb->prepare( "SELECT LOWER(TRIM(email)) AS e, estado, creado_en, rol_familia FROM {$soc_t} WHERE LOWER(TRIM(email)) IN ({$ph})", ...$emails ), ARRAY_A );
+			foreach ( is_array( $rows ) ? $rows : array() as $f ) {
+				$filas[ (string) $f['e'] ] = $f;
+			}
+		}
+		foreach ( $altas as &$r ) {
+			$r['motivo'] = self::motivo( 'alta', $filas[ strtolower( trim( (string) $r['email'] ) ) ] ?? null, $exportado_en );
+		}
+		unset( $r );
+		foreach ( $baixas as &$r ) {
+			$r['motivo'] = self::motivo( 'baixa', $filas[ strtolower( trim( (string) $r['email'] ) ) ] ?? null, $exportado_en );
+		}
+		unset( $r );
+		return array( $altas, $baixas );
+	}
+
+	/**
 	 * Active members that were NOT in the last export (the "altas novas"), in the
 	 * listing order of $actuais. Pure. With no previous export everyone is new.
 	 *
@@ -332,6 +398,8 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 		$actuais_map = self::por_email( $actuais );
 		$altas  = self::socios_novos( $actuais, $previos );
 		$baixas = array_values( array_diff_key( $previos, $actuais_map ) );
+		// 1.71.0: say why each row is there (a changed email = one alta + one baixa).
+		list( $altas, $baixas ) = self::con_motivos( $altas, $baixas, null === $snapshot ? '' : (string) ( $snapshot['exportado_en'] ?? '' ) );
 
 		$soc_t     = ANPA_Socios_DB::tabela_socios();
 		$pendentes = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$soc_t} WHERE estado = 'activo' AND baixa_estado = 'solicitada' AND rol <> 'master'" );

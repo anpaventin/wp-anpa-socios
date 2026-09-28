@@ -190,6 +190,8 @@ final class ANPA_Socios_Admin_Management_Page {
 			'cursosescolares' => $cursos_escolares,
 			'cursoactivo' => null === $curso_activo ? '' : $curso_activo,
 			'section'     => self::active_section_from_request(),
+			// 1.71.0: Axustes → Xeral, prefills the «prazo de matrículas» notice.
+			'datainicioactividades' => ANPA_Socios_Config::data_inicio_actividades(),
 		) );
 
 		// admin-management.css.

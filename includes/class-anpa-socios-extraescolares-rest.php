@@ -821,7 +821,9 @@ final class ANPA_Socios_Extraescolares_REST {
 		if ( null === $mat || 'oferta' !== $mat['estado'] ) {
 			return self::err( 'anpa_extra_not_found', 'Non atopado', 404 );
 		}
-		if ( ! self::course_is_open( (string) ( $mat['curso_escolar'] ?? '' ) ) ) {
+		// 1.71.0: an offer is a freed place the family is entitled to: it can be accepted
+		// while the course is active, also mid-course with the enrolment window closed.
+		if ( ! self::course_is_active( (string) ( $mat['curso_escolar'] ?? '' ) ) ) {
 			return self::err( 'anpa_extra_curso_pechado', 'Este curso está pechado para novas matrículas ou baixas.', 409 );
 		}
 
@@ -829,7 +831,8 @@ final class ANPA_Socios_Extraescolares_REST {
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
 		}
-		$course_error = self::lock_open_course( $curso );
+		// Locks the course (and the trimester window) row; 'abertas' or 'pendente' both mean an active course.
+		$course_error = self::lock_open_course_mode( $curso );
 		if ( is_wp_error( $course_error ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return $course_error;
@@ -885,6 +888,18 @@ final class ANPA_Socios_Extraescolares_REST {
 		}
 		// posición is the immutable registration order in the activity.
 		ANPA_Socios_Admin_Shared::write_audit_actor( self::current_email( $request ), 'socio', 'matricula', (string) $mat['id'], 'oferta_aceptada' );
+
+		// 1.71.0: mid-course, the family, the company and the canteen are told (the
+		// start of the course and the trimester changes use the mass notices).
+		if ( ANPA_Socios_Email::e_metade_de_curso( $curso ) ) {
+			$detalle = ANPA_Socios_Admin_Matriculas_Handler::detalle_para_correo( (int) $mat['id'] );
+			if ( is_array( $detalle ) ) {
+				foreach ( $detalle['emails'] as $email ) {
+					ANPA_Socios_Email::enviar_oferta_aceptada( $email, $detalle['alumno'], $detalle['actividade'], $detalle['grupo'] );
+				}
+			}
+			ANPA_Socios_Email::avisar_empresa_comedor( (int) $mat['id'], ANPA_Socios_Aviso_Matricula::PLANTILLA_ALTA );
+		}
 
 		return new WP_REST_Response( array( 'id' => (int) $mat['id'], 'estado' => 'activo' ), 200 );
 	}

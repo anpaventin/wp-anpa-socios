@@ -69,6 +69,9 @@ final class ANPA_Socios_Config {
 	 */
 	const OPTION_INSTRUCIONS_URL = 'anpa_socios_instrucions_url';
 	const OPTION_EXTRAESCOLARES_URL = 'anpa_socios_extraescolares_url';
+	// 1.71.0: first and last day of the extracurricular activities (Y-m-d; empty = not shown).
+	const OPTION_DATA_INICIO_ACTIVIDADES = 'anpa_socios_data_inicio_actividades';
+	const OPTION_DATA_REMATE_ACTIVIDADES = 'anpa_socios_data_remate_actividades';
 
 	/**
 	 * Returns the resolved master email.
@@ -239,6 +242,26 @@ final class ANPA_Socios_Config {
 	 */
 	public static function extraescolares_url(): string {
 		return trim( (string) get_option( self::OPTION_EXTRAESCOLARES_URL, '' ) );
+	}
+
+	/**
+	 * First day of the extracurricular activities (Y-m-d, '' when not set).
+	 *
+	 * @since  1.71.0
+	 * @return string
+	 */
+	public static function data_inicio_actividades(): string {
+		return ANPA_Socios_Oferta_Publica::data_valida( (string) get_option( self::OPTION_DATA_INICIO_ACTIVIDADES, '' ) );
+	}
+
+	/**
+	 * Last day of the extracurricular activities (Y-m-d, '' when not set).
+	 *
+	 * @since  1.71.0
+	 * @return string
+	 */
+	public static function data_remate_actividades(): string {
+		return ANPA_Socios_Oferta_Publica::data_valida( (string) get_option( self::OPTION_DATA_REMATE_ACTIVIDADES, '' ) );
 	}
 
 	/**

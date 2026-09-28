@@ -523,6 +523,76 @@ final class ANPA_Socios_Email_Template_Store {
 					array( 'alumno', 'actividade', 'contact_email' ),
 				),
 			),
+			// 1.71.0: avisos a metade de curso (matrículas pechadas) á empresa e ao comedor
+			// (Para: xunta, CCO: empresa e comedor) e á familia que acepta unha praza.
+			'matricula_alta_aviso' => array(
+				'subject' => array(
+					__( 'Alta no grupo: %s — %s (%s) — %s', 'anpa-socios' ),
+					array( 'alumno', 'actividade', 'grupo', 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Hai unha incorporación nova ao grupo <strong>%s</strong> da actividade <strong>%s</strong> (%sº trimestre):', 'anpa-socios' ) . '</p>' .
+					'<ul><li>' . __( 'Alumno/a: <strong>%s</strong> (%s)', 'anpa-socios' ) . '</li>' .
+					'<li>' . __( 'Empresa: %s', 'anpa-socios' ) . '</li>' .
+					'<li>' . __( '1º proxenitor: %s', 'anpa-socios' ) . '</li>' .
+					'<li>' . __( '2º proxenitor: %s', 'anpa-socios' ) . '</li>' .
+					'<li>' . __( 'Opcións e autorizacións: %s', 'anpa-socios' ) . '</li></ul>' .
+					'<p>' . __( 'O listado actualizado está sempre no panel de empresa e do comedor da web. Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
+					array( 'grupo', 'actividade', 'trimestre', 'alumno', 'curso', 'empresa', 'proxenitor1', 'proxenitor2', 'opcions', 'contact_email' ),
+				),
+				'text' => array(
+					__( 'Hai unha incorporación nova ao grupo %s da actividade %s (%sº trimestre):', 'anpa-socios' ) . "\n\n" .
+					__( 'Alumno/a: %s (%s)', 'anpa-socios' ) . "\n" .
+					__( 'Empresa: %s', 'anpa-socios' ) . "\n" .
+					__( '1º proxenitor: %s', 'anpa-socios' ) . "\n" .
+					__( '2º proxenitor: %s', 'anpa-socios' ) . "\n" .
+					__( 'Opcións e autorizacións: %s', 'anpa-socios' ) . "\n\n" .
+					__( 'O listado actualizado está sempre no panel de empresa e do comedor da web. Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
+					array( 'grupo', 'actividade', 'trimestre', 'alumno', 'curso', 'empresa', 'proxenitor1', 'proxenitor2', 'opcions', 'contact_email' ),
+				),
+			),
+			'matricula_baixa_aviso' => array(
+				'subject' => array(
+					__( 'Baixa no grupo: %s — %s (%s) — %s', 'anpa-socios' ),
+					array( 'alumno', 'actividade', 'grupo', 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'A directiva confirmou a baixa dun alumno/a no grupo <strong>%s</strong> da actividade <strong>%s</strong>. %s', 'anpa-socios' ) . '</p>' .
+					'<ul><li>' . __( 'Alumno/a: <strong>%s</strong> (%s)', 'anpa-socios' ) . '</li>' .
+					'<li>' . __( 'Empresa: %s', 'anpa-socios' ) . '</li>' .
+					'<li>' . __( '1º proxenitor: %s', 'anpa-socios' ) . '</li>' .
+					'<li>' . __( '2º proxenitor: %s', 'anpa-socios' ) . '</li></ul>' .
+					'<p>' . __( 'O listado actualizado está sempre no panel de empresa e do comedor da web. Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
+					array( 'grupo', 'actividade', 'efectos', 'alumno', 'curso', 'empresa', 'proxenitor1', 'proxenitor2', 'contact_email' ),
+				),
+				'text' => array(
+					__( 'A directiva confirmou a baixa dun alumno/a no grupo %s da actividade %s. %s', 'anpa-socios' ) . "\n\n" .
+					__( 'Alumno/a: %s (%s)', 'anpa-socios' ) . "\n" .
+					__( 'Empresa: %s', 'anpa-socios' ) . "\n" .
+					__( '1º proxenitor: %s', 'anpa-socios' ) . "\n" .
+					__( '2º proxenitor: %s', 'anpa-socios' ) . "\n\n" .
+					__( 'O listado actualizado está sempre no panel de empresa e do comedor da web. Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
+					array( 'grupo', 'actividade', 'efectos', 'alumno', 'curso', 'empresa', 'proxenitor1', 'proxenitor2', 'contact_email' ),
+				),
+			),
+			'oferta_aceptada' => array(
+				'subject' => array(
+					__( 'Praza confirmada: %s en %s — %s', 'anpa-socios' ),
+					array( 'alumno', 'actividade', 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Aceptastes a praza ofrecida: <strong>%s</strong> xa está no grupo da actividade <strong>%s</strong> (%s). A directiva avisa tamén á empresa e ao persoal de comedor.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Podedes ver a matrícula na área de socios/as: <a href="%s">%s</a>. O cobro da actividade faino directamente a empresa que a imparte.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
+					array( 'alumno', 'actividade', 'grupo', 'login_url', 'login_url', 'contact_email' ),
+				),
+				'text' => array(
+					__( 'Aceptastes a praza ofrecida: %s xa está no grupo da actividade %s (%s). A directiva avisa tamén á empresa e ao persoal de comedor.', 'anpa-socios' ) . "\n\n" .
+					__( 'Podedes ver a matrícula na área de socios/as: %s. O cobro da actividade faino directamente a empresa que a imparte.', 'anpa-socios' ) . "\n\n" .
+					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
+					array( 'alumno', 'actividade', 'grupo', 'login_url', 'contact_email' ),
+				),
+			),
 			// Avisos por grupo (Grupos e horarios), só coas matrículas pechadas.
 			'grupo_comezo_trimestre' => array(
 				'subject' => array(

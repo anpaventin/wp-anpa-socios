@@ -75,9 +75,22 @@ final class Test_ANPA_Socios_Grupo_Estado_Deshabilitado extends TestCase {
 		$this->assertStringContainsString( "'anpa_extra_grupo_deshabilitado'", $r );
 	}
 
+	private function method_src( string $src, string $signature ): string {
+		$start = strpos( $src, $signature );
+		$this->assertNotFalse( $start, $signature );
+		$end = strpos( $src, "\n\t/**", (int) $start + 1 );
+		return substr( $src, (int) $start, false === $end ? null : (int) $end - (int) $start );
+	}
+
 	public function test_public_offer_and_timetable_only_use_open_groups(): void {
-		// «pechado» and «deshabilitado» are both hidden because every consumer filters on aberto.
-		$this->assertStringContainsString( "g.estado = 'aberto'", $this->src( 'includes/class-anpa-socios-extraescolares-page.php' ) );
+		// Since 1.71.0 the public offer shows the open groups plus the closed ones the junta
+		// confirmed («grupo creado», with pupils), labelled «Creado». Closed or disabled groups
+		// below the minimum only appear by name in «Non acadaron o mínimo».
+		$page = $this->src( 'includes/class-anpa-socios-extraescolares-page.php' );
+		$this->assertStringContainsString( "WHERE curso_escolar = %s AND estado = 'aberto' ORDER BY id", $page );
+		$this->assertStringContainsString( "g.estado = 'pechado' AND g.aviso_comezo_en IS NOT NULL", $page );
+		$this->assertStringContainsString( "g.estado IN ('pechado', 'deshabilitado')", $this->method_src( $page, 'private static function non_acadados_html(' ) );
+		$this->assertStringNotContainsString( 'deshabilitado', $this->method_src( $page, 'private static function grupos_creados_ids(' ) );
 		$this->assertStringContainsString( "AND estado = 'aberto' ORDER BY", $this->src( 'includes/class-anpa-socios-extraescolares-rest.php' ) );
 		$this->assertStringContainsString( "'aberto' !== ( \$g['estado'] ?? '' )", $this->src( 'includes/lib/class-anpa-socios-horario-builder.php' ) );
 	}
@@ -100,13 +113,13 @@ final class Test_ANPA_Socios_Grupo_Estado_Deshabilitado extends TestCase {
 
 	public function test_schema_migration_1_40_0_widens_the_estado_enum_guarded(): void {
 		$db = $this->src( 'includes/class-anpa-socios-db.php' );
-		$this->assertStringContainsString( "const DB_VERSION = '1.45.0'", $db );
+		$this->assertStringContainsString( "const DB_VERSION = '1.46.0'", $db );
 		$this->assertStringContainsString( "version_compare( \$installed_version, '1.40.0', '<' ) && ! self::migrate_to_1_40_0()", $db );
 		$this->assertStringContainsString( 'Migration halted at step 1.40.0', $db );
 		$this->assertStringContainsString( 'private static function migrate_to_1_40_0(): bool', $db );
 		$this->assertStringContainsString( "MODIFY COLUMN estado enum('aberto','pechado','deshabilitado') NOT NULL DEFAULT 'aberto'", $db );
 		// Fresh installs get the widened enum straight from the CREATE statement too.
 		$this->assertStringContainsString( "estado enum('aberto','pechado','deshabilitado') not null default 'aberto'", $db );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.45.0' )", $this->src( 'anpa-socios.php' ) );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.46.0' )", $this->src( 'anpa-socios.php' ) );
 	}
 }

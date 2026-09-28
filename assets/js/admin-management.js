@@ -1477,12 +1477,12 @@
 			var table = document.createElement('table');
 			table.className = 'anpa-mgmt-table';
 			var thead = document.createElement('thead'); var hr = document.createElement('tr');
-			['Apelidos', 'Nome', 'Email'].forEach(function (l) { hr.appendChild(el('th', l)); });
+			['Apelidos', 'Nome', 'Email', 'Motivo'].forEach(function (l) { hr.appendChild(el('th', l)); });
 			thead.appendChild(hr); table.appendChild(thead);
 			var tbody = document.createElement('tbody');
 			rows.forEach(function (r) {
 				var tr = document.createElement('tr');
-				tr.appendChild(el('td', r.apelidos)); tr.appendChild(el('td', r.nome)); tr.appendChild(el('td', r.email));
+				tr.appendChild(el('td', r.apelidos)); tr.appendChild(el('td', r.nome)); tr.appendChild(el('td', r.email)); tr.appendChild(el('td', r.motivo || ''));
 				tbody.appendChild(tr);
 			});
 			table.appendChild(tbody);
@@ -1491,6 +1491,8 @@
 		if (ultima) {
 			diffTable('Altas desde a última exportación', altas, 'Ningunha alta nova.');
 			diffTable('Baixas desde a última exportación', baixas, 'Ningunha baixa.');
+			// 1.71.0: a changed address is counted twice although nobody joined or left.
+			root.appendChild(el('p', 'Se unha familia cambia un correo (o seu ou o do 2º proxenitor), aparece unha alta co correo novo e unha baixa co vello: fai a exportación completa para que Google quede igual ca web.', 'description'));
 		}
 
 		// ── Correo de inicio de curso (1.62.0) ──
@@ -2546,7 +2548,7 @@
 				if (grupo.ten_grupo_actual) {
 					var aviso = document.createElement('span');
 					aviso.className = 'anpa-grupo-aviso ' + (grupo.notificado ? 'anpa-grupo-aviso--si' : 'anpa-grupo-aviso--non');
-					aviso.textContent = grupo.notificado ? ('Notificado' + (grupo.aviso_comezo_trimestre ? ' · ' + grupo.aviso_comezo_trimestre + '\u00BA trim.' : '') + (grupo.aviso_comezo_en ? ' · ' + formatAdminDate(grupo.aviso_comezo_en) : '')) : 'Sen notificar';
+					aviso.textContent = grupoAvisoTexto(grupo);
 					tdAviso.appendChild(aviso);
 				}
 				tr.appendChild(tdAviso);
@@ -2644,10 +2646,32 @@
 		return '';
 	}
 
+	/** 1.71.0: «grupo creado» notice state, shared by the activity's group list and the group form. */
+	function grupoAvisoTexto(grupo) {
+		return grupo.notificado ? ('Notificado' + (grupo.aviso_comezo_trimestre ? ' · ' + grupo.aviso_comezo_trimestre + '\u00BA trim.' : '') + (grupo.aviso_comezo_en ? ' · ' + formatAdminDate(grupo.aviso_comezo_en) : '')) : 'Sen notificar';
+	}
+
 	function renderGrupoForm(grupo, actividad, preferredCourse, returnToGrid) {
 		root.textContent = '';
 		var isEdit = grupo !== null; var form = document.createElement('div'); form.className = 'anpa-mgmt-form';
 		var h3 = document.createElement('h3'); h3.textContent = (isEdit ? 'Editar grupo' : 'Novo grupo') + ' — ' + (actividad.nome || ''); form.appendChild(h3);
+		// 1.71.0: state and «grupo creado» notice at the top, with the same toggle as the activity's group list.
+		if (isEdit) {
+			var resumo = document.createElement('div'); resumo.className = 'anpa-grupo-form-resumo';
+			var rEstado = document.createElement('span'); rEstado.className = 'anpa-grupo-estado anpa-grupo-estado-' + (grupo.estado || 'pechado'); rEstado.textContent = 'Estado: ' + grupoEstadoLabel(grupo.estado);
+			var rAviso = document.createElement('span'); rAviso.className = 'anpa-grupo-aviso ' + (grupo.notificado ? 'anpa-grupo-aviso--si' : 'anpa-grupo-aviso--non'); rAviso.textContent = 'Aviso: ' + grupoAvisoTexto(grupo);
+			var rBtn = document.createElement('button'); rBtn.type = 'button'; rBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
+			rBtn.textContent = grupo.notificado ? 'Marcar sen notificar' : 'Marcar notificado (sen correo)';
+			rBtn.addEventListener('click', function () {
+				if (!window.confirm((grupo.notificado ? 'Quitar a marca de «notificado» ao grupo «' + (grupo.nome || '') + '»?' : 'Marcar o grupo «' + (grupo.nome || '') + '» como notificado neste ciclo de matrículas? Non se envía ningún correo.') + '\n\nOs cambios do formulario que non gardases pérdense.')) { return; }
+				anpaAdminFetch('grupo/' + grupo.id + '/aviso-comezo', { method: 'POST', body: { notificado: !grupo.notificado } }).then(function (r) {
+					showMessage(r && r.notificado ? 'Grupo marcado como notificado.' : 'Marca de notificado retirada.', 'success');
+					openGroupEditor(actividad.id, grupo.id, grupo.serie_uid);
+				}).catch(function (e) { showMessage(e.message, 'error'); });
+			});
+			resumo.appendChild(rEstado); resumo.appendChild(rAviso); resumo.appendChild(rBtn);
+			form.appendChild(resumo);
+		}
 		function addField(id, label, input) { var l = document.createElement('label'); l.htmlFor = id; l.textContent = label; input.id = id; form.appendChild(l); form.appendChild(input); }
 
 		var nome = document.createElement('input'); nome.type = 'text'; nome.value = isEdit ? (grupo.nome || '') : ''; addField('anpa-grupo-nome', 'Nome do grupo', nome);
@@ -3261,7 +3285,7 @@
 		var anoInicio = parseInt(curso.split('/')[0], 10) || hoxe.getFullYear();
 		function iso(dt) { return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0'); }
 		var lPeche = el('label', null, 'Remata o '); var inPeche = document.createElement('input'); inPeche.type = 'date'; inPeche.value = iso(mercores); lPeche.appendChild(inPeche);
-		var lInicio = el('label', null, 'as actividades comezan o '); var inInicio = document.createElement('input'); inInicio.type = 'date'; inInicio.value = anoInicio + '-10-01'; lInicio.appendChild(inInicio);
+		var lInicio = el('label', null, 'as actividades comezan o '); var inInicio = document.createElement('input'); inInicio.type = 'date'; inInicio.value = cfg.datainicioactividades || (anoInicio + '-10-01'); lInicio.appendChild(inInicio);
 		bPrazo.addEventListener('click', function () {
 			if (!inPeche.value || !inInicio.value) { showMessage('Indica as dúas datas.', 'error'); return; }
 			if (!window.confirm('Lembrar ás familias que o prazo de matrícula remata o ' + inPeche.value.split('-').reverse().join('/') + ' e que as actividades comezan o ' + inInicio.value.split('-').reverse().join('/') + '?\n\n' + destinatarios())) { return; }

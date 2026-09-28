@@ -105,7 +105,7 @@ class ANPA_Socios_DB {
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.45.0';
+	const DB_VERSION = '1.46.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -375,6 +375,12 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.45.0', '<' ) && ! self::migrate_to_1_45_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.45.0 (migrate_to_1_45_0): ' . $wpdb->last_error );
+			return;
+		}
+		// 1.46.0 (1.71.0): audit_log.accion / target_id were too short (baixa_confirm_familia, emails).
+		if ( version_compare( $installed_version, '1.46.0', '<' ) && ! self::migrate_to_1_46_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.46.0 (migrate_to_1_46_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -3258,8 +3264,8 @@ class ANPA_Socios_DB {
 			actor_email varchar(190) not null,
 			actor_tipo varchar(20) not null,
 			target_tipo varchar(20) not null,
-			target_id varchar(40) not null default '',
-			accion varchar(20) not null,
+			target_id varchar(190) not null default '',
+			accion varchar(40) not null,
 			timestamp datetime not null default CURRENT_TIMESTAMP,
 			key actor_email (actor_email),
 			key timestamp (timestamp),
@@ -4269,5 +4275,24 @@ class ANPA_Socios_DB {
 		}
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one-time consent backfill.
 		return false !== $wpdb->query( "UPDATE {$matriculas} SET cesion_datos_empresa = 1 WHERE cesion_datos_empresa <> 1" );
+	}
+
+	/**
+	 * Migration to 1.46.0 (plugin 1.71.0): widen audit_log.accion (20 → 40)
+	 * and target_id (40 → 190). «baixa_confirm_familia» has 21 characters and
+	 * target ids are often emails, so rows were truncated or, with a strict SQL
+	 * mode, not written at all. Widening keeps every existing row.
+	 *
+	 * @since  1.71.0
+	 * @return bool
+	 */
+	private static function migrate_to_1_46_0(): bool {
+		global $wpdb;
+		$audit = self::tabela_audit_log();
+		if ( ! self::tem_columna( $audit, 'accion' ) ) {
+			return true; // Table absent: crear_tabelas() creates it with the new sizes.
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+		return false !== $wpdb->query( "ALTER TABLE {$audit} MODIFY COLUMN accion varchar(40) NOT NULL, MODIFY COLUMN target_id varchar(190) NOT NULL DEFAULT ''" );
 	}
 }

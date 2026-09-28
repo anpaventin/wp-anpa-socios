@@ -102,13 +102,20 @@ final class ANPA_Socios_Extraescolares_Page {
 	public static function render_ofertadas( $atts ): string {
 		$curso = ANPA_Socios_Curso_Activo::get();
 		$rows  = self::active_activities();
+		// 1.71.0: activity dates (Axustes → Xeral) and the groups that did not reach their minimum.
+		$inicio     = ANPA_Socios_Config::data_inicio_actividades();
+		$remate     = ANPA_Socios_Config::data_remate_actividades();
+		$aviso      = ANPA_Socios_Oferta_Publica::aviso_datas( $inicio, $remate );
+		$curto      = ANPA_Socios_Oferta_Publica::texto_curto( $inicio, $remate );
+		$datas_html = '' === $aviso ? '' : '<div class="anpa-extra-datas" role="note"><p>' . esc_html( $aviso ) . '</p></div>';
+		$non_html   = self::non_acadados_html( null !== $curso ? (string) $curso : '' );
 		if ( array() === $rows ) {
-			return '<div class="anpa-extra-ofertadas anpa-extra-empty"><p>'
+			return '<div class="anpa-extra-ofertadas anpa-extra-empty">' . $datas_html . '<p>'
 				. esc_html__( 'Aínda non hai actividades extraescolares publicadas para este curso.', 'anpa-socios' )
-				. '</p></div>';
+				. '</p>' . $non_html . '</div>';
 		}
 
-		$html = '<div class="anpa-extra-ofertadas">';
+		$html = '<div class="anpa-extra-ofertadas">' . $datas_html;
 		if ( null !== $curso ) {
 			/* translators: %s: school year like "2026/2027" */
 			$html .= '<p class="anpa-extra-curso-activo">'
@@ -125,6 +132,9 @@ final class ANPA_Socios_Extraescolares_Page {
 			$html .= '<div class="anpa-card anpa-extra-card">';
 			$html .= '<p class="anpa-icon-circle">' . esc_html( self::activity_icon( (string) ( $act['icono'] ?? '' ) ) ) . '</p>';
 			$html .= '<h3>' . esc_html( (string) ( $act['nome'] ?? '' ) ) . '</h3>';
+			if ( '' !== $curto ) {
+				$html .= '<p class="anpa-extra-meta anpa-extra-card-datas">' . esc_html( $curto ) . '</p>';
+			}
 
 			// Empresa — the name itself is the link when a website is set
 			// (fase22 S8.1); no bare URL in parentheses.
@@ -158,9 +168,98 @@ final class ANPA_Socios_Extraescolares_Page {
 		}
 		$html .= '</div></section>';
 		}
-		$html .= '</div>';
+		$html .= $non_html . '</div>';
 
 		return $html;
+	}
+
+	/**
+	 * Closed groups the junta confirmed («grupo creado» notice sent or marked by
+	 * hand) for the course. They still show on the public page with «Creado».
+	 *
+	 * @since  1.71.0
+	 * @param  string $curso School year.
+	 * @return int[]
+	 */
+	private static function grupos_creados_ids( string $curso ): array {
+		global $wpdb;
+		$gru_t = ANPA_Socios_DB::tabela_grupos();
+		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only public listing.
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT g.id, g.curso_escolar, g.franxa, g.dias FROM {$gru_t} g
+			 WHERE g.curso_escolar = %s AND g.estado = 'pechado' AND g.aviso_comezo_en IS NOT NULL
+			   AND EXISTS (SELECT 1 FROM {$mat_t} m WHERE m.grupo_id = g.id AND m.estado = 'activo')
+			 ORDER BY g.id",
+			$curso
+		), ARRAY_A );
+		$ids = array();
+		foreach ( is_array( $rows ) ? $rows : array() as $row ) {
+			// Same levels + canteen-timetable gate as the open groups (available_group_ids).
+			$niveis = ANPA_Socios_DB::get_niveis_for_grupo( (int) $row['id'] );
+			if ( array() === $niveis ) {
+				continue;
+			}
+			$conflicts = ANPA_Socios_Grupo_Comedor_Gate::conflicts_for_series( array(
+				'estado'         => 'aberto',
+				'cursos'         => array( (string) $row['curso_escolar'] ),
+				'niveis_por_ano' => array( (string) $row['curso_escolar'] => $niveis ),
+				'franxa'         => (string) $row['franxa'],
+				'dias'           => (string) $row['dias'],
+			), false );
+			if ( ! is_wp_error( $conflicts ) && array() === $conflicts ) {
+				$ids[] = (int) $row['id'];
+			}
+		}
+		return $ids;
+	}
+
+	/**
+	 * «Non acadaron o mínimo»: activity and group names only (no description,
+	 * schedule or price). '' when there is none.
+	 *
+	 * @since  1.71.0
+	 * @param  string $curso School year ('' = none).
+	 * @return string Escaped HTML.
+	 */
+	private static function non_acadados_html( string $curso ): string {
+		if ( '' === $curso ) {
+			return '';
+		}
+		global $wpdb;
+		$act_t = ANPA_Socios_DB::tabela_actividades();
+		$gru_t = ANPA_Socios_DB::tabela_grupos();
+		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only public listing, no personal data.
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT a.nome AS actividade, g.nome AS grupo, g.estado, g.aviso_comezo_en, g.min_pupilos,
+			        COUNT(DISTINCT CASE WHEN m.estado = 'activo' THEN m.id END) AS activos,
+			        COUNT(DISTINCT m.id) AS total
+			 FROM {$gru_t} g
+			 INNER JOIN {$act_t} a ON a.id = g.actividad_id
+			 LEFT JOIN {$mat_t} m ON m.grupo_id = g.id
+			 WHERE g.curso_escolar = %s AND a.estado = 'activo' AND g.estado IN ('pechado', 'deshabilitado')
+			 GROUP BY g.id, a.nome, g.nome, g.estado, g.aviso_comezo_en, g.min_pupilos",
+			$curso
+		), ARRAY_A );
+		$lista = array();
+		foreach ( is_array( $rows ) ? $rows : array() as $r ) {
+			$aviso = null === $r['aviso_comezo_en'] ? null : (string) $r['aviso_comezo_en'];
+			if ( ANPA_Socios_Oferta_Publica::NON_ACADADO === ANPA_Socios_Oferta_Publica::estado_grupo( (string) $r['estado'], $aviso, (int) $r['activos'], (int) $r['min_pupilos'], (int) $r['total'] ) ) {
+				$lista[] = array( 'actividade' => (string) $r['actividade'], 'grupo' => (string) $r['grupo'] );
+			}
+		}
+		$lista = ANPA_Socios_Oferta_Publica::non_acadados( $lista );
+		if ( array() === $lista ) {
+			return '';
+		}
+		$html  = '<section class="anpa-extra-seccion anpa-extra-non-acadados">';
+		$html .= '<h2 class="anpa-extra-seccion-titulo">' . esc_html__( 'Non acadaron o mínimo', 'anpa-socios' ) . '</h2>';
+		$html .= '<p class="anpa-extra-meta">' . esc_html__( 'Estes grupos non se forman este curso porque non chegaron ao número mínimo de inscricións.', 'anpa-socios' ) . '</p><ul>';
+		foreach ( $lista as $item ) {
+			$html .= '<li><strong>' . esc_html( $item['actividade'] ) . '</strong>: ' . esc_html( implode( ', ', $item['grupos'] ) ) . '</li>';
+		}
+		return $html . '</ul></section>';
 	}
 
 	/**
@@ -250,7 +349,8 @@ final class ANPA_Socios_Extraescolares_Page {
 		if ( null === $curso ) {
 			return array();
 		}
-		$available_ids = self::available_group_ids( $curso );
+		// 1.71.0: open groups plus the closed ones the junta confirmed («grupo creado»): they run this course.
+		$available_ids = array_values( array_unique( array_merge( self::available_group_ids( $curso ), self::grupos_creados_ids( $curso ) ) ) );
 		if ( array() === $available_ids ) {
 			return array();
 		}
@@ -265,7 +365,7 @@ final class ANPA_Socios_Extraescolares_Page {
 				 FROM {$act_t} a
 				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = %s
 				 LEFT JOIN {$mat_t} m ON m.grupo_id = g.id
-				 WHERE a.estado = 'activo' AND g.estado = 'aberto'
+				 WHERE a.estado = 'activo'
 				   AND g.id IN ({$available_placeholders})
 				   AND g.horario IN ('maña','manha','tarde') AND g.franxa <> '' AND g.dias <> ''
 				 GROUP BY g.id, a.nome, g.nome, g.horario, g.franxa, g.dias, g.max_pupilos
@@ -298,7 +398,8 @@ final class ANPA_Socios_Extraescolares_Page {
 		if ( null === $curso ) {
 			return array();
 		}
-		$available_ids = self::available_group_ids( $curso );
+		// 1.71.0: open groups plus the closed ones the junta confirmed («grupo creado»): they run this course.
+		$available_ids = array_values( array_unique( array_merge( self::available_group_ids( $curso ), self::grupos_creados_ids( $curso ) ) ) );
 		if ( array() === $available_ids ) {
 			return array();
 		}
@@ -315,7 +416,7 @@ final class ANPA_Socios_Extraescolares_Page {
 				        GROUP_CONCAT(DISTINCT CONCAT(g.id, '|', g.nome, '|', g.horario, '|', g.franxa, '|', g.dias) ORDER BY g.franxa, g.nome SEPARATOR ';;') AS horarios_grupos
 				 FROM {$act_t} a
 				 LEFT JOIN {$empresas} e ON e.id = a.empresa_id
-				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = %s AND g.estado = 'aberto'
+				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = %s
 				 WHERE a.estado = 'activo'
 				   AND g.id IN ({$available_placeholders})
 				 GROUP BY a.id, a.nome, a.icono, a.descripcion, a.custo, e.nome, e.url_web
@@ -339,7 +440,7 @@ final class ANPA_Socios_Extraescolares_Page {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only group enrolment stats.
 		$grupos_raw = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT g.id, g.actividad_id, g.nome, g.min_pupilos, g.max_pupilos,
+				"SELECT g.id, g.actividad_id, g.nome, g.min_pupilos, g.max_pupilos, g.estado, g.aviso_comezo_en,
 				        GROUP_CONCAT(DISTINCT n.etiqueta ORDER BY n.orde SEPARATOR ', ') AS niveis,
 				        COUNT(DISTINCT CASE WHEN m.estado = 'activo' THEN m.id END) AS activos,
 				        COUNT(DISTINCT CASE WHEN m.estado = 'lista_espera' THEN m.id END) AS espera
@@ -347,9 +448,9 @@ final class ANPA_Socios_Extraescolares_Page {
 				 INNER JOIN {$gn_t} gn ON gn.grupo_id = g.id
 				 INNER JOIN {$niv_t} n ON n.id = gn.nivel_id
 				 LEFT JOIN {$mat_t} m ON m.grupo_id = g.id
-				 WHERE g.actividad_id IN ({$placeholders}) AND g.curso_escolar = %s AND g.estado = 'aberto'
+				 WHERE g.actividad_id IN ({$placeholders}) AND g.curso_escolar = %s
 				   AND g.id IN ({$available_placeholders})
-				 GROUP BY g.id, g.actividad_id, g.nome, g.min_pupilos, g.max_pupilos
+				 GROUP BY g.id, g.actividad_id, g.nome, g.min_pupilos, g.max_pupilos, g.estado, g.aviso_comezo_en
 				 ORDER BY g.nome ASC",
 				...array_merge( $act_ids, array( $curso ), $available_ids )
 			),
@@ -370,6 +471,8 @@ final class ANPA_Socios_Extraescolares_Page {
 				'max_pupilos' => $g['max_pupilos'],
 				'activos'     => $g['activos'],
 				'espera'      => $g['espera'],
+				// 1.71.0: closed and confirmed by the junta -> «Creado».
+				'creado'      => ANPA_Socios_Oferta_Publica::CREADO === ANPA_Socios_Oferta_Publica::estado_grupo( (string) $g['estado'], null === $g['aviso_comezo_en'] ? null : (string) $g['aviso_comezo_en'], (int) $g['activos'], (int) $g['min_pupilos'] ),
 			);
 		}
 
@@ -439,7 +542,10 @@ final class ANPA_Socios_Extraescolares_Page {
 		$html = '';
 		foreach ( $parts as $part ) {
 			$html .= '<div class="anpa-extra-horario-grupo">';
-			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line"><strong>' . esc_html( $part['grupo'] ) . '</strong> — ' . esc_html( $part['franxa'] ) . '</p>';
+			$creado = is_array( $part['capacity'] ) && ! empty( $part['capacity']['creado'] );
+			$html  .= '<p class="anpa-extra-meta anpa-extra-horario-line"><strong>' . esc_html( $part['grupo'] ) . '</strong>'
+				. ( $creado ? ' <span class="anpa-extra-grupo-creado">' . esc_html__( 'Creado', 'anpa-socios' ) . '</span>' : '' )
+				. ' — ' . esc_html( $part['franxa'] ) . '</p>';
 			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line anpa-extra-horario-dias">' . esc_html( $part['dias'] ) . '</p>';
 			if ( is_array( $part['capacity'] ) ) {
 				if ( ! empty( $part['capacity']['niveis'] ) ) {
@@ -478,7 +584,8 @@ final class ANPA_Socios_Extraescolares_Page {
 		}
 		$html .= '</p>';
 		$minimo = (int) ( $group['min_pupilos'] ?? 0 );
-		if ( $minimo > 0 ) {
+		// 1.71.0: a created group no longer needs its minimum.
+		if ( $minimo > 0 && empty( $group['creado'] ) ) {
 			/* translators: %d: minimum pupils required to form this group. */
 			$html .= '<p class="anpa-extra-meta anpa-extra-prazas-minimo">'
 				. esc_html( sprintf( __( 'Mínimo de %d para crear grupo.', 'anpa-socios' ), $minimo ) )

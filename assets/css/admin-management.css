@@ -1156,3 +1156,6 @@
 .anpa-resumo-tabela { max-width: 1000px; }
 .anpa-resumo-tabela td.anpa-resumo-actual { font-weight: 600; }
 .anpa-resumo-tabela td.anpa-resumo-futuro { color: #8c8f94; }
+
+/* 1.71.0: state + notice summary at the top of the group form. */
+.anpa-grupo-form-resumo { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 0 0 1rem; }

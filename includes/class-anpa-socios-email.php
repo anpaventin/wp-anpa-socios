@@ -688,6 +688,57 @@ class ANPA_Socios_Email {
 	}
 
 	/**
+	 * 1.71.0: whether the course is «mid-course» (active, enrolment window
+	 * closed). Only then do per-pupil notices go to the company and the canteen;
+	 * the start of the course and the trimester changes use the mass notices.
+	 *
+	 * @since  1.71.0
+	 * @param  string $curso School year.
+	 * @return bool
+	 */
+	public static function e_metade_de_curso( string $curso ): bool {
+		return ANPA_Socios_Aviso_Matricula::debe_avisar( ANPA_Socios_Matricula_Gate_Repo::para_curso( $curso ) );
+	}
+
+	/**
+	 * 1.71.0: tells the company of the activity and the canteen that a pupil
+	 * joined (PLANTILLA_ALTA) or left (PLANTILLA_BAIXA) a group, with the
+	 * pupil's data and both parents' contact. One message: To the junta, Bcc
+	 * company + canteen. Mid-course only; best-effort, never throws.
+	 *
+	 * @since  1.71.0
+	 * @param  int                  $matricula_id Enrolment id.
+	 * @param  string               $template_id  ANPA_Socios_Aviso_Matricula::PLANTILLA_*.
+	 * @param  array<string,string> $extra        Extra variables (e.g. efectos).
+	 * @return array<string,int>|null Mass-send summary, or null when nothing was sent.
+	 */
+	public static function avisar_empresa_comedor( int $matricula_id, string $template_id, array $extra = array() ): ?array {
+		try {
+			$row = ANPA_Socios_Alumnos_Export::row_panel_matricula( $matricula_id );
+			if ( null === $row || ! self::e_metade_de_curso( (string) $row['curso_escolar'] ) ) {
+				return null;
+			}
+			$dest = ANPA_Socios_Aviso_Matricula::destinatarios( (string) $row['empresa_email'], ANPA_Socios_Config::comedor_email() );
+			if ( array() === $dest ) {
+				return null;
+			}
+			return self::enviar_masivo( $dest, $template_id, $extra + ANPA_Socios_Aviso_Matricula::contexto( $row ) );
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+	}
+
+	/**
+	 * 1.71.0: the family accepted a waitlist offer and the pupil is in the group.
+	 *
+	 * @since  1.71.0
+	 * @return bool
+	 */
+	public static function enviar_oferta_aceptada( string $email_socio, string $alumno, string $actividade, string $grupo ): bool {
+		return self::send_template( $email_socio, ANPA_Socios_Aviso_Matricula::PLANTILLA_OFERTA_ACEPTADA, array( 'alumno' => $alumno, 'actividade' => $actividade, 'grupo' => $grupo ) + self::links_context() );
+	}
+
+	/**
 	 * The junta approved the pending request but the group is full: waiting list.
 	 *
 	 * @since  1.68.0
