@@ -91,7 +91,7 @@ final class Test_ANPA_Socios_Empresa_Panel_Listaxe extends TestCase {
 		// AnpaUtils.filterRows() skips columns whose label maps to '' (hidden). Every key used by the
 		// panel must stay searchable, so none of them may be hidden in COLUMN_LABELS.
 		$utils = $this->src( 'assets/js/anpa-utils.js' );
-		foreach ( array( 'actividade', 'empresa', 'grupo', 'alumno', 'curso', 'estado', 'opcions', 'contacto' ) as $key ) {
+		foreach ( array( 'actividade', 'empresa', 'grupo', 'alumno', 'curso', 'estado', 'opcions', 'proxenitor1', 'proxenitor2' ) as $key ) {
 			$this->assertStringNotContainsString( "'{$key}': ''", $utils, "Column {$key} would be excluded from the panel search." );
 		}
 	}

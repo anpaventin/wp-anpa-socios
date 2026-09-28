@@ -1172,7 +1172,7 @@
 			function refreshGrupos() {
 				grupoSel.textContent = '';
 				const act = oferta.find((a) => String(a.id) === actSel.value);
-				if (!act) { return; }
+				if (!act) { refreshAutorizacions(); return; }
 				(act.grupos || []).forEach((g) => {
 					const o = document.createElement('option');
 					o.value = String(g.id);
@@ -1241,7 +1241,7 @@
 			}
 			function refreshAutorizacions() {
 				authHost.textContent = '';
-				if (!grupoSel.value) { return; }
+				if (!grupoSel.value) { authHost.dispatchEvent(new Event('change')); return; }
 				const title = document.createElement('h4');
 				title.textContent = 'Autorizacións';
 				authHost.appendChild(title);
@@ -1261,7 +1261,15 @@
 					addCheckbox('recollida_autorizada', 'Cando finalice a actividade eu ou unha persoa autorizada recollerá ao neno/a.');
 				}
 				// 1.55.0: pre-checked (it is mandatory to enrol); the family can still untick it and will be told why it is needed.
-				addCheckbox('cesion_datos_empresa', 'Autorizo a que se cedan á empresa de actividades os datos necesarios para a correcta xestión da actividade extraescolar.', true);
+				const cesionInput = addCheckbox('cesion_datos_empresa', 'Autorizo a que se cedan á empresa de actividades os datos necesarios para a correcta xestión da actividade extraescolar.', true);
+				// 1.70.0: unticking it shows why it is needed right there and blocks «Matricular».
+				const cesionWarn = document.createElement('p');
+				cesionWarn.className = 'anpa-area-required-warning';
+				cesionWarn.setAttribute('role', 'alert');
+				cesionWarn.hidden = true;
+				cesionWarn.textContent = __( 'A cesión de datos á empresa é necesaria para matricular: a empresa e o persoal de comedor precisan os datos do alumno/a e o contacto da familia para organizar a actividade, localizar ao neno/a e xestionar o cobro. Marca a autorización para continuar.', 'anpa-socios' );
+				authHost.appendChild(cesionWarn);
+				cesionInput.dispatchEvent(new Event('change', { bubbles: true }));
 			}
 			filloSel.addEventListener('change', async () => {
 				const sep = String(root.dataset.extraOfertaUrl || '').indexOf('?') === -1 ? '?' : '&';
@@ -1279,6 +1287,15 @@
 			const enrolBtn = document.createElement('button');
 			enrolBtn.type = 'button';
 			enrolBtn.textContent = 'Matricular';
+			// 1.70.0: the consent is pre-checked; while it is unticked the warning shows and the button stays disabled.
+			function syncCesion() {
+				const input = authHost.querySelector('input[name="cesion_datos_empresa"]');
+				const warn = authHost.querySelector('.anpa-area-required-warning');
+				const ok = !input || input.checked;
+				if (warn) { warn.hidden = ok; }
+				enrolBtn.disabled = !ok;
+			}
+			authHost.addEventListener('change', syncCesion);
 			enrolBtn.addEventListener('click', async () => {
 				showMessage(root, '', 'info');
 				if (!grupoSel.value) {
@@ -1626,7 +1643,7 @@
 			else if (r.tarde_transicion === 'familia') { parts.push(__( 'A familia lévao á actividade', 'anpa-socios' )); }
 			if (Number(r.tardes_divertidas_continua)) { parts.push(__( 'Continúa en Tardes divertidas', 'anpa-socios' )); }
 			if (Number(r.recollida_autorizada)) { parts.push(__( 'Recollida por persoa autorizada', 'anpa-socios' )); }
-			parts.push(Number(r.cesion_datos_empresa) ? __( 'Cesión de datos: si', 'anpa-socios' ) : __( 'Cesión de datos: non', 'anpa-socios' ));
+			// 1.70.0: the data-sharing consent is always given (mandatory), so it is no longer listed.
 			return parts.join(' · ');
 		}
 
@@ -1735,10 +1752,28 @@
 				curso: (r.curso || '') + (r.aula ? ' ' + r.aula : ''),
 				estado: EMPRESA_ESTADO_LABELS[r.estado] || r.estado || '',
 				opcions: opcionsLabel(r),
-				contacto: r.socio_email || '',
+				// 1.70.0: both parents; flat text for search/sort, raw parts for the links.
+				proxenitor1: [r.proxenitor1_nome, r.proxenitor1_telefono, r.proxenitor1_email].filter(Boolean).join(' · '),
+				proxenitor2: [r.proxenitor2_nome, r.proxenitor2_telefono, r.proxenitor2_email].filter(Boolean).join(' · '),
 				// Raw state for the row colour; leading underscore = not a column.
 				_estado: r.estado || '',
+				_proxenitor1: { nome: r.proxenitor1_nome || '', telefono: r.proxenitor1_telefono || '', email: r.proxenitor1_email || '' },
+				_proxenitor2: { nome: r.proxenitor2_nome || '', telefono: r.proxenitor2_telefono || '', email: r.proxenitor2_email || '' },
 			};
+		}
+
+		/** Contact cell: name, then the phone as a tel: link and the email as a mailto: link, one per line. */
+		function fillContactoCell(td, p) {
+			if (!p || (!p.nome && !p.telefono && !p.email)) { td.textContent = '—'; return; }
+			if (p.nome) { const b = document.createElement('strong'); b.textContent = p.nome; td.appendChild(b); }
+			[['tel:', p.telefono], ['mailto:', p.email]].forEach(function (pair) {
+				if (!pair[1]) { return; }
+				if (td.childNodes.length) { td.appendChild(document.createElement('br')); }
+				const a = document.createElement('a');
+				a.href = pair[0] + (pair[0] === 'tel:' ? pair[1].replace(/[^0-9+]/g, '') : pair[1]);
+				a.textContent = pair[1];
+				td.appendChild(a);
+			});
 		}
 
 		function renderEmpresaAlumnos(alHost, rawRows, comedor) {
@@ -1755,7 +1790,8 @@
 				{ key: 'curso', label: __( 'Curso', 'anpa-socios' ) },
 				{ key: 'estado', label: __( 'Estado', 'anpa-socios' ) },
 				{ key: 'opcions', label: __( 'Opcións e autorizacións', 'anpa-socios' ) },
-				{ key: 'contacto', label: __( 'Contacto familia', 'anpa-socios' ) }
+				{ key: 'proxenitor1', label: __( '1º proxenitor', 'anpa-socios' ) },
+				{ key: 'proxenitor2', label: __( '2º proxenitor', 'anpa-socios' ) }
 			);
 			const keys = cols.map(function (c) { return c.key; });
 			const rows = rawRows.map(empresaAlumnoRow);
@@ -1812,7 +1848,12 @@
 				const tbody = document.createElement('tbody');
 				sorted.forEach(function (row) {
 					const tr = document.createElement('tr'); tr.className = 'anpa-empresa-estado-' + row._estado;
-					keys.forEach(function (k) { const td = document.createElement('td'); td.textContent = row[k] || ''; tr.appendChild(td); });
+					keys.forEach(function (k) {
+						const td = document.createElement('td');
+						if (k === 'proxenitor1' || k === 'proxenitor2') { td.className = 'anpa-empresa-contacto'; fillContactoCell(td, row['_' + k]); }
+						else { td.textContent = row[k] || ''; }
+						tr.appendChild(td);
+					});
 					tbody.appendChild(tr);
 				});
 				table.appendChild(tbody); wrap.appendChild(table); listHost.appendChild(wrap);

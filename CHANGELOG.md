@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.70.0] - 2026-09-28
+
+### Added
+
+- **Contacto dos dous proxenitores no listado das empresas e do comedor.** O panel e o CSV amosan, para cada
+  alumno/a inscrito/a, o **1º proxenitor** (nome e apelidos, teléfono e correo) e o **2º proxenitor** se a familia o
+  ten. A columna «Contacto familia» (só o correo do fillo) pasa a ser dúas columnas, «1º proxenitor» e «2º
+  proxenitor»; os teléfonos son ligazóns `tel:` e os correos `mailto:`, e ambos entran na busca e na ordenación. O
+  alcance non cambia: cada empresa ve só as súas actividades e o comedor todo o alumnado activo. CSV: as columnas
+  `proxenitor1_nome`, `proxenitor1_telefono`, `proxenitor1_email`, `proxenitor2_nome`, `proxenitor2_telefono` e
+  `proxenitor2_email` substitúen a `socio_email`. A familia resólvese por `fillos.familia_id` (ou pola do socio do
+  correo do fillo); 1º = `principal`, 2º = `secundario`, unha fila por matrícula.
+
+### Changed
+
+- **Cesión de datos á empresa sempre dada.** Segue marcada por defecto no formulario de matrícula da área; se a
+  familia a desmarca aparece ao momento o aviso de por que é necesaria e o botón «Matricular» queda desactivado (o
+  servidor segue rexeitándoa). As matrículas importadas por CSV ou creadas por API de Xestión gárdanse coa cesión
+  dada, e a migración ao esquema **1.45.0** marca todas as existentes e pon 1 como valor por defecto da columna
+  (decisión da xunta: todas as familias actuais deron o consentimento). «Cesión de datos: si/non» deixa de listarse
+  en «Opcións e autorizacións».
+
+### Fixed
+
+- Alta de matrícula pola API de Xestión (`POST admin/matriculas`): os formatos de `wpdb->insert` ían desprazados e
+  as observacións gardábanse como `0`.
+
 ## [1.69.1] - 2026-09-23
 
 ### Added

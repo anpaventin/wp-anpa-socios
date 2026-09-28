@@ -206,10 +206,13 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
+		// 1.70.0: the data-sharing consent is mandatory to enrol, so it is always recorded as given.
+		$payload  = $payload + array( 'cesion_datos_empresa' => 1 );
 		$inserted = $wpdb->insert(
 			$wpdb->prefix . 'anpa_matriculas',
 			$payload,
-			array( '%d', '%d', '%s', '%d', '%d', '%s' )
+			// fillo_id, activitad_id, comedor, tarde, observaciones, estado, cesion_datos_empresa.
+			array( '%d', '%d', '%d', '%d', '%s', '%s', '%d' )
 		);
 		if ( false === $inserted ) {
 			$code = (string) $wpdb->last_error;

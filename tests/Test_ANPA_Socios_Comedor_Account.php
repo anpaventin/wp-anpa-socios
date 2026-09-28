@@ -95,7 +95,7 @@ final class Test_ANPA_Socios_Comedor_Account extends TestCase {
 	public function test_export_columns_carry_options_and_the_company_name(): void {
 		$empresa = ANPA_Socios_Alumnos_Export::columns_panel_empresa();
 		$comedor = ANPA_Socios_Alumnos_Export::columns_panel_comedor();
-		foreach ( array( 'autorizacion_comedor', 'tarde_transicion', 'tardes_divertidas_continua', 'recollida_autorizada', 'cesion_datos_empresa', 'socio_email' ) as $c ) {
+		foreach ( array( 'autorizacion_comedor', 'tarde_transicion', 'tardes_divertidas_continua', 'recollida_autorizada', 'cesion_datos_empresa', 'proxenitor1_email', 'proxenitor2_telefono' ) as $c ) {
 			$this->assertContains( $c, $empresa );
 			$this->assertContains( $c, $comedor );
 		}

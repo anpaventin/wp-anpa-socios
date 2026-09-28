@@ -105,7 +105,7 @@ class ANPA_Socios_DB {
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.44.0';
+	const DB_VERSION = '1.45.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -369,6 +369,12 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.44.0', '<' ) && ! self::migrate_to_1_44_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.44.0 (migrate_to_1_44_0): ' . $wpdb->last_error );
+			return;
+		}
+		// 1.45.0 (1.70.0): every enrolment carries the data-sharing consent; the column defaults to 1.
+		if ( version_compare( $installed_version, '1.45.0', '<' ) && ! self::migrate_to_1_45_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.45.0 (migrate_to_1_45_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -4239,5 +4245,29 @@ class ANPA_Socios_DB {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Migration to 1.45.0 (plugin 1.70.0): the data-sharing consent with the
+	 * company is mandatory to enrol and every current family gave it (decision
+	 * of the board, 2026-09-28). Enrolments imported or created from Xestión
+	 * kept the column default 0, so they are marked as given and the default
+	 * becomes 1. Idempotent: a second run changes nothing.
+	 *
+	 * @since  1.70.0
+	 * @return bool
+	 */
+	private static function migrate_to_1_45_0(): bool {
+		global $wpdb;
+		$matriculas = self::tabela_matriculas();
+		if ( ! self::tem_columna( $matriculas, 'cesion_datos_empresa' ) ) {
+			return true; // Older chain steps add it; nothing to mark yet.
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+		if ( false === $wpdb->query( "ALTER TABLE {$matriculas} MODIFY COLUMN cesion_datos_empresa tinyint(1) NOT NULL DEFAULT 1" ) ) {
+			return false;
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one-time consent backfill.
+		return false !== $wpdb->query( "UPDATE {$matriculas} SET cesion_datos_empresa = 1 WHERE cesion_datos_empresa <> 1" );
 	}
 }

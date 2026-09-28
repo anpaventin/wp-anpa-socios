@@ -46,7 +46,7 @@ final class Test_ANPA_Socios_Email_Ownership extends TestCase {
 
 	public function test_company_panel_exposes_offer_pupils_and_two_export_scopes(): void {
 		$cols = ANPA_Socios_Alumnos_Export::columns_panel_empresa();
-		foreach ( array( 'actividade_nome', 'grupo_nome', 'nome', 'apelidos', 'curso', 'aula', 'estado', 'trimestre', 'socio_email' ) as $c ) {
+		foreach ( array( 'actividade_nome', 'grupo_nome', 'nome', 'apelidos', 'curso', 'aula', 'estado', 'trimestre', 'proxenitor1_email' ) as $c ) {
 			$this->assertContains( $c, $cols );
 		}
 		// Legacy contract untouched.

@@ -513,7 +513,13 @@ class ANPA_Socios_Empresa_REST {
 					'aula'       => (string) $r['aula'],
 					'estado'     => $estado,
 					'trimestre'  => (int) $r['trimestre'],
-					'socio_email' => (string) $r['socio_email'],
+					// 1.70.0: both parents' contact (the 2nd one empty when the family has none).
+					'proxenitor1_nome'     => (string) ( $r['proxenitor1_nome'] ?? '' ),
+					'proxenitor1_telefono' => (string) ( $r['proxenitor1_telefono'] ?? '' ),
+					'proxenitor1_email'    => (string) ( $r['proxenitor1_email'] ?? '' ),
+					'proxenitor2_nome'     => (string) ( $r['proxenitor2_nome'] ?? '' ),
+					'proxenitor2_telefono' => (string) ( $r['proxenitor2_telefono'] ?? '' ),
+					'proxenitor2_email'    => (string) ( $r['proxenitor2_email'] ?? '' ),
 					// 1.56.0: options and authorisations chosen by the family.
 					'empresa'                    => (string) ( $r['empresa_nome'] ?? '' ),
 					'autorizacion_comedor'       => (string) ( $r['autorizacion_comedor'] ?? 'na' ),

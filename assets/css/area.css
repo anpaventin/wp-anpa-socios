@@ -877,3 +877,7 @@
 @media (max-width: 480px) {
 	#anpa-area .anpa-socio-edit > button { width: 100%; }
 }
+
+/* 1.70.0: parents' contact cells in the company / canteen listing. */
+#anpa-area .anpa-empresa-alumnos td.anpa-empresa-contacto { min-width: 11rem; }
+#anpa-area .anpa-empresa-alumnos td.anpa-empresa-contacto a { overflow-wrap: anywhere; }

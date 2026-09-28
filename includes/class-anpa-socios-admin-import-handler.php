@@ -968,7 +968,9 @@ final class ANPA_Socios_Admin_Import_Handler {
 				'comedor'       => ( '1' === ( $row['comedor'] ?? '0' ) ) ? 1 : 0,
 				'tarde'         => ( '1' === ( $row['tarde'] ?? '0' ) ) ? 1 : 0,
 				'observaciones' => $row['observaciones'] ?? '',
-			), array( '%d', '%d', '%d', '%d', '%s', '%d', '%d', '%d', '%s' ) );
+				// 1.70.0: every family gave the data-sharing consent (mandatory to enrol).
+				'cesion_datos_empresa' => 1,
+			), array( '%d', '%d', '%d', '%d', '%s', '%d', '%d', '%d', '%s', '%d' ) );
 
 			if ( false === $ok ) {
 				$errors[] = array( 'row' => $idx, 'msg' => 'Non se puido inserir a matrícula.' );
