@@ -51,7 +51,7 @@ final class Test_ANPA_Socios_Aprobacions_Operacions extends TestCase {
 		$socios = strpos( $body, "'Socios/as pendentes de aprobaci\\u00F3n (' + list.length + ')'" );
 		$mat    = strpos( $body, "'Matrículas pendentes de aprobación (' + pend.length + ')'" );
 		$baixa  = strpos( $body, 'renderBaixasSocios(baixas);' );
-		$hist   = strpos( $body, '// ── Historical approvals ──' );
+		$hist   = strpos( $body, '// ── Historical approvals (1.76.0' );
 		foreach ( array( $socios, $mat, $baixa, $hist ) as $pos ) {
 			$this->assertNotFalse( $pos );
 		}

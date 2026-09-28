@@ -122,10 +122,10 @@ final class ANPA_Socios_Admin_Approvals_Handler {
 	}
 
 	/**
-	 * GET /admin/approvals/history — list previously approved/rejected socios.
-	 *
-	 * Queries the last 100 approval decision events and joins current socio
-	 * data when available to show request and decision dates.
+	 * GET /admin/approvals/history — every junta decision made by hand (1.76.0):
+	 * member signups (approved / rejected), enrolment requests (place / waiting
+	 * list / rejected) and member baixas (confirmed / rejected), newest first.
+	 * Built from the audit log, so it survives later changes of the rows.
 	 *
 	 * @since  1.34.0
 	 * @return WP_REST_Response
@@ -135,28 +135,61 @@ final class ANPA_Socios_Admin_Approvals_Handler {
 
 		$audit_t = $wpdb->prefix . 'anpa_audit_log';
 		$soc_t   = $wpdb->prefix . 'anpa_socios';
+		$mat_t   = $wpdb->prefix . 'anpa_matriculas';
+		$fil_t   = $wpdb->prefix . 'anpa_fillos';
+		$gru_t   = $wpdb->prefix . 'anpa_grupos';
+		$act_t   = $wpdb->prefix . 'anpa_actividades';
+		$where   = ANPA_Socios_Auditoria::where_aprobacions();
 
-		// Return every decision event. LEFT JOIN keeps audit history visible even
-		// when the current socio row has changed or no longer exists.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared -- fixed ASCII SQL, no user input.
 		$rows = $wpdb->get_results(
-			"SELECT COALESCE(s.email, a.target_id) AS email,
-			        COALESCE(s.nome, '') AS nome,
-			        COALESCE(s.apelidos, '') AS apelidos,
-			        COALESCE(s.telefono, '') AS telefono,
-			        s.creado_en AS solicitado_en,
-			        a.timestamp AS resolto_en,
-			        a.accion,
-			        a.actor_email AS resolto_por
+			"SELECT a.target_tipo, a.target_id, a.accion, a.timestamp, a.actor_email,
+			        s.nome AS s_nome, s.apelidos AS s_apelidos, s.creado_en AS s_creado, s.baixa_solicitada_en AS s_baixa,
+			        f.nome AS f_nome, f.apelidos AS f_apelidos, m.creado_en AS m_creado,
+			        COALESCE(act.nome, '') AS actividade, COALESCE(g.nome, '') AS grupo
 			 FROM {$audit_t} a
-			 LEFT JOIN {$soc_t} s ON s.email = a.target_id
-			 WHERE a.target_tipo = 'socio' AND a.accion IN ('approval_approve', 'approval_reject')
-			 ORDER BY a.timestamp DESC
-			 LIMIT 100",
+			 LEFT JOIN {$soc_t} s ON a.target_tipo = 'socio' AND s.email = a.target_id
+			 LEFT JOIN {$mat_t} m ON a.target_tipo = 'matricula' AND m.id = CAST(a.target_id AS UNSIGNED)
+			 LEFT JOIN {$fil_t} f ON f.id = m.fillo_id
+			 LEFT JOIN {$gru_t} g ON g.id = m.grupo_id
+			 LEFT JOIN {$act_t} act ON act.id = COALESCE(NULLIF(m.activitad_id, 0), g.actividad_id)
+			 WHERE {$where}
+			 ORDER BY a.id DESC
+			 LIMIT 300",
 			ARRAY_A
 		);
 
-		return new WP_REST_Response( is_array( $rows ) ? $rows : array(), 200 );
+		$out = array();
+		foreach ( is_array( $rows ) ? $rows : array() as $r ) {
+			$d = ANPA_Socios_Auditoria::aprobacion( (string) $r['accion'], (string) $r['target_tipo'] );
+			if ( null === $d ) {
+				continue;
+			}
+			if ( 'matricula' === $r['target_tipo'] ) {
+				$persoa     = trim( (string) $r['f_nome'] . ' ' . (string) $r['f_apelidos'] );
+				$detalle    = implode( ' · ', array_filter( array( (string) $r['actividade'], (string) $r['grupo'] ) ) );
+				$solicitado = (string) $r['m_creado'];
+				$persoa     = '' !== $persoa ? $persoa : 'Matrícula ' . (string) $r['target_id'];
+			} else {
+				$persoa     = trim( (string) $r['s_nome'] . ' ' . (string) $r['s_apelidos'] );
+				$detalle    = (string) $r['target_id'];
+				$solicitado = 'Alta de socio/a' === $d['tipo'] ? (string) $r['s_creado'] : (string) $r['s_baixa'];
+				$persoa     = '' !== $persoa ? $persoa : (string) $r['target_id'];
+			}
+			$out[] = array(
+				'tipo'          => $d['tipo'],
+				'decision'      => $d['decision'],
+				'sentido'       => $d['sentido'],
+				'persoa'        => $persoa,
+				'detalle'       => $detalle,
+				'solicitado_en' => $solicitado,
+				// The audit log stores UTC; the panel shows local time.
+				'resolto_en'    => function_exists( 'get_date_from_gmt' ) ? get_date_from_gmt( (string) $r['timestamp'] ) : (string) $r['timestamp'],
+				'resolto_por'   => (string) $r['actor_email'],
+			);
+		}
+
+		return new WP_REST_Response( $out, 200 );
 	}
 
 	/**

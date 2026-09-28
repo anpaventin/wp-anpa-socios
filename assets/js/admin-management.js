@@ -40,6 +40,8 @@
 	function formatAdminDate(value) {
 		return String(value || '').replace(/^(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1');
 	}
+	/** 1.76.0: small DOM helper (tag, class, text) shared by Aprobacións and Auditoría. */
+	function mk(tag, cls, text) { var e = document.createElement(tag); if (cls) { e.className = cls; } if (text != null) { e.textContent = text; } return e; }
 	var filterRows = utils.filterRows || function (r) { return r; };
 	var buildCsvString = utils.buildCsvString || function () { return ''; };
 	var isInactiveRow = utils.isInactiveRow || function () { return false; };
@@ -1214,46 +1216,54 @@
 		// ── 1.73.0: Baixas de socios/as (formerly their own nav section) ──
 		renderBaixasSocios(baixas);
 
-		// ── Historical approvals ──
+		// ── Historical approvals (1.76.0: every manual decision, with its type) ──
 		var hist = Array.isArray(historyRows) ? historyRows : [];
-		if (hist.length) {
-			var hr2 = document.createElement('hr');
-			root.appendChild(hr2);
-			var h3h = document.createElement('h3');
-			h3h.textContent = 'Historial de aprobaci\u00F3ns';
-			root.appendChild(h3h);
-			var HIST_COLS = ['nome', 'apelidos', 'email', 'accion', 'solicitado_en', 'resolto_en', 'resolto_por'];
-			var histTable = document.createElement('table');
-			histTable.className = 'anpa-mgmt-table';
-			var histThead = document.createElement('thead');
-			var histHr = document.createElement('tr');
-			HIST_COLS.forEach(function (c) {
-				var th = document.createElement('th');
-				th.textContent = colLabel(c) || c;
-				histHr.appendChild(th);
+		var hr2 = document.createElement('hr');
+		root.appendChild(hr2);
+		var h3h = document.createElement('h3');
+		h3h.textContent = 'Historial de aprobaci\u00F3ns (' + hist.length + ')';
+		root.appendChild(h3h);
+		root.appendChild(mk('p', 'description', 'Todas as decisións tomadas a man pola xunta: altas de socios/as, matrículas (praza, lista de espera ou rexeitadas) e baixas de socios/as. As máis recentes primeiro (ata 300). O rexistro completo está en Operacións → Auditoría.'));
+		if (!hist.length) {
+			root.appendChild(emptyEl('Aínda non hai decisións rexistradas.'));
+		} else {
+			var tipoSel = document.createElement('select');
+			tipoSel.setAttribute('aria-label', 'Filtrar por tipo');
+			[['', 'Todos os tipos'], ['Alta de socio/a', 'Altas de socios/as'], ['Matrícula', 'Matrículas'], ['Baixa de socio/a', 'Baixas de socios/as']].forEach(function (o) {
+				var opt = document.createElement('option'); opt.value = o[0]; opt.textContent = o[1]; tipoSel.appendChild(opt);
 			});
-			histThead.appendChild(histHr);
-			histTable.appendChild(histThead);
-			var histTbody = document.createElement('tbody');
-			hist.forEach(function (row) {
-				var tr = document.createElement('tr');
-				HIST_COLS.forEach(function (c) {
-					var td = document.createElement('td');
-					if (c === 'accion') {
-						td.textContent = row[c] === 'approval_approve' ? 'Aprobado' : 'Rexeitado';
-						if (row[c] === 'approval_approve') { td.style.color = '#1e7e34'; td.style.fontWeight = '600'; }
-						else { td.style.color = '#b32d2e'; td.style.fontWeight = '600'; }
-					} else if (c === 'solicitado_en' || c === 'resolto_en') {
-						td.textContent = formatAdminDate(row[c]);
-					} else {
-						td.textContent = row[c] != null ? String(row[c]) : '';
-					}
-					tr.appendChild(td);
+			root.appendChild(tipoSel);
+			var histHost = document.createElement('div');
+			root.appendChild(histHost);
+			var renderHist = function () {
+				histHost.textContent = '';
+				var visibles = hist.filter(function (row) { return !tipoSel.value || row.tipo === tipoSel.value; });
+				var histTable = document.createElement('table');
+				histTable.className = 'anpa-mgmt-table';
+				var histThead = document.createElement('thead');
+				var histHr = document.createElement('tr');
+				['Tipo', 'Decisión', 'Persoa / alumno/a', 'Detalle', 'Solicitado', 'Resolto', 'Resolto por'].forEach(function (c) {
+					var th = document.createElement('th'); th.textContent = c; histHr.appendChild(th);
 				});
-				histTbody.appendChild(tr);
-			});
-			histTable.appendChild(histTbody);
-			root.appendChild(histTable);
+				histThead.appendChild(histHr);
+				histTable.appendChild(histThead);
+				var histTbody = document.createElement('tbody');
+				visibles.forEach(function (row) {
+					var tr = document.createElement('tr');
+					[row.tipo, row.decision, row.persoa, row.detalle, formatAdminDate(row.solicitado_en), formatAdminDate(row.resolto_en), row.resolto_por].forEach(function (v, idx) {
+						var td = document.createElement('td');
+						td.textContent = v != null ? String(v) : '';
+						if (idx === 1) { td.style.fontWeight = '600'; td.style.color = row.sentido === 'si' ? '#1e7e34' : '#b32d2e'; }
+						tr.appendChild(td);
+					});
+					histTbody.appendChild(tr);
+				});
+				histTable.appendChild(histTbody);
+				histHost.appendChild(histTable);
+				if (!visibles.length) { histHost.appendChild(emptyEl('Ningunha decisión deste tipo.')); }
+			};
+			tipoSel.addEventListener('change', renderHist);
+			renderHist();
 		}
 	}
 
@@ -3349,38 +3359,101 @@
 	}
 
 	// ── Section: Auditoría ───────────────────────────────────────────
-	var AUDIT_COLS = ['timestamp', 'actor_email', 'accion', 'target_tipo', 'target_id'];
 
-	function loadAudit() {
-		showLoading();
-		anpaAdminFetch('audit?limit=100').then(function (rows) { renderAudit(rows); }).catch(sectionError);
+	// 1.76.0: server-side filters + pagination, readable actions and details, log download.
+	function auditQuery(f, pax) {
+		var p = [];
+		['desde', 'ata', 'tipo', 'actor', 'q'].forEach(function (k) { if (f && f[k]) { p.push(k + '=' + encodeURIComponent(f[k])); } });
+		p.push('pax=' + (parseInt(pax, 10) || 1));
+		p.push('por_pax=' + ((f && f.por_pax) || 100));
+		return p.join('&');
 	}
 
-	function renderAudit(rows) {
-		var allRows = Array.isArray(rows) ? rows : [];
-		var st = sectionState.audit || (sectionState.audit = { sort: { key: 'timestamp', dir: 'desc' }, page: 1, size: 50 });
-		function render() {
-			var currentSearch = st.searchQuery || '';
-			root.textContent = '';
-			var bar = buildFilterBar('audit', { onRefresh: render });
-			root.appendChild(bar);
-			bar._searchInput.value = currentSearch;
-			var query = bar._searchInput.value || '';
-			var filtered = filterRows(allRows, query, AUDIT_COLS);
-			var sorted = tbl.sortRows(filtered, st.sort.key, st.sort.dir);
-			wireSearchInput(bar, st, render);
-			if (!sorted.length) { root.appendChild(emptyEl('Sen entradas de auditor\u00EDa.')); return; }
-			var paged = tbl.pageSlice(sorted, st.page, st.size || 0);
-			var table = buildTable(paged, AUDIT_COLS, st.sort, render, null);
-			root.appendChild(table);
+	function loadAudit() {
+		var st = sectionState.auditoriaSrv || (sectionState.auditoriaSrv = { filtros: {}, pax: 1 });
+		showLoading();
+		anpaAdminFetch('audit?' + auditQuery(st.filtros, st.pax)).then(function (data) { renderAudit(data, st); }).catch(sectionError);
+	}
 
-			if (st.size > 0 && sorted.length > st.size) {
-				root.appendChild(buildPagination(sorted.length, st.page, st.size, function (p, s) {
-					st.page = p; st.size = s; render();
-				}));
-			}
+	function renderAudit(data, st) {
+		root.textContent = '';
+		document.title = 'Auditoría — Xestión ANPA';
+		var d = data || {};
+		var rows = Array.isArray(d.rows) ? d.rows : [];
+		var total = parseInt(d.total, 10) || 0;
+		var porPax = parseInt(d.por_pax, 10) || 100;
+		var paxs = Math.max(1, Math.ceil(total / porPax));
+		root.appendChild(mk('p', 'description', 'Rexistro de todo o que se fai na web: quen, cando (hora local), que acción e sobre que. Filtra por datas, tipo, persoa ou texto e descarga o rexistro (co filtro aplicado) para gardalo ou revisalo nunha folla de cálculo.'));
+
+		// Filters
+		var form = document.createElement('div'); form.className = 'anpa-audit-filtros';
+		function campo(label, input) { var l = document.createElement('label'); l.textContent = label + ' '; l.appendChild(input); form.appendChild(l); return input; }
+		var fDesde = document.createElement('input'); fDesde.type = 'date'; fDesde.value = st.filtros.desde || ''; campo('Desde', fDesde);
+		var fAta = document.createElement('input'); fAta.type = 'date'; fAta.value = st.filtros.ata || ''; campo('Ata', fAta);
+		var fTipo = document.createElement('select');
+		var o0 = document.createElement('option'); o0.value = ''; o0.textContent = 'Todos'; fTipo.appendChild(o0);
+		Object.keys(d.tipos || {}).forEach(function (k) { var o = document.createElement('option'); o.value = k; o.textContent = d.tipos[k]; if (st.filtros.tipo === k) { o.selected = true; } fTipo.appendChild(o); });
+		campo('Tipo', fTipo);
+		var fActor = document.createElement('input'); fActor.type = 'search'; fActor.placeholder = 'correo'; fActor.value = st.filtros.actor || ''; campo('Quen', fActor);
+		var fQ = document.createElement('input'); fQ.type = 'search'; fQ.placeholder = 'acción, correo, id…'; fQ.value = st.filtros.q || ''; campo('Buscar', fQ);
+		var aplicar = mk('button', 'anpa-mgmt-btn', 'Aplicar'); aplicar.type = 'button';
+		aplicar.addEventListener('click', function () {
+			st.filtros = { desde: fDesde.value, ata: fAta.value, tipo: fTipo.value, actor: fActor.value.trim(), q: fQ.value.trim(), por_pax: porPax };
+			st.pax = 1; loadAudit();
+		});
+		var limpar = mk('button', 'anpa-mgmt-btn anpa-mgmt-btn-secondary', 'Limpar'); limpar.type = 'button';
+		limpar.addEventListener('click', function () { st.filtros = {}; st.pax = 1; loadAudit(); });
+		form.appendChild(aplicar); form.appendChild(limpar);
+		// Enter in any filter applies it.
+		form.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); aplicar.click(); } });
+		root.appendChild(form);
+
+		// Log download (same filters, up to 20000 rows)
+		var dl = document.createElement('div'); dl.className = 'anpa-audit-descarga';
+		[['csv', 'Descargar rexistro (CSV)'], ['ods', 'Descargar rexistro (.ods)']].forEach(function (x) {
+			var formato = x[0];
+			var b = mk('button', 'anpa-mgmt-btn anpa-mgmt-btn-secondary', x[1]); b.type = 'button';
+			b.addEventListener('click', function () {
+				var hoxe = new Date();
+				var data = hoxe.getFullYear() + '-' + String(hoxe.getMonth() + 1).padStart(2, '0') + '-' + String(hoxe.getDate()).padStart(2, '0');
+				anpaAdminFetch('audit/export?formato=' + formato + '&' + auditQuery(st.filtros, 1)).then(function (blob) {
+					downloadBlob(blob, 'ANPA - Auditoria - ' + data + '.' + formato);
+				}).catch(function (e) { showMessage(e.message || 'Erro ao descargar', 'error'); });
+			});
+			dl.appendChild(b);
+		});
+		root.appendChild(dl);
+
+		root.appendChild(mk('p', 'anpa-mgmt-count', total + ' rexistro(s)' + (total > porPax ? ' · páxina ' + st.pax + ' de ' + paxs : '')));
+		if (!rows.length) { root.appendChild(emptyEl('Sen entradas de auditor\u00EDa.')); return; }
+
+		var table = document.createElement('table'); table.className = 'anpa-mgmt-table';
+		var thead = document.createElement('thead'); var trh = document.createElement('tr');
+		['Data', 'Quen', 'Acción', 'Tipo', 'Detalle', 'Identificador'].forEach(function (c) { var th = document.createElement('th'); th.textContent = c; trh.appendChild(th); });
+		thead.appendChild(trh); table.appendChild(thead);
+		var tbody = document.createElement('tbody');
+		rows.forEach(function (r) {
+			var tr = document.createElement('tr');
+			var quen = r.actor_email + (r.actor_tipo && r.actor_tipo !== 'master' ? ' (' + r.actor_tipo + ')' : '');
+			[formatAdminDate(r.data), quen, r.accion_label, r.tipo_label, r.detalle, r.target_id].forEach(function (v, idx) {
+				var td = document.createElement('td'); td.textContent = v != null ? String(v) : '';
+				if (idx === 2) { td.title = r.accion; }
+				tr.appendChild(td);
+			});
+			tbody.appendChild(tr);
+		});
+		table.appendChild(tbody);
+		root.appendChild(table);
+
+		if (paxs > 1) {
+			var nav = document.createElement('div'); nav.className = 'anpa-mgmt-pagination';
+			var prev = mk('button', 'anpa-mgmt-btn anpa-mgmt-btn-secondary', 'Anterior'); prev.type = 'button'; prev.disabled = st.pax <= 1;
+			prev.addEventListener('click', function () { st.pax = Math.max(1, st.pax - 1); loadAudit(); });
+			var next = mk('button', 'anpa-mgmt-btn anpa-mgmt-btn-secondary', 'Seguinte'); next.type = 'button'; next.disabled = st.pax >= paxs;
+			next.addEventListener('click', function () { st.pax = st.pax + 1; loadAudit(); });
+			nav.appendChild(prev); nav.appendChild(next);
+			root.appendChild(nav);
 		}
-		render();
 	}
 
 	// ── Section: Importar listados ──────────────────────────────────

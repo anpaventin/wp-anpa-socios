@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.76.0] - 2026-10-01
+
+### Changed
+
+- **Historial de aprobacións completo.** Operacións → Aprobacións → «Historial de aprobacións (N)» amosa agora
+  todas as decisións tomadas a man pola xunta, non só as altas: **Alta de socio/a** (aprobada / rexeitada),
+  **Matrícula** (aprobada con praza / en lista de espera / rexeitada) e **Baixa de socio/a** (confirmada, confirmada
+  para o resto da familia / rexeitada), coas columnas Tipo, Decisión, Persoa / alumno/a, Detalle (actividade e grupo
+  ou correo), Solicitado, Resolto (hora local) e Resolto por, e un filtro por tipo. Sae do rexistro de auditoría
+  (ata 300 decisións), así que se conserva aínda que a ficha cambie despois.
+- **Auditoría.** Accións en texto lexible (código ao pasar o rato), tipo de obxecto e detalle (nome do socio/a,
+  alumno/a + actividade e grupo, empresa, actividade, grupo), hora local, filtros no servidor (desde, ata, tipo,
+  quen, texto), paxinación (100 por páxina) e **«Descargar rexistro (CSV / .ods)»** co filtro aplicado (ata 20000
+  filas; columnas Data, Quen, Tipo de actor, Acción, Código da acción, Tipo, Identificador, Detalle). A descarga queda
+  rexistrada (`export_auditoria`). `GET admin/audit` devolve agora `{ rows, total, pax, por_pax, tipos }`;
+  `GET admin/audit/export`.
+
 ## [1.75.0] - 2026-09-30
 
 ### Added

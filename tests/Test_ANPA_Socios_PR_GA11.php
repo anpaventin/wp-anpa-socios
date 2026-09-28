@@ -105,7 +105,8 @@ final class Test_ANPA_Socios_PR_GA11 extends TestCase {
 			$window = implode( "\n", array_slice( $lines, max( 0, $index - 8 ), 9 ) );
 			$this->assertStringContainsString( 'wireSearchInput(', $window, 'Empty-result branch must be wired before returning.' );
 		}
-		$this->assertSame( 6, $emptyReturns );
+		// 1.76.0: Auditoría filters and paginates on the server (5 client-side listings left).
+		$this->assertSame( 5, $emptyReturns );
 	}
 
 	public function test_offered_card_compacts_schedule_and_shows_group_minimum(): void {

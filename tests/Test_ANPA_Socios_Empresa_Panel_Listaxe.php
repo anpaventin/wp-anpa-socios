@@ -100,8 +100,9 @@ final class Test_ANPA_Socios_Empresa_Panel_Listaxe extends TestCase {
 		$js = $this->src( 'assets/js/admin-management.js' );
 		// Every listing: filter → sort → wire the search box → empty branch → page → table → pagination.
 		// The search box is wired exactly once per render (before the empty-result return), never twice.
-		$this->assertSame( 6, preg_match_all( '/wireSearchInput\(bar, (?:st|matSt), (?:render|renderMat)\);/', $js ) );
-		$this->assertSame( 6, preg_match_all( '/if \(!sorted\.length\) \{ [^\n]*appendChild\(emptyEl\(/', $js ), 'Empty results use emptyEl() in every listing.' );
+		// 1.76.0: Auditoría left the shared client-side pipeline (server filters + pagination).
+		$this->assertSame( 5, preg_match_all( '/wireSearchInput\(bar, (?:st|matSt), (?:render|renderMat)\);/', $js ) );
+		$this->assertSame( 5, preg_match_all( '/if \(!sorted\.length\) \{ [^\n]*appendChild\(emptyEl\(/', $js ), 'Empty results use emptyEl() in every listing.' );
 		$this->assertStringNotContainsString( "emptyP.textContent = 'Sen resultados.';", $js );
 		// Focus restore is one-shot: a sort/pagination re-render must not grab the focus.
 		$this->assertStringContainsString( "st._searchFocused = false;\n\t\t\tinput.focus();", $js );
