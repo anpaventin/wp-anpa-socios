@@ -63,17 +63,18 @@ final class Test_ANPA_Socios_Admin_Baixas_Panel extends TestCase {
 	public function test_nav_exposes_the_section_next_to_aprobacions(): void {
 		require_once dirname( __DIR__ ) . '/includes/lib/class-anpa-socios-admin-nav.php';
 		$sections = ANPA_Socios_Admin_Nav::management_sections();
-		// 1.68.1: the section holds member baixas only; activity baixas live in Extraescolares → Matrículas.
-		$this->assertSame( 'Baixas de socios', $sections['socios']['sections']['baixas'] );
-		$keys = array_keys( $sections['socios']['sections'] );
-		$this->assertSame( array_search( 'aprobacions', $keys, true ) + 1, array_search( 'baixas', $keys, true ) );
-		$this->assertSame( 'baixas', ANPA_Socios_Admin_Nav::active_management_section( 'baixas' ) );
+		// 1.73.0: the member baixas are a block of Operacións → Aprobacións; old links keep working.
+		$this->assertArrayNotHasKey( 'baixas', $sections['socios']['sections'] );
+		$this->assertArrayHasKey( 'aprobacions', $sections['operacions']['sections'] );
+		$this->assertSame( 'aprobacions', ANPA_Socios_Admin_Nav::active_management_section( 'baixas' ) );
 	}
 
 	public function test_js_routes_the_section_and_calls_the_four_endpoints(): void {
 		$js = $this->src( 'assets/js/admin-management.js' );
-		$this->assertStringContainsString( "'baixas': loadBaixas,", $js );
+		$this->assertStringContainsString( "'baixas': 'aprobacions'", $js );
+		$this->assertStringNotContainsString( 'loadBaixas', $js );
 		$this->assertStringContainsString( "anpaAdminFetch('baixas-pendentes')", $js );
+		$this->assertStringContainsString( 'renderBaixasSocios(baixas);', $js );
 		$this->assertStringContainsString( "var path = 'socio/' + encodeURIComponent(s.email || '') + '/baixa/';", $js );
 		$this->assertStringContainsString( "var path = 'matricula/' + m.id + '/baixa/';", $js );
 		$this->assertSame( 2, substr_count( $js, "act(path + 'confirm'," ) );
@@ -83,7 +84,7 @@ final class Test_ANPA_Socios_Admin_Baixas_Panel extends TestCase {
 		// Every resolution asks for confirmation first. 1.68.1: the member baixas stay in
 		// renderBaixas (2 confirms; the 3rd before «Fillos» is the start-of-year email button
 		// of Lista Gmail); the activity baixas moved to renderBaixasActividades (2 confirms).
-		$start = strpos( $js, 'function renderBaixas(data)' );
+		$start = strpos( $js, 'function renderBaixasSocios(data)' );
 		$end   = strpos( $js, '// ── Section: Fillos', $start );
 		$this->assertSame( 3, substr_count( substr( $js, $start, $end - $start ), 'window.confirm(' ) );
 		$baixas_end = strpos( $js, '// ── Section: Lista Gmail', $start );
@@ -102,7 +103,9 @@ final class Test_ANPA_Socios_Admin_Baixas_Panel extends TestCase {
 		$docs = $this->src( 'includes/class-anpa-socios-admin-settings.php' );
 		// 1.62.0 adds the paragraph about the automatic emails on confirm/reject.
 		$this->assertSame( 0, substr_count( $docs, 'Baixas solicitadas' ) );
-		$this->assertSame( 3, substr_count( $docs, 'Xestión → Socios → Baixas de socios' ) );
+		// 1.73.0: the panel moved to Operacións → Aprobacións.
+		$this->assertSame( 0, substr_count( $docs, 'Socios → Baixas de socios' ) );
+		$this->assertSame( 3, substr_count( $docs, 'Xestión → Operacións → Aprobacións' ) );
 		$this->assertStringContainsString( 'Xestión → Extraescolares → Matrículas (baixas de actividades)', $docs );
 		$this->assertStringNotContainsString( 'A xunta confírmaa en Xestión → Socios/as;', $docs );
 	}

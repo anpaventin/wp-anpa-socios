@@ -61,6 +61,32 @@ final class ANPA_Socios_Admin_Approvals_Handler {
 	 * @since  1.23.0
 	 * @return WP_REST_Response
 	 */
+	/**
+	 * 1.73.0: what is waiting for the junta in Operacións → Aprobacións —
+	 * member signups (one per family, as list_pending()), out-of-window
+	 * enrolment requests and member baixa requests. For the nav button.
+	 *
+	 * @since  1.73.0
+	 * @return array{socios:int,matriculas:int,baixas:int,total:int}
+	 */
+	public static function contas_pendentes(): array {
+		global $wpdb;
+		$out = array( 'socios' => 0, 'matriculas' => 0, 'baixas' => 0, 'total' => 0 );
+		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_var' ) || ! method_exists( $wpdb, 'prepare' ) ) {
+			return $out;
+		}
+		$soc_t = $wpdb->prefix . 'anpa_socios';
+		$mat_t = $wpdb->prefix . 'anpa_matriculas';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only counts, ASCII SQL.
+		$out['socios'] = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$soc_t} WHERE estado = %s AND ( familia_id IS NULL OR familia_id = id )", self::PENDING_ESTADO ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only counts, ASCII SQL.
+		$out['matriculas'] = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$mat_t} WHERE estado = %s", ANPA_Socios_Matricula_Estado::PENDENTE_APROBACION ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only counts, ASCII SQL.
+		$out['baixas'] = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$soc_t} WHERE baixa_estado = 'solicitada' AND estado = 'activo' AND rol <> 'master'" );
+		$out['total']  = $out['socios'] + $out['matriculas'] + $out['baixas'];
+		return $out;
+	}
+
 	public static function list_pending(): WP_REST_Response {
 		global $wpdb;
 

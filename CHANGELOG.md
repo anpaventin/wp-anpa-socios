@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.73.0] - 2026-09-29
+
+### Changed
+
+- **Xestión reorganizada.** Os recadros quedan así: **Socios** (Socios/as, Lista Gmail, Fillos/as), **Extraescolares**
+  (Empresas, Actividades, Grupos e horarios, Matrículas) e **Operacións** (Aprobacións, Importar listados,
+  Auditoría).
+- **Aprobacións** reúne todo o que espera pola xunta, en tres bloques con conta: «Socios/as pendentes de aprobación
+  (N)» (con descrición nova), «Matrículas pendentes de aprobación (N)» e «Baixas de socios/as pendentes (N)» (a antiga
+  sección «Baixas de socios», que desaparece do menú; as ligazóns antigas `?section=baixas` levan a Aprobacións). O
+  botón do menú amosa **«Aprobacións (N)»** coa suma dos tres (0 incluído), calculada ao cargar a páxina e
+  actualizada tras cada aprobación, rexeitamento ou baixa.
+- Textos de axuda e documentación apuntan a «Operacións → Aprobacións».
+
 ## [1.72.0] - 2026-09-29
 
 ### Changed

@@ -17,7 +17,8 @@
 	var activeCourse = String(cfg.cursoactivo || cfg.activeCourse || '');
 	var filloCursos = Array.isArray(cfg.filloCursos) ? cfg.filloCursos.map(String) : ['1', '2', '3', '4', '5', '6'];
 	var filloGrupos = Array.isArray(cfg.filloGrupos) ? cfg.filloGrupos.map(String) : ['A', 'B', 'C', 'D'];
-	var SECTION_ALIASES = { 'cursos-matriculas': 'matriculas' };
+	// 1.73.0: «Baixas de socios» lives inside Operacións → Aprobacións.
+	var SECTION_ALIASES = { 'cursos-matriculas': 'matriculas', 'baixas': 'aprobacions' };
 	function normalizeSection(section) {
 		return SECTION_ALIASES[section] || section;
 	}
@@ -1032,22 +1033,40 @@
 		anpaAdminFetch('approvals').then(function (rows) {
 			// 1.68.0: enrolment requests made with the window closed wait here too.
 			anpaAdminFetch('matriculas/pendentes').catch(function () { return { matriculas: [] }; }).then(function (pendentes) {
-				anpaAdminFetch('approvals/history').then(function (history) {
-					renderApprovals(rows, history, pendentes);
-				}).catch(function () {
-					renderApprovals(rows, [], pendentes);
-					showMessage('Non se puido cargar o historial de aprobacións.', 'warning');
+				// 1.73.0: and the member baixa requests (formerly their own section).
+				anpaAdminFetch('baixas-pendentes').catch(function () { return { socios: [] }; }).then(function (baixas) {
+					anpaAdminFetch('approvals/history').then(function (history) {
+						renderApprovals(rows, history, pendentes, baixas);
+					}).catch(function () {
+						renderApprovals(rows, [], pendentes, baixas);
+						showMessage('Non se puido cargar o historial de aprobacións.', 'warning');
+					});
 				});
 			});
 		}).catch(sectionError);
 	}
 
-	function renderApprovals(rows, historyRows, pendentes) {
+	/** 1.73.0: «Aprobacións (N)» on the nav button, N = everything waiting for the junta. */
+	function setAprobacionsCount(n) {
+		if (!navEl) { return; }
+		var btn = navEl.querySelector('button[data-section="aprobacions"]');
+		if (btn) { btn.textContent = 'Aprobacións (' + (parseInt(n, 10) || 0) + ')'; }
+	}
+
+	function renderApprovals(rows, historyRows, pendentes, baixas) {
 		root.textContent = '';
+		document.title = 'Aprobacións — Xestión ANPA';
 		var list = Array.isArray(rows) ? rows : [];
+		var baixasSocios = baixas && Array.isArray(baixas.socios) ? baixas.socios : [];
+		var pendCount = pendentes && Array.isArray(pendentes.matriculas) ? pendentes.matriculas.length : 0;
+		setAprobacionsCount(list.length + pendCount + baixasSocios.length);
 		var h3 = document.createElement('h3');
-		h3.textContent = 'Socios/as pendentes de aprobaci\u00F3n';
+		h3.textContent = 'Socios/as pendentes de aprobaci\u00F3n (' + list.length + ')';
 		root.appendChild(h3);
+		var introS = document.createElement('p');
+		introS.className = 'description';
+		introS.textContent = 'Altas na asociación feitas polas familias co formulario de alta (unha fila por familia; o 2º proxenitor apróbase co 1º). Aprobar activa a conta, dálle acceso á área de socios e envía o correo de benvida; rexeitar anula a solicitude.';
+		root.appendChild(introS);
 		if (!list.length) {
 			var emptyP = document.createElement('p');
 			emptyP.className = 'anpa-mgmt-empty';
@@ -1169,6 +1188,9 @@
 			root.appendChild(tm);
 		}
 
+		// ── 1.73.0: Baixas de socios/as (formerly their own nav section) ──
+		renderBaixasSocios(baixas);
+
 		// ── Historical approvals ──
 		var hist = Array.isArray(historyRows) ? historyRows : [];
 		if (hist.length) {
@@ -1212,20 +1234,18 @@
 		}
 	}
 
-	// ── Section: Baixas solicitadas (1.57.0) ─────────────────────────
-	// Both queues the families can open from the area: leaving the association
-	// (socio.baixa_estado = 'solicitada') and leaving an activity
-	// (matricula.estado = 'baixa_solicitada'). Confirm/reject call the admin
-	// endpoints; confirming a matrícula frees the seat for the waitlist.
-	function loadBaixas() {
-		showLoading();
-		anpaAdminFetch('baixas-pendentes').then(function (data) { renderBaixas(data); }).catch(sectionError);
-	}
-
-	function renderBaixas(data) {
-		root.textContent = '';
-		document.title = 'Baixas de socios — Xestión ANPA';
+	// ── Block: Baixas de socios/as (1.57.0; inside Aprobacións since 1.73.0) ──
+	// Members who asked to leave the association from the area
+	// (socio.baixa_estado = 'solicitada'). Confirm/reject call the admin
+	// endpoints; the activity baixas live in Extraescolares → Matrículas.
+	function renderBaixasSocios(data) {
 		var socios = data && Array.isArray(data.socios) ? data.socios : [];
+
+		// ── Socios ──
+		var h3s = document.createElement('h3');
+		h3s.style.marginTop = '1.5rem';
+		h3s.textContent = 'Baixas de socios/as pendentes (' + socios.length + ')';
+		root.appendChild(h3s);
 
 		var intro = document.createElement('p');
 		intro.className = 'description';
@@ -1268,14 +1288,10 @@
 				else if (r && r.correo_enviado === true) { mail = ' Enviouse o correo á familia.'; }
 				else if (r && r.correo_enviado === false) { mail = ' ATENCIÓN: non se puido enviar o correo á familia' + (r && typeof r.correos_enviados === 'number' ? ' (enviados: ' + r.correos_enviados + ')' : '') + '; avísaa por outro medio.'; }
 				showMessage(okMsg + mail, r && r.correo_enviado === false ? 'warning' : 'success');
-				loadBaixas();
-			}).catch(function (e) { showMessage(e.message, 'error'); loadBaixas(); });
+				loadApprovals();
+			}).catch(function (e) { showMessage(e.message, 'error'); loadApprovals(); });
 		}
 
-		// ── Socios ──
-		var h3s = document.createElement('h3');
-		h3s.textContent = 'Baixas de socios/as pendentes (' + socios.length + ')';
-		root.appendChild(h3s);
 		if (!socios.length) {
 			root.appendChild(emptyEl('Non hai solicitudes de baixa de socios/as.'));
 		} else {
@@ -1362,7 +1378,7 @@
 		}
 		card.appendChild(status);
 		if (pendentes > 0) {
-			var warn = el('p', 'Atención: hai ' + pendentes + ' solicitude(s) de baixa de socio/a sen confirmar en Xestión → Socios → Baixas de socios. Mentres non se confirmen, eses correos seguen sendo socios activos e IRÁN na lista exportada. Confirma primeiro as baixas e exporta despois.');
+			var warn = el('p', 'Atención: hai ' + pendentes + ' solicitude(s) de baixa de socio/a sen confirmar en Xestión → Operacións → Aprobacións. Mentres non se confirmen, eses correos seguen sendo socios activos e IRÁN na lista exportada. Confirma primeiro as baixas e exporta despois.');
 			warn.style.color = '#8a6d00'; warn.style.fontWeight = '600';
 			card.appendChild(warn);
 		}
@@ -1458,7 +1474,7 @@
 		steps.appendChild(el('h3', 'Pasos para actualizar a lista en Gmail'));
 		var ol = document.createElement('ol');
 		[
-			'Confirma primeiro as baixas pendentes en Xestión → Socios → Baixas de socios. Se unha baixa non se confirma, esa persoa segue sendo socio/a activo/a e o seu correo NON sae da lista.',
+			'Confirma primeiro as baixas pendentes en Xestión → Operacións → Aprobacións. Se unha baixa non se confirma, esa persoa segue sendo socio/a activo/a e o seu correo NON sae da lista.',
 			'Pulsa «Descargar CSV para Google Contactos», comproba que o navegador gardou o ficheiro socios-web-anpa-google-<data>.csv e responde «Si, gardouse»: só entón a web anota esta exportación para comparar coa seguinte. Se non se descargou, responde «Non se descargou» e non cambia nada.',
 			'Pulsa «Abrir Google Contactos». Ten a sesión iniciada coa conta de Google da xunta' + (d.conta_google ? ' (' + d.conta_google + ')' : '') + '.',
 			'En Google Contactos, no menú da esquerda, abre a etiqueta «' + etiqueta + '», pulsa o menú de tres puntos → «Eliminar etiqueta» → «Eliminar todos os contactos e a etiqueta». Así desaparecen as baixas. Se a etiqueta aínda non existe, salta este paso.',
@@ -3156,7 +3172,7 @@
 		}
 
 		panel.appendChild(el('h3', null, 'Estado do curso ' + curso + ' e matrículas'));
-		panel.appendChild(el('p', 'description', 'Aquí está o único interruptor das matrículas. O trimestre activo é informativo (calendario e avisos); «Matrículas abertas para» é o que abre ou pecha as matrículas, baixas e solicitudes das familias. Só pode haber un trimestre activo e unha ventá aberta á vez. Cada cambio queda rexistrado (quen, cando, orixe) e o sistema nunca cambia un estado por si só. Co prazo pechado e o curso activo, as solicitudes das familias quedan pendentes de aprobación (Socios → Aprobacións).'));
+		panel.appendChild(el('p', 'description', 'Aquí está o único interruptor das matrículas. O trimestre activo é informativo (calendario e avisos); «Matrículas abertas para» é o que abre ou pecha as matrículas, baixas e solicitudes das familias. Só pode haber un trimestre activo e unha ventá aberta á vez. Cada cambio queda rexistrado (quen, cando, orixe) e o sistema nunca cambia un estado por si só. Co prazo pechado e o curso activo, as solicitudes das familias quedan pendentes de aprobación (Operacións → Aprobacións).'));
 
 		if (d.estado_curso !== 'activo') {
 			var warn = el('div', 'anpa-mgmt-aviso-matriculas anpa-mgmt-aviso-matriculas--outro');
@@ -3227,7 +3243,7 @@
 				: 'Activar o ' + ordinal(destino) + ' trimestre? Os trimestres anteriores quedan pechados. As matrículas non cambian: ábrense ou péchanse co combo «Matrículas abertas para».';
 			if (!window.confirm(txt)) { return; }
 			if (destino !== 'pechado' && d.matriculas_pendentes > 0) {
-				if (!window.confirm('Hai ' + d.matriculas_pendentes + ' matrícula(s) pendente(s) de aprobación. Ao activar o trimestre pasarán TODAS á súa actividade (praza se hai sitio, se non lista de espera) e as familias recibirán correo.\n\nAceptar = aprobalas todas agora e activar.\nCancelar = non activar; xestiónaas antes unha a unha en Socios → Aprobacións.')) { return; }
+				if (!window.confirm('Hai ' + d.matriculas_pendentes + ' matrícula(s) pendente(s) de aprobación. Ao activar o trimestre pasarán TODAS á súa actividade (praza se hai sitio, se non lista de espera) e as familias recibirán correo.\n\nAceptar = aprobalas todas agora e activar.\nCancelar = non activar; xestiónaas antes unha a unha en Operacións → Aprobacións.')) { return; }
 				body.aprobar_pendentes = true;
 			}
 			post('trimestres/estado', body, destino === 'pechado' ? 'Curso pechado.' : ordinal(destino) + ' trimestre activo.');
@@ -4118,7 +4134,6 @@
 	var SECTION_MAP = {
 		'socios': loadSocios,
 		'aprobacions': loadApprovals,
-		'baixas': loadBaixas,
 		'lista-gmail': loadListaGmail,
 		'fillos': loadFillos,
 		'empresas': loadEmpresas,

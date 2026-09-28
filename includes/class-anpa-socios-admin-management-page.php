@@ -104,6 +104,11 @@ final class ANPA_Socios_Admin_Management_Page {
 			echo '<h2 id="' . esc_attr( $group_id ) . '" class="anpa-mgmt-nav-group-title">' . esc_html( $group_label ) . '</h2>';
 			echo '<div class="anpa-mgmt-nav-buttons" role="tablist" aria-label="' . esc_attr( $group_label ) . '">';
 			foreach ( $sections as $slug => $label ) {
+				// 1.73.0: «Aprobacións (N)», N = everything waiting for the junta (0 included).
+				if ( 'aprobacions' === $slug && class_exists( 'ANPA_Socios_Admin_Approvals_Handler' ) ) {
+					$contas = ANPA_Socios_Admin_Approvals_Handler::contas_pendentes();
+					$label  = (string) $label . ' (' . (int) $contas['total'] . ')';
+				}
 				printf(
 					'<button type="button" role="tab" data-section="%s" aria-controls="anpa-management-root" aria-selected="%s">%s</button>',
 					esc_attr( $slug ),

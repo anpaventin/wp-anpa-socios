@@ -75,16 +75,15 @@ final class ANPA_Socios_Admin_Nav {
 			'label'    => 'Socios',
 			'sections' => array(
 				'socios'      => 'Socios/as',
-				'aprobacions' => 'Aprobacións',
-				'baixas'      => 'Baixas de socios',
 				'lista-gmail' => 'Lista Gmail',
 				'fillos'      => 'Fillos/as',
-				'empresas'    => 'Empresas',
 			),
 		),
+		// 1.73.0: Empresas goes with the activities it runs.
 		'extraescolares'   => array(
 			'label'    => 'Extraescolares',
 			'sections' => array(
+				'empresas'       => 'Empresas',
 				'actividades'    => 'Actividades',
 				'grupos-horarios' => 'Grupos e horarios',
 				'matriculas'     => 'Matrículas',
@@ -93,6 +92,9 @@ final class ANPA_Socios_Admin_Nav {
 		'operacions'       => array(
 			'label'    => 'Operacións',
 			'sections' => array(
+				// 1.73.0: one place for everything waiting for the junta (member signups,
+				// out-of-window enrolments, member baixas).
+				'aprobacions'       => 'Aprobacións',
 				'importar-listados' => 'Importar listados',
 				'auditoria'         => 'Auditoría',
 			),
@@ -107,6 +109,8 @@ final class ANPA_Socios_Admin_Nav {
 	 */
 	private const MANAGEMENT_SECTION_ALIASES = array(
 		'cursos-matriculas' => 'matriculas',
+		// 1.73.0: «Baixas de socios» lives inside Aprobacións.
+		'baixas'            => 'aprobacions',
 	);
 
 	private const SETTINGS_SECTION_ALIASES = array(

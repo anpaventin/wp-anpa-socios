@@ -156,9 +156,10 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 		$this->assertSame( 'Extraescolares', $sections['extraescolares']['label'] );
 		$this->assertSame( 'Operacións', $sections['operacions']['label'] );
 
-		$this->assertSame( array( 'socios', 'aprobacions', 'baixas', 'lista-gmail', 'fillos', 'empresas' ), array_keys( $sections['socios']['sections'] ) );
-		$this->assertSame( array( 'actividades', 'grupos-horarios', 'matriculas' ), array_keys( $sections['extraescolares']['sections'] ) );
-		$this->assertSame( array( 'importar-listados', 'auditoria' ), array_keys( $sections['operacions']['sections'] ) );
+		// 1.73.0: Empresas → Extraescolares; Aprobacións (with the member baixas inside) → Operacións.
+		$this->assertSame( array( 'socios', 'lista-gmail', 'fillos' ), array_keys( $sections['socios']['sections'] ) );
+		$this->assertSame( array( 'empresas', 'actividades', 'grupos-horarios', 'matriculas' ), array_keys( $sections['extraescolares']['sections'] ) );
+		$this->assertSame( array( 'aprobacions', 'importar-listados', 'auditoria' ), array_keys( $sections['operacions']['sections'] ) );
 
 		$visible_slugs = array();
 		foreach ( $sections as $group ) {
@@ -166,7 +167,7 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 		}
 
 		$this->assertSame(
-			array( 'socios', 'aprobacions', 'baixas', 'lista-gmail', 'fillos', 'empresas', 'actividades', 'grupos-horarios', 'matriculas', 'importar-listados', 'auditoria' ),
+			array( 'socios', 'lista-gmail', 'fillos', 'empresas', 'actividades', 'grupos-horarios', 'matriculas', 'aprobacions', 'importar-listados', 'auditoria' ),
 			$visible_slugs
 		);
 		$this->assertNotContains( 'inicio', $visible_slugs );
@@ -176,6 +177,8 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 	}
 
 	public function test_management_page_renders_group_labels_and_visible_buttons_in_order(): void {
+		// 1.73.0: the Aprobacións button counts the queues (the plugin loads this handler).
+		require_once dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-approvals-handler.php';
 		ob_start();
 		ANPA_Socios_Admin_Management_Page::render_page();
 		$html = (string) ob_get_clean();
@@ -193,9 +196,14 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 		$this->assertStringNotContainsString( 'data-section="cursos-matriculas"', $html );
 		$this->assertStringNotContainsString( 'Cursos e matrículas', $html );
 
-		$this->assertLessThan( strpos( $html, 'data-section="aprobacions"' ), strpos( $html, 'data-section="socios"' ) );
-		$this->assertLessThan( strpos( $html, 'data-section="fillos"' ), strpos( $html, 'data-section="aprobacions"' ) );
+		$this->assertLessThan( strpos( $html, 'data-section="fillos"' ), strpos( $html, 'data-section="socios"' ) );
 		$this->assertLessThan( strpos( $html, 'data-section="empresas"' ), strpos( $html, 'data-section="fillos"' ) );
+		$this->assertLessThan( strpos( $html, 'data-section="actividades"' ), strpos( $html, 'data-section="empresas"' ) );
+		$this->assertLessThan( strpos( $html, 'data-section="aprobacions"' ), strpos( $html, 'data-section="matriculas"' ) );
+		$this->assertLessThan( strpos( $html, 'data-section="importar-listados"' ), strpos( $html, 'data-section="aprobacions"' ) );
+		// 1.73.0: the button carries the count, 0 included.
+		$this->assertMatchesRegularExpression( '/data-section="aprobacions"[^>]*>Aprobacións \(\d+\)</', $html );
+		$this->assertStringNotContainsString( 'data-section="baixas"', $html );
 		$this->assertLessThan( strpos( $html, 'data-section="grupos-horarios"' ), strpos( $html, 'data-section="actividades"' ) );
 		$this->assertLessThan( strpos( $html, 'data-section="matriculas"' ), strpos( $html, 'data-section="grupos-horarios"' ) );
 		$this->assertLessThan( strpos( $html, 'data-section="auditoria"' ), strpos( $html, 'data-section="importar-listados"' ) );
