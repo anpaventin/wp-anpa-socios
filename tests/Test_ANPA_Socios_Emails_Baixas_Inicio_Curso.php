@@ -217,14 +217,15 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 	// ── Wiring ───────────────────────────────────────────────────────────
 
 	public function test_handlers_send_the_emails_and_report_it(): void {
-		$socios = $this->src( 'includes/class-anpa-socios-admin-socios-handler.php' );
+		// 1.80.0: the family baixa moved to ANPA_Socios_Baixa_Familia (shared with «Dar de baixa» and the course close).
+		$socios = $this->src( 'includes/class-anpa-socios-admin-socios-handler.php' ) . $this->src( 'includes/class-anpa-socios-baixa-familia.php' );
 		// The baixa covers the whole family unit (head + linked parents), never the master, and each member is emailed the list.
 		$this->assertStringContainsString( "SELECT email, nome FROM {\$soc_t} WHERE estado = 'activo' AND rol <> 'master' AND ( id = %d OR familia_id = %d ) ORDER BY id ASC", $socios );
 		$this->assertStringContainsString( "UPDATE {\$soc_t} SET estado = 'baixa', baixa_estado = 'none', actualizado_en = %s WHERE estado = 'activo' AND rol <> 'master' AND ( id = %d OR familia_id = %d )", $socios );
 		$this->assertStringContainsString( 'ANPA_Socios_Familia::resolve_familia_id(', $socios );
 		$this->assertStringContainsString( "ANPA_Socios_Email::enviar_baixa_socio_confirmada( (string) \$m['email'], (string) \$m['nome'], \$lista )", $socios );
-		$this->assertStringContainsString( "\$data['emails_baixa']     = \$emails;", $socios );
-		$this->assertStringContainsString( "\$data['correo_enviado']   = \$enviados === count( \$membros );", $socios );
+		$this->assertStringContainsString( "'emails_baixa'     => \$ctx['emails'],", $socios );
+		$this->assertStringContainsString( "'correo_enviado'   => \$enviados === count( \$ctx['membros'] ),", $socios );
 		$this->assertStringContainsString( "'baixa_confirm_familia'", $socios );
 		$this->assertStringContainsString( "'solicitada' !== (string) \$row['baixa_estado']", $socios, 'the requester must still have a pending request' );
 

@@ -123,6 +123,7 @@
       <file>tests/Test_ANPA_Socios_Prioridade_Empresa.php</file>
       <file>tests/Test_ANPA_Socios_Limite_Acceso.php</file>
       <file>tests/Test_ANPA_Socios_Baixa_Socio_Curso.php</file>
+      <file>tests/Test_ANPA_Socios_Baixa_Familia.php</file>
       <file>tests/Test_ANPA_Socios_Area_Matriculas_List.php</file>
       <file>tests/Test_ANPA_Socios_Area_Fillos_Nivel.php</file>
       <file>tests/Test_ANPA_Socios_Admin_Baixas_Panel.php</file>

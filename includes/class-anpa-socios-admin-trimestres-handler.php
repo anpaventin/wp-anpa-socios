@@ -225,6 +225,8 @@ final class ANPA_Socios_Admin_Trimestres_Handler {
 				return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido pechar o curso.', 'anpa-socios' ), array( 'status' => 500 ) );
 			}
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'curso', $curso, 'curso_pechado' );
+			// 1.80.0: closing the course confirms every pending member baixa in cascade.
+			$baixas_socios = ANPA_Socios_Baixa_Familia::confirmar_pendentes_fin_curso( $request );
 		} else {
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'curso', $curso, 'trimestre_activo_' . (int) $destino );
 			foreach ( $pendentes as $id ) {
@@ -241,7 +243,7 @@ final class ANPA_Socios_Admin_Trimestres_Handler {
 		}
 		ANPA_Socios_Matricula_Gate_Repo::sincronizar_flag( $curso );
 
-		return new WP_REST_Response( self::payload( $curso ) + array( 'aplicadas' => $aplicadas, 'aprobacions' => $aprobacions ), 200 );
+		return new WP_REST_Response( self::payload( $curso ) + array( 'aplicadas' => $aplicadas, 'aprobacions' => $aprobacions, 'baixas_socios' => isset( $baixas_socios ) ? $baixas_socios : null ), 200 );
 	}
 
 	// ──────────────────────────────────────────────
@@ -445,11 +447,15 @@ final class ANPA_Socios_Admin_Trimestres_Handler {
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'curso', sprintf( '%s:g%d/m%d', $curso, (int) $grupos, (int) $mats ), 'fin_curso_peche' );
 
 		$envio = self::masivo( $request, 'fin_curso', array( 'curso_escolar' => $curso ) );
+		// 1.80.0: after the families' fin_curso email, every pending member baixa is confirmed
+		// in cascade (children, both parents, «baixa efectiva» email to each).
+		$baixas_socios = ANPA_Socios_Baixa_Familia::confirmar_pendentes_fin_curso( $request );
 
 		return new WP_REST_Response( self::payload( $curso ) + array(
 			'grupos_pechados'  => false === $grupos ? 0 : (int) $grupos,
 			'matriculas_baixa' => false === $mats ? 0 : (int) $mats,
 			'envio'            => $envio,
+			'baixas_socios'    => $baixas_socios,
 		), 200 );
 	}
 

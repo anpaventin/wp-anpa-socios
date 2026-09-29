@@ -440,6 +440,42 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 	}
 
 	/**
+	 * Altas + baixas the Google label is missing: active emails not in the last
+	 * export plus exported emails no longer active (same rule as estado()). Pure.
+	 *
+	 * @since  1.80.0
+	 * @param  array<int,string>                   $emails  Active member emails.
+	 * @param  array<string,array<string,string>> $previos As socios_do_snapshot() returns.
+	 * @return int
+	 */
+	public static function conta_cambios( array $emails, array $previos ): int {
+		$actuais = array();
+		foreach ( $emails as $e ) {
+			$e = strtolower( trim( (string) $e ) );
+			if ( '' !== $e ) {
+				$actuais[ $e ] = true;
+			}
+		}
+		return count( array_diff_key( $actuais, $previos ) ) + count( array_diff_key( $previos, $actuais ) );
+	}
+
+	/**
+	 * «Lista Gmail (N)» on the Xestión nav (1.80.0): contacts still to export.
+	 * Only reads the emails, so it is cheap on every page load.
+	 *
+	 * @since  1.80.0
+	 * @return int
+	 */
+	public static function cambios_pendentes(): int {
+		global $wpdb;
+		$soc_t = ANPA_Socios_DB::tabela_socios();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- read-only, ASCII SQL.
+		$emails   = $wpdb->get_col( "SELECT email FROM {$soc_t} WHERE estado = 'activo' AND rol <> 'master' AND email <> ''" );
+		$snapshot = get_option( self::OPTION_SNAPSHOT, null );
+		return self::conta_cambios( is_array( $emails ) ? $emails : array(), self::socios_do_snapshot( is_array( $snapshot ) ? $snapshot : null ) );
+	}
+
+	/**
 	 * Members the new snapshot must record after an export. The snapshot models
 	 * what Google Contacts holds: a full export replaces the label (so it is
 	 * exactly the current members), an export of the new members only ADDS them
@@ -503,6 +539,8 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 				'baixas'            => $baixas,
 				'baixas_sen_confirmar' => $pendentes,
 				'precisa_exportar'  => null === $snapshot || array() !== $altas || array() !== $baixas,
+				// 1.80.0: the number on the «Lista Gmail (N)» nav button.
+				'cambios_pendentes' => count( $altas ) + count( $baixas ),
 				// 1.66.0: a download the junta has not confirmed (or discarded) yet.
 				'exportacion_pendente' => self::pendente_resumo(),
 				// 1.63.0: links the start-of-year email will carry (Axustes → Xeral).

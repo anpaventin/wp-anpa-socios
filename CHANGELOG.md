@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.80.0] - 2026-09-29
+
+### Added
+
+- **«Dar de baixa» na ficha do socio/a** (Xestión → Socios → Editar), para socios/as activos/as: mesmo efecto ca
+  confirmar unha solicitude de baixa. Pide confirmación avisando de que é irreversible; se algún fillo/a ten unha
+  matrícula vixente responde `409 anpa_baixa_matriculas_vixentes` coa lista (hai que darlle de baixa primeiro en
+  Extraescolares → Matrículas); co curso en marcha pide a mesma confirmación de excepción ca 1.79.0. Ruta
+  `POST admin/socio/<email>/baixa/directa`; auditoría `baixa_directa` / `baixa_directa_excepcion`.
+- **Peche do curso**: tanto «Pechar curso» como o aviso de fin de curso confirman en cascada todas as baixas de
+  socios/as pendentes (matrículas vixentes, fillos/as e os dous proxenitores, correo de baixa efectiva a cada un;
+  auditoría `baixa_fin_curso`). A resposta trae `baixas_socios {familias, erros}`.
+- **«Lista Gmail (N)»** no menú de Xestión: altas + baixas pendentes de exportar a Google Contactos, co botón
+  destacado en cor cando N > 0 (actualízase tras aprobacións, baixas e peche do curso). En «Baixas desde a última
+  exportación», botón «Copiar os correos das baixas» e indicacións para quitalos de Google.
+
+### Changed
+
+- Servizo único `ANPA_Socios_Baixa_Familia` para as tres vías de baixa. Confirmar unha solicitude agora dá tamén de
+  baixa aos fillos/as e rexéitase mentres haxa matrículas vixentes.
+
+### Fixed
+
+- Lista Gmail: o recadro amarelo de confirmación da descarga víase baleiro (a clase con `display:flex` gañaba ao
+  atributo `hidden`); agora só aparece cando hai unha descarga que confirmar.
+
 ## [1.79.0] - 2026-09-29
 
 ### Changed

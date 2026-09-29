@@ -745,6 +745,36 @@
 		cancelBtn.addEventListener('click', function () { renderSocios(allRows); });
 		actions.appendChild(cancelBtn);
 
+		// 1.80.0: «Dar de baixa» — same effect as confirming a requested baixa (whole family).
+		if (socio.estado === 'activo' && socio.rol !== 'master') {
+			var baixaBtn = document.createElement('button');
+			baixaBtn.type = 'button';
+			baixaBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-danger';
+			baixaBtn.textContent = 'Dar de baixa';
+			var baixaPath = 'socio/' + encodeURIComponent(socio.email) + '/baixa/directa';
+			var doBaixa = function (body) {
+				anpaAdminFetch(baixaPath, body ? { method: 'POST', body: body } : { method: 'POST' }).then(function (r) {
+					var msg = 'Baixa feita. Correos dados de baixa: ' + ((r && r.emails_baixa) || []).join(', ') + '. Fillos/as dados de baixa: ' + ((r && r.fillos_baixa) || 0) + '.';
+					msg += r && r.correo_enviado ? ' Enviouse o correo de baixa efectiva a cada proxenitor.' : ' ATENCIÓN: non se puido enviar o correo a todos; avísaos por outro medio.';
+					showMessage(msg, r && r.correo_enviado ? 'success' : 'warning');
+					refreshListaGmailCount();
+					loadSocios();
+				}).catch(function (e) {
+					if (e.code === 'anpa_baixa_curso_en_marcha' && !body) {
+						if (window.confirm(e.message + '\n\nQueres proceder igualmente coa baixa como EXCEPCIÓN?')) { doBaixa({ excepcion: true }); }
+						else { showMessage('Baixa cancelada.', 'info'); }
+						return;
+					}
+					showMessage(e.message, 'error');
+				});
+			};
+			baixaBtn.addEventListener('click', function () {
+				if (!window.confirm('Dar de baixa a ' + socio.email + '?\n\nEsta acción NON se pode desfacer desde aquí: pasan a baixa os DOUS proxenitores da unidade familiar e os seus fillos/as, e cada proxenitor recibe o correo de baixa efectiva. Se algún fillo/a segue inscrito nunha extraescolar, a web non deixará facela ata darlle de baixa en Extraescolares → Matrículas.')) { return; }
+				doBaixa(null);
+			});
+			actions.appendChild(baixaBtn);
+		}
+
 		// Definitive deletion is intentionally separate from setting estado=baixa.
 		if (socio.estado === 'baixa') {
 			var hardDeleteBtn = document.createElement('button');
@@ -1063,9 +1093,18 @@
 		}).catch(sectionError);
 	}
 
+	/** 1.80.0: refresh «Lista Gmail (N)» after something that adds or removes members. */
+	function refreshListaGmailCount() {
+		anpaAdminFetch('contactos-google/estado').then(function (d) {
+			if (d && typeof d.cambios_pendentes === 'number') { setNavCount('lista-gmail', 'Lista Gmail', d.cambios_pendentes); }
+		}).catch(function () {});
+	}
+
 	/** 1.73.0: «Aprobacións (N)» on the nav button, N = everything waiting for the junta. */
 	function setAprobacionsCount(n) {
 		setNavCount('aprobacions', 'Aprobacións', n);
+		// 1.80.0: approving an alta or confirming a baixa changes what Google must receive.
+		refreshListaGmailCount();
 	}
 
 	/** 1.74.0: «Label (N)» on a nav button; buttons with something pending stand out. */
@@ -1386,6 +1425,7 @@
 		var baixas = Array.isArray(d.baixas) ? d.baixas : [];
 		var ultima = d.ultima_exportacion || null;
 		var pendentes = parseInt(d.baixas_sen_confirmar, 10) || 0;
+		setNavCount('lista-gmail', 'Lista Gmail', typeof d.cambios_pendentes === 'number' ? d.cambios_pendentes : altas.length + baixas.length);
 
 		function el(tag, text, cls) {
 			var e = document.createElement(tag);
@@ -1442,11 +1482,14 @@
 		// downloads silently), so the server keeps the export «pendente» until the junta answers.
 		var confirmBox = el('div', null, 'anpa-mgmt-form-actions');
 		confirmBox.hidden = true;
+		// 1.80.0: .anpa-mgmt-form-actions sets display:flex, which beats [hidden]: hide it for real.
+		confirmBox.style.display = 'none';
 		confirmBox.style.marginTop = '0.75rem'; confirmBox.style.padding = '0.75rem 1rem';
 		confirmBox.style.border = '1px solid #dba617'; confirmBox.style.background = '#fcf9e8'; confirmBox.style.borderRadius = '4px';
 		function pedirConfirmacion(texto) {
 			confirmBox.textContent = '';
 			confirmBox.hidden = false;
+			confirmBox.style.display = '';
 			var p = el('p', texto); p.style.fontWeight = '600'; p.style.margin = '0 0 0.5rem';
 			confirmBox.appendChild(p);
 			confirmBox.appendChild(el('p', 'Ata que confirmes, a web non anota esta exportación: as altas e baixas seguen como estaban.', 'description'));
@@ -1559,6 +1602,19 @@
 		if (ultima) {
 			diffTable('Altas desde a última exportación', altas, 'Ningunha alta nova.');
 			diffTable('Baixas desde a última exportación', baixas, 'Ningunha baixa.');
+			// 1.80.0: the deregistered addresses, ready to remove them from Google.
+			if (baixas.length) {
+				var copiar = el('button', 'Copiar os correos das baixas', 'anpa-mgmt-btn anpa-mgmt-btn-secondary');
+				copiar.type = 'button';
+				copiar.addEventListener('click', function () {
+					var txt = baixas.map(function (b) { return b.email; }).join(', ');
+					var ok = function () { showMessage('Copiados ' + baixas.length + ' correo(s). En Google Contactos pégaos na busca e elimina eses contactos, ou fai a exportación completa (que refai a etiqueta sen eles).', 'success'); };
+					if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(txt).then(ok).catch(function () { window.prompt('Copia estes correos:', txt); }); }
+					else { window.prompt('Copia estes correos:', txt); }
+				});
+				root.appendChild(copiar);
+				root.appendChild(el('p', 'Para quitalos de Google: fai a exportación completa (paso 4, elimina a etiqueta e importa de novo) ou elimina a man eses contactos en Google Contactos.', 'description'));
+			}
 			// 1.71.0: a changed address is counted twice although nobody joined or left.
 			root.appendChild(el('p', 'Se unha familia cambia un correo (o seu ou o do 2º proxenitor), aparece unha alta co correo novo e unha baixa co vello: fai a exportación completa para que Google quede igual ca web.', 'description'));
 		}
@@ -3219,6 +3275,8 @@
 					msg += ' Matrículas pendentes aprobadas: ' + r.aprobacions.praza + ' con praza, ' + r.aprobacions.espera + ' en lista de espera' + (r.aprobacions.erros ? ', ' + r.aprobacions.erros + ' con erro' : '') + '.';
 				}
 				if (r && typeof r.grupos_pechados === 'number') { msg += ' Grupos pechados: ' + r.grupos_pechados + '; matrículas dadas de baixa: ' + r.matriculas_baixa + '.'; }
+				// 1.80.0: pending member baixas confirmed in cascade by the course close.
+				if (r && r.baixas_socios && (r.baixas_socios.familias || r.baixas_socios.erros)) { msg += ' Baixas de socios/as pendentes confirmadas: ' + r.baixas_socios.familias + ' familia(s)' + (r.baixas_socios.erros ? ', ' + r.baixas_socios.erros + ' con erro' : '') + ' (revisa Operacións → Lista Gmail).'; refreshListaGmailCount(); }
 				showMessage(msg, r && r.envio && r.envio.fallidos ? 'warning' : 'success');
 				loadCursos();
 			}).catch(function (e) { showMessage(e.message, 'error'); });

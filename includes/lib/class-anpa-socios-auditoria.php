@@ -48,6 +48,10 @@ final class ANPA_Socios_Auditoria {
 			'baixa_confirm'         => array( 'Baixa de socio/a', 'Confirmada', 'si' ),
 			// 1.79.0: confirmed while the course was running (exception to the alta conditions).
 			'baixa_confirm_excepcion' => array( 'Baixa de socio/a', 'Confirmada como excepción (curso en marcha)', 'si' ),
+			// 1.80.0: from the member's edit panel, and in cascade at the end of the course.
+			'baixa_directa'           => array( 'Baixa de socio/a', 'Dada de baixa dende a ficha', 'si' ),
+			'baixa_directa_excepcion' => array( 'Baixa de socio/a', 'Dada de baixa dende a ficha como excepción (curso en marcha)', 'si' ),
+			'baixa_fin_curso'         => array( 'Baixa de socio/a', 'Confirmada no peche do curso', 'si' ),
 			'baixa_confirm_familia' => array( 'Baixa de socio/a', 'Confirmada (resto da familia)', 'si' ),
 			// Rows written before 1.46.0 were cut at 20 characters.
 			'baixa_confirm_famili'  => array( 'Baixa de socio/a', 'Confirmada (resto da familia)', 'si' ),
@@ -75,6 +79,10 @@ final class ANPA_Socios_Auditoria {
 		'oferta_aceptada'            => 'Oferta de praza aceptada',
 		'baixa_confirm'              => 'Baixa confirmada',
 		'baixa_confirm_excepcion'    => 'Baixa confirmada como excepción (curso en marcha)',
+		'baixa_directa'              => 'Baixa dada dende a ficha do socio/a',
+		'baixa_directa_excepcion'    => 'Baixa dada dende a ficha como excepción (curso en marcha)',
+		'baixa_fin_curso'            => 'Baixa confirmada no peche do curso',
+		'baixa_familia'              => 'Baixa pola baixa da familia',
 		'baixa_confirm_familia'      => 'Baixa confirmada (resto da familia)',
 		'baixa_confirm_famili'       => 'Baixa confirmada (resto da familia)',
 		'baixa_reject'               => 'Baixa rexeitada',

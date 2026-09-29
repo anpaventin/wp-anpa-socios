@@ -41,6 +41,12 @@ final class ANPA_Socios_Admin_Socios_Handler {
 				'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
 			),
 		) );
+		// 1.80.0: «Dar de baixa» from the member's edit panel (no request needed).
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/socio/(?P<email>[^/]+)/baixa/directa', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( __CLASS__, 'baixa_directa' ),
+			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+		) );
 		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/socio/(?P<email>[^/]+)/baixa/confirm', array(
 			'methods'             => WP_REST_Server::CREATABLE,
 			'callback'            => array( __CLASS__, 'confirm_baixa' ),
@@ -398,67 +404,66 @@ final class ANPA_Socios_Admin_Socios_Handler {
 				array( 'status' => 409, 'remate' => (string) $curso['remate'] )
 			);
 		}
-		$familia_id = ANPA_Socios_Familia::resolve_familia_id( isset( $row['familia_id'] ) ? (int) $row['familia_id'] : null, (int) $row['id'] );
-
-		// Members of the unit: the head (id = familia_id) and everyone linked to it.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- family lookup.
-		$membros = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT email, nome FROM {$soc_t} WHERE estado = 'activo' AND rol <> 'master' AND ( id = %d OR familia_id = %d ) ORDER BY id ASC",
-				$familia_id,
-				$familia_id
-			),
-			ARRAY_A
-		);
-		$membros = is_array( $membros ) ? $membros : array();
-		if ( array() === $membros ) {
-			$membros = array( array( 'email' => $email, 'nome' => '' ) );
-		}
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- the baixa itself.
-		$updated = $wpdb->query(
-			$wpdb->prepare(
-				"UPDATE {$soc_t} SET estado = 'baixa', baixa_estado = 'none', actualizado_en = %s WHERE estado = 'activo' AND rol <> 'master' AND ( id = %d OR familia_id = %d )",
-				current_time( 'mysql' ),
-				$familia_id,
-				$familia_id
-			)
-		);
-		if ( false === $updated ) {
-			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-		}
-		if ( 0 === (int) $updated ) {
-			return new WP_Error(
-				'anpa_admin_no_baixa_request',
-				'Este socio/a non ten unha solicitude de baixa pendente',
-				array( 'status' => 409 )
-			);
-		}
-
-		$emails = array_values( array_unique( array_map( 'strtolower', array_column( $membros, 'email' ) ) ) );
-		foreach ( $emails as $e ) {
-			ANPA_Socios_Admin_Shared::write_audit( $request, 'socio', $e, $e === $email ? ( $excepcion ? 'baixa_confirm_excepcion' : 'baixa_confirm' ) : 'baixa_confirm_familia' );
-		}
-
-		$lista    = implode( ', ', $emails );
-		$enviados = 0;
-		foreach ( $membros as $m ) {
-			if ( ANPA_Socios_Email::enviar_baixa_socio_confirmada( (string) $m['email'], (string) $m['nome'], $lista ) ) {
-				++$enviados;
-			}
+		// 1.80.0: shared family baixa — refuses while a child has a current enrolment,
+		// then children + both parents to baixa and the «baixa efectiva» email to each.
+		$r = ANPA_Socios_Baixa_Familia::executar( $request, $email, $excepcion ? 'baixa_confirm_excepcion' : 'baixa_confirm', false );
+		if ( is_wp_error( $r ) ) {
+			return $r;
 		}
 
 		$response = self::get_socio( $request );
 		if ( $response instanceof WP_REST_Response ) {
 			$data = $response->get_data();
 			if ( is_array( $data ) ) {
-				$data['emails_baixa']     = $emails;
-				$data['correos_enviados'] = $enviados;
-				$data['correo_enviado']   = $enviados === count( $membros );
+				$data = array_merge( $data, $r );
 				$response->set_data( $data );
 			}
 		}
 		return $response;
+	}
+
+	/**
+	 * POST /admin/socio/<email>/baixa/directa — «Dar de baixa» from the member's
+	 * edit panel (1.80.0). Same effect as confirming a requested baixa: refuses
+	 * while a child has a current enrolment, needs the explicit exception while the
+	 * course is running, then children + both parents to baixa and email to each.
+	 *
+	 * @since  1.80.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function baixa_directa( WP_REST_Request $request ) {
+		global $wpdb;
+		$email = ANPA_Socios_Admin_Payload::sanitise_email( rawurldecode( (string) $request->get_param( 'email' ) ) );
+		if ( null === $email ) {
+			return new WP_Error( 'anpa_admin_invalid', __( 'Email inválido', 'anpa-socios' ), array( 'status' => 400 ) );
+		}
+		if ( ANPA_Socios_Roles::is_protected_admin( $email, ANPA_Socios_Config::master_email() ) ) {
+			return new WP_Error( 'anpa_admin_protected_root', 'O administrador raíz non pode ser dado de baixa', array( 'status' => 403 ) );
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- precondition lookup.
+		$estado = $wpdb->get_var( $wpdb->prepare( 'SELECT estado FROM ' . ANPA_Socios_DB::tabela_socios() . ' WHERE email = %s', $email ) );
+		if ( 'activo' !== $estado ) {
+			return new WP_Error( 'anpa_admin_non_activo', __( 'Só se pode dar de baixa a un socio/a activo/a.', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+		$curso     = ANPA_Socios_Admin_Baixas_Handler::curso_para_baixas();
+		$excepcion = ! empty( ANPA_Socios_Admin_Shared::json_body( $request )['excepcion'] );
+		if ( $curso['en_marcha'] && ! $excepcion ) {
+			return new WP_Error(
+				'anpa_baixa_curso_en_marcha',
+				sprintf(
+					/* translators: %s: end of the course. */
+					__( 'O curso está en marcha: segundo as condicións da alta, a baixa non se fai efectiva ata o remate do curso (%s). Dala agora sería unha excepción.', 'anpa-socios' ),
+					(string) $curso['remate_texto']
+				),
+				array( 'status' => 409, 'remate' => (string) $curso['remate'] )
+			);
+		}
+		$r = ANPA_Socios_Baixa_Familia::executar( $request, $email, $excepcion ? 'baixa_directa_excepcion' : 'baixa_directa', false );
+		if ( is_wp_error( $r ) ) {
+			return $r;
+		}
+		return new WP_REST_Response( $r, 200 );
 	}
 
 	/**

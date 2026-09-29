@@ -115,6 +115,11 @@ final class ANPA_Socios_Admin_Management_Page {
 					$pendentes = (int) ( 'aprobacions' === $slug ? $contas['total'] : $contas['baixas_actividades'] );
 					$label     = (string) $label . ' (' . $pendentes . ')';
 				}
+				// 1.80.0: «Lista Gmail (N)» = altas + baixas not yet exported to Google Contacts.
+				if ( 'lista-gmail' === $slug && class_exists( 'ANPA_Socios_Admin_Contactos_Google_Handler' ) ) {
+					$pendentes = ANPA_Socios_Admin_Contactos_Google_Handler::cambios_pendentes();
+					$label     = (string) $label . ' (' . $pendentes . ')';
+				}
 				printf(
 					'<button type="button" role="tab" data-section="%s" aria-controls="anpa-management-root" aria-selected="%s"%s>%s</button>',
 					esc_attr( $slug ),
