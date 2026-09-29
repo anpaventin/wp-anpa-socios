@@ -84,6 +84,7 @@ final class ANPA_Socios_Auditoria {
 		'baixa_fin_curso'            => 'Baixa confirmada no peche do curso',
 		'baixa_familia'              => 'Baixa pola baixa da familia',
 		'fillo_recuperado'           => 'Fillo/a recuperado pola familia',
+		'baixas_eliminadas_google'   => 'Baixas eliminadas a man en Google Contactos',
 		'baixa_confirm_familia'      => 'Baixa confirmada (resto da familia)',
 		'baixa_confirm_famili'       => 'Baixa confirmada (resto da familia)',
 		'baixa_reject'               => 'Baixa rexeitada',

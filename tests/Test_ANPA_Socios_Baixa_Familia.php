@@ -118,6 +118,7 @@ final class Test_ANPA_Socios_Baixa_Familia extends TestCase {
 		$this->assertStringContainsString( "e.code === 'anpa_baixa_curso_en_marcha' && !body", $js );
 		// The download confirmation box is hidden for real until there is something to confirm.
 		$this->assertStringContainsString( "confirmBox.style.display = 'none';", $js );
-		$this->assertStringContainsString( 'Copiar os correos das baixas', $js );
+		// 1.82.0: the copy button moved next to «Baixas desde entón», with the list itself.
+		$this->assertStringContainsString( 'Xa as eliminei en Google: poñer as baixas a 0', $js );
 	}
 }

@@ -93,6 +93,12 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 			'callback'            => array( __CLASS__, 'confirmar_exportacion' ),
 			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
 		) );
+		// 1.82.0: the junta removed the baixas by hand in Google → counter back to 0.
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/contactos-google/baixas/eliminadas', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( __CLASS__, 'baixas_eliminadas' ),
+			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+		) );
 		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/contactos-google/exportacion/descartar', array(
 			'methods'             => WP_REST_Server::CREATABLE,
 			'callback'            => array( __CLASS__, 'descartar_exportacion' ),
@@ -124,6 +130,62 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 			'exportados'    => (int) ( $pendente['exportados'] ?? count( $socios ) ),
 			'socios'        => $socios,
 		);
+	}
+
+	/**
+	 * The snapshot once the baixas were removed by hand in Google Contacts: the
+	 * exported emails that are no longer active leave it, the rest (and the new
+	 * altas, which were never in it) stay as they are. Pure.
+	 *
+	 * @since  1.82.0
+	 * @param  array<string,mixed> $snapshot Stored OPTION_SNAPSHOT value.
+	 * @param  array<int,string>   $activos  Active member emails.
+	 * @param  string              $agora    Time of the confirmation (MySQL format).
+	 * @return array{snapshot:array<string,mixed>,eliminadas:int}
+	 */
+	public static function snapshot_sen_baixas( array $snapshot, array $activos, string $agora ): array {
+		$vivos = array();
+		foreach ( $activos as $e ) {
+			$vivos[ strtolower( trim( (string) $e ) ) ] = true;
+		}
+		$quedan = array();
+		$fora   = 0;
+		foreach ( ( isset( $snapshot['socios'] ) && is_array( $snapshot['socios'] ) ) ? $snapshot['socios'] : array() as $s ) {
+			if ( is_array( $s ) && isset( $vivos[ strtolower( trim( (string) ( $s['email'] ?? '' ) ) ) ] ) ) {
+				$quedan[] = $s;
+			} else {
+				++$fora;
+			}
+		}
+		$snapshot['socios']              = $quedan;
+		$snapshot['total']               = count( $quedan );
+		$snapshot['baixas_eliminadas_en'] = $agora;
+		return array( 'snapshot' => $snapshot, 'eliminadas' => $fora );
+	}
+
+	/**
+	 * POST /admin/contactos-google/baixas/eliminadas — the junta deleted the
+	 * baixas by hand in Google Contacts: they leave the snapshot, so «Baixas
+	 * desde entón» goes back to 0 (the altas are not touched).
+	 *
+	 * @since  1.82.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function baixas_eliminadas( WP_REST_Request $request ) {
+		global $wpdb;
+		$snapshot = get_option( self::OPTION_SNAPSHOT, null );
+		if ( ! is_array( $snapshot ) ) {
+			return new WP_Error( 'anpa_sen_exportacion', __( 'Aínda non se exportou nunca a lista: fai primeiro a exportación completa.', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+		$soc_t = ANPA_Socios_DB::tabela_socios();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- read-only, ASCII SQL.
+		$activos = $wpdb->get_col( "SELECT email FROM {$soc_t} WHERE estado = 'activo' AND rol <> 'master' AND email <> ''" );
+		$r       = self::snapshot_sen_baixas( $snapshot, is_array( $activos ) ? $activos : array(), current_time( 'mysql' ) );
+		update_option( self::OPTION_SNAPSHOT, $r['snapshot'], false );
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'export', 'contactos-google:' . $r['eliminadas'], 'baixas_eliminadas_google' );
+
+		return new WP_REST_Response( array( 'eliminadas' => $r['eliminadas'] ), 200 );
 	}
 
 	/**

@@ -77,7 +77,7 @@ final class Test_ANPA_Socios_Lista_Gmail_Confirmacion extends TestCase {
 		foreach ( array( "'/contactos-google/exportacion/confirmar'", "'/contactos-google/exportacion/descartar'" ) as $route ) {
 			$this->assertStringContainsString( $route, $h );
 		}
-		$this->assertSame( 5, preg_match_all( '/\'permission_callback\' => array\( \'ANPA_Socios_Admin_Shared\', \'permission_master\' \)/', $h ), 'estado, export, inicio-curso, confirmar, descartar' );
+		$this->assertSame( 6, preg_match_all( '/\'permission_callback\' => array\( \'ANPA_Socios_Admin_Shared\', \'permission_master\' \)/', $h ), 'estado, export, inicio-curso, confirmar, descartar, baixas/eliminadas' );
 		$this->assertStringContainsString( "'exportacion_pendente'", $h, 'estado() tells the panel about an unconfirmed download' );
 	}
 

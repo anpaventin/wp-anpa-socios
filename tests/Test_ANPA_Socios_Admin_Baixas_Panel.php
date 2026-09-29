@@ -87,7 +87,8 @@ final class Test_ANPA_Socios_Admin_Baixas_Panel extends TestCase {
 		$start = strpos( $js, 'function renderBaixasSocios(data)' );
 		$end   = strpos( $js, '// ── Section: Fillos', $start );
 		// 1.79.0: +1 confirm — the exception prompt when the course is running.
-		$this->assertSame( 4, substr_count( substr( $js, $start, $end - $start ), 'window.confirm(' ) );
+		// 1.82.0: +1 — «poñer as baixas a 0» in Lista Gmail (same slice).
+		$this->assertSame( 5, substr_count( substr( $js, $start, $end - $start ), 'window.confirm(' ) );
 		$baixas_end = strpos( $js, '// ── Section: Lista Gmail', $start );
 		$this->assertSame( 3, substr_count( substr( $js, $start, $baixas_end - $start ), 'window.confirm(' ) );
 		$this->assertStringNotContainsString( 'Baixas de actividades pendentes (', substr( $js, $start, $baixas_end - $start ) );

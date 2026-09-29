@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.82.0] - 2026-09-30
+
+### Added
+
+- **Lista Gmail**: no recadro «Estado», debaixo de «Baixas desde entón», os correos dados de baixa separados por comas
+  (caixa de só lectura) e o botón «Copiar os correos», para eliminalos a man en Google Contactos cando son poucos.
+- Botón **«Xa as eliminei en Google: poñer as baixas a 0»** (con confirmación): quita eses correos da última
+  exportación gardada (`POST admin/contactos-google/baixas/eliminadas`, auditoría `baixas_eliminadas_google`), así que
+  o contador de baixas e «Lista Gmail (N)» baixan; as altas novas seguen pendentes de exportar.
+
+### Changed
+
+- O botón «Copiar os correos das baixas» de debaixo da táboa (1.80.0) substitúese polo novo do recadro «Estado».
+
 ## [1.81.0] - 2026-09-30
 
 ### Added

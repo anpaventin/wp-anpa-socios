@@ -1458,6 +1458,41 @@
 			ul.appendChild(el('li', 'Aínda non se exportou nunca esta lista.'));
 		}
 		card.appendChild(ul);
+		// 1.82.0: few baixas are quicker to delete by hand in Google than a full export.
+		if (ultima && baixas.length) {
+			var bx = el('div', null);
+			bx.style.margin = '0 0 0.75rem';
+			bx.appendChild(el('p', 'Correos dados de baixa (para eliminalos a man en Google Contactos se son poucos):', 'description'));
+			var lista = document.createElement('textarea');
+			lista.readOnly = true;
+			lista.rows = Math.min(4, Math.max(2, Math.ceil(baixas.length / 3)));
+			lista.style.width = '100%';
+			lista.value = baixas.map(function (b) { return b.email; }).join(', ');
+			lista.addEventListener('focus', function () { lista.select(); });
+			bx.appendChild(lista);
+			var bxActs = el('div', null, 'anpa-mgmt-form-actions');
+			bxActs.style.display = 'flex'; bxActs.style.gap = '0.5rem'; bxActs.style.flexWrap = 'wrap';
+			var copiar = el('button', 'Copiar os correos', 'anpa-mgmt-btn anpa-mgmt-btn-secondary');
+			copiar.type = 'button';
+			copiar.addEventListener('click', function () {
+				var ok = function () { showMessage('Copiados ' + baixas.length + ' correo(s). En Google Contactos búscaos e elimina eses contactos da etiqueta «' + etiqueta + '».', 'success'); };
+				if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(lista.value).then(ok).catch(function () { lista.focus(); }); }
+				else { lista.focus(); }
+			});
+			var cero = el('button', 'Xa as eliminei en Google: poñer as baixas a 0', 'anpa-mgmt-btn');
+			cero.type = 'button';
+			cero.addEventListener('click', function () {
+				if (!window.confirm('Confirmas que eliminaches en Google Contactos estes ' + baixas.length + ' correo(s)?\n\nO contador de baixas volverá a 0. As altas novas seguen pendentes de exportar.')) { return; }
+				cero.disabled = true;
+				anpaAdminFetch('contactos-google/baixas/eliminadas', { method: 'POST' }).then(function (r) {
+					showMessage('Baixas anotadas como eliminadas en Google (' + ((r && r.eliminadas) || 0) + ').', 'success');
+					loadListaGmail();
+				}).catch(function (e) { cero.disabled = false; showMessage(e.message, 'error'); });
+			});
+			bxActs.appendChild(copiar); bxActs.appendChild(cero);
+			bx.appendChild(bxActs);
+			card.appendChild(bx);
+		}
 		var status = el('p', null);
 		status.style.fontWeight = '600';
 		if (d.precisa_exportar) {
@@ -1602,19 +1637,6 @@
 		if (ultima) {
 			diffTable('Altas desde a última exportación', altas, 'Ningunha alta nova.');
 			diffTable('Baixas desde a última exportación', baixas, 'Ningunha baixa.');
-			// 1.80.0: the deregistered addresses, ready to remove them from Google.
-			if (baixas.length) {
-				var copiar = el('button', 'Copiar os correos das baixas', 'anpa-mgmt-btn anpa-mgmt-btn-secondary');
-				copiar.type = 'button';
-				copiar.addEventListener('click', function () {
-					var txt = baixas.map(function (b) { return b.email; }).join(', ');
-					var ok = function () { showMessage('Copiados ' + baixas.length + ' correo(s). En Google Contactos pégaos na busca e elimina eses contactos, ou fai a exportación completa (que refai a etiqueta sen eles).', 'success'); };
-					if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(txt).then(ok).catch(function () { window.prompt('Copia estes correos:', txt); }); }
-					else { window.prompt('Copia estes correos:', txt); }
-				});
-				root.appendChild(copiar);
-				root.appendChild(el('p', 'Para quitalos de Google: fai a exportación completa (paso 4, elimina a etiqueta e importa de novo) ou elimina a man eses contactos en Google Contactos.', 'description'));
-			}
 			// 1.71.0: a changed address is counted twice although nobody joined or left.
 			root.appendChild(el('p', 'Se unha familia cambia un correo (o seu ou o do 2º proxenitor), aparece unha alta co correo novo e unha baixa co vello: fai a exportación completa para que Google quede igual ca web.', 'description'));
 		}
