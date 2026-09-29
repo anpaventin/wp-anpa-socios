@@ -54,6 +54,26 @@ final class ANPA_Socios_Fillos_REST {
 			)
 		);
 
+		// 1.81.0: children in baixa the family can recover by itself (e.g. after coming back).
+		register_rest_route(
+			self::REST_NAMESPACE,
+			'/fillos/recuperables',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( __CLASS__, 'list_recuperables' ),
+				'permission_callback' => array( 'ANPA_Socios_Area_REST', 'permission_area_session' ),
+			)
+		);
+		register_rest_route(
+			self::REST_NAMESPACE,
+			'/fillo/(?P<id>\d+)/recuperar',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'recuperar_fillo' ),
+				'permission_callback' => array( 'ANPA_Socios_Area_REST', 'permission_area_session' ),
+			)
+		);
+
 		register_rest_route(
 			self::REST_NAMESPACE,
 			'/fillo/(?P<id>\d+)',
@@ -138,6 +158,12 @@ final class ANPA_Socios_Fillos_REST {
 		$dup_check = self::check_duplicate_fillo( $payload, $familia_id );
 		if ( null !== $dup_check ) {
 			return $dup_check;
+		}
+
+		// 1.81.0: a child this family already had (in baixa) is recovered, not duplicated.
+		$baixa_id = ANPA_Socios_Fillo_Recuperar::coincidencia( self::fillos_en_baixa( $familia_id ), (string) $payload['nome'], (string) $payload['apelidos'], $payload['data_nacemento'] );
+		if ( $baixa_id > 0 ) {
+			return self::reactivar( $baixa_id, $familia_id, $payload, $email );
 		}
 
 		// A socio always creates an active fillo; estado is not client-controlled here.
@@ -296,6 +322,173 @@ final class ANPA_Socios_Fillos_REST {
 		ANPA_Socios_Admin_Shared::write_audit_actor( self::current_email( $request ), 'socio', 'fillo', (string) $id, 'fillo_eliminado' );
 
 		return new WP_REST_Response( null, 204 );
+	}
+
+	/**
+	 * GET /fillos/recuperables — the family's children in baixa (1.81.0), with
+	 * the level proposed for the active course from the birth date. A child
+	 * whose name is already on the active list is left out.
+	 *
+	 * @since  1.81.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function list_recuperables( WP_REST_Request $request ) {
+		$familia_id = self::current_familia_id( $request );
+		if ( 0 === $familia_id ) {
+			return self::invalid_session_error();
+		}
+		global $wpdb;
+		$table = $wpdb->prefix . 'anpa_fillos';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- scoped read of the authenticated family's children.
+		$activos = $wpdb->get_results( $wpdb->prepare( "SELECT nome, apelidos FROM {$table} WHERE familia_id = %d AND estado <> 'baixa'", $familia_id ), ARRAY_A );
+		$xa      = array();
+		foreach ( is_array( $activos ) ? $activos : array() as $a ) {
+			$xa[ ANPA_Socios_Fillo_Recuperar::clave( (string) $a['nome'], (string) $a['apelidos'] ) ] = true;
+		}
+
+		$curso_escolar = (string) ( ANPA_Socios_Curso_Activo::get() ?? '' );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- global level list, ASCII SQL.
+		$niveis = $wpdb->get_results( 'SELECT codigo, orde FROM ' . ANPA_Socios_DB::tabela_niveis() . " WHERE estado = 'activo' ORDER BY orde ASC, id ASC", ARRAY_A );
+		$niveis = is_array( $niveis ) ? $niveis : array();
+
+		$out   = array();
+		$vistas = array();
+		foreach ( self::fillos_en_baixa( $familia_id ) as $r ) {
+			$clave = ANPA_Socios_Fillo_Recuperar::clave( (string) $r['nome'], (string) $r['apelidos'] );
+			if ( isset( $xa[ $clave ] ) || isset( $vistas[ $clave ] ) ) {
+				continue; // already active again, or an older duplicate row of the same child.
+			}
+			$vistas[ $clave ] = true;
+			$s     = ANPA_Socios_Fillo_Recuperar::curso_suxerido( (string) $r['data_nacemento'], $curso_escolar, $niveis );
+			$out[] = array(
+				'id'             => (int) $r['id'],
+				'nome'           => (string) $r['nome'],
+				'apelidos'       => (string) $r['apelidos'],
+				'data_nacemento' => (string) $r['data_nacemento'],
+				'curso_anterior' => (string) $r['curso'],
+				'curso'          => $s['curso'],
+				'fora_de_idade'  => $s['fora'],
+			);
+		}
+		return new WP_REST_Response( $out, 200 );
+	}
+
+	/**
+	 * POST /fillo/<id>/recuperar — the family brings back one of its children in
+	 * baixa with the data for the active course (same validation as editing).
+	 *
+	 * @since  1.81.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function recuperar_fillo( WP_REST_Request $request ) {
+		$email      = self::current_email( $request );
+		$familia_id = self::current_familia_id( $request );
+		if ( '' === $email || 0 === $familia_id ) {
+			return self::invalid_session_error();
+		}
+		$id    = (int) $request->get_param( 'id' );
+		$vella = null;
+		foreach ( self::fillos_en_baixa( $familia_id ) as $r ) {
+			if ( (int) $r['id'] === $id ) {
+				$vella = $r;
+			}
+		}
+		if ( null === $vella ) {
+			return self::not_found_error();
+		}
+
+		$body          = self::json_body( $request );
+		$curso_escolar = (string) ( ANPA_Socios_Curso_Activo::get() ?? '' );
+		$checked       = ANPA_Socios_Admin_Payload::validar_fillo_con_erros( $body, $curso_escolar );
+		$payload       = $checked['fillo'];
+		if ( null === $payload ) {
+			return self::invalid_payload_error( $checked['errors'] );
+		}
+		$dup_check = self::check_duplicate_fillo( $payload, $familia_id );
+		if ( null !== $dup_check ) {
+			return $dup_check;
+		}
+		global $wpdb;
+		$table = $wpdb->prefix . 'anpa_fillos';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- scoped read of the authenticated family's children.
+		$activos = $wpdb->get_results( $wpdb->prepare( "SELECT nome, apelidos FROM {$table} WHERE familia_id = %d AND estado <> 'baixa'", $familia_id ), ARRAY_A );
+		$clave   = ANPA_Socios_Fillo_Recuperar::clave( (string) $payload['nome'], (string) $payload['apelidos'] );
+		foreach ( is_array( $activos ) ? $activos : array() as $a ) {
+			if ( ANPA_Socios_Fillo_Recuperar::clave( (string) $a['nome'], (string) $a['apelidos'] ) === $clave ) {
+				return new WP_Error( 'anpa_fillos_xa_activo', __( 'Este fillo/a xa está na túa lista.', 'anpa-socios' ), array( 'status' => 409 ) );
+			}
+		}
+		return self::reactivar( $id, $familia_id, $payload, $email );
+	}
+
+	/**
+	 * The family's children in baixa, newest first.
+	 *
+	 * @param  int $familia_id Family id.
+	 * @return array<int,array<string,string>>
+	 */
+	private static function fillos_en_baixa( int $familia_id ): array {
+		if ( $familia_id <= 0 ) {
+			return array();
+		}
+		global $wpdb;
+		$table = $wpdb->prefix . 'anpa_fillos';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- scoped read of the authenticated family's children.
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id, nome, apelidos, data_nacemento, curso, aula FROM {$table} WHERE familia_id = %d AND estado = 'baixa' ORDER BY id DESC", $familia_id ), ARRAY_A );
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Brings a child in baixa back to activo with validated data for the active
+	 * course (row + annual assignment in one transaction).
+	 *
+	 * @param  int                  $id         Child id (in baixa, owned by the family).
+	 * @param  int                  $familia_id Family id.
+	 * @param  array<string,mixed>  $payload    Output of validar_fillo_con_erros().
+	 * @param  string               $email      Acting member.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	private static function reactivar( int $id, int $familia_id, array $payload, string $email ) {
+		$update = array(
+			'estado'         => 'activo',
+			'nome'           => $payload['nome'],
+			'apelidos'       => $payload['apelidos'],
+			'curso'          => $payload['curso'],
+			'aula'           => $payload['aula'],
+			'actualizado_en' => current_time( 'mysql' ),
+		);
+		if ( null !== $payload['data_nacemento'] ) {
+			$update['data_nacemento'] = $payload['data_nacemento'];
+		}
+		global $wpdb;
+		$table = $wpdb->prefix . 'anpa_fillos';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- transaction around the socio's own child.
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return self::db_error();
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- update scoped to id, owning family and baixa.
+		$updated = $wpdb->update(
+			$table,
+			$update,
+			array( 'id' => $id, 'familia_id' => $familia_id, 'estado' => 'baixa' ),
+			array_fill( 0, count( $update ), '%s' ),
+			array( '%d', '%d', '%s' )
+		);
+		if ( 1 !== $updated ) {
+			$wpdb->query( 'ROLLBACK' );
+			return false === $updated ? self::db_error() : self::not_found_error();
+		}
+		if ( ! self::sync_current_course_assignment( $id, (string) $payload['curso'], (string) $payload['aula'] ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::db_error();
+		}
+		$wpdb->query( 'COMMIT' );
+
+		ANPA_Socios_Admin_Shared::write_audit_actor( $email, 'socio', 'fillo', (string) $id, 'fillo_recuperado' );
+		$row = self::fetch_owned_fillo( $id, $familia_id );
+		return new WP_REST_Response( ( null === $row ? array() : $row ) + array( 'recuperado' => true ), 200 );
 	}
 
 	/**

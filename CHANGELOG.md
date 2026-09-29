@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.81.0] - 2026-09-30
+
+### Added
+
+- **Recuperar fillos/as dende a área de socios.** En Fillos/as aparece «Fillos/as de cursos anteriores» (os da
+  familia en baixa, sen os que xa volven estar activos). «Recuperar» enche o formulario cos datos gardados e o curso
+  proposto pola idade (mesma regra ca promoción anual; se pola idade xa rematou no colexio, avisa e non propón
+  curso); a familia escolle a aula e garda. Rutas `GET fillos/recuperables` e `POST fillo/<id>/recuperar`, coa
+  sesión de área (`permission_area_session`), só sobre fillos/as en baixa da propia familia; auditoría
+  `fillo_recuperado`.
+- «Engadir fillo/a» na área e a alta: se o nome e apelidos (e a data de nacemento, se consta) coinciden cun fillo/a
+  da familia en baixa, recupérase esa fila (co seu historial) en vez de crear un duplicado.
+
+  Só se miran fillos/as desta familia (ou filas antigas sen familia), nunca doutra; a comprobación de duplicados
+  na alta mira agora toda a familia. O 2º proxenitor en baixa non se reactiva pola alta do 1º (só se verificou o
+  correo do 1º): volve entrando co seu propio correo, e a alta conserva a súa familia.
+
+### Fixed
+
+- «Solicitar reactivación» na entrada unificada non enviaba os campos antibot e o servidor ignoraba a solicitude
+  sen avisar.
+
 ## [1.80.0] - 2026-09-29
 
 ### Added

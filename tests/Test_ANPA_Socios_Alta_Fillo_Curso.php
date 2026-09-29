@@ -102,7 +102,7 @@ final class Test_ANPA_Socios_Alta_Fillo_Curso extends TestCase {
 		$this->assertStringContainsString( 'function applyFieldErrors(root, fields)', $area );
 		$this->assertStringContainsString( "applyFieldErrors(root, body && body.data ? body.data.fields : null);", $area );
 		$rest = $this->src( 'includes/class-anpa-socios-fillos-rest.php' );
-		$this->assertSame( 2, substr_count( $rest, 'self::invalid_payload_error( $checked[' . "'errors'" . '] )' ) );
+		$this->assertSame( 3, substr_count( $rest, 'self::invalid_payload_error( $checked[' . "'errors'" . '] )' ) );  // create, update and (1.81.0) recuperar.
 		$this->assertStringContainsString( "'Escolle a actividade e o grupo (día e hora) antes de confirmar.'", $this->src( 'includes/class-anpa-socios-extraescolares-rest.php' ) );
 	}
 }

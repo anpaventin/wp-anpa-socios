@@ -203,6 +203,7 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-listado-empresa.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-aviso-semanal.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-auditoria.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-baixa-socio.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-fillo-recuperar.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-resumo-actividade.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-disponibilidade-horaria.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-estrutura-escolar.php';

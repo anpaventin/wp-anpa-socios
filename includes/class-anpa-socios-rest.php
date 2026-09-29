@@ -427,6 +427,11 @@ class ANPA_Socios_REST {
 			}
 		}
 
+		// 1.81.0: this family's children in baixa, to recover them instead of duplicating.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- family-scoped read inside the alta transaction.
+		$fillos_baixa = $wpdb->get_results( $wpdb->prepare( "SELECT id, nome, apelidos, data_nacemento FROM {$fillos_table} WHERE ( familia_id = %d OR ( socio_email = %s AND ( familia_id IS NULL OR familia_id = 0 ) ) ) AND estado = 'baixa' ORDER BY id DESC", $familia_id, $email ), ARRAY_A );
+		$fillos_baixa = is_array( $fillos_baixa ) ? $fillos_baixa : array();
+
 		// Fillos.
 		$raw_fillos_list = is_array( $body['fillos'] ?? null ) ? $body['fillos'] : array();
 		foreach ( $clean['fillos'] as $fillo_idx => $fillo ) {
@@ -434,7 +439,8 @@ class ANPA_Socios_REST {
 			// the alta (with a fresh token) does not create duplicate rows.
 			$dup = (int) $wpdb->get_var(
 				$wpdb->prepare(
-					"SELECT COUNT(*) FROM {$fillos_table} WHERE socio_email = %s AND nome = %s AND apelidos = %s AND data_nacemento = %s AND estado = 'activo'",
+					"SELECT COUNT(*) FROM {$fillos_table} WHERE ( familia_id = %d OR socio_email = %s ) AND nome = %s AND apelidos = %s AND data_nacemento = %s AND estado = 'activo'",
+					$familia_id,
 					$email,
 					$fillo['nome'],
 					$fillo['apelidos'],
@@ -445,26 +451,62 @@ class ANPA_Socios_REST {
 				continue;
 			}
 
-			self::clear_db_error();
-			$inserted = $wpdb->insert(
-				$fillos_table,
-				array(
-					'socio_email'   => $email,
-					'familia_id'    => $familia_id,
-					'nome'          => $fillo['nome'],
-					'apelidos'      => $fillo['apelidos'],
-					'data_nacemento' => $fillo['data_nacemento'],
-					'curso'         => $fillo['curso'],
-					'aula'          => $fillo['aula'],
-					'estado'        => 'activo',
-					'image_consent' => (int) $fillo['image_consent'],
-				),
-				array( '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d' )
-			);
-			if ( false === $inserted || self::has_db_error() ) {
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback on failed fillo insert.
-				$wpdb->query( 'ROLLBACK' );
-				return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+			$fillo_id     = 0;
+			$recuperar_id = ANPA_Socios_Fillo_Recuperar::coincidencia( $fillos_baixa, (string) $fillo['nome'], (string) $fillo['apelidos'], (string) $fillo['data_nacemento'] );
+			if ( $recuperar_id > 0 ) {
+				// 1.81.0: the family re-entered a child it already had: recover that row.
+				self::clear_db_error();
+				$recuperados = $wpdb->update(
+					$fillos_table,
+					array(
+						'estado'         => 'activo',
+						'familia_id'     => $familia_id,
+						'nome'           => $fillo['nome'],
+						'apelidos'       => $fillo['apelidos'],
+						'data_nacemento' => $fillo['data_nacemento'],
+						'curso'          => $fillo['curso'],
+						'aula'           => $fillo['aula'],
+						'image_consent'  => (int) $fillo['image_consent'],
+						'actualizado_en' => current_time( 'mysql' ),
+					),
+					array( 'id' => $recuperar_id, 'estado' => 'baixa' ),
+					array( '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%s' ),
+					array( '%d', '%s' )
+				);
+				if ( false === $recuperados || self::has_db_error() ) {
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback on failed fillo recovery.
+					$wpdb->query( 'ROLLBACK' );
+					return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+				}
+				$fillos_baixa = array_values( array_filter( $fillos_baixa, static function ( $r ) use ( $recuperar_id ) { return (int) $r['id'] !== $recuperar_id; } ) );
+				if ( 1 === $recuperados ) {
+					$fillo_id = $recuperar_id;
+				}
+			}
+			if ( 0 === $fillo_id ) {
+				// No row to recover (or it changed meanwhile): a new child.
+				self::clear_db_error();
+				$inserted = $wpdb->insert(
+					$fillos_table,
+					array(
+						'socio_email'   => $email,
+						'familia_id'    => $familia_id,
+						'nome'          => $fillo['nome'],
+						'apelidos'      => $fillo['apelidos'],
+						'data_nacemento' => $fillo['data_nacemento'],
+						'curso'         => $fillo['curso'],
+						'aula'          => $fillo['aula'],
+						'estado'        => 'activo',
+						'image_consent' => (int) $fillo['image_consent'],
+					),
+					array( '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d' )
+				);
+				if ( false === $inserted || self::has_db_error() ) {
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback on failed fillo insert.
+					$wpdb->query( 'ROLLBACK' );
+					return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+				}
+				$fillo_id = (int) $wpdb->insert_id;
 			}
 
 			// Write the annual assignment row (fillos_cursos) for this fillo.
@@ -479,7 +521,7 @@ class ANPA_Socios_REST {
 
 			self::clear_db_error();
 			$fc_ok = ANPA_Socios_DB::upsert_fillo_curso_assignment(
-				(int) $wpdb->insert_id,
+				$fillo_id,
 				$fillo_curso_escolar,
 				$fillo['curso'],
 				$fillo['aula']

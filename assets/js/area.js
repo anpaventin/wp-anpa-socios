@@ -798,6 +798,15 @@
 		const filloEditIdEl = root.querySelector('[data-fillo-edit-id]');
 		const filloFormTitleEl = root.querySelector('[data-fillos-form-title]');
 		const cancelEditBtn = root.querySelector('[data-action="cancel-fillo-edit"]');
+		// 1.81.0: children in baixa the family can recover (list built here, below the active one).
+		let filloRecuperarId = '';
+		let recuperablesEl = null;
+		if (fillosListEl) {
+			recuperablesEl = document.createElement('div');
+			recuperablesEl.className = 'anpa-fillos-recuperables';
+			recuperablesEl.hidden = true;
+			fillosListEl.insertAdjacentElement('afterend', recuperablesEl);
+		}
 
 		// ── Dynamic nivel→aula selectors (ES4) ──
 		let populateFilloAulas = function () {};
@@ -869,9 +878,67 @@
 			root.querySelector('#anpa-fillo-aula').value = '';
 			filloFormTitleEl.textContent = 'Engadir fillo/a';
 			cancelEditBtn.hidden = true;
+			filloRecuperarId = '';
+		}
+
+		function fillRecuperarForm(fillo) {
+			resetFilloForm();
+			filloRecuperarId = String(fillo.id);
+			root.querySelector('#anpa-fillo-nome').value = fillo.nome || '';
+			root.querySelector('#anpa-fillo-apelidos').value = fillo.apelidos || '';
+			root.querySelector('#anpa-fillo-data').value = fillo.data_nacemento || '';
+			// The level proposed by age for this course; the family checks it and picks the class letter.
+			root.querySelector('#anpa-fillo-curso').value = fillo.curso || '';
+			populateFilloAulas(fillo.curso || '');
+			root.querySelector('#anpa-fillo-aula').value = '';
+			filloFormTitleEl.textContent = __( 'Recuperar fillo/a', 'anpa-socios' ) + ': ' + (fillo.nome || '');
+			cancelEditBtn.hidden = false;
+		}
+
+		function renderRecuperables(list) {
+			if (!recuperablesEl) { return; }
+			recuperablesEl.textContent = '';
+			recuperablesEl.hidden = !Array.isArray(list) || list.length === 0;
+			if (recuperablesEl.hidden) { return; }
+			const h = document.createElement('h3');
+			h.textContent = __( 'Fillos/as de cursos anteriores', 'anpa-socios' );
+			recuperablesEl.appendChild(h);
+			const p = document.createElement('p');
+			p.className = 'anpa-area-muted';
+			p.textContent = __( 'Estes fillos/as estiveron dados de alta connosco. Se seguen no colexio, pulsa «Recuperar», comproba o curso, escolle a aula e garda: recuperas os seus datos sen escribilos de novo.', 'anpa-socios' );
+			recuperablesEl.appendChild(p);
+			list.forEach((fillo) => {
+				const row = document.createElement('div');
+				row.className = 'anpa-fillo-row';
+				const info = document.createElement('span');
+				info.className = 'anpa-fillo-info';
+				info.textContent = (fillo.nome || '') + ' ' + (fillo.apelidos || '') + (fillo.curso_anterior ? ' (' + __( 'antes en', 'anpa-socios' ) + ' ' + fillo.curso_anterior + ')' : '');
+				row.appendChild(info);
+				if (fillo.fora_de_idade) {
+					const note = document.createElement('span');
+					note.className = 'anpa-area-muted';
+					note.textContent = __( 'Pola idade pode que xa rematase no colexio.', 'anpa-socios' );
+					row.appendChild(note);
+				}
+				const btn = document.createElement('button');
+				btn.type = 'button';
+				btn.className = 'anpa-area-secondary';
+				btn.dataset.filloRecuperar = String(fillo.id);
+				btn.textContent = __( 'Recuperar', 'anpa-socios' );
+				row.appendChild(btn);
+				recuperablesEl.appendChild(row);
+			});
+		}
+
+		async function loadRecuperables() {
+			if (!areaToken || !recuperablesEl) { return []; }
+			const list = await tokenRequest('GET', root.dataset.fillosUrl + '/recuperables', areaToken, null, root);
+			renderRecuperables(Array.isArray(list) ? list : []);
+			return Array.isArray(list) ? list : [];
 		}
 
 		function fillFilloForm(fillo) {
+			filloRecuperarId = '';
 			filloEditIdEl.value = String(fillo.id);
 			root.querySelector('#anpa-fillo-nome').value = fillo.nome || '';
 			root.querySelector('#anpa-fillo-apelidos').value = fillo.apelidos || '';
@@ -938,6 +1005,7 @@
 			const list = await tokenRequest('GET', root.dataset.fillosUrl, areaToken, null, root);
 			if (list) {
 				renderFillos(list);
+				await loadRecuperables();
 			}
 		}
 
@@ -1533,7 +1601,9 @@
 
 			const editId = (filloEditIdEl.value || '').trim();
 			let result;
-			if (editId) {
+			if (filloRecuperarId) {
+				result = await tokenRequest('POST', root.dataset.filloUrl + encodeURIComponent(filloRecuperarId) + '/recuperar', areaToken, data, root);
+			} else if (editId) {
 				result = await tokenRequest('PATCH', root.dataset.filloUrl + encodeURIComponent(editId), areaToken, data, root);
 			} else {
 				result = await tokenRequest('POST', root.dataset.fillosUrl, areaToken, data, root);
@@ -1541,11 +1611,25 @@
 
 			if (result) {
 				resetFilloForm();
-				showMessage(root, 'Datos do fillo/a gardados.', 'success');
+				showMessage(root, result.recuperado ? __( 'Fillo/a recuperado cos datos que xa tiñamos. Xa o podes matricular nas extraescolares.', 'anpa-socios' ) : 'Datos do fillo/a gardados.', 'success');
 				await loadFillos();
 				scrollToStep(root, 'fillos');
 			}
 		});
+
+		if (recuperablesEl) {
+			recuperablesEl.addEventListener('click', async (event) => {
+				const target = event.target;
+				if (!(target instanceof HTMLElement) || !target.dataset.filloRecuperar) { return; }
+				const list = await loadRecuperables();
+				const fillo = list.find((f) => String(f.id) === target.dataset.filloRecuperar);
+				if (!fillo) { return; }
+				fillRecuperarForm(fillo);
+				showMessage(root, __( 'Comproba o curso, escolle a aula e pulsa Gardar.', 'anpa-socios' ), 'info');
+				scrollToEl(filloFormTitleEl);
+				try { root.querySelector('#anpa-fillo-aula').focus({ preventScroll: true }); } catch (_) {}
+			});
+		}
 
 		fillosListEl.addEventListener('click', async (event) => {
 			const target = event.target;

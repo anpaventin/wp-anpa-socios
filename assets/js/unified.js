@@ -655,7 +655,10 @@
 					reactivarBtn.disabled = false;
 					return;
 				}
-				var result = await apiPost(cfg.reactivarUrl, { email: email });
+				// 1.81.0: without the antibot fields the server silently ignored the request.
+				var tsR = cfg.root.querySelector('#anpa-unified-ts');
+				var hpR = cfg.root.querySelector('#anpa-unified-website');
+				var result = await apiPost(cfg.reactivarUrl, { email: email, _ts: tsR ? tsR.value : '', website: hpR ? hpR.value : '' });
 				if (!result) {
 					reactivarBtn.disabled = false;
 					showNotice(cfg, 'Non se puido solicitar a reactivación. Téntao de novo.', true);

@@ -83,6 +83,7 @@ final class ANPA_Socios_Auditoria {
 		'baixa_directa_excepcion'    => 'Baixa dada dende a ficha como excepción (curso en marcha)',
 		'baixa_fin_curso'            => 'Baixa confirmada no peche do curso',
 		'baixa_familia'              => 'Baixa pola baixa da familia',
+		'fillo_recuperado'           => 'Fillo/a recuperado pola familia',
 		'baixa_confirm_familia'      => 'Baixa confirmada (resto da familia)',
 		'baixa_confirm_famili'       => 'Baixa confirmada (resto da familia)',
 		'baixa_reject'               => 'Baixa rexeitada',

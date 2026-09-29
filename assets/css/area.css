@@ -888,3 +888,7 @@
 #anpa-area .anpa-empresa-csv-guia dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 0.75rem; margin: 0.5rem 0 0; font-size: 0.9em; }
 #anpa-area .anpa-empresa-csv-guia dd { margin: 0; }
 @media (max-width: 600px) { #anpa-area .anpa-empresa-csv-guia dl { grid-template-columns: 1fr; } }
+
+/* 1.81.0: children in baixa the family can recover. */
+.anpa-fillos-recuperables { margin-top: 1.25rem; }
+.anpa-fillos-recuperables[hidden] { display: none; }
