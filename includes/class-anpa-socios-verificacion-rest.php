@@ -115,7 +115,7 @@ final class ANPA_Socios_Verificacion_REST {
 		) );
 		$timestamps = array_map( 'intval', is_array( $timestamps ) ? $timestamps : array() );
 
-		if ( ! ANPA_Socios_Rate_Limiter::permitir( $timestamps, 3, 3600 ) ) {
+		if ( ! ANPA_Socios_Rate_Limiter::permitir( $timestamps, ANPA_Socios_Rate_Limiter::INTENTOS_ACCESO_HORA, 3600 ) ) {
 			return self::resposta_xenerica();
 		}
 

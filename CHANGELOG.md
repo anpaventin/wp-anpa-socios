@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.78.0] - 2026-09-29
+
+### Changed
+
+- **Límite anti-abuso do acceso: 10 intentos por hora** (antes 3), por correo e IP, na comprobación do correo da
+  entrada unificada e no envío de códigos a socios/as, empresas e comedor (constante
+  `ANPA_Socios_Rate_Limiter::INTENTOS_ACCESO_HORA`). Con 3, quen reintentaba varias veces acababa no formulario de
+  alta sen aviso. Seguen igual: 5 intentos por código, 20 verificacións por hora e IP e 10 aperturas de sesión por
+  hora e IP.
+
 ## [1.77.0] - 2026-09-29
 
 ### Fixed

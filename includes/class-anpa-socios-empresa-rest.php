@@ -239,7 +239,7 @@ class ANPA_Socios_Empresa_REST {
 	 * Mirrors the privacy and storage contract of anpa-verificacion's
 	 * handle_solicitar_codigo (same shared table `wp_anpa_codigos_verificacion`
 	 * consumed by `anpa/v1/verificar-codigo`). Key guarantees:
-	 *  - Table-based rate limit: 3 codes per email+IP per hour.
+	 *  - Table-based rate limit: 10 codes per email+IP per hour (1.78.0).
 	 *  - Active empresa lookup (WHERE estado='activo').
 	 *  - Invalidate old unused codes before inserting a new one.
 	 *  - Bcrypt hash stored (compatible with password_verify).
@@ -278,7 +278,7 @@ class ANPA_Socios_Empresa_REST {
 		$tabela_codigos = $wpdb->prefix . 'anpa_codigos_verificacion';
 		$ip             = self::get_request_ip();
 
-		// Step 2: table-based rate limit — 3 codes/h by email+IP.
+		// Step 2: table-based rate limit — 10 codes/h by email+IP (1.78.0).
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rate-limit query on shared codes table.
 		$timestamps = $wpdb->get_col(
 			$wpdb->prepare(
@@ -291,7 +291,7 @@ class ANPA_Socios_Empresa_REST {
 		);
 		$timestamps = array_map( 'intval', is_array( $timestamps ) ? $timestamps : array() );
 
-		if ( ! ANPA_Socios_Rate_Limiter::permitir( $timestamps, 3, 3600 ) ) {
+		if ( ! ANPA_Socios_Rate_Limiter::permitir( $timestamps, ANPA_Socios_Rate_Limiter::INTENTOS_ACCESO_HORA, 3600 ) ) {
 			// Rate-limited: return the same generic response (no info leak).
 			return new WP_REST_Response(
 				array(

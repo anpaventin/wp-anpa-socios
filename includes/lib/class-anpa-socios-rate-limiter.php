@@ -13,6 +13,15 @@ declare(strict_types=1);
 class ANPA_Socios_Rate_Limiter {
 
 	/**
+	 * 1.78.0: login attempts per hour (email check at the entry and code requests,
+	 * per email + IP). Was 3; raised to 10 so a family or the canteen retrying a few
+	 * times is not silently sent to the alta form.
+	 *
+	 * @var int
+	 */
+	const INTENTOS_ACCESO_HORA = 10;
+
+	/**
 	 * Decides whether another request is allowed inside the time window.
 	 *
 	 * @param  array<int,mixed> $timestamps      Previous request timestamps.

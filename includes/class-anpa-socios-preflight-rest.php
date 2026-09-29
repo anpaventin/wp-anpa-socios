@@ -76,7 +76,7 @@ class ANPA_Socios_Preflight_REST {
 	 * Privacy contract:
 	 *  - Invalid email format: 400 with a generic message.
 	 *  - Valid email: 200 with the same generic message and a `next` value.
-	 *  - Rate limit (3/h by email+IP): 200 with the same message and
+	 *  - Rate limit (10/h by email+IP since 1.78.0): 200 with the same message and
 	 *    `next=alta` to avoid leaking rate-limit state.
 	 *
 	 * @since  1.2.0
@@ -217,7 +217,7 @@ class ANPA_Socios_Preflight_REST {
 		$history = get_transient( $key );
 		$history = is_array( $history ) ? array_map( 'intval', $history ) : array();
 
-		if ( ! ANPA_Socios_Rate_Limiter::permitir( $history, 3, HOUR_IN_SECONDS, $now ) ) {
+		if ( ! ANPA_Socios_Rate_Limiter::permitir( $history, ANPA_Socios_Rate_Limiter::INTENTOS_ACCESO_HORA, HOUR_IN_SECONDS, $now ) ) {
 			return true;
 		}
 
