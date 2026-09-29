@@ -58,5 +58,7 @@ final class ANPA_Socios_Admin_REST {
 		ANPA_Socios_Admin_Banking_Key_Handler::register_routes();
 		ANPA_Socios_Admin_Reports_Handler::register_routes();
 		ANPA_Socios_Admin_Eliminar_Handler::register_routes();
+		// 1.84.0: Operacións → Correos masivos.
+		ANPA_Socios_Admin_Correos_Handler::register_routes();
 	}
 }

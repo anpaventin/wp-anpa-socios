@@ -160,7 +160,8 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 		$this->assertSame( array( 'socios', 'fillos' ), array_keys( $sections['socios']['sections'] ) );
 		$this->assertSame( array( 'empresas', 'actividades', 'grupos-horarios', 'matriculas' ), array_keys( $sections['extraescolares']['sections'] ) );
 		// 1.74.0: Lista Gmail (a periodic export) moves to Operacións.
-		$this->assertSame( array( 'aprobacions', 'lista-gmail', 'importar-listados', 'auditoria' ), array_keys( $sections['operacions']['sections'] ) );
+		// 1.84.0: «Correos masivos» after Lista Gmail.
+		$this->assertSame( array( 'aprobacions', 'lista-gmail', 'correos', 'importar-listados', 'auditoria' ), array_keys( $sections['operacions']['sections'] ) );
 
 		$visible_slugs = array();
 		foreach ( $sections as $group ) {
@@ -168,7 +169,7 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 		}
 
 		$this->assertSame(
-			array( 'socios', 'fillos', 'empresas', 'actividades', 'grupos-horarios', 'matriculas', 'aprobacions', 'lista-gmail', 'importar-listados', 'auditoria' ),
+			array( 'socios', 'fillos', 'empresas', 'actividades', 'grupos-horarios', 'matriculas', 'aprobacions', 'lista-gmail', 'correos', 'importar-listados', 'auditoria' ),
 			$visible_slugs
 		);
 		$this->assertNotContains( 'inicio', $visible_slugs );

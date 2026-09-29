@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.84.0] - 2026-10-01
+
+### Added
+
+- **«Cambiar correo»** na ficha do socio/a (Xestión → Socios → Editar; `POST admin/socio/<email>/email`,
+  master). Comproba que o correo novo é válido (ata 100 caracteres) e que non é o da xunta, dunha empresa, do
+  comedor nin doutro socio/a; os fillos/as desa familia que engadiu seguen co correo novo; péchanse as súas
+  sesións e códigos do correo vello (entra de novo co novo). Auditoría `email_cambiado` / `email_substituido`.
+- **Operacións → Correos masivos**: catálogo de todos os correos masivos. «Inicio de curso (para reenviar)» e
+  «Prazo de matrículas» envíanse dende aquí; os que cambian o curso, as matrículas ou os grupos (comezo e fin de
+  curso, matrículas abertas/pechadas, grupo creado, pechar por mínimo) levan ao seu sitio; os automáticos
+  explícanse. Debaixo, o **rexistro de envíos** (data, correo, enviados, fallidos, lotes, quen) a partir da
+  auditoría (`GET admin/correos-masivos`).
+
+### Changed
+
+- **Lista Gmail**: «Altas / Baixas desde a última exportación» van enriba de «Estado»; retírase a caixa de
+  debaixo de «Baixas desde entón»; «Copiar os correos das baixas» e «poñer as baixas a 0» quedan debaixo da táboa
+  de baixas. O correo de inicio de curso pasa a «Correos masivos» (botón para ir alí).
+- O cambio do propio correo e do do 2º proxenitor na área (e en Xestión) usa as mesmas comprobacións, nunha
+  transacción, e os fillos/as da familia seguen co correo novo (antes quedaban co vello e desaparecían da ficha).
+
 ## [1.83.0] - 2026-09-30
 
 ### Added

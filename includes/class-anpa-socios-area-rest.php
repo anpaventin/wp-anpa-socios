@@ -963,6 +963,11 @@ class ANPA_Socios_Area_REST {
 			}
 			// Only process if actually different from current.
 			if ( $new_email !== strtolower( (string) $profile['email'] ) ) {
+				// 1.84.0: same checks as «Cambiar correo» in Xestión (junta address, length…).
+				$valida = ANPA_Socios_Cambio_Email::validar( $new_email, (int) $profile['id'], 'email' );
+				if ( is_wp_error( $valida ) ) {
+					return $valida;
+				}
 				// 1.55.0: one email, one role.
 				$reservado = ANPA_Socios_Email_Ownership::conflito_para_socio( $new_email, 'email' );
 				if ( null !== $reservado ) {
@@ -984,6 +989,11 @@ class ANPA_Socios_Area_REST {
 			}
 		}
 
+		// 1.84.0: an email change and the rows that follow it are written together.
+		$cambia_email = isset( $update_data['email'] );
+		if ( $cambia_email ) {
+			$wpdb->query( 'START TRANSACTION' );
+		}
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- member profile update is scoped to the authenticated email.
 		self::clear_db_error();
 		$updated = $wpdb->update(
@@ -998,7 +1008,18 @@ class ANPA_Socios_Area_REST {
 		);
 
 		if ( false === $updated || '' !== (string) $wpdb->last_error ) {
+			if ( $cambia_email ) {
+				$wpdb->query( 'ROLLBACK' );
+			}
 			return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		if ( $cambia_email ) {
+			// The children this family added with the old address follow the new one.
+			if ( ! ANPA_Socios_Cambio_Email::aplicar( (string) $profile['email'], (string) $update_data['email'], (int) $fam['familia_id'] ) ) {
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+			}
+			$wpdb->query( 'COMMIT' );
 		}
 
 		// ── Segundo proxenitor (optional) ──────────────────────────────
@@ -1131,6 +1152,11 @@ class ANPA_Socios_Area_REST {
 			if ( null !== $email ) {
 				$current_email = $existing['email'] ?? null;
 				if ( null === $current_email || strtolower( (string) $current_email ) !== $email ) {
+					// 1.84.0: same checks as «Cambiar correo» in Xestión.
+					$valida = ANPA_Socios_Cambio_Email::validar( (string) $email, (int) $existing['id'], 'p2_email' );
+					if ( is_wp_error( $valida ) ) {
+						return $valida;
+					}
 					$dup = $wpdb->get_var(
 						$wpdb->prepare(
 							"SELECT id FROM {$table} WHERE email = %s AND id <> %d LIMIT 1",
@@ -1150,6 +1176,11 @@ class ANPA_Socios_Area_REST {
 				$p2_format[]        = '%s';
 			}
 
+			// 1.84.0: a changed 2nd-parent email and the rows that follow it go together.
+			$p2_cambia = isset( $p2_update['email'] ) && ! empty( $existing['email'] ) && strtolower( (string) $existing['email'] ) !== (string) $p2_update['email'];
+			if ( $p2_cambia ) {
+				$wpdb->query( 'START TRANSACTION' );
+			}
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- family-scoped update.
 			self::clear_db_error();
 			$wpdb->update(
@@ -1159,8 +1190,14 @@ class ANPA_Socios_Area_REST {
 				$p2_format,
 				array( '%d', '%d' )
 			);
-			if ( '' !== (string) $wpdb->last_error ) {
+			if ( '' !== (string) $wpdb->last_error || ( $p2_cambia && ! ANPA_Socios_Cambio_Email::aplicar( (string) $existing['email'], (string) $p2_update['email'], $familia_id ) ) ) {
+				if ( $p2_cambia ) {
+					$wpdb->query( 'ROLLBACK' );
+				}
 				return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+			}
+			if ( $p2_cambia ) {
+				$wpdb->query( 'COMMIT' );
 			}
 		} else {
 			// Create new 2nd parent row (secundario, email may be NULL).

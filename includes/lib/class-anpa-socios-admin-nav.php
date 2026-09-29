@@ -96,6 +96,8 @@ final class ANPA_Socios_Admin_Nav {
 				'aprobacions'       => 'Aprobacións',
 				// 1.74.0: a periodic export task, next to the other operations.
 				'lista-gmail'       => 'Lista Gmail',
+				// 1.84.0: every mass email in one place, with the log of the ones sent.
+				'correos'           => 'Correos masivos',
 				'importar-listados' => 'Importar listados',
 				'auditoria'         => 'Auditoría',
 			),

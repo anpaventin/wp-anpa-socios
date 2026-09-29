@@ -46,7 +46,8 @@ final class Test_ANPA_Socios_Lista_Gmail_Baixas extends TestCase {
 		$this->assertStringContainsString( "'permission_master'", substr( $h, (int) $i, 300 ) );
 		$this->assertStringContainsString( "'baixas_eliminadas_google'", $h );
 		$js = $this->src( 'assets/js/admin-management.js' );
-		$this->assertStringContainsString( "lista.value = baixas.map(function (b) { return b.email; }).join(', ');", $js );
+		// 1.84.0: the comma list is copied from the button under the baixas table.
+		$this->assertStringContainsString( "var txtBaixas = baixas.map(function (b) { return b.email; }).join(', ');", $js );
 		$this->assertStringContainsString( "anpaAdminFetch('contactos-google/baixas/eliminadas', { method: 'POST' })", $js );
 		$this->assertSame( 'Baixas eliminadas a man en Google Contactos', ANPA_Socios_Auditoria::etiqueta( 'baixas_eliminadas_google', 'export' ) );
 	}

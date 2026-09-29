@@ -41,6 +41,12 @@ final class ANPA_Socios_Admin_Socios_Handler {
 				'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
 			),
 		) );
+		// 1.84.0: «Cambiar correo» from the member's edit panel.
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/socio/(?P<email>[^/]+)/email', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( __CLASS__, 'cambiar_email' ),
+			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+		) );
 		// 1.80.0: «Dar de baixa» from the member's edit panel (no request needed).
 		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/socio/(?P<email>[^/]+)/baixa/directa', array(
 			'methods'             => WP_REST_Server::CREATABLE,
@@ -428,6 +434,54 @@ final class ANPA_Socios_Admin_Socios_Handler {
 			}
 		}
 		return $response;
+	}
+
+	/**
+	 * POST /admin/socio/<email>/email { novo } — «Cambiar correo» (1.84.0): the
+	 * member's email changes everywhere (socio row, the children they added);
+	 * sessions and login codes of the old address are removed.
+	 *
+	 * @since  1.84.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function cambiar_email( WP_REST_Request $request ) {
+		global $wpdb;
+		$vello = ANPA_Socios_Admin_Payload::sanitise_email( rawurldecode( (string) $request->get_param( 'email' ) ) );
+		if ( null === $vello ) {
+			return new WP_Error( 'anpa_admin_invalid', __( 'Email inválido', 'anpa-socios' ), array( 'status' => 400 ) );
+		}
+		if ( ANPA_Socios_Roles::is_protected_admin( $vello, ANPA_Socios_Config::master_email() ) ) {
+			return new WP_Error( 'anpa_admin_protected_root', 'Usuario master inicial — non é posible modificar os seus datos nin o seu estado', array( 'status' => 403 ) );
+		}
+		$soc_t = ANPA_Socios_DB::tabela_socios();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- precondition lookup.
+		$fila = $wpdb->get_row( $wpdb->prepare( "SELECT id, familia_id FROM {$soc_t} WHERE email = %s AND rol <> 'master'", $vello ), ARRAY_A );
+		$id   = is_array( $fila ) ? (int) $fila['id'] : 0;
+		if ( $id <= 0 ) {
+			return new WP_Error( 'anpa_admin_socio_not_found', __( 'Socio non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
+		}
+		$corpo = ANPA_Socios_Admin_Shared::json_body( $request );
+		$novo  = ANPA_Socios_Cambio_Email::validar( (string) ( $corpo['novo'] ?? '' ), $id );
+		if ( is_wp_error( $novo ) ) {
+			return $novo;
+		}
+		if ( $novo === $vello ) {
+			return new WP_Error( 'anpa_email_igual', __( 'O correo novo é igual ao actual.', 'anpa-socios' ), array( 'status' => 400 ) );
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- transaction around the change.
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		$ok = 1 === $wpdb->update( $soc_t, array( 'email' => $novo, 'actualizado_en' => current_time( 'mysql' ) ), array( 'id' => $id, 'email' => $vello ), array( '%s', '%s' ), array( '%d', '%s' ) )
+			&& ANPA_Socios_Cambio_Email::aplicar( $vello, $novo, ANPA_Socios_Familia::resolve_familia_id( isset( $fila['familia_id'] ) ? (int) $fila['familia_id'] : null, $id ), true );
+		$wpdb->query( $ok ? 'COMMIT' : 'ROLLBACK' );
+		if ( ! $ok ) {
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'socio', $novo, 'email_cambiado' );
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'socio', $vello, 'email_substituido' );
+		return new WP_REST_Response( array( 'email' => $novo ), 200 );
 	}
 
 	/**

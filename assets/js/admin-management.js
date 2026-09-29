@@ -745,6 +745,28 @@
 		cancelBtn.addEventListener('click', function () { renderSocios(allRows); });
 		actions.appendChild(cancelBtn);
 
+		// 1.84.0: «Cambiar correo» — the email is the account key, so it has its own action.
+		if (socio.rol !== 'master' && socio.email) {
+			var emailBtn = document.createElement('button');
+			emailBtn.type = 'button';
+			emailBtn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
+			emailBtn.textContent = 'Cambiar correo';
+			emailBtn.addEventListener('click', function () {
+				var novo = window.prompt('Correo novo para ' + socio.email + ':', socio.email);
+				if (novo === null) { return; }
+				novo = String(novo).trim().toLowerCase();
+				if (!novo || novo === String(socio.email).toLowerCase()) { showMessage('O correo non cambiou.', 'info'); return; }
+				if (!window.confirm('Cambiar ' + socio.email + ' por ' + novo + '?\n\nOs fillos/as que engadiu seguen co correo novo. Péchase a súa sesión na área de socios: entrará de novo co correo novo (recibirá alí o código). Na Lista Gmail aparecerá unha alta (o novo) e unha baixa (o vello).')) { return; }
+				emailBtn.disabled = true;
+				anpaAdminFetch('socio/' + encodeURIComponent(socio.email) + '/email', { method: 'POST', body: { novo: novo } }).then(function (r) {
+					showMessage('Correo cambiado: agora é ' + ((r && r.email) || novo) + '.', 'success');
+					refreshListaGmailCount();
+					loadSocios();
+				}).catch(function (e) { emailBtn.disabled = false; showMessage(e.message, 'error'); });
+			});
+			actions.appendChild(emailBtn);
+		}
+
 		// 1.80.0: «Dar de baixa» — same effect as confirming a requested baixa (whole family).
 		if (socio.estado === 'activo' && socio.rol !== 'master') {
 			var baixaBtn = document.createElement('button');
@@ -1440,6 +1462,56 @@
 
 		root.appendChild(el('p', 'Etiqueta de Google Contactos «' + etiqueta + '»: os correos de todos os socios/as activos, é dicir, os dous proxenitores de cada familia cando os dous teñen correo (cada un coa súa alta), para que ambos reciban os avisos da ANPA; a cota cóbrase unha soa vez por familia. A web non pode escribir na conta de Google; o proceso é manual e leva tres pulsacións.', 'description'));
 
+		// ── Diferenzas (1.84.0: first, above «Estado») ──
+		function diffTable(title, rows, empty) {
+			root.appendChild(el('h3', title + ' (' + rows.length + ')'));
+			if (!rows.length) { root.appendChild(emptyEl(empty)); return; }
+			var table = document.createElement('table');
+			table.className = 'anpa-mgmt-table';
+			var thead = document.createElement('thead'); var hr = document.createElement('tr');
+			['Apelidos', 'Nome', 'Email', 'Motivo'].forEach(function (l) { hr.appendChild(el('th', l)); });
+			thead.appendChild(hr); table.appendChild(thead);
+			var tbody = document.createElement('tbody');
+			rows.forEach(function (r) {
+				var tr = document.createElement('tr');
+				tr.appendChild(el('td', r.apelidos)); tr.appendChild(el('td', r.nome)); tr.appendChild(el('td', r.email)); tr.appendChild(el('td', r.motivo || ''));
+				tbody.appendChild(tr);
+			});
+			table.appendChild(tbody);
+			root.appendChild(table);
+		}
+		if (ultima) {
+			diffTable('Altas desde a última exportación', altas, 'Ningunha alta nova.');
+			diffTable('Baixas desde a última exportación', baixas, 'Ningunha baixa.');
+			// 1.82.0/1.84.0: few baixas are quicker to delete by hand in Google than a full export.
+			if (baixas.length) {
+				var bxActs = el('div', null, 'anpa-mgmt-form-actions');
+				bxActs.style.display = 'flex'; bxActs.style.gap = '0.5rem'; bxActs.style.flexWrap = 'wrap';
+				var copiar = el('button', 'Copiar os correos das baixas', 'anpa-mgmt-btn anpa-mgmt-btn-secondary');
+				copiar.type = 'button';
+				var txtBaixas = baixas.map(function (b) { return b.email; }).join(', ');
+				copiar.addEventListener('click', function () {
+					var ok = function () { showMessage('Copiados ' + baixas.length + ' correo(s) separados por comas. En Google Contactos búscaos e elimina eses contactos da etiqueta «' + etiqueta + '».', 'success'); };
+					if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(txtBaixas).then(ok).catch(function () { window.prompt('Copia estes correos:', txtBaixas); }); }
+					else { window.prompt('Copia estes correos:', txtBaixas); }
+				});
+				var cero = el('button', 'Xa as eliminei en Google: poñer as baixas a 0', 'anpa-mgmt-btn');
+				cero.type = 'button';
+				cero.addEventListener('click', function () {
+					if (!window.confirm('Confirmas que eliminaches en Google Contactos estes ' + baixas.length + ' correo(s)?\n\nO contador de baixas volverá a 0. As altas novas seguen pendentes de exportar.')) { return; }
+					cero.disabled = true;
+					anpaAdminFetch('contactos-google/baixas/eliminadas', { method: 'POST' }).then(function (r) {
+						showMessage('Baixas anotadas como eliminadas en Google (' + ((r && r.eliminadas) || 0) + ').', 'success');
+						loadListaGmail();
+					}).catch(function (e) { cero.disabled = false; showMessage(e.message, 'error'); });
+				});
+				bxActs.appendChild(copiar); bxActs.appendChild(cero);
+				root.appendChild(bxActs);
+			}
+			// 1.71.0: a changed address is counted twice although nobody joined or left.
+			root.appendChild(el('p', 'Se unha familia cambia un correo (o seu ou o do 2º proxenitor), aparece unha alta co correo novo e unha baixa co vello: fai a exportación completa para que Google quede igual ca web.', 'description'));
+		}
+
 		// ── Estado ──
 		var card = el('div', null, 'anpa-mgmt-form');
 		card.style.maxWidth = '760px';
@@ -1458,41 +1530,6 @@
 			ul.appendChild(el('li', 'Aínda non se exportou nunca esta lista.'));
 		}
 		card.appendChild(ul);
-		// 1.82.0: few baixas are quicker to delete by hand in Google than a full export.
-		if (ultima && baixas.length) {
-			var bx = el('div', null);
-			bx.style.margin = '0 0 0.75rem';
-			bx.appendChild(el('p', 'Correos dados de baixa (para eliminalos a man en Google Contactos se son poucos):', 'description'));
-			var lista = document.createElement('textarea');
-			lista.readOnly = true;
-			lista.rows = Math.min(4, Math.max(2, Math.ceil(baixas.length / 3)));
-			lista.style.width = '100%';
-			lista.value = baixas.map(function (b) { return b.email; }).join(', ');
-			lista.addEventListener('focus', function () { lista.select(); });
-			bx.appendChild(lista);
-			var bxActs = el('div', null, 'anpa-mgmt-form-actions');
-			bxActs.style.display = 'flex'; bxActs.style.gap = '0.5rem'; bxActs.style.flexWrap = 'wrap';
-			var copiar = el('button', 'Copiar os correos', 'anpa-mgmt-btn anpa-mgmt-btn-secondary');
-			copiar.type = 'button';
-			copiar.addEventListener('click', function () {
-				var ok = function () { showMessage('Copiados ' + baixas.length + ' correo(s). En Google Contactos búscaos e elimina eses contactos da etiqueta «' + etiqueta + '».', 'success'); };
-				if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(lista.value).then(ok).catch(function () { lista.focus(); }); }
-				else { lista.focus(); }
-			});
-			var cero = el('button', 'Xa as eliminei en Google: poñer as baixas a 0', 'anpa-mgmt-btn');
-			cero.type = 'button';
-			cero.addEventListener('click', function () {
-				if (!window.confirm('Confirmas que eliminaches en Google Contactos estes ' + baixas.length + ' correo(s)?\n\nO contador de baixas volverá a 0. As altas novas seguen pendentes de exportar.')) { return; }
-				cero.disabled = true;
-				anpaAdminFetch('contactos-google/baixas/eliminadas', { method: 'POST' }).then(function (r) {
-					showMessage('Baixas anotadas como eliminadas en Google (' + ((r && r.eliminadas) || 0) + ').', 'success');
-					loadListaGmail();
-				}).catch(function (e) { cero.disabled = false; showMessage(e.message, 'error'); });
-			});
-			bxActs.appendChild(copiar); bxActs.appendChild(cero);
-			bx.appendChild(bxActs);
-			card.appendChild(bx);
-		}
 		var status = el('p', null);
 		status.style.fontWeight = '600';
 		if (d.precisa_exportar) {
@@ -1615,64 +1652,119 @@
 		steps.appendChild(el('p', 'Aviso: o paso 4 borra da conta de Google os contactos que estaban nesa etiqueta. Se a xunta gardou nesa mesma conta outros datos deses contactos, escolle «Manter os contactos e eliminar a etiqueta» e quita a man da lista os correos que aparecen abaixo en «Baixas».', 'description'));
 		steps.appendChild(el('p', 'Gmail limita os envíos a 500 destinatarios ao día e marca como sospeitosos os correos con moitos destinatarios: usa a etiqueta en CCO e, para avisos a toda a asociación, a cola de envíos da web.', 'description'));
 		root.appendChild(steps);
+		// 1.84.0: the start-of-year email for the label lives with the other mass emails.
+		var irCorreos = el('button', 'Correo de inicio de curso para reenviar á etiqueta: Operacións → Correos masivos', 'anpa-mgmt-btn anpa-mgmt-btn-secondary');
+		irCorreos.type = 'button';
+		irCorreos.style.marginTop = '1rem';
+		irCorreos.addEventListener('click', function () { navigateTo('correos'); });
+		root.appendChild(irCorreos);
 
-		// ── Diferenzas ──
-		function diffTable(title, rows, empty) {
-			root.appendChild(el('h3', title + ' (' + rows.length + ')'));
-			if (!rows.length) { root.appendChild(emptyEl(empty)); return; }
-			var table = document.createElement('table');
-			table.className = 'anpa-mgmt-table';
-			var thead = document.createElement('thead'); var hr = document.createElement('tr');
-			['Apelidos', 'Nome', 'Email', 'Motivo'].forEach(function (l) { hr.appendChild(el('th', l)); });
-			thead.appendChild(hr); table.appendChild(thead);
-			var tbody = document.createElement('tbody');
-			rows.forEach(function (r) {
-				var tr = document.createElement('tr');
-				tr.appendChild(el('td', r.apelidos)); tr.appendChild(el('td', r.nome)); tr.appendChild(el('td', r.email)); tr.appendChild(el('td', r.motivo || ''));
-				tbody.appendChild(tr);
+
+	}
+
+	// ── Section: Correos masivos (1.84.0) ─────────────────────────────
+	function loadCorreos() {
+		showLoading();
+		anpaAdminFetch('correos-masivos').then(function (data) { renderCorreos(data || {}); }).catch(sectionError);
+	}
+
+	function renderCorreos(d) {
+		root.textContent = '';
+		document.title = 'Correos masivos — Xestión ANPA';
+		function el(tag, text, cls) { var e = document.createElement(tag); if (text != null) { e.textContent = text; } if (cls) { e.className = cls; } return e; }
+		var etiqueta = d.etiqueta || 'Socios Web ANPA';
+		function destinatarios() {
+			return 'Enviarase a ' + (d.socios_activos || 0) + ' socios/as activos en ' + (d.lotes || 0) + ' envío(s) de ata ' + (d.tamano_lote || 50) + ' destinatarios en CCO, con ' + (d.conta_xunta || 'a conta da xunta') + ' como destinatario visible.';
+		}
+		var ONDE = { matriculas: 'Extraescolares → Matrículas', 'grupos-horarios': 'Extraescolares → Grupos e horarios' };
+
+		root.appendChild(el('h2', 'Correos masivos'));
+		root.appendChild(el('p', 'Todos os correos que a web envía a moitas familias. Os que só envían (sen cambiar nada) mándanse dende aquí; os que abren ou pechan matrículas, o curso ou un grupo envíanse onde se fai ese cambio. Abaixo está o rexistro dos enviados. Os textos edítanse en Axustes → Plantillas de email.', 'description'));
+
+		(Array.isArray(d.catalogo) ? d.catalogo : []).forEach(function (c) {
+			var box = el('div', null, 'anpa-mgmt-form');
+			box.style.maxWidth = '760px'; box.style.marginBottom = '1rem';
+			box.appendChild(el('h3', c.titulo));
+			box.appendChild(el('p', c.descricion, 'description'));
+			box.appendChild(el('p', 'Destinatarios: ' + c.destinatarios, 'description'));
+			var acts = el('div', null, 'anpa-mgmt-form-actions');
+			acts.style.display = 'flex'; acts.style.gap = '0.5rem'; acts.style.flexWrap = 'wrap'; acts.style.alignItems = 'center';
+
+			if (c.id === 'inicio_curso_xunta') {
+				if (!d.instrucions_url) {
+					var warn = el('p', 'Atención: aínda non está configurada a URL da entrada coas instrucións (Axustes → Xeral → «Entrada coas instrucións para as familias»); mentres tanto o correo liga á área de socios.');
+					warn.style.color = '#8a6d00'; warn.style.fontWeight = '600';
+					box.appendChild(warn);
+				} else {
+					box.appendChild(el('p', 'Ligazóns do correo: instrucións → ' + d.instrucions_url + (d.extraescolares_url ? ' · extraescolares → ' + d.extraescolares_url : ''), 'description'));
+				}
+				var icSend = el('button', 'Enviar o correo de inicio de curso á conta da xunta', 'anpa-mgmt-btn');
+				icSend.type = 'button';
+				icSend.addEventListener('click', function () {
+					if (!window.confirm('Enviar o correo de inicio de curso a ' + (d.conta_xunta || 'a conta da xunta') + '? Despois reenvíao dende Gmail á etiqueta «' + etiqueta + '».')) { return; }
+					icSend.disabled = true;
+					anpaAdminFetch('contactos-google/inicio-curso', { method: 'POST' }).then(function (r) {
+						showMessage('Correo de inicio de curso enviado a ' + ((r && r.destinatario) || d.conta_xunta || 'a conta da xunta') + '. Ábreo en Gmail e reenvíao á etiqueta «' + etiqueta + '» en CCO.', 'success');
+						loadCorreos();
+					}).catch(function (e) { icSend.disabled = false; showMessage(e.message || 'Non se puido enviar o correo.', 'error'); });
+				});
+				acts.appendChild(icSend);
+			} else if (c.id === 'prazo_matriculas') {
+				var hoxe = new Date();
+				var mercores = new Date(hoxe); mercores.setDate(hoxe.getDate() + (((3 - hoxe.getDay() + 7) % 7) || 7));
+				function iso(dt) { return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0'); }
+				var lPeche = el('label', 'Remata o '); var inPeche = document.createElement('input'); inPeche.type = 'date'; inPeche.value = iso(mercores); lPeche.appendChild(inPeche);
+				var lInicio = el('label', 'as actividades comezan o '); var inInicio = document.createElement('input'); inInicio.type = 'date'; inInicio.value = cfg.datainicioactividades || (hoxe.getFullYear() + '-10-01'); lInicio.appendChild(inInicio);
+				var bPrazo = el('button', 'Enviar o prazo de matrículas', 'anpa-mgmt-btn'); bPrazo.type = 'button';
+				bPrazo.addEventListener('click', function () {
+					if (!inPeche.value || !inInicio.value) { showMessage('Indica as dúas datas.', 'error'); return; }
+					if (!window.confirm('Lembrar ás familias que o prazo de matrícula remata o ' + inPeche.value.split('-').reverse().join('/') + ' e que as actividades comezan o ' + inInicio.value.split('-').reverse().join('/') + '?\n\n' + destinatarios())) { return; }
+					bPrazo.disabled = true;
+					anpaAdminFetch('avisos/prazo-matriculas', { method: 'POST', body: { data_peche: inPeche.value, data_inicio_actividades: inInicio.value } }).then(function (r) {
+						var e = r && r.envio;
+						showMessage('Prazo de matrículas enviado' + (e ? ': ' + e.enviados + ' de ' + e.destinatarios + ' destinatarios en ' + e.lotes + ' envío(s)' + (e.fallidos ? '; ' + e.fallidos + ' fallaron' : '') : '') + '.', e && e.fallidos ? 'warning' : 'success');
+						loadCorreos();
+					}).catch(function (err) { bPrazo.disabled = false; showMessage(err.message, 'error'); });
+				});
+				acts.appendChild(bPrazo); acts.appendChild(lPeche); acts.appendChild(lInicio);
+				box.appendChild(el('p', destinatarios(), 'description'));
+			} else if (ONDE[c.onde]) {
+				var ir = el('button', 'Ir a ' + ONDE[c.onde], 'anpa-mgmt-btn anpa-mgmt-btn-secondary');
+				ir.type = 'button';
+				ir.addEventListener('click', function () { navigateTo(c.onde); });
+				acts.appendChild(ir);
+			}
+			(Array.isArray(c.plantillas) ? c.plantillas : []).forEach(function (t) {
+				var a = el('a', 'Plantilla «' + t + '»', 'anpa-mgmt-btn anpa-mgmt-btn-secondary');
+				a.href = 'admin.php?page=anpa-socios-templates&edit=' + encodeURIComponent(t);
+				acts.appendChild(a);
 			});
-			table.appendChild(tbody);
-			root.appendChild(table);
-		}
-		if (ultima) {
-			diffTable('Altas desde a última exportación', altas, 'Ningunha alta nova.');
-			diffTable('Baixas desde a última exportación', baixas, 'Ningunha baixa.');
-			// 1.71.0: a changed address is counted twice although nobody joined or left.
-			root.appendChild(el('p', 'Se unha familia cambia un correo (o seu ou o do 2º proxenitor), aparece unha alta co correo novo e unha baixa co vello: fai a exportación completa para que Google quede igual ca web.', 'description'));
-		}
-
-		// ── Correo de inicio de curso (1.62.0) ──
-		// ONE email to the junta's inbox (template «inicio_curso»), forwarded from
-		// Gmail to the label: WordPress never mails hundreds of families at once.
-		var ic = el('div', null, 'anpa-mgmt-form');
-		ic.style.maxWidth = '760px'; ic.style.marginTop = '1.5rem';
-		ic.appendChild(el('h3', 'Correo de inicio de curso'));
-		ic.appendChild(el('p', 'Correo para todas as familias co que fai a web: iniciar sesión como socio/a (código ao correo, sen contrasinal), darse de alta, modificar os datos e inscribirse nas actividades extraescolares. Para non saturar o WordPress envíase UNHA soa vez á conta da xunta' + (d.conta_xunta ? ' (' + d.conta_xunta + ')' : '') + ' e dende Gmail reenvíase á etiqueta «' + etiqueta + '» (en CCO). O texto edítase na plantilla «inicio_curso» de Axustes → Plantillas de email.', 'description'));
-		var icActs = el('div', null, 'anpa-mgmt-form-actions');
-		icActs.style.display = 'flex'; icActs.style.gap = '0.5rem'; icActs.style.flexWrap = 'wrap';
-		// 1.63.0: the email links to the instructions post and the activities page from Axustes → Xeral.
-		if (!d.instrucions_url) {
-			var icWarn = el('p', 'Atención: aínda non está configurada a URL da entrada coas instrucións (Axustes → Xeral → «Entrada coas instrucións para as familias»); mentres tanto o correo liga á área de socios. Publica primeiro a entrada e garda a súa URL.');
-			icWarn.style.color = '#8a6d00'; icWarn.style.fontWeight = '600';
-			ic.appendChild(icWarn);
-		} else {
-			ic.appendChild(el('p', 'Ligazóns do correo: instrucións → ' + d.instrucions_url + (d.extraescolares_url ? ' · extraescolares → ' + d.extraescolares_url : ' · extraescolares → páxina co shortcode [anpa_extraescolares_ofertadas]'), 'description'));
-		}
-		var icSend = el('button', 'Enviar o correo de inicio de curso á conta da xunta', 'anpa-mgmt-btn');
-		icSend.type = 'button';
-		icSend.addEventListener('click', function () {
-			if (!window.confirm('Enviar o correo de inicio de curso a ' + (d.conta_xunta || 'a conta da xunta') + '? Despois reenvíao dende Gmail á etiqueta «' + etiqueta + '».')) { return; }
-			icSend.disabled = true;
-			anpaAdminFetch('contactos-google/inicio-curso', { method: 'POST' }).then(function (r) {
-				icSend.disabled = false;
-				showMessage('Correo de inicio de curso enviado a ' + ((r && r.destinatario) || d.conta_xunta || 'a conta da xunta') + '. Ábreo en Gmail e reenvíao á etiqueta «' + etiqueta + '» en CCO.', 'success');
-			}).catch(function (e) { icSend.disabled = false; showMessage(e.message || 'Non se puido enviar o correo.', 'error'); });
+			box.appendChild(acts);
+			root.appendChild(box);
 		});
-		var icEdit = el('a', 'Editar a plantilla «inicio_curso»', 'anpa-mgmt-btn anpa-mgmt-btn-secondary');
-		icEdit.href = 'admin.php?page=anpa-socios-templates&edit=inicio_curso';
-		icActs.appendChild(icSend); icActs.appendChild(icEdit);
-		ic.appendChild(icActs);
-		root.appendChild(ic);
+
+		var rows = Array.isArray(d.rexistro) ? d.rexistro : [];
+		root.appendChild(el('h3', 'Rexistro de envíos (' + rows.length + ')'));
+		root.appendChild(el('p', 'Os últimos envíos masivos (os rexistros gárdanse o tempo indicado en Axustes → Xeral → Mantemento). O detalle completo está en Operacións → Auditoría.', 'description'));
+		if (!rows.length) { root.appendChild(emptyEl('Aínda non se enviou ningún correo masivo.')); return; }
+		var table = el('table', null, 'anpa-mgmt-table');
+		var thead = el('thead'); var hr = el('tr');
+		['Data', 'Correo', 'Enviados', 'Fallidos', 'Envíos (lotes)', 'Por'].forEach(function (h) { hr.appendChild(el('th', h)); });
+		thead.appendChild(hr); table.appendChild(thead);
+		var tbody = el('tbody');
+		rows.forEach(function (r) {
+			var tr = el('tr');
+			var dt = String(r.data || '');
+			tr.appendChild(el('td', dt ? formatAdminDate(dt.slice(0, 10)) + (dt.length > 15 ? ' ' + dt.slice(11, 16) : '') : ''));
+			tr.appendChild(el('td', r.titulo));
+			tr.appendChild(el('td', String(r.enviados || 0)));
+			var f = el('td', String(r.fallidos || 0)); if (r.fallidos) { f.style.color = '#b32d2e'; f.style.fontWeight = '600'; } tr.appendChild(f);
+			tr.appendChild(el('td', String(r.lotes || 0)));
+			tr.appendChild(el('td', r.por || ''));
+			tbody.appendChild(tr);
+		});
+		table.appendChild(tbody);
+		root.appendChild(table);
 	}
 
 	// ── Section: Fillos ──────────────────────────────────────────────
@@ -4331,6 +4423,7 @@
 		'socios': loadSocios,
 		'aprobacions': loadApprovals,
 		'lista-gmail': loadListaGmail,
+		'correos': loadCorreos,
 		'fillos': loadFillos,
 		'empresas': loadEmpresas,
 		'actividades': loadActividades,

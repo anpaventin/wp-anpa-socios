@@ -271,7 +271,8 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 		$js = $this->src( 'assets/js/admin-management.js' );
 		$this->assertStringContainsString( "anpaAdminFetch('contactos-google/inicio-curso', { method: 'POST' })", $js );
 		$this->assertStringContainsString( "'Enviar o correo de inicio de curso á conta da xunta'", $js );
-		$this->assertStringContainsString( "admin.php?page=anpa-socios-templates&edit=inicio_curso", $js );
+		// 1.84.0: the button moved to «Correos masivos», which links every template of its catalogue.
+		$this->assertStringContainsString( "a.href = 'admin.php?page=anpa-socios-templates&edit=' + encodeURIComponent(t);", $js );
 		$this->assertStringContainsString( "if (r && r.correo_enviado === true) { mail = ' Enviouse o correo á familia.'; }", $js );
 		$this->assertStringNotContainsString( 'a familia non recibe correo automático', $js );
 
