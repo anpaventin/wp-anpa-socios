@@ -199,10 +199,10 @@ final class Test_ANPA_Socios_Ods_Listados extends TestCase {
 		$this->assertStringContainsString( "add_action( ANPA_Socios_Aprobacions_Semanal::CRON_HOOK, array( 'ANPA_Socios_Aprobacions_Semanal', 'executar' ) );", $main );
 		$c = $this->src( 'includes/class-anpa-socios-aprobacions-semanal.php' );
 		$this->assertStringContainsString( 'wp_schedule_single_event( ANPA_Socios_Aviso_Semanal::proximo_luns( time(), wp_timezone() ), self::CRON_HOOK );', $c );
-		$this->assertStringContainsString( 'if ( ANPA_Socios_Aviso_Semanal::debe_enviar( $contas ) ) {', $c );
+		$this->assertStringContainsString( 'if ( ANPA_Socios_Aviso_Semanal::debe_enviar( $contas, $conflitos ) ) {', $c );
 		$this->assertStringContainsString( 'self::programar();', $c );
 		$vars = ANPA_Socios_Email_Template_Store::get_variables( 'aprobacions_pendentes_semanal' );
-		$this->assertSame( array( 'socios', 'matriculas', 'baixas', 'xestion_url', 'contact_email' ), $vars['html'] );
+		$this->assertSame( array( 'socios', 'matriculas', 'baixas', 'xestion_url', 'contact_email', 'revision_correos' ), $vars['html'] );
 		$this->assertContains( 'association_name', $vars['subject'] );
 		$this->assertStringContainsString( "'&section=aprobacions'", $this->src( 'includes/class-anpa-socios-email.php' ) );
 	}

@@ -93,6 +93,55 @@ final class ANPA_Socios_Admin_Approvals_Handler {
 		return $out;
 	}
 
+	/**
+	 * 1.77.0: members (not the master account) whose email is a company's, the
+	 * canteen account's or the junta's (Axustes). For the Monday review.
+	 *
+	 * @since  1.77.0
+	 * @return array<int,array{email:string,motivo:string,nome:string}>
+	 */
+	public static function conflitos_correos(): array {
+		global $wpdb;
+		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_results' ) ) {
+			return array();
+		}
+		$soc_t = $wpdb->prefix . 'anpa_socios';
+		$emp_t = $wpdb->prefix . 'anpa_empresas';
+		$out   = array();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only review, ASCII SQL.
+		$rows = $wpdb->get_results(
+			"SELECT s.email, e.nome FROM {$soc_t} s
+			 INNER JOIN {$emp_t} e ON LOWER(TRIM(e.email)) = LOWER(TRIM(s.email))
+			 WHERE s.rol <> 'master' AND s.email <> '' AND s.estado <> 'baixa' AND e.estado = 'activo'",
+			ARRAY_A
+		);
+		foreach ( is_array( $rows ) ? $rows : array() as $r ) {
+			$out[] = array( 'email' => strtolower( (string) $r['email'] ), 'motivo' => 'empresa', 'nome' => (string) $r['nome'] );
+		}
+		$reservados = array(
+			'comedor' => strtolower( trim( ANPA_Socios_Config::comedor_email() ) ),
+			'xunta'   => strtolower( trim( ANPA_Socios_Config::master_email() ) ),
+			'xunta2'  => strtolower( trim( ANPA_Socios_Config::contact_email() ) ),
+		);
+		$vistos = array();
+		foreach ( $reservados as $motivo => $email ) {
+			if ( '' === $email || isset( $vistos[ $email ] ) ) {
+				continue;
+			}
+			$vistos[ $email ] = true;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only review, ASCII SQL.
+			$n = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$soc_t} s WHERE LOWER(TRIM(s.email)) = %s AND s.rol <> 'master' AND s.estado <> 'baixa'", $email ) );
+			if ( $n > 0 ) {
+				$out[] = array( 'email' => $email, 'motivo' => 'comedor' === $motivo ? 'comedor' : 'xunta', 'nome' => '' );
+			}
+		}
+		// The canteen account must not be the junta's own address (the junta would open the canteen panel).
+		if ( '' !== $reservados['comedor'] && in_array( $reservados['comedor'], array( $reservados['xunta'], $reservados['xunta2'] ), true ) ) {
+			$out[] = array( 'email' => $reservados['comedor'], 'motivo' => 'comedor', 'nome' => '' );
+		}
+		return $out;
+	}
+
 	public static function list_pending(): WP_REST_Response {
 		global $wpdb;
 

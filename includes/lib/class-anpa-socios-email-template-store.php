@@ -604,26 +604,29 @@ final class ANPA_Socios_Email_Template_Store {
 			// 1.74.0: aviso semanal á xunta (luns 10:00) se hai algo en Operacións → Aprobacións.
 			'aprobacions_pendentes_semanal' => array(
 				'subject' => array(
-					__( 'Aprobacións pendentes na web (%s) — %s', 'anpa-socios' ),
+					__( 'Revisión semanal de Xestión: aprobacións pendentes (%s) — %s', 'anpa-socios' ),
 					array( 'total', 'association_name' ),
 				),
 				'html' => array(
-					'<p>' . __( 'Hai solicitudes esperando pola xunta en Xestión → Operacións → Aprobacións:', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Resumo semanal de Xestión → Operacións → Aprobacións:', 'anpa-socios' ) . '</p>' .
 					'<ul><li>' . __( 'Altas de socios/as: %s', 'anpa-socios' ) . '</li>' .
 					'<li>' . __( 'Matrículas pendentes de aprobación: %s', 'anpa-socios' ) . '</li>' .
 					'<li>' . __( 'Baixas de socios/as: %s', 'anpa-socios' ) . '</li></ul>' .
 					'<p><a href="%s">' . __( 'Abrir Aprobacións', 'anpa-socios' ) . '</a></p>' .
-					'<p>' . __( 'Este aviso envíase os luns ás 10:00 só cando hai algo pendente. Contacto da directiva: %s.', 'anpa-socios' ) . '</p>',
-					array( 'socios', 'matriculas', 'baixas', 'xestion_url', 'contact_email' ),
+					'<p>' . __( 'Este aviso envíase os luns ás 10:00 só cando hai algo pendente ou a revisión atopa un problema. Contacto da directiva: %s.', 'anpa-socios' ) . '</p>' .
+					// 1.77.0: appended last so a template customised in 1.74–1.76 keeps its placeholders in place.
+					'<p><strong>' . __( 'Revisión de correos:', 'anpa-socios' ) . '</strong> %s</p>',
+					array( 'socios', 'matriculas', 'baixas', 'xestion_url', 'contact_email', 'revision_correos' ),
 				),
 				'text' => array(
-					__( 'Hai solicitudes esperando pola xunta en Xestión → Operacións → Aprobacións:', 'anpa-socios' ) . "\n\n" .
+					__( 'Resumo semanal de Xestión → Operacións → Aprobacións:', 'anpa-socios' ) . "\n\n" .
 					__( 'Altas de socios/as: %s', 'anpa-socios' ) . "\n" .
 					__( 'Matrículas pendentes de aprobación: %s', 'anpa-socios' ) . "\n" .
 					__( 'Baixas de socios/as: %s', 'anpa-socios' ) . "\n\n" .
 					__( 'Abrir Aprobacións: %s', 'anpa-socios' ) . "\n\n" .
-					__( 'Este aviso envíase os luns ás 10:00 só cando hai algo pendente. Contacto da directiva: %s.', 'anpa-socios' ),
-					array( 'socios', 'matriculas', 'baixas', 'xestion_url', 'contact_email' ),
+					__( 'Este aviso envíase os luns ás 10:00 só cando hai algo pendente ou a revisión atopa un problema. Contacto da directiva: %s.', 'anpa-socios' ) . "\n\n" .
+					__( 'Revisión de correos:', 'anpa-socios' ) . ' %s',
+					array( 'socios', 'matriculas', 'baixas', 'xestion_url', 'contact_email', 'revision_correos' ),
 				),
 			),
 			'oferta_aceptada' => array(

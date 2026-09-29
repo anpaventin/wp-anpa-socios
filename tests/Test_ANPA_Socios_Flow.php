@@ -104,18 +104,16 @@ class Test_ANPA_Socios_Flow extends TestCase {
 	}
 
 	/**
-	 * Precedence: socio wins over empresa in the mixed case. The SDD
-	 * says each email is socio OR empresa, not both. The helper still
-	 * produces a deterministic decision in case both flags arrive
-	 * (defensive, no info leak).
+	 * Precedence (1.77.0, board decision): an active company or the canteen
+	 * account wins over a member with the same address.
 	 */
-	public function test_next_prefers_socio_over_empresa(): void {
+	public function test_next_prefers_empresa_over_socio(): void {
 		$flags = array(
 			'socio'   => 'activo',
 			'empresa' => 'activo',
 		);
 		$this->assertSame(
-			'area',
+			'empresa',
 			ANPA_Socios_Flow::next( $flags )
 		);
 	}

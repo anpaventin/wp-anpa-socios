@@ -52,9 +52,11 @@ final class ANPA_Socios_Aprobacions_Semanal {
 	 */
 	public static function executar(): void {
 		try {
-			$contas = ANPA_Socios_Admin_Approvals_Handler::contas_pendentes();
-			if ( ANPA_Socios_Aviso_Semanal::debe_enviar( $contas ) ) {
-				ANPA_Socios_Email::enviar_aprobacions_pendentes( $contas );
+			$contas    = ANPA_Socios_Admin_Approvals_Handler::contas_pendentes();
+			// 1.77.0: plus the review of members using a company, canteen or junta address.
+			$conflitos = ANPA_Socios_Admin_Approvals_Handler::conflitos_correos();
+			if ( ANPA_Socios_Aviso_Semanal::debe_enviar( $contas, $conflitos ) ) {
+				ANPA_Socios_Email::enviar_aprobacions_pendentes( $contas, $conflitos );
 			}
 		} catch ( \Throwable $e ) {
 			// Best-effort: never break the cron run.

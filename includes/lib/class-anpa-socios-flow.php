@@ -48,6 +48,7 @@ final class ANPA_Socios_Flow {
 	 * Computes the next step in the unified socio flow.
 	 *
 	 * Decision rules (in order):
+	 *  0. Active empresa or the canteen account → empresa (1.77.0).
 	 *  1. Active socio -> `area`.
 	 *  2. `pendiente_alta` socio -> `alta` (resume).
 	 *  3. Active empresa -> `empresa`.
@@ -66,6 +67,12 @@ final class ANPA_Socios_Flow {
 		$flags = self::sanitise_flags( $flags );
 
 		$socio = isset( $flags['socio'] ) ? $flags['socio'] : null;
+
+		// 1.77.0: an active company (or the canteen account) always opens its
+		// panel, even when the same address is also a member.
+		if ( isset( $flags['empresa'] ) && 'activo' === $flags['empresa'] ) {
+			return 'empresa';
+		}
 
 		if ( 'activo' === $socio ) {
 			// An active socio with a pending baixa request gets a dedicated

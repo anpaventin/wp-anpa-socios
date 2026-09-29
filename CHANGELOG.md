@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.77.0] - 2026-09-29
+
+### Fixed
+
+- **O comedor (ou unha empresa) acababa no formulario de alta.** A entrada unificada decidía o panel da empresa ou do
+  comedor só polo que gardara o navegador ao pedir o código (`localStorage`); se se verificaba noutro navegador,
+  en modo privado ou tras perder ese dato, tratábase como socio/a e amosaba a alta («entra como un usuario normal»).
+  Agora `anpa/v1/verificar-codigo` devolve `fluxo: 'empresa'` para o correo do comedor ou dunha empresa activa, e
+  se a sesión de socio non se pode abrir próbase a da empresa/comedor antes de amosar a alta.
+
+### Changed
+
+- **Prioridade da empresa e do comedor.** Se un correo é dunha empresa activa ou é o do comedor, entra sempre no seu
+  panel aínda que tamén figure como socio/a (antes gañaba o socio).
+- **Aviso dos luns:** engade a «Revisión de correos»: socios/as (non a conta master) co correo dunha empresa, do
+  comedor ou da xunta directiva (Axustes), para corrixilos en Xestión → Socios/as. O correo sae tamén se só a
+  revisión atopa algo.
+
 ## [1.76.0] - 2026-10-01
 
 ### Changed

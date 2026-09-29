@@ -144,8 +144,8 @@ class ANPA_Socios_Preflight_REST {
 
 		$flags = array();
 
-		// 1.56.0: the canteen account (Axustes) uses the company flow. Flow::next()
-		// still prioritises a socio flag, but the ownership guard keeps them apart.
+		// 1.56.0: the canteen account (Axustes) uses the company flow. Since 1.77.0
+		// Flow::next() gives it (and any active company) priority over a member.
 		if ( ANPA_Socios_Config::is_comedor_email( $email ) ) {
 			$flags['empresa'] = 'activo';
 		}
@@ -184,15 +184,15 @@ class ANPA_Socios_Preflight_REST {
 		}
 
 		// Empresa lookup: query the empresas table for this email.
-		// Flow::next() already prioritises socio over empresa, so an
-		// active socio will never fall through to the empresa branch.
+		// 1.77.0: an active company wins over a member with the same address.
+		// The canteen flag set above is not overwritten by an inactive company row.
 		$emp_estado = $wpdb->get_var(
 			$wpdb->prepare(
 				'SELECT estado FROM ' . ANPA_Socios_DB::tabela_empresas() . ' WHERE email = %s LIMIT 1',
 				$email
 			)
 		);
-		if ( is_string( $emp_estado ) && in_array( $emp_estado, ANPA_Socios_Flow::FLAG_VALUES, true ) ) {
+		if ( is_string( $emp_estado ) && in_array( $emp_estado, ANPA_Socios_Flow::FLAG_VALUES, true ) && ! isset( $flags['empresa'] ) ) {
 			$flags['empresa'] = $emp_estado;
 		}
 

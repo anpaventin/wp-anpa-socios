@@ -39,10 +39,38 @@ final class ANPA_Socios_Aviso_Semanal {
 	}
 
 	/**
-	 * @param  array<string,int> $contas ANPA_Socios_Admin_Approvals_Handler::contas_pendentes().
-	 * @return bool Only when something is pending.
+	 * @param  array<string,int>             $contas    ANPA_Socios_Admin_Approvals_Handler::contas_pendentes().
+	 * @param  array<int,array<string,string>> $conflitos 1.77.0: members using a reserved address.
+	 * @return bool When something is pending or the review found a problem.
 	 */
-	public static function debe_enviar( array $contas ): bool {
-		return (int) ( $contas['total'] ?? 0 ) > 0;
+	public static function debe_enviar( array $contas, array $conflitos = array() ): bool {
+		return (int) ( $contas['total'] ?? 0 ) > 0 || array() !== $conflitos;
+	}
+
+	/**
+	 * Weekly review line: members whose email is a company's, the canteen's or the junta's
+	 * (they would open the other panel or mix two roles). Pure.
+	 *
+	 * @since  1.77.0
+	 * @param  array<int,array{email:string,motivo:string,nome:string}> $conflitos Rows.
+	 * @return string
+	 */
+	public static function revision_correos( array $conflitos ): string {
+		if ( array() === $conflitos ) {
+			return 'Ningún socio/a usa o correo dunha empresa, do comedor ou da xunta directiva.';
+		}
+		$partes = array();
+		foreach ( $conflitos as $c ) {
+			$motivo = (string) ( $c['motivo'] ?? '' );
+			if ( 'empresa' === $motivo ) {
+				$que = 'correo da empresa «' . (string) ( $c['nome'] ?? '' ) . '»';
+			} elseif ( 'comedor' === $motivo ) {
+				$que = 'correo do comedor';
+			} else {
+				$que = 'correo da xunta directiva';
+			}
+			$partes[] = (string) ( $c['email'] ?? '' ) . ' (' . $que . ')';
+		}
+		return 'OLLO: ' . count( $conflitos ) . ' socio/a(s) usan un correo reservado e deberían cambialo en Xestión → Socios/as: ' . implode( '; ', $partes ) . '.';
 	}
 }

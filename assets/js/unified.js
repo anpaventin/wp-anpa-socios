@@ -562,6 +562,9 @@
 
 				var flow;
 				try { flow = localStorage.getItem('anpa_unified_flow'); } catch (_) {}
+				// 1.77.0: the server says whether this address opens the company/canteen panel
+				// (priority over a member), so another browser or private mode does not matter.
+				if (result.fluxo === 'empresa') { flow = 'empresa'; }
 				if (flow === 'empresa') {
 					// 1.55.1: company session, never the socio session nor the alta form.
 					if (!await exchangeVerifiedEmpresaSession(cfg, result.token)) {
@@ -572,6 +575,13 @@
 				}
 
 				if (await exchangeVerifiedAreaSession(cfg, result.token)) {
+					verifyBtn.disabled = false;
+					return;
+				}
+				// 1.77.0: not a member session — a company/canteen address verified by the legacy
+				// plugin's route (no «fluxo») without the stored flag: open its panel, never the alta form.
+				// The native route already said «fluxo», so new families do not spend this attempt.
+				if (typeof result.fluxo === 'undefined' && await exchangeVerifiedEmpresaSession(cfg, result.token)) {
 					verifyBtn.disabled = false;
 					return;
 				}

@@ -219,6 +219,31 @@ final class ANPA_Socios_Verificacion_REST {
 		$token = wp_generate_password( 32, false );
 		set_transient( 'anpa_token_' . $token, $email, 30 * MINUTE_IN_SECONDS );
 
-		return rest_ensure_response( array( 'success' => true, 'token' => $token ) );
+		// 1.77.0: the address is proved; say whether it opens the company/canteen panel
+		// so the page does not depend on what this browser stored when asking for the code.
+		return rest_ensure_response( array(
+			'success' => true,
+			'token'   => $token,
+			'fluxo'   => self::fluxo_verificado( $email ),
+		) );
+	}
+
+	/**
+	 * 'empresa' for the canteen account or an active company (they win over a
+	 * member with the same address), '' otherwise.
+	 *
+	 * @since  1.77.0
+	 * @param  string $email Verified email.
+	 * @return string
+	 */
+	private static function fluxo_verificado( string $email ): string {
+		global $wpdb;
+		$email = strtolower( trim( $email ) );
+		if ( ANPA_Socios_Config::is_comedor_email( $email ) ) {
+			return 'empresa';
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only lookup after a verified code.
+		$estado = $wpdb->get_var( $wpdb->prepare( 'SELECT estado FROM ' . ANPA_Socios_DB::tabela_empresas() . ' WHERE LOWER(email) = %s LIMIT 1', $email ) );
+		return 'activo' === $estado ? 'empresa' : '';
 	}
 }
