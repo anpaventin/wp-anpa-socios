@@ -510,7 +510,9 @@ class ANPA_Socios_Email {
 	 * @return bool
 	 */
 	public static function enviar_baixa_socio_confirmada( string $email_socio, string $nome, string $emails_baixa = '' ): bool {
-		return self::send_template( $email_socio, 'baixa_socio_confirmada', array( 'nome' => $nome, 'emails_baixa' => '' !== $emails_baixa ? $emails_baixa : $email_socio ) );
+		// 1.83.0: the date the family's data will be deleted (retention setting).
+		$eliminacion = class_exists( 'ANPA_Socios_Retencion_Service' ) ? ANPA_Socios_Retencion_Service::data_eliminacion_texto() : '';
+		return self::send_template( $email_socio, 'baixa_socio_confirmada', array( 'nome' => $nome, 'emails_baixa' => '' !== $emails_baixa ? $emails_baixa : $email_socio, 'data_eliminacion' => $eliminacion ) );
 	}
 
 	/**

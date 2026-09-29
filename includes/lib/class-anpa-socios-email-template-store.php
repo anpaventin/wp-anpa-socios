@@ -189,16 +189,19 @@ final class ANPA_Socios_Email_Template_Store {
 					'<p>' . __( 'A directiva de %s confirmou a baixa da vosa unidade familiar como socios/as. A partir de agora xa non tedes acceso á área de socios nin ás actividades extraescolares xestionadas pola asociación.', 'anpa-socios' ) . '</p>' .
 					'<p>' . __( 'Correos dados de baixa como socios/as:', 'anpa-socios' ) . ' <strong>%s</strong></p>' .
 					'<p>' . __( 'Se cres que se trata dun erro ou queres volver a ser socio/a, escribe á directiva en %s e solucionámolo.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Grazas por formar parte da asociación.', 'anpa-socios' ) . '</p>',
-					array( 'nome', 'association_name', 'emails_baixa', 'contact_email' ),
+					'<p>' . __( 'Grazas por formar parte da asociación.', 'anpa-socios' ) . '</p>' .
+					// 1.83.0: appended last so a customised template keeps its placeholders in place.
+					'<p>' . __( 'Gardaremos os vosos datos ata o %s. Pasado ese prazo eliminaranse por completo da base de datos da asociación, sen posibilidade de recuperalos. Se volvedes antes, recuperades os vosos datos e os dos vosos fillos/as.', 'anpa-socios' ) . '</p>',
+					array( 'nome', 'association_name', 'emails_baixa', 'contact_email', 'data_eliminacion' ),
 				),
 				'text' => array(
 					__( 'Ola %s,', 'anpa-socios' ) . "\n\n" .
 					__( 'A directiva de %s confirmou a baixa da vosa unidade familiar como socios/as. A partir de agora xa non tedes acceso á área de socios nin ás actividades extraescolares xestionadas pola asociación.', 'anpa-socios' ) . "\n\n" .
 					__( 'Correos dados de baixa como socios/as:', 'anpa-socios' ) . ' %s' . "\n\n" .
 					__( 'Se cres que se trata dun erro ou queres volver a ser socio/a, escribe á directiva en %s e solucionámolo.', 'anpa-socios' ) . "\n\n" .
-					__( 'Grazas por formar parte da asociación.', 'anpa-socios' ),
-					array( 'nome', 'association_name', 'emails_baixa', 'contact_email' ),
+					__( 'Grazas por formar parte da asociación.', 'anpa-socios' ) . "\n\n" .
+					__( 'Gardaremos os vosos datos ata o %s. Pasado ese prazo eliminaranse por completo da base de datos da asociación, sen posibilidade de recuperalos. Se volvedes antes, recuperades os vosos datos e os dos vosos fillos/as.', 'anpa-socios' ),
+					array( 'nome', 'association_name', 'emails_baixa', 'contact_email', 'data_eliminacion' ),
 				),
 			),
 			'baixa_socio_rexeitada' => array(

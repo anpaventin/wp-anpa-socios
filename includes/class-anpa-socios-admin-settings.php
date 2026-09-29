@@ -38,6 +38,7 @@ final class ANPA_Socios_Admin_Settings {
 		add_filter( 'plugin_action_links_' . plugin_basename( ANPA_SOCIOS_PLUGIN_FILE ), array( __CLASS__, 'action_links' ) );
 		add_action( 'admin_post_anpa_socios_save_settings', array( __CLASS__, 'handle_save_settings' ) );
 		add_action( 'admin_post_anpa_socios_save_location', array( __CLASS__, 'handle_save_location' ) );
+		add_action( 'admin_post_anpa_socios_save_retencion', array( __CLASS__, 'handle_save_retencion' ) );
 		add_action( 'admin_post_anpa_socios_save_cursos', array( __CLASS__, 'handle_save_cursos' ) );
 		add_action( 'admin_post_anpa_socios_copiar_datas_curso', array( __CLASS__, 'handle_copiar_datas_curso' ) );
 		add_action( 'admin_post_anpa_socios_run_season', array( __CLASS__, 'handle_run_season' ) );
@@ -676,6 +677,7 @@ final class ANPA_Socios_Admin_Settings {
 		// Mantemento section — copias, contrasinais, ferramentas.
 		if ( 'mantemento' === $section ) {
 			self::render_subsection_contrasinais( $post_url );
+			self::render_subsection_retencion( $post_url );
 			self::render_subsection_copias( $post_url );
 			self::render_subsection_ferramentas( $post_url );
 			// 1.64.0/1.65.0: the fase35 «Rexistro de comunicacións» subsection was retired
@@ -1571,6 +1573,50 @@ final class ANPA_Socios_Admin_Settings {
 		echo '<h2>' . esc_html__( 'Autenticación de administración', 'anpa-socios' ) . '</h2>';
 		echo '<p class="description">' . esc_html__( 'O acceso de administración usa as credenciais de WordPress (usuario + contrasinal). Para cambiar o teu contrasinal, accede ao teu perfil de WordPress.', 'anpa-socios' ) . '</p>';
 		printf( '<p><a class="button" href="%s">%s</a></p>', esc_url( admin_url( 'profile.php' ) ), esc_html__( 'Ir ao meu perfil', 'anpa-socios' ) );
+	}
+
+	/**
+	 * Subsection: data retention (1.83.0).
+	 *
+	 * @param  string $post_url Admin-post URL.
+	 * @return void
+	 */
+	private static function render_subsection_retencion( string $post_url ): void {
+		echo '<h2>' . esc_html__( 'Conservación dos datos', 'anpa-socios' ) . '</h2>';
+		echo '<p class="description">' . esc_html__( 'Cada día a web elimina por completo, sen posibilidade de recuperalos, os datos dos socios/as que levan de baixa máis tempo do indicado (a familia enteira se todos están de baixa: fillos/as, matrículas e datos bancarios) e os rexistros de auditoría máis antigos. O correo de baixa indica a data de eliminación.', 'anpa-socios' ) . '</p>';
+		echo '<form method="post" action="' . $post_url . '">';
+		echo '<input type="hidden" name="action" value="anpa_socios_save_retencion">';
+		echo '<input type="hidden" name="tab" value="xeral">';
+		echo '<input type="hidden" name="section" value="mantemento">';
+		wp_nonce_field( 'anpa_socios_save_retencion' );
+		echo '<table class="form-table" role="presentation"><tbody>';
+		printf(
+			'<tr><th scope="row"><label for="ret-baixa">%s</label></th><td><input name="meses_baixa" id="ret-baixa" type="number" min="1" max="120" class="small-text" value="%d"> %s</td></tr>',
+			esc_html__( 'Datos dos socios/as de baixa', 'anpa-socios' ),
+			(int) ANPA_Socios_Config::meses_retencion_baixa(),
+			esc_html__( 'meses dende a baixa', 'anpa-socios' )
+		);
+		printf(
+			'<tr><th scope="row"><label for="ret-audit">%s</label></th><td><input name="meses_auditoria" id="ret-audit" type="number" min="1" max="120" class="small-text" value="%d"> %s</td></tr>',
+			esc_html__( 'Rexistro de auditoría', 'anpa-socios' ),
+			(int) ANPA_Socios_Config::meses_retencion_auditoria(),
+			esc_html__( 'meses', 'anpa-socios' )
+		);
+		echo '</tbody></table>';
+		submit_button( __( 'Gardar prazos', 'anpa-socios' ), 'secondary', 'submit', false );
+		echo '</form>';
+	}
+
+	/**
+	 * Saves only the two retention settings (isolated form, 1.83.0).
+	 *
+	 * @return void
+	 */
+	public static function handle_save_retencion(): void {
+		self::guard( 'anpa_socios_save_retencion' );
+		update_option( ANPA_Socios_Config::OPTION_MESES_BAIXA, (string) ANPA_Socios_Retencion::meses( sanitize_text_field( (string) wp_unslash( $_POST['meses_baixa'] ?? '' ) ), ANPA_Socios_Retencion::MESES_BAIXA ) );
+		update_option( ANPA_Socios_Config::OPTION_MESES_AUDITORIA, (string) ANPA_Socios_Retencion::meses( sanitize_text_field( (string) wp_unslash( $_POST['meses_auditoria'] ?? '' ) ), ANPA_Socios_Retencion::MESES_AUDITORIA ) );
+		self::redirect_msg( 'settings_saved' );
 	}
 
 	/**

@@ -399,6 +399,10 @@ class ANPA_Socios_REST {
 			return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
+		// 1.83.0: a member coming back is no longer counting towards the data deletion.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- inside the alta transaction.
+		$wpdb->query( $wpdb->prepare( "UPDATE {$socios} SET baixa_en = NULL WHERE email = %s AND estado <> 'baixa'", $email ) );
+
 		$familia_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT familia_id FROM {$socios} WHERE email = %s", $email ) );
 		if ( $familia_id <= 0 ) {
 			$familia_id = $parent1_id;
@@ -420,6 +424,13 @@ class ANPA_Socios_REST {
 			// 'pendente_aprobacion' (instead of being silently created active),
 			// so the junta approves the family together and BOTH parents get
 			// the welcome email on approval (fase20 second-parent fix).
+			// 1.83.0: an email of a member in baixa is deleted completely first and created again
+			// as this family's 2nd parent (old data, sessions and codes do not come back).
+			if ( ! ANPA_Socios_Retencion_Service::purgar_baixa_para_alta( (string) $clean['parent2']['email'], $familia_id ) ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback on failed purge.
+				$wpdb->query( 'ROLLBACK' );
+				return new WP_Error( 'anpa_socios_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+			}
 			if ( ! self::upsert_socio( $clean['parent2']['email'], $clean['parent2'], $familia_id, true, $owner_estado ) ) {
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rollback on failed parent2 write.
 				$wpdb->query( 'ROLLBACK' );

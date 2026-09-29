@@ -54,7 +54,7 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 		$this->assertStringContainsString( 'ponte en contacto coa directiva en %s para solucionalo', $defaults['baixa_socio_rexeitada']['html'] );
 		$this->assertStringContainsString( 'ponte en contacto coa directiva en %s para solucionalo', $defaults['baixa_extraescolar_rexeitada']['html'] );
 		$this->assertSame( array( 'association_name', 'alumno', 'actividade', 'efectos', 'contact_email' ), ANPA_Socios_Email_Template_Store::get_variables( 'baixa_extraescolar_confirmada' )['html'] );
-		$this->assertSame( array( 'nome', 'association_name', 'emails_baixa', 'contact_email' ), ANPA_Socios_Email_Template_Store::get_variables( 'baixa_socio_confirmada' )['html'] );
+		$this->assertSame( array( 'nome', 'association_name', 'emails_baixa', 'contact_email', 'data_eliminacion' ), ANPA_Socios_Email_Template_Store::get_variables( 'baixa_socio_confirmada' )['html'] );
 		$this->assertStringContainsString( 'Correos dados de baixa como socios/as:', $defaults['baixa_socio_confirmada']['html'] );
 		$this->assertStringContainsString( 'unidade familiar', $defaults['baixa_socio_confirmada']['html'] );
 

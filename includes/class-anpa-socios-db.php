@@ -105,7 +105,7 @@ class ANPA_Socios_DB {
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.46.0';
+	const DB_VERSION = '1.47.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -381,6 +381,12 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.46.0', '<' ) && ! self::migrate_to_1_46_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.46.0 (migrate_to_1_46_0): ' . $wpdb->last_error );
+			return;
+		}
+		// 1.47.0 (1.83.0): socios.baixa_en — when the baixa became effective (data retention).
+		if ( version_compare( $installed_version, '1.47.0', '<' ) && ! self::migrate_to_1_47_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.47.0 (migrate_to_1_47_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -4294,5 +4300,30 @@ class ANPA_Socios_DB {
 		}
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
 		return false !== $wpdb->query( "ALTER TABLE {$audit} MODIFY COLUMN accion varchar(40) NOT NULL, MODIFY COLUMN target_id varchar(190) NOT NULL DEFAULT ''" );
+	}
+
+	/**
+	 * Migration 1.46.0 → 1.47.0 (1.83.0): socios.baixa_en, when the baixa became
+	 * effective, for the data retention job. Existing baixas get the migration
+	 * time, so their deadline starts counting from the update (nothing is
+	 * deleted all at once on the first run).
+	 *
+	 * @since  1.83.0
+	 * @return bool
+	 */
+	private static function migrate_to_1_47_0(): bool {
+		global $wpdb;
+		$socios = self::tabela_socios();
+		if ( ! self::tem_columna( $socios, 'estado' ) ) {
+			return true;
+		}
+		if ( ! self::tem_columna( $socios, 'baixa_en' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$socios} ADD COLUMN baixa_en datetime NULL DEFAULT NULL, ADD KEY baixa_en (baixa_en)" ) ) {
+				return false;
+			}
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one-time backfill.
+		return false !== $wpdb->query( $wpdb->prepare( "UPDATE {$socios} SET baixa_en = %s WHERE estado = 'baixa' AND baixa_en IS NULL", current_time( 'mysql' ) ) );
 	}
 }

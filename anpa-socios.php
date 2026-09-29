@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ANPA Socios
  * Description: Xestión de socios para asociacións de nais e pais (ANPA/AMPA): área de socios sen contrasinal, fillos e actividades extraescolares, domiciliación SEPA cifrada, ciclo de curso, panel de administración e actualizacións self-hosted. Configurable para calquera asociación.
- * Version: 1.82.0
+ * Version: 1.83.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: ANPA Socios
@@ -21,8 +21,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ANPA_SOCIOS_VERSION', '1.82.0' );
-define( 'ANPA_SOCIOS_DB_VERSION', '1.46.0' );
+define( 'ANPA_SOCIOS_VERSION', '1.83.0' );
+define( 'ANPA_SOCIOS_DB_VERSION', '1.47.0' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 
@@ -63,6 +63,7 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-aviso-sema
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-auditoria.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-baixa-socio.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-fillo-recuperar.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-retencion.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-resumo-actividade.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-curso-escolar.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-nivel-promotion.php';
@@ -134,6 +135,7 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-empresa-rest.p
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-descarga.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-baixa-familia.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-aprobacions-semanal.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-retencion-service.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-area-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-hub-page.php';
@@ -158,6 +160,8 @@ register_activation_hook( __FILE__, array( 'ANPA_Socios_Extraescolar_Offers', 'p
 register_activation_hook( __FILE__, array( 'ANPA_Socios_Season_Service', 'programar' ) );
 // 1.74.0: Monday 10:00 reminder of pending approvals.
 register_activation_hook( __FILE__, array( 'ANPA_Socios_Aprobacions_Semanal', 'programar' ) );
+// 1.83.0: daily data retention job.
+register_activation_hook( __FILE__, array( 'ANPA_Socios_Retencion_Service', 'programar' ) );
 // fase36: seed email template defaults on activation.
 register_activation_hook( __FILE__, array( 'ANPA_Socios_Email_Template_Migration', 'migrate' ) );
 
@@ -177,6 +181,9 @@ add_action( 'admin_init', static function () {
 	// fase36: seed/add templates on upgrade.
 	ANPA_Socios_Email_Template_Migration::migrate();
 
+	// 1.83.0: the activation hook does not run on updates; schedule the daily retention job here too.
+	ANPA_Socios_Retencion_Service::programar();
+
 	// 1.74.0: the activation hook does not run on updates; schedule the weekly reminder here too.
 	ANPA_Socios_Aprobacions_Semanal::programar();
 } );
@@ -184,6 +191,7 @@ register_deactivation_hook( __FILE__, array( 'ANPA_Socios_DB', 'desprogramar_lim
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Extraescolar_Offers', 'desprogramar' ) );
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Season_Service', 'desprogramar' ) );
 register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Aprobacions_Semanal', 'desprogramar' ) );
+register_deactivation_hook( __FILE__, array( 'ANPA_Socios_Retencion_Service', 'desprogramar' ) );
 
 add_action( 'rest_api_init', array( 'ANPA_Socios_REST', 'register_routes' ) );
 // fase13b: serve the anpa/v1 verification routes ourselves, but only when the
@@ -204,6 +212,7 @@ add_action( ANPA_Socios_DB::CLEANUP_HOOK, array( 'ANPA_Socios_DB', 'borrar_sesio
 add_action( ANPA_Socios_Extraescolar_Offers::CRON_HOOK, array( 'ANPA_Socios_Extraescolar_Offers', 'expire_stale' ) );
 add_action( ANPA_Socios_Season_Service::CRON_HOOK, array( 'ANPA_Socios_Season_Service', 'run_check' ) );
 add_action( ANPA_Socios_Aprobacions_Semanal::CRON_HOOK, array( 'ANPA_Socios_Aprobacions_Semanal', 'executar' ) );
+add_action( ANPA_Socios_Retencion_Service::CRON_HOOK, array( 'ANPA_Socios_Retencion_Service', 'executar' ) );
 
 // fase34: persistent admin notice for trimesters that reached their operative
 // close date but are still pending a manual transition.

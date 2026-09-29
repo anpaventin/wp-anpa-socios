@@ -297,6 +297,14 @@ final class ANPA_Socios_Admin_Socios_Handler {
 			'actualizado_en' => current_time( 'mysql' ),
 		);
 		$update_types = array( '%s', '%s', '%s', '%s', '%s' );
+		// 1.83.0: the data retention counts from the baixa; leaving baixa stops it.
+		if ( 'baixa' === $final_estado && 'baixa' !== (string) $current['estado'] ) {
+			$update_data['baixa_en'] = current_time( 'mysql' );
+			$update_types[]          = '%s';
+		} elseif ( 'baixa' !== $final_estado && 'baixa' === (string) $current['estado'] ) {
+			$update_data['baixa_en'] = null;
+			$update_types[]          = '%s';
+		}
 
 		if ( null !== $telefono ) {
 			$update_data['telefono'] = $telefono;

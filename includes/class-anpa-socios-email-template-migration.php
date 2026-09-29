@@ -18,6 +18,9 @@ final class ANPA_Socios_Email_Template_Migration {
 	/** Option name. */
 	const OPTION = 'anpa_socios_email_templates';
 
+	/** 1.83.0: plugin version whose defaults the unedited templates already follow. */
+	const REFRESH_OPTION = 'anpa_socios_email_templates_refrescadas';
+
 	/**
 	 * Seeds defaults if the option does not exist.
 	 *
@@ -89,13 +92,65 @@ final class ANPA_Socios_Email_Template_Migration {
 	 * @since  1.39.0
 	 * @return array{seeded: bool, added: int} Migration result.
 	 */
+	/**
+	 * 1.83.0: a stored template nobody edited (modified === '') follows the
+	 * current default, so new wording (e.g. the data deletion date in
+	 * «baixa_socio_confirmada») reaches installations seeded earlier. Templates
+	 * the junta edited are never touched.
+	 *
+	 * @since  1.83.0
+	 * @return int Templates refreshed.
+	 */
+	public static function refresh_unmodified(): int {
+		$existing = get_option( self::OPTION, array() );
+		if ( ! is_array( $existing ) || array() === $existing ) {
+			return 0;
+		}
+		// Once per plugin version and in the SITE language (defaults come from __(),
+		// and an admin page loads in the admin's own profile language).
+		$version = defined( 'ANPA_SOCIOS_VERSION' ) ? (string) ANPA_SOCIOS_VERSION : '';
+		if ( '' !== $version && get_option( self::REFRESH_OPTION, '' ) === $version ) {
+			return 0;
+		}
+		$cambiou = function_exists( 'switch_to_locale' ) && function_exists( 'get_locale' ) && switch_to_locale( get_locale() );
+		$defaults  = ANPA_Socios_Email_Template_Store::get_all_defaults();
+		if ( $cambiou ) {
+			restore_previous_locale();
+		}
+		if ( '' !== $version ) {
+			update_option( self::REFRESH_OPTION, $version, false );
+		}
+		$refreshed = 0;
+		foreach ( $defaults as $id => $default ) {
+			if ( ! isset( $existing[ $id ] ) || ! is_array( $existing[ $id ] ) || '' !== (string) ( $existing[ $id ]['modified'] ?? '' ) ) {
+				continue;
+			}
+			$current = $existing[ $id ];
+			if ( ( $current['subject'] ?? null ) === $default['subject'] && ( $current['html'] ?? null ) === $default['html'] && ( $current['text'] ?? null ) === $default['text'] ) {
+				continue;
+			}
+			$existing[ $id ] = array(
+				'subject'  => $default['subject'],
+				'html'     => $default['html'],
+				'text'     => $default['text'],
+				'modified' => '',
+			);
+			++$refreshed;
+		}
+		if ( $refreshed > 0 ) {
+			update_option( self::OPTION, $existing );
+		}
+		return $refreshed;
+	}
+
 	public static function migrate(): array {
 		$seeded = self::seed_if_needed();
 		$added  = $seeded ? 0 : self::add_new_templates();
 
 		return array(
-			'seeded' => $seeded,
-			'added'  => $added,
+			'seeded'    => $seeded,
+			'added'     => $added,
+			'refreshed' => $seeded ? 0 : self::refresh_unmodified(),
 		);
 	}
 }

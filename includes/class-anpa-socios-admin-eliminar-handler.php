@@ -205,8 +205,9 @@ final class ANPA_Socios_Admin_Eliminar_Handler {
 	 * @param  array $socio      Requested socio row.
 	 * @param  bool  $for_update Lock family/children rows.
 	 * @return array|WP_Error
+	 * @since  1.83.0 public: also used by the retention job (ANPA_Socios_Retencion_Service).
 	 */
-	private static function load_family_context( array $socio, bool $for_update ) {
+	public static function load_family_context( array $socio, bool $for_update ) {
 		global $wpdb;
 
 		$socios_table = ANPA_Socios_DB::tabela_socios();
@@ -231,7 +232,9 @@ final class ANPA_Socios_Admin_Eliminar_Handler {
 		$conditions = array( 'familia_id = %d' );
 		$params     = array( $familia_id );
 		if ( ! empty( $emails ) ) {
-			$conditions[] = 'socio_email IN (' . implode( ',', array_fill( 0, count( $emails ), '%s' ) ) . ')';
+			// 1.83.0: by email only old rows without a family: a parent may have added the
+			// children of ANOTHER (active) family, which must never be deleted with this one.
+			$conditions[] = '( socio_email IN (' . implode( ',', array_fill( 0, count( $emails ), '%s' ) ) . ') AND ( familia_id IS NULL OR familia_id = 0 ) )';
 			$params       = array_merge( $params, $emails );
 		}
 
@@ -288,7 +291,7 @@ final class ANPA_Socios_Admin_Eliminar_Handler {
 	 * @param  array $members Family socio rows.
 	 * @return null|WP_Error
 	 */
-	private static function validate_family_members( array $members ) {
+	public static function validate_family_members( array $members ) {
 		$root = ANPA_Socios_Config::master_email();
 		foreach ( $members as $member ) {
 			if ( 'master' === $member['rol'] || ( ! empty( $member['email'] ) && ANPA_Socios_Roles::is_protected_admin( (string) $member['email'], $root ) ) ) {
@@ -362,8 +365,9 @@ final class ANPA_Socios_Admin_Eliminar_Handler {
 	 *
 	 * @param  array $context Locked family context.
 	 * @return bool
+	 * @since  1.83.0 public: also used by the retention job.
 	 */
-	private static function delete_family_context( array $context ): bool {
+	public static function delete_family_context( array $context ): bool {
 		global $wpdb;
 
 		$fillo_ids = $context['fillo_ids'];

@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.83.0] - 2026-09-30
+
+### Added
+
+- **Conservación dos datos** (esquema **1.47.0**: `socios.baixa_en`, data en que a baixa se fixo efectiva). Unha
+  tarefa diaria (`anpa_socios_retencion_diaria`):
+  - elimina por completo, sen posibilidade de recuperación, os datos dos socios/as de baixa hai máis de **9 meses**:
+    a familia enteira se todos os seus membros pasaron o prazo (fillos/as, matrículas, histórico de cursos,
+    domiciliación, sesións e códigos, o mesmo borrado ca «Eliminar definitivamente»); se na familia queda alguén
+    activo ou máis recente, só os datos desa persoa. Os seus correos quedan como «eliminado» na auditoría;
+  - elimina os rexistros de **auditoría** de máis de **12 meses**;
+  - mantén `baixa_en` ao día (tamén se garda en cada baixa e límpase ao volver).
+  - As baixas que xa existían empezan a contar dende a actualización: nada se borra de golpe.
+- Os dous prazos (1–120 meses) edítanse en **Axustes → Xeral → Mantemento → Conservación dos datos**.
+- O correo **`baixa_socio_confirmada`** di ata que data se gardan os datos (variable nova `data_eliminacion`, ao final).
+- **Alta con 2º proxenitor en baixa**: se era desta mesma familia, elimínase por completo e créase de novo; se era
+  doutra familia toda en baixa, elimínase esa familia enteira; se a súa familia aínda ten alguén activo, non se toca.
+
+### Changed
+
+- As plantillas de correo gardadas que ninguén editou seguen a redacción por defecto nova (unha vez por versión e no
+  idioma do sitio); as editadas pola xunta non se tocan.
+
+### Fixed
+
+- «Eliminar definitivamente» (e o borrado automático) xa non poden levar fillos/as doutra familia engadidos polo
+  mesmo proxenitor: polo correo só se collen filas antigas sen familia.
+
 ## [1.82.0] - 2026-09-30
 
 ### Added

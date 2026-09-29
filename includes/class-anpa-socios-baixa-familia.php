@@ -153,6 +153,11 @@ final class ANPA_Socios_Baixa_Familia {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
+		// 1.83.0: when the baixa became effective (data retention counts from here).
+		$eph = implode( ',', array_fill( 0, count( $ctx['emails'] ), '%s' ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- placeholders built above.
+		$wpdb->query( $wpdb->prepare( "UPDATE {$soc_t} SET baixa_en = %s WHERE estado = 'baixa' AND rol <> 'master' AND LOWER(email) IN ({$eph})", array_merge( array( $now ), $ctx['emails'] ) ) );
+
 		$fillos_baixa = 0;
 		if ( array() !== $ctx['fillos'] ) {
 			$ph = implode( ',', array_fill( 0, count( $ctx['fillos'] ), '%d' ) );

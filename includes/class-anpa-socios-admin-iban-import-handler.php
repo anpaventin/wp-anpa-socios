@@ -365,9 +365,10 @@ final class ANPA_Socios_Admin_Iban_Import_Handler {
 		foreach ( $candidates as $soc ) {
 			$ok = $wpdb->update(
 				$table,
-				array( 'estado' => 'baixa' ),
+				// 1.83.0: the data retention counts from the baixa.
+				array( 'estado' => 'baixa', 'baixa_en' => current_time( 'mysql' ) ),
 				array( 'id' => (int) $soc['id'] ),
-				array( '%s' ),
+				array( '%s', '%s' ),
 				array( '%d' )
 			);
 			if ( false === $ok ) {

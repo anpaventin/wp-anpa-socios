@@ -230,9 +230,10 @@ class ANPA_Socios_Area_REST {
 		self::clear_db_error();
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'anpa_socios',
-			array( 'estado' => 'pendiente_alta', 'actualizado_en' => current_time( 'mysql' ) ),
+			// 1.83.0: baixa_en cleared — a member coming back no longer counts towards the deletion.
+			array( 'estado' => 'pendiente_alta', 'actualizado_en' => current_time( 'mysql' ), 'baixa_en' => null ),
 			array( 'email' => $email, 'estado' => 'baixa' ),
-			array( '%s', '%s' ),
+			array( '%s', '%s', '%s' ),
 			array( '%s', '%s' )
 		);
 

@@ -109,6 +109,9 @@ final class ANPA_Socios_Config {
 	const OPTION_CONTACT_EMAIL = 'anpa_socios_contact_email';
 	const OPTION_ADDRESS       = 'anpa_socios_association_address';
 	const OPTION_FEE           = 'anpa_socios_membership_fee';
+	// 1.83.0: data retention (Axustes → Xeral → Mantemento).
+	const OPTION_MESES_BAIXA     = 'anpa_socios_meses_retencion_baixa';
+	const OPTION_MESES_AUDITORIA = 'anpa_socios_meses_retencion_auditoria';
 	const OPTION_MENU_NAME     = 'anpa_socios_menu_name';
 	// Opt-in beta channel: when '1', the self-hosted updater reads the
 	// prerelease metadata channel (details-prerelease.json) instead of the
@@ -307,6 +310,26 @@ final class ANPA_Socios_Config {
 	 *
 	 * @return string
 	 */
+	/**
+	 * Months a member's data is kept after the baixa (default 9).
+	 *
+	 * @since  1.83.0
+	 * @return int
+	 */
+	public static function meses_retencion_baixa(): int {
+		return ANPA_Socios_Retencion::meses( get_option( self::OPTION_MESES_BAIXA, '' ), ANPA_Socios_Retencion::MESES_BAIXA );
+	}
+
+	/**
+	 * Months the audit log is kept (default 12).
+	 *
+	 * @since  1.83.0
+	 * @return int
+	 */
+	public static function meses_retencion_auditoria(): int {
+		return ANPA_Socios_Retencion::meses( get_option( self::OPTION_MESES_AUDITORIA, '' ), ANPA_Socios_Retencion::MESES_AUDITORIA );
+	}
+
 	public static function membership_fee(): string {
 		$value = trim( (string) get_option( self::OPTION_FEE, '' ) );
 
