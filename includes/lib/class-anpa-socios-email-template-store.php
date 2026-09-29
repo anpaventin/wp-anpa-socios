@@ -260,6 +260,31 @@ final class ANPA_Socios_Email_Template_Store {
 			// 1.62.0: acknowledgement to the family when it REQUESTS a baixa from the
 			// area: the process is manual, an administrator confirms it within days,
 			// and the ANPA is run by parents in their free time.
+			// 1.79.0: request made with the course running — effective only at its end.
+			'baixa_socio_solicitada_curso' => array(
+				'subject' => array(
+					__( 'Recibimos a túa solicitude de baixa: será efectiva ao remate do curso — %s', 'anpa-socios' ),
+					array( 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Ola %s,', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Rexistramos a túa solicitude de baixa como socio/a de %s.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Tal e como se indicaba no momento da alta, <strong>unha vez iniciado o curso a baixa non se fai efectiva ata o seu remate</strong> (%s). Mentres tanto segues sendo socio/a e a cota do curso mantense.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Se o que queres é deixar de recibir correos da asociación, podes manter a solicitude: queda rexistrada e a baixa farase efectiva ao rematar o curso.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Podes anular a solicitude en calquera momento: entra na túa área de socios (<a href="%s">%s</a>) e preme «Anular solicitude de baixa».', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Para calquera dúbida, escribe á directiva en %s.', 'anpa-socios' ) . '</p>',
+					array( 'nome', 'association_name', 'data_remate', 'login_url', 'login_url', 'contact_email' ),
+				),
+				'text' => array(
+					__( 'Ola %s,', 'anpa-socios' ) . "\n\n" .
+					__( 'Rexistramos a túa solicitude de baixa como socio/a de %s.', 'anpa-socios' ) . "\n\n" .
+					__( 'Tal e como se indicaba no momento da alta, unha vez iniciado o curso a baixa non se fai efectiva ata o seu remate (%s). Mentres tanto segues sendo socio/a e a cota do curso mantense.', 'anpa-socios' ) . "\n\n" .
+					__( 'Se o que queres é deixar de recibir correos da asociación, podes manter a solicitude: queda rexistrada e a baixa farase efectiva ao rematar o curso.', 'anpa-socios' ) . "\n\n" .
+					__( 'Podes anular a solicitude en calquera momento: entra na túa área de socios (%s) e preme «Anular solicitude de baixa».', 'anpa-socios' ) . "\n\n" .
+					__( 'Para calquera dúbida, escribe á directiva en %s.', 'anpa-socios' ),
+					array( 'nome', 'association_name', 'data_remate', 'login_url', 'contact_email' ),
+				),
+			),
 			'baixa_socio_solicitada' => array(
 				'subject' => array(
 					__( 'Recibimos a túa solicitude de baixa — %s', 'anpa-socios' ),

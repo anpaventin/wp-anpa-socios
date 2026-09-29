@@ -114,13 +114,46 @@ final class ANPA_Socios_Admin_Baixas_Handler {
 		}
 		unset( $row );
 
+		$curso_baixas = self::curso_para_baixas();
 		return new WP_REST_Response(
 			array(
 				'curso_escolar' => $curso,
 				'socios'        => is_array( $socios ) ? $socios : array(),
 				'matriculas'    => $matriculas,
+				// 1.79.0: member baixas are only effective at the end of a running course.
+				'curso_en_marcha' => $curso_baixas['en_marcha'],
+				'remate'          => $curso_baixas['remate'],
 			),
 			200
+		);
+	}
+
+	/**
+	 * 1.79.0: whether the active course is running today and when it ends, for the
+	 * member baixa rule («once the course has started, the baixa is effective at the end»).
+	 *
+	 * @since  1.79.0
+	 * @return array{en_marcha:bool,inicio:string,remate:string,remate_texto:string}
+	 */
+	public static function curso_para_baixas(): array {
+		global $wpdb;
+		$out   = array( 'en_marcha' => false, 'inicio' => '', 'remate' => '', 'remate_texto' => ANPA_Socios_Baixa_Socio::remate_texto( '' ) );
+		$curso = class_exists( 'ANPA_Socios_Curso_Activo' ) ? ANPA_Socios_Curso_Activo::get() : null;
+		if ( null === $curso || ! is_object( $wpdb ) ) {
+			return $out;
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only course calendar.
+		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT estado, data_inicio, data_peche FROM ' . ANPA_Socios_DB::tabela_cursos() . ' WHERE curso_escolar = %s', (string) $curso ), ARRAY_A );
+		if ( ! is_array( $row ) ) {
+			return $out;
+		}
+		$peche  = substr( (string) ( $row['data_peche'] ?? '' ), 0, 10 );
+		$inicio = substr( (string) ( $row['data_inicio'] ?? '' ), 0, 10 );
+		return array(
+			'en_marcha'    => ANPA_Socios_Baixa_Socio::curso_en_marcha( (string) $row['estado'], $inicio, $peche, current_time( 'Y-m-d' ) ),
+			'inicio'       => $inicio,
+			'remate'       => $peche,
+			'remate_texto' => ANPA_Socios_Baixa_Socio::remate_texto( $peche ),
 		);
 	}
 

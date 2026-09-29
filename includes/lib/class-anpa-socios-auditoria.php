@@ -46,6 +46,8 @@ final class ANPA_Socios_Auditoria {
 			'approval_approve'      => array( 'Alta de socio/a', 'Aprobada', 'si' ),
 			'approval_reject'       => array( 'Alta de socio/a', 'Rexeitada', 'non' ),
 			'baixa_confirm'         => array( 'Baixa de socio/a', 'Confirmada', 'si' ),
+			// 1.79.0: confirmed while the course was running (exception to the alta conditions).
+			'baixa_confirm_excepcion' => array( 'Baixa de socio/a', 'Confirmada como excepción (curso en marcha)', 'si' ),
 			'baixa_confirm_familia' => array( 'Baixa de socio/a', 'Confirmada (resto da familia)', 'si' ),
 			// Rows written before 1.46.0 were cut at 20 characters.
 			'baixa_confirm_famili'  => array( 'Baixa de socio/a', 'Confirmada (resto da familia)', 'si' ),
@@ -72,6 +74,7 @@ final class ANPA_Socios_Auditoria {
 		'matricula_retirada'         => 'Solicitude de matrícula retirada pola familia',
 		'oferta_aceptada'            => 'Oferta de praza aceptada',
 		'baixa_confirm'              => 'Baixa confirmada',
+		'baixa_confirm_excepcion'    => 'Baixa confirmada como excepción (curso en marcha)',
 		'baixa_confirm_familia'      => 'Baixa confirmada (resto da familia)',
 		'baixa_confirm_famili'       => 'Baixa confirmada (resto da familia)',
 		'baixa_reject'               => 'Baixa rexeitada',

@@ -1283,6 +1283,13 @@
 		var intro = document.createElement('p');
 		intro.className = 'description';
 		// 1.62.0: both decisions email the family with the templates in Axustes → Plantillas.
+		// 1.79.0: with the course running, confirming is an exception.
+		if (data && data.curso_en_marcha && socios.length) {
+			var enMarcha = document.createElement('p');
+			enMarcha.className = 'anpa-area-required-warning';
+			enMarcha.textContent = 'O curso está en marcha: segundo as condicións da alta, estas baixas fanse efectivas ao remate do curso' + (data.remate ? ' (' + formatAdminDate(data.remate) + ')' : '') + '. Confirmalas agora sería unha excepción; a web pedirá confirmación.';
+			root.appendChild(enMarcha);
+		}
 		intro.textContent = 'Solicitudes de baixa da asociación feitas polas familias desde a área de socios. Confirmar fai efectiva a baixa de toda a unidade familiar; rexeitar deixa todo como estaba. Nos dous casos a familia recibe un correo automático (plantillas «baixa_socio_confirmada» e «baixa_socio_rexeitada» en Axustes → Plantillas de email). As baixas de actividades pedidas polas familias xestiónanse en Extraescolares → Matrículas (1.68.1).';
 		root.appendChild(intro);
 
@@ -1311,8 +1318,8 @@
 			return table;
 		}
 		function cell(text) { var td = document.createElement('td'); td.textContent = text == null ? '' : String(text); return td; }
-		function act(path, okMsg) {
-			anpaAdminFetch(path, { method: 'POST' }).then(function (r) {
+		function act(path, okMsg, body) {
+			anpaAdminFetch(path, body ? { method: 'POST', body: body } : { method: 'POST' }).then(function (r) {
 				// 1.62.0: say whether the family's email went out (the decision itself is already applied).
 				var mail = '';
 				// A member baixa covers the whole family unit: list the deregistered addresses.
@@ -1322,7 +1329,18 @@
 				else if (r && r.correo_enviado === false) { mail = ' ATENCIÓN: non se puido enviar o correo á familia' + (r && typeof r.correos_enviados === 'number' ? ' (enviados: ' + r.correos_enviados + ')' : '') + '; avísaa por outro medio.'; }
 				showMessage(okMsg + mail, r && r.correo_enviado === false ? 'warning' : 'success');
 				loadApprovals();
-			}).catch(function (e) { showMessage(e.message, 'error'); loadApprovals(); });
+			}).catch(function (e) {
+				// 1.79.0: the course is running — confirming now is an exception the junta must accept.
+				if (e.code === 'anpa_baixa_curso_en_marcha' && /\/baixa\/confirm$/.test(path)) {
+					if (window.confirm(e.message + '\n\nQueres proceder igualmente coa baixa como EXCEPCIÓN? A familia pasa a baixa agora e recibe o correo de baixa efectiva.')) {
+						act(path, 'Baixa de socio/a confirmada como excepción.', { excepcion: true });
+					} else {
+						showMessage('Baixa non confirmada: segue pendente ata o remate do curso.', 'info');
+					}
+					return;
+				}
+				showMessage(e.message, 'error'); loadApprovals();
+			});
 		}
 
 		if (!socios.length) {

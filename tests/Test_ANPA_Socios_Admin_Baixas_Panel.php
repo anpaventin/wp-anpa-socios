@@ -86,9 +86,10 @@ final class Test_ANPA_Socios_Admin_Baixas_Panel extends TestCase {
 		// of Lista Gmail); the activity baixas moved to renderBaixasActividades (2 confirms).
 		$start = strpos( $js, 'function renderBaixasSocios(data)' );
 		$end   = strpos( $js, '// ── Section: Fillos', $start );
-		$this->assertSame( 3, substr_count( substr( $js, $start, $end - $start ), 'window.confirm(' ) );
+		// 1.79.0: +1 confirm — the exception prompt when the course is running.
+		$this->assertSame( 4, substr_count( substr( $js, $start, $end - $start ), 'window.confirm(' ) );
 		$baixas_end = strpos( $js, '// ── Section: Lista Gmail', $start );
-		$this->assertSame( 2, substr_count( substr( $js, $start, $baixas_end - $start ), 'window.confirm(' ) );
+		$this->assertSame( 3, substr_count( substr( $js, $start, $baixas_end - $start ), 'window.confirm(' ) );
 		$this->assertStringNotContainsString( 'Baixas de actividades pendentes (', substr( $js, $start, $baixas_end - $start ) );
 		$mov_start = strpos( $js, 'function renderBaixasActividades(host)' );
 		$mov_end   = strpos( $js, 'function renderEstadoCurso(host, curso)', $mov_start );

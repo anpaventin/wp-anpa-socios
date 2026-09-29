@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.79.0] - 2026-09-29
+
+### Changed
+
+- **Baixa de socio/a co curso en marcha** (entre `data_inicio` e `data_peche` do curso activo):
+  - A familia recibe a plantilla nova **`baixa_socio_solicitada_curso`**: tal e como se indicaba na alta, unha vez
+    iniciado o curso a baixa non é efectiva ata o seu remate (data do curso); se quere deixar de recibir correos pode
+    manter a solicitude; pode anulala cando queira na área de socios («Anular»). Fóra do curso segue a
+    `baixa_socio_solicitada` de sempre.
+  - En Operacións → Aprobacións → Baixas de socios/as sae o aviso de curso en marcha e «Confirmar baixa» pide unha
+    **confirmación de excepción** (o servidor responde `409 anpa_baixa_curso_en_marcha` se non chega `excepcion: true`).
+    Se se acepta, a baixa faise efectiva, a familia recibe o correo de baixa efectiva e queda rexistrada como
+    «Confirmada como excepción (curso en marcha)» (`baixa_confirm_excepcion`). Unha solicitude feita **antes do
+    comezo** do curso en marcha (p. ex. do curso anterior, sen confirmar) confírmase sen excepción: xa se lle
+    prometera á familia que sería efectiva ao remate daquel curso.
+
 ## [1.78.0] - 2026-09-29
 
 ### Changed

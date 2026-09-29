@@ -564,6 +564,11 @@ class ANPA_Socios_Email {
 	 * @return bool
 	 */
 	public static function enviar_baixa_socio_solicitada( string $email_socio, string $nome ): bool {
+		// 1.79.0: once the course has started the baixa is only effective at its end (as the alta says).
+		$curso = class_exists( 'ANPA_Socios_Admin_Baixas_Handler' ) ? ANPA_Socios_Admin_Baixas_Handler::curso_para_baixas() : array( 'en_marcha' => false );
+		if ( ! empty( $curso['en_marcha'] ) ) {
+			return self::send_template( $email_socio, 'baixa_socio_solicitada_curso', array( 'nome' => $nome, 'data_remate' => (string) $curso['remate_texto'] ) + self::links_context() );
+		}
 		return self::send_template( $email_socio, 'baixa_socio_solicitada', array( 'nome' => $nome ) );
 	}
 

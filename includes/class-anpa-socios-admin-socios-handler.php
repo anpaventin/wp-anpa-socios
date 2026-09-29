@@ -370,13 +370,32 @@ final class ANPA_Socios_Admin_Socios_Handler {
 		// that were deregistered. The requester must still have a pending request.
 		$soc_t = $wpdb->prefix . 'anpa_socios';
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- precondition lookup.
-		$row = $wpdb->get_row( $wpdb->prepare( "SELECT id, familia_id, baixa_estado, estado FROM {$soc_t} WHERE email = %s", $email ), ARRAY_A );
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT id, familia_id, baixa_estado, estado, baixa_solicitada_en FROM {$soc_t} WHERE email = %s", $email ), ARRAY_A );
 		if ( ! is_array( $row ) || 'solicitada' !== (string) $row['baixa_estado'] || 'activo' !== (string) $row['estado'] ) {
 			// Refuse rather than silently giving baixa to a socio who never requested it.
 			return new WP_Error(
 				'anpa_admin_no_baixa_request',
 				'Este socio/a non ten unha solicitude de baixa pendente',
 				array( 'status' => 409 )
+			);
+		}
+		// 1.79.0: with the course running the baixa is only effective at its end (alta
+		// conditions). Confirming it now is an explicit exception the junta must accept.
+		$curso     = ANPA_Socios_Admin_Baixas_Handler::curso_para_baixas();
+		$corpo     = ANPA_Socios_Admin_Shared::json_body( $request );
+		$excepcion = ! empty( $corpo['excepcion'] );
+		// A request made before this course started (e.g. last course, never confirmed) was
+		// promised to be effective at that course's end: no exception needed now.
+		$pedida_antes = '' !== (string) $curso['inicio'] && strcmp( substr( (string) ( $row['baixa_solicitada_en'] ?? '' ), 0, 10 ), (string) $curso['inicio'] ) < 0 && '' !== (string) ( $row['baixa_solicitada_en'] ?? '' );
+		if ( $curso['en_marcha'] && ! $excepcion && ! $pedida_antes ) {
+			return new WP_Error(
+				'anpa_baixa_curso_en_marcha',
+				sprintf(
+					/* translators: %s: end of the course, e.g. «20 de xuño de 2027». */
+					__( 'O curso está en marcha: segundo as condicións da alta, a baixa non se fai efectiva ata o remate do curso (%s). Confirmala agora sería unha excepción.', 'anpa-socios' ),
+					(string) $curso['remate_texto']
+				),
+				array( 'status' => 409, 'remate' => (string) $curso['remate'] )
 			);
 		}
 		$familia_id = ANPA_Socios_Familia::resolve_familia_id( isset( $row['familia_id'] ) ? (int) $row['familia_id'] : null, (int) $row['id'] );
@@ -418,7 +437,7 @@ final class ANPA_Socios_Admin_Socios_Handler {
 
 		$emails = array_values( array_unique( array_map( 'strtolower', array_column( $membros, 'email' ) ) ) );
 		foreach ( $emails as $e ) {
-			ANPA_Socios_Admin_Shared::write_audit( $request, 'socio', $e, $e === $email ? 'baixa_confirm' : 'baixa_confirm_familia' );
+			ANPA_Socios_Admin_Shared::write_audit( $request, 'socio', $e, $e === $email ? ( $excepcion ? 'baixa_confirm_excepcion' : 'baixa_confirm' ) : 'baixa_confirm_familia' );
 		}
 
 		$lista    = implode( ', ', $emails );
