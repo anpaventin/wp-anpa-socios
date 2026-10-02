@@ -220,3 +220,6 @@
 .anpa-extra-card-datas { font-style: italic; }
 .anpa-extra-grupo-creado { display: inline-block; margin-left: 0.35rem; padding: 0.05rem 0.5rem; border-radius: 999px; background: #2e7d32; color: #fff; font-size: 0.8em; font-weight: 600; vertical-align: middle; }
 .anpa-extra-non-acadados ul { margin: 0.5rem 0 0 1.25rem; }
+
+/* 1.85.0: group not created yet (below its minimum), still taking requests. */
+.anpa-extra-grupo-sen-minimo { display: inline-block; margin-left: 0.35rem; padding: 0.05rem 0.5rem; border-radius: 999px; background: #fff1e6; color: #bc4c00; border: 1px solid #f0b48a; font-size: 0.8em; font-weight: 600; }

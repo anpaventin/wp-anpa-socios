@@ -438,7 +438,7 @@ final class ANPA_Socios_Admin_Trimestres_Handler {
 		) );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- end-of-year bulk close, audited below.
 		$grupos = $wpdb->query( $wpdb->prepare(
-			"UPDATE {$gru_t} SET estado = 'pechado', actualizado_en = %s WHERE curso_escolar = %s AND estado = 'aberto'",
+			"UPDATE {$gru_t} SET estado = 'pechado', actualizado_en = %s WHERE curso_escolar = %s AND estado IN ('aberto','sen_minimo')",
 			$now,
 			$curso
 		) );

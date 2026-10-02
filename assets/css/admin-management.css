@@ -1168,3 +1168,9 @@
 .anpa-audit-filtros { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.5rem 0.75rem; margin: 0 0 0.75rem; }
 .anpa-audit-filtros label { display: flex; flex-direction: column; font-weight: 600; font-size: 0.9em; }
 .anpa-audit-descarga { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 0.75rem; }
+
+/* 1.85.0: group «sen mínimo» (not created yet, still taking requests) — orange. */
+.anpa-grupo-estado-sen_minimo { background: #fff1e6; border-color: #f0b48a; color: #bc4c00; }
+.anpa-row-grupo-sen_minimo td { background: #fff7f0; }
+.anpa-grupos-horarios-group-card--sen-minimo { border-color: #e8833a; background: #fff7f0; }
+.anpa-grupos-horarios-group-card--sen-minimo .anpa-grupos-horarios-slot-title::after { content: " · Sen mínimo"; color: #bc4c00; font-weight: 600; }

@@ -836,6 +836,17 @@ class ANPA_Socios_Email {
 	 * @since  1.68.0
 	 * @return bool
 	 */
+	/**
+	 * An offer not accepted in time (or turned down): back at the end of the waiting list (1.85.0).
+	 *
+	 * @since  1.85.0
+	 * @return bool
+	 */
+	public static function enviar_oferta_final_lista( string $email_socio, string $alumno, string $actividade, string $grupo, int $posicion, bool $rexeitada ): bool {
+		$motivo = $rexeitada ? __( 'rexeitastes a oferta', 'anpa-socios' ) : __( 'non se aceptou a oferta no prazo', 'anpa-socios' );
+		return self::send_template( $email_socio, 'oferta_final_lista', array( 'motivo' => $motivo, 'alumno' => $alumno, 'actividade' => $actividade, 'grupo' => $grupo, 'posicion' => (string) $posicion ) );
+	}
+
 	public static function enviar_matricula_aprobada_espera( string $email_socio, string $alumno, string $actividade, string $grupo, int $posicion ): bool {
 		return self::send_template( $email_socio, 'matricula_aprobada_espera', array( 'alumno' => $alumno, 'actividade' => $actividade, 'grupo' => $grupo, 'posicion' => (string) $posicion ) );
 	}

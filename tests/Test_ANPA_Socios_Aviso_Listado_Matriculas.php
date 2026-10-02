@@ -30,11 +30,12 @@ final class Test_ANPA_Socios_Aviso_Listado_Matriculas extends TestCase {
 		);
 	}
 
-	private function trimestres( string $t1 = 'pechada', string $t2 = 'pechada', string $t3 = 'pechada', bool $presente = true ): array {
+	// 1.85.0: $activo = the trimester the junta activated (0 = none: the operative dates decide).
+	private function trimestres( string $t1 = 'pechada', string $t2 = 'pechada', string $t3 = 'pechada', bool $presente = true, int $activo = 1 ): array {
 		return array(
-			1 => array( 'estado' => 'activo', 'ventana_estado' => $t1, 'presente' => $presente ),
-			2 => array( 'estado' => 'pendente', 'ventana_estado' => $t2, 'presente' => $presente ),
-			3 => array( 'estado' => 'pendente', 'ventana_estado' => $t3, 'presente' => $presente ),
+			1 => array( 'estado' => 1 === $activo ? 'activo' : ( $activo > 1 ? 'pechado' : 'pendente' ), 'ventana_estado' => $t1, 'presente' => $presente ),
+			2 => array( 'estado' => 2 === $activo ? 'activo' : ( $activo > 2 ? 'pechado' : 'pendente' ), 'ventana_estado' => $t2, 'presente' => $presente ),
+			3 => array( 'estado' => 3 === $activo ? 'activo' : 'pendente', 'ventana_estado' => $t3, 'presente' => $presente ),
 		);
 	}
 
@@ -48,7 +49,7 @@ final class Test_ANPA_Socios_Aviso_Listado_Matriculas extends TestCase {
 	}
 
 	public function test_closed_window_says_the_list_is_stable(): void {
-		$aviso = ANPA_Socios_Matricula_Gate::aviso_listado( ANPA_Socios_Matricula_Gate::avaliar( $this->curso(), $this->trimestres( 'pechada', 'pechada' ), '2027-02-01' ) );
+		$aviso = ANPA_Socios_Matricula_Gate::aviso_listado( ANPA_Socios_Matricula_Gate::avaliar( $this->curso(), $this->trimestres( 'pechada', 'pechada', 'pechada', true, 2 ), '2027-02-01' ) );
 		$this->assertSame( 'pechadas', $aviso['estado'] );
 		$this->assertSame( 2, $aviso['trimestre'] );
 		$this->assertSame( '2º trimestre · Matrículas PECHADAS', $aviso['titulo'] );

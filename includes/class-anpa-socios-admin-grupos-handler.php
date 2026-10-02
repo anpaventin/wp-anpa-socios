@@ -84,6 +84,12 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			'callback'            => array( __CLASS__, 'notificar_comezo' ),
 			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
 		) );
+		// 1.85.0: below the minimum but kept waiting for more pupils (orange «Sen mínimo»).
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/grupo/(?P<id>\d+)/sen-minimo', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( __CLASS__, 'sen_minimo' ),
+			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+		) );
 		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/grupo/(?P<id>\d+)/pechar-minimo', array(
 			'methods'             => WP_REST_Server::CREATABLE,
 			'callback'            => array( __CLASS__, 'pechar_minimo' ),
@@ -652,7 +658,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			return new WP_Error( 'anpa_admin_mover_concurrente', __( 'A matrícula cambiou mentres se preparaba o movemento. Téntao de novo.', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
 
-		if ( 'aberto' !== (string) $grupo['estado'] ) {
+		if ( ! in_array( (string) $grupo['estado'], array( ANPA_Socios_Grupo_Serie::ESTADO_ABERTO, ANPA_Socios_Grupo_Serie::ESTADO_SEN_MINIMO ), true ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_mover_pechado', __( 'O grupo destino está pechado.', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
@@ -723,13 +729,14 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido comprobar a capacidade do grupo.', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
-		if ( count( $active_rows ) >= (int) $grupo['max_pupilos'] ) {
+		// 1.85.0: offers and held places count too (same rule as enrolments).
+		if ( max( count( $active_rows ), ANPA_Socios_Lista_Espera::ocupadas( $target, $mat_id ) ) >= (int) $grupo['max_pupilos'] ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_mover_cheo', __( 'O grupo destino está completo', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
 
 		$updated = $wpdb->query( $wpdb->prepare(
-			"UPDATE {$mat_t} SET grupo_id = %d, estado = 'activo', actualizado_en = %s WHERE id = %d",
+			"UPDATE {$mat_t} SET grupo_id = %d, estado = 'activo', posicion = NULL, oferta_token = NULL, oferta_expira = NULL, oferta_aceptada_en = NULL, actualizado_en = %s WHERE id = %d",
 			$target,
 			current_time( 'mysql' ),
 			$mat_id
@@ -744,6 +751,11 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'matricula', (string) $mat_id, 'mover' );
+		// 1.85.0: the source group's list closes the gap; a place freed there goes to its next one.
+		ANPA_Socios_Lista_Espera::renumerar( (int) $mat['grupo_id'], (int) $mat['trimestre'] );
+		if ( (int) $mat['grupo_id'] !== $target && in_array( (string) $mat['estado'], array( 'activo', 'oferta', 'baixa_solicitada' ), true ) ) {
+			ANPA_Socios_Extraescolar_Offers::offer_next( (int) $mat['grupo_id'], (int) $mat['trimestre'] );
+		}
 		// 1.72.0: change of group (or alta from the waiting list) in a created group → company + canteen.
 		if ( (int) $mat['grupo_id'] !== $target ) {
 			ANPA_Socios_Email::avisar_cambio_grupo( $mat_id, (int) $mat['grupo_id'], (string) ( $mat['estado'] ?? '' ) );
@@ -960,8 +972,45 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		$tri   = $ciclo['trimestre'] > 0 ? $ciclo['trimestre'] : (int) ( ANPA_Socios_Matricula_Gate_Repo::para_curso( $ctx['curso_escolar'] )['trimestre'] ?? 0 );
 		global $wpdb;
 		$wpdb->update( ANPA_Socios_DB::tabela_grupos(), array( 'aviso_comezo_ciclo' => $ciclo['id'], 'aviso_comezo_trimestre' => $tri, 'aviso_comezo_en' => current_time( 'mysql' ) ), array( 'id' => $ctx['grupo_id'] ), array( '%d', '%d', '%s' ), array( '%d' ) );
+		// 1.85.0: a group that was «sen mínimo» is created now: it opens like any other.
+		if ( ANPA_Socios_Grupo_Serie::ESTADO_SEN_MINIMO === $ctx['estado'] ) {
+			$wpdb->update( ANPA_Socios_DB::tabela_grupos(), array( 'estado' => ANPA_Socios_Grupo_Serie::ESTADO_ABERTO, 'actualizado_en' => current_time( 'mysql' ) ), array( 'id' => $ctx['grupo_id'] ), array( '%s', '%s' ), array( '%d' ) );
+			ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $ctx['grupo_id'], 'estado_aberto' );
+		}
 
 		return new WP_REST_Response( array( 'id' => $ctx['grupo_id'], 'trimestre' => $ctx['trimestre'], 'notificado_trimestre' => $tri, 'inscritos' => $inscritos, 'espera' => $espera ), 200 );
+	}
+
+	/**
+	 * POST /admin/grupo/<id>/sen-minimo — the group did not reach its minimum
+	 * but is kept waiting for more pupils (1.85.0): «sen_minimo» (orange), still
+	 * offered; whoever has a place keeps it (nobody is charged while the group
+	 * is not created) and new requests wait for the junta. The families and the
+	 * company get grupo_sen_minimo; the canteen does not (the group does not run).
+	 * Refused while the free enrolment period is open.
+	 *
+	 * @since  1.85.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function sen_minimo( WP_REST_Request $request ) {
+		global $wpdb;
+		$ctx = self::contexto_aviso_grupo( (int) $request->get_param( 'id' ) );
+		if ( is_wp_error( $ctx ) ) {
+			return $ctx;
+		}
+		if ( ANPA_Socios_Grupo_Serie::ESTADO_ABERTO !== $ctx['estado'] ) {
+			return new WP_Error( 'anpa_admin_grupo_non_aberto', __( 'Só un grupo aberto e sen crear pode quedar «sen mínimo».', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+		$ok = $wpdb->update( ANPA_Socios_DB::tabela_grupos(), array( 'estado' => ANPA_Socios_Grupo_Serie::ESTADO_SEN_MINIMO, 'actualizado_en' => current_time( 'mysql' ) ), array( 'id' => $ctx['grupo_id'], 'estado' => ANPA_Socios_Grupo_Serie::ESTADO_ABERTO ), array( '%s', '%s' ), array( '%d', '%s' ) );
+		if ( 1 !== $ok ) {
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $ctx['grupo_id'], 'sen_minimo' );
+		$envio = ANPA_Socios_Email::enviar_masivo( array_merge( $ctx['emails_activos'], $ctx['emails_espera'], $ctx['emails_pendentes'], $ctx['empresa_email'] ), 'grupo_sen_minimo', array( 'actividade' => $ctx['actividade'], 'grupo' => $ctx['grupo_nome'] ) );
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'email', ANPA_Socios_Envio_Masivo::etiqueta_auditoria( 'grupo_sen_minimo', $envio ), 'masivo' );
+
+		return new WP_REST_Response( array( 'id' => $ctx['grupo_id'], 'estado' => ANPA_Socios_Grupo_Serie::ESTADO_SEN_MINIMO, 'envio' => $envio ), 200 );
 	}
 
 	/**
@@ -1072,6 +1121,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		$empresa = trim( (string) $g['empresa_email'] );
 		return array(
 			'grupo_id'         => (int) $g['id'],
+			'estado'           => (string) $g['estado'],
 			'curso_escolar'    => (string) $g['curso_escolar'],
 			'grupo_nome'       => (string) $g['nome'],
 			'actividade'       => (string) $g['actividade'],

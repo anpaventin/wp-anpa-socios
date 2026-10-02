@@ -26,6 +26,9 @@ final class ANPA_Socios_Oferta_Publica {
 	/** Group closed below its minimum: listed by name only. */
 	const NON_ACADADO = 'non_acadado';
 
+	/** 1.85.0: not created yet (below the minimum) but still taking requests. */
+	const SEN_MINIMO = 'sen_minimo';
+
 	const MESES = array( 1 => 'xaneiro', 'febreiro', 'marzo', 'abril', 'maio', 'xuño', 'xullo', 'agosto', 'setembro', 'outubro', 'novembro', 'decembro' );
 
 	/**
@@ -118,6 +121,9 @@ final class ANPA_Socios_Oferta_Publica {
 	 * @return string self::ABERTO | self::CREADO | self::NON_ACADADO | '' (not shown)
 	 */
 	public static function estado_grupo( string $estado, ?string $aviso_en, int $activos, int $minimo, int $total = 0 ): string {
+		if ( self::SEN_MINIMO === $estado ) {
+			return self::SEN_MINIMO;
+		}
 		if ( 'aberto' === $estado ) {
 			// 1.72.0: a created group reopened for the next trimester keeps «Creado».
 			return ( null !== $aviso_en && '' !== trim( $aviso_en ) && $activos > 0 ) ? self::CREADO : self::ABERTO;

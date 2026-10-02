@@ -74,22 +74,39 @@ final class ANPA_Socios_Extraescolar_Offers {
 	 * @param  int $trimestre Trimester.
 	 * @return void
 	 */
-	public static function offer_next( int $grupo_id, int $trimestre ): void {
+	public static function offer_next( int $grupo_id, int $trimestre, int $excluir = 0 ): void {
 		global $wpdb;
 
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
-		$rows  = $wpdb->get_results(
+		// 1.85.0: only a group that runs or is waiting for its minimum, and only with a free place
+		// (an outstanding or accepted offer keeps its place). $excluir = the family that just let
+		// its offer go: it is never offered the same place again straight away.
+		$grupo = $wpdb->get_row( $wpdb->prepare( 'SELECT estado, max_pupilos FROM ' . ANPA_Socios_DB::tabela_grupos() . ' WHERE id = %d', $grupo_id ), ARRAY_A );
+		if ( ! is_array( $grupo ) || ! in_array( (string) $grupo['estado'], array( ANPA_Socios_Grupo_Serie::ESTADO_ABERTO, ANPA_Socios_Grupo_Serie::ESTADO_SEN_MINIMO ), true ) ) {
+			return;
+		}
+		if ( (int) $grupo['max_pupilos'] > 0 && ANPA_Socios_Lista_Espera::ocupadas( $grupo_id ) >= (int) $grupo['max_pupilos'] ) {
+			return;
+		}
+		// The group's whole waiting list (a place freed by a row of another trimester is still
+		// this group's place), earliest trimester first, then position. A family that let an
+		// offer go is skipped for DESCANSO_DIAS (oferta_expira keeps when its offer ended).
+		$descanso = gmdate( 'Y-m-d H:i:s', time() - ANPA_Socios_Lista_Espera::DESCANSO_DIAS * DAY_IN_SECONDS );
+		$next     = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, posicion FROM {$mat_t} WHERE grupo_id = %d AND trimestre = %d AND estado = 'lista_espera'",
+				"SELECT id, posicion, trimestre FROM {$mat_t} WHERE grupo_id = %d AND estado = 'lista_espera' AND id <> %d AND posicion IS NOT NULL
+				 AND ( oferta_expira IS NULL OR oferta_expira < %s )
+				 ORDER BY trimestre ASC, posicion ASC, id ASC LIMIT 1",
 				$grupo_id,
-				$trimestre
+				$excluir,
+				$descanso
 			),
 			ARRAY_A
 		);
-		$next = ANPA_Socios_Waitlist::first_offerable( is_array( $rows ) ? $rows : array() );
-		if ( null === $next ) {
+		if ( ! is_array( $next ) ) {
 			return;
 		}
+		$trimestre = (int) $next['trimestre'];
 
 		try {
 			$token = bin2hex( random_bytes( 16 ) );
@@ -98,7 +115,7 @@ final class ANPA_Socios_Extraescolar_Offers {
 		}
 		$expira = gmdate( 'Y-m-d H:i:s', time() + self::OFFER_TTL_DAYS * DAY_IN_SECONDS );
 
-		$wpdb->update(
+		$n = $wpdb->update(
 			$mat_t,
 			array(
 				'estado'         => 'oferta',
@@ -106,47 +123,41 @@ final class ANPA_Socios_Extraescolar_Offers {
 				'oferta_expira'  => $expira,
 				'actualizado_en' => current_time( 'mysql' ),
 			),
-			array( 'id' => (int) $next['id'] ),
+			array( 'id' => (int) $next['id'], 'estado' => 'lista_espera' ),
 			array( '%s', '%s', '%s', '%s' ),
-			array( '%d' )
+			array( '%d', '%s' )
 		);
+		if ( 1 !== $n ) {
+			return; // it changed meanwhile (baixa, another offer…).
+		}
 
+		ANPA_Socios_Lista_Espera::renumerar( $grupo_id, $trimestre );
+		ANPA_Socios_Admin_Shared::write_audit_actor( 'system', 'system', 'matricula', (string) $next['id'], 'oferta_enviada' );
 		self::notify_offer( (int) $next['id'] );
 	}
 
 	/**
-	 * Declines an offer (or baixa of an offered matrícula) and advances the
-	 * waitlist to the next pupil.
+	 * An offer the family let expire or turned down (1.85.0): it goes back to
+	 * the END of the group's waiting list (it does not leave it), the family is
+	 * told, and the place is offered to the next one.
 	 *
 	 * @since  1.9.0
-	 * @param  int $matricula_id Matrícula currently in 'oferta'.
-	 * @return void
+	 * @param  int    $matricula_id Matrícula currently in 'oferta'.
+	 * @param  string $motivo       'caducada' (no reply in time) | 'rexeitada' (turned down).
+	 * @param  string $actor        Audit actor email.
+	 * @param  string $actor_tipo   Audit actor type.
+	 * @return bool False when it was no longer an offer.
 	 */
-	public static function decline_and_advance( int $matricula_id ): void {
-		global $wpdb;
-
-		$mat_t = ANPA_Socios_DB::tabela_matriculas();
-		$row   = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT id, grupo_id, trimestre FROM {$mat_t} WHERE id = %d",
-				$matricula_id
-			),
-			ARRAY_A
-		);
-		if ( ! is_array( $row ) ) {
-			return;
+	public static function decline_and_advance( int $matricula_id, string $motivo = 'caducada', string $actor = 'system', string $actor_tipo = 'system' ): bool {
+		$r = ANPA_Socios_Lista_Espera::ao_final( $matricula_id );
+		if ( null === $r ) {
+			return false;
 		}
-
-		$affected = $wpdb->query(
-			$wpdb->prepare(
-				"UPDATE {$mat_t} SET estado = 'baixa', oferta_token = NULL, oferta_expira = NULL, actualizado_en = %s WHERE id = %d AND estado = 'oferta'",
-				current_time( 'mysql' ),
-				$matricula_id
-			)
-		);
-		if ( (int) $affected > 0 ) {
-			self::offer_next( (int) $row['grupo_id'], (int) $row['trimestre'] );
-		}
+		ANPA_Socios_Admin_Shared::write_audit_actor( $actor, $actor_tipo, 'matricula', (string) $matricula_id, 'rexeitada' === $motivo ? 'oferta_rexeitada' : 'oferta_caducada' );
+		self::offer_next( $r['grupo_id'], $r['trimestre'], $matricula_id );
+		// After the next offer, so the email gives the family's final position.
+		self::notify_final_lista( $matricula_id, $motivo );
+		return true;
 	}
 
 	/**
@@ -172,6 +183,29 @@ final class ANPA_Socios_Extraescolar_Offers {
 		}
 		foreach ( $ids as $id ) {
 			self::decline_and_advance( (int) $id );
+		}
+		self::encher_prazas_libres();
+	}
+
+	/**
+	 * Hourly too (1.85.0): a group with a free place and somebody waiting (out of
+	 * their cooling-off) but no offer outstanding gets its next offer — e.g. the only
+	 * family on the list let an offer go: it is offered again after DESCANSO_DIAS.
+	 *
+	 * @return void
+	 */
+	public static function encher_prazas_libres(): void {
+		global $wpdb;
+		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		$gru_t = ANPA_Socios_DB::tabela_grupos();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only candidate groups.
+		$grupos = $wpdb->get_col(
+			"SELECT DISTINCT g.id FROM {$gru_t} g INNER JOIN {$mat_t} m ON m.grupo_id = g.id AND m.estado = 'lista_espera'
+			 WHERE g.estado IN ('aberto','sen_minimo')
+			   AND NOT EXISTS (SELECT 1 FROM {$mat_t} o WHERE o.grupo_id = g.id AND o.estado = 'oferta')"
+		);
+		foreach ( is_array( $grupos ) ? $grupos : array() as $gid ) {
+			self::offer_next( (int) $gid, 0 );
 		}
 	}
 
@@ -215,6 +249,25 @@ final class ANPA_Socios_Extraescolar_Offers {
 	 * @param  int $matricula_id Matrícula in 'oferta'.
 	 * @return void
 	 */
+	/**
+	 * Tells the family it went back to the end of the waiting list (1.85.0).
+	 *
+	 * @param  int    $matricula_id Matrícula.
+	 * @param  string $motivo       caducada | rexeitada.
+	 * @return void
+	 */
+	private static function notify_final_lista( int $matricula_id, string $motivo ): void {
+		$detalle = ANPA_Socios_Admin_Matriculas_Handler::detalle_para_correo( $matricula_id );
+		if ( ! is_array( $detalle ) ) {
+			return;
+		}
+		global $wpdb;
+		$pos = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT posicion FROM ' . ANPA_Socios_DB::tabela_matriculas() . ' WHERE id = %d', $matricula_id ) );
+		foreach ( $detalle['emails'] as $email ) {
+			ANPA_Socios_Email::enviar_oferta_final_lista( $email, $detalle['alumno'], $detalle['actividade'], $detalle['grupo'], $pos, 'rexeitada' === $motivo );
+		}
+	}
+
 	private static function notify_offer( int $matricula_id ): void {
 		global $wpdb;
 

@@ -303,7 +303,7 @@ final class ANPA_Socios_Extraescolares_Page {
 		$rows  = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT id, curso_escolar, franxa, dias FROM {$gru_t}
-				 WHERE curso_escolar = %s AND estado = 'aberto' ORDER BY id",
+				 WHERE curso_escolar = %s AND estado IN ('aberto','sen_minimo') ORDER BY id",
 				$curso
 			),
 			ARRAY_A
@@ -473,6 +473,8 @@ final class ANPA_Socios_Extraescolares_Page {
 				'espera'      => $g['espera'],
 				// 1.71.0: closed and confirmed by the junta -> «Creado».
 				'creado'      => ANPA_Socios_Oferta_Publica::CREADO === ANPA_Socios_Oferta_Publica::estado_grupo( (string) $g['estado'], null === $g['aviso_comezo_en'] ? null : (string) $g['aviso_comezo_en'], (int) $g['activos'], (int) $g['min_pupilos'] ),
+				// 1.85.0: not created yet, still taking requests (orange badge).
+				'sen_minimo'  => ANPA_Socios_Oferta_Publica::SEN_MINIMO === ANPA_Socios_Oferta_Publica::estado_grupo( (string) $g['estado'], null === $g['aviso_comezo_en'] ? null : (string) $g['aviso_comezo_en'], (int) $g['activos'], (int) $g['min_pupilos'] ),
 			);
 		}
 
@@ -542,9 +544,11 @@ final class ANPA_Socios_Extraescolares_Page {
 		$html = '';
 		foreach ( $parts as $part ) {
 			$html .= '<div class="anpa-extra-horario-grupo">';
-			$creado = is_array( $part['capacity'] ) && ! empty( $part['capacity']['creado'] );
+			$creado     = is_array( $part['capacity'] ) && ! empty( $part['capacity']['creado'] );
+			$sen_minimo = is_array( $part['capacity'] ) && ! empty( $part['capacity']['sen_minimo'] );
 			$html  .= '<p class="anpa-extra-meta anpa-extra-horario-line"><strong>' . esc_html( $part['grupo'] ) . '</strong>'
 				. ( $creado ? ' <span class="anpa-extra-grupo-creado">' . esc_html__( 'Creado', 'anpa-socios' ) . '</span>' : '' )
+				. ( $sen_minimo ? ' <span class="anpa-extra-grupo-sen-minimo" title="' . esc_attr__( 'Aínda non chega ao mínimo para formarse: segue admitindo inscricións.', 'anpa-socios' ) . '">' . esc_html__( 'Sen mínimo', 'anpa-socios' ) . '</span>' : '' )
 				. ' — ' . esc_html( $part['franxa'] ) . '</p>';
 			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line anpa-extra-horario-dias">' . esc_html( $part['dias'] ) . '</p>';
 			if ( is_array( $part['capacity'] ) ) {

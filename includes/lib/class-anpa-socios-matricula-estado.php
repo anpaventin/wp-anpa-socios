@@ -74,7 +74,8 @@ final class ANPA_Socios_Matricula_Estado {
 	 * @return string ACTIVO|LISTA_ESPERA
 	 */
 	public static function destino_aprobacion( string $estado_grupo, int $activos, int $max_pupilos ): string {
-		if ( 'aberto' === $estado_grupo && $max_pupilos > 0 && $activos < $max_pupilos ) {
+		// 1.85.0: a group «sen mínimo» also gives places (it is not created yet, nobody is charged).
+		if ( in_array( $estado_grupo, array( 'aberto', 'sen_minimo' ), true ) && $max_pupilos > 0 && $activos < $max_pupilos ) {
 			return self::ACTIVO;
 		}
 		return self::LISTA_ESPERA;

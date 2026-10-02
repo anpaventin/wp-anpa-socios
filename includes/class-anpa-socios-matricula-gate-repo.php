@@ -60,6 +60,17 @@ final class ANPA_Socios_Matricula_Gate_Repo {
 	 * @param  string $curso Curso escolar.
 	 * @return bool|null Derived state, or null when the course row does not exist.
 	 */
+	/**
+	 * Trimester enrolments of $curso belong to now (see Gate::trimestre_vixente).
+	 *
+	 * @since  1.85.0
+	 * @param  string $curso School year.
+	 * @return int
+	 */
+	public static function trimestre_vixente( string $curso ): int {
+		return (int) self::para_curso( $curso )['trimestre'];
+	}
+
 	public static function sincronizar_flag( string $curso ): ?bool {
 		$gate = self::para_curso( $curso );
 		if ( ANPA_Socios_Matricula_Gate::MOTIVO_SEN_CURSO === $gate['motivo'] ) {

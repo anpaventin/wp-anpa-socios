@@ -60,7 +60,7 @@ final class ANPA_Socios_Matricula_Gate {
 			return $out;
 		}
 		$out['estado_curso'] = (string) ( $curso_row['estado'] ?? '' );
-		$out['trimestre']    = ANPA_Socios_Trimestre::actual_por_datas( self::datas_de_fila( $curso_row ), $hoxe );
+		$out['trimestre']    = self::trimestre_vixente( $curso_row, $trimestres, $hoxe );
 
 		if ( ANPA_Socios_Season::ESTADO_ACTIVO !== $out['estado_curso'] ) {
 			$out['motivo'] = self::MOTIVO_CURSO_NON_ACTIVO;
@@ -87,6 +87,25 @@ final class ANPA_Socios_Matricula_Gate {
 	 * @param  array<string,mixed> $gate Result of avaliar().
 	 * @return string
 	 */
+	/**
+	 * The trimester enrolments belong to (1.85.0): the ACTIVE trimester set in
+	 * Xestión → Matrículas; only when none is active, the one of the operative
+	 * dates (the old rule). One rule for the gate, enrolments and approvals.
+	 *
+	 * @param  array<string,mixed>|null       $curso_row  Course row.
+	 * @param  array<int,array<string,mixed>> $trimestres Trimester rows by number (estado, presente…).
+	 * @param  string|null                    $hoxe       Today (Y-m-d) for the dates fallback.
+	 * @return int 0 when undetermined.
+	 */
+	public static function trimestre_vixente( ?array $curso_row, array $trimestres, ?string $hoxe = null ): int {
+		foreach ( $trimestres as $n => $fila ) {
+			if ( is_array( $fila ) && ! empty( $fila['presente'] ) && ANPA_Socios_Trimestre_Estado::ACTIVO === (string) ( $fila['estado'] ?? '' ) ) {
+				return (int) $n;
+			}
+		}
+		return is_array( $curso_row ) ? ANPA_Socios_Trimestre::actual_por_datas( self::datas_de_fila( $curso_row ), $hoxe ) : 0;
+	}
+
 	public static function etiqueta( array $gate ): string {
 		$tri = (int) ( $gate['trimestre'] ?? 0 );
 		switch ( (string) ( $gate['motivo'] ?? '' ) ) {

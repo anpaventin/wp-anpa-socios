@@ -1093,7 +1093,9 @@
 				let txt = who + ' — ' + (m.actividade || '') + (m.curso_escolar ? ' [' + m.curso_escolar + ']' : '');
 				if (m.grupo_nome) { txt += ' (' + m.grupo_nome + (m.horario ? ' — ' + (m.horario === 'maña' ? 'Mañá' : m.horario === 'manha' ? 'Comedor' : 'Tarde') : '') + ')'; }
 				txt += ' · ' + estado;
-				if (m.estado === 'lista_espera' && m.posicion) { txt += ' (posición ' + m.posicion + ')'; }
+				// 1.85.0: the position is the place in THIS group's waiting list.
+				if (m.estado === 'lista_espera' && m.posicion) { txt += ' (posición ' + m.posicion + ' na lista do grupo)'; }
+				if (m.estado === 'pendente_aprobacion' && m.oferta_aceptada_en) { txt += ' · ' + __( 'praza reservada: a directiva confirmaraa', 'anpa-socios' ); }
 				const span = document.createElement('span');
 				span.textContent = txt;
 				li.appendChild(span);
@@ -1105,9 +1107,20 @@
 					acc.textContent = __( 'Aceptar praza', 'anpa-socios' );
 					acc.addEventListener('click', async () => {
 						const done = await tokenRequest('POST', base + '/oferta/aceptar', areaToken, {}, root);
-						if (done) { showMessage(root, __( 'Praza aceptada.', 'anpa-socios' ), 'success'); await loadExtraescolares(); }
+						if (done) { showMessage(root, __( 'Praza aceptada e reservada. A directiva confirmaraa e avisarémoste por correo.', 'anpa-socios' ), 'success'); await loadExtraescolares(); }
 					});
 					li.appendChild(acc);
+					// 1.85.0: turning it down keeps the pupil on the list, at the end.
+					const rex = document.createElement('button');
+					rex.type = 'button';
+					rex.className = 'anpa-area-secondary';
+					rex.textContent = __( 'Rexeitar a praza', 'anpa-socios' );
+					rex.addEventListener('click', async () => {
+						if (!window.confirm(__( 'Rexeitar esta praza? Segues na lista de espera, pero pasas ao final, e a praza ofrécese á seguinte familia.', 'anpa-socios' ))) { return; }
+						const done = await tokenRequest('POST', base + '/oferta/rexeitar', areaToken, {}, root);
+						if (done) { showMessage(root, __( 'Praza rexeitada: segues na lista de espera, ao final.', 'anpa-socios' ), 'success'); await loadExtraescolares(); }
+					});
+					li.appendChild(rex);
 				}
 				if (m.estado === 'activo' || m.estado === 'lista_espera' || m.estado === 'oferta') {
 					const baixa = document.createElement('button');

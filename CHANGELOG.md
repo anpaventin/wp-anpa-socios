@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.85.0] - 2026-10-02
+
+### Added
+
+- **Estado de grupo «Sen mínimo»** (esquema **1.48.0**, laranxa en Xestión e na páxina pública). Un grupo aberto e
+  sen crear que non chega ao mínimo pódese «Deixar sen mínimo» (`POST admin/grupo/<id>/sen-minimo`, co prazo de
+  inscrición libre pechado): segue na oferta e na área, quen ten praza consérvaa (sen cobro mentres non se cree),
+  as novas inscricións quedan pendentes de aprobación, e as familias e a empresa reciben `grupo_sen_minimo` (o
+  comedor non). «Notificar grupo creado» ábreo como calquera outro. O fin de curso tamén o pecha.
+- **Lista de espera** (`ANPA_Socios_Lista_Espera`):
+  - Unha oferta reserva a praza; tamén a reserva unha oferta aceptada pendente de confirmar e unha baixa
+    solicitada (`matriculas.oferta_aceptada_en`).
+  - Aceptar a oferta na área deixa a matrícula **pendente de aprobación** coa praza reservada; ao aprobala
+    (Operacións → Aprobacións) avísase á familia, á empresa e ao comedor.
+  - Se a familia a rexeita (botón novo «Rexeitar a praza», `POST area/matricula/<id>/oferta/rexeitar`) ou non
+    responde en 3 días, pasa **ao final da lista** (correo `oferta_final_lista`) e a praza ofrécese á seguinte;
+    a mesma familia non recibe outra oferta ata pasados 3 días. Cada hora ofrécense as prazas libres dos grupos
+    con xente esperando.
+  - A oferta escolle entre toda a lista do grupo (non só o trimestre da praza liberada); con alguén esperando,
+    unha inscrición nova vai detrás.
+- Script de reparación de produción (monorepo `scripts/remote-repair-grupos-minimo.php`, simulación por defecto).
+
+### Changed
+
+- **Posición** = posición na lista de espera **do grupo** e trimestre (1, 2, 3…), renumerada en cada cambio; só a
+  teñen as matrículas en espera (antes contábase por actividade).
+- **Un só trimestre**: o trimestre activo de Xestión → Matrículas decide a que trimestre van as inscricións e as
+  aprobacións (as datas operativas só se non hai ningún activo).
+- **Matrículas**: o combo «Matrículas abertas para» substitúese por un interruptor «Prazo de inscrición libre (sen
+  aprobación)» do trimestre activo; fóra del, cada inscrición queda pendente de aprobación.
+- O correo `oferta_extraescolar` explica que pasa despois de aceptar ou rexeitar.
+
 ## [1.84.0] - 2026-10-01
 
 ### Added

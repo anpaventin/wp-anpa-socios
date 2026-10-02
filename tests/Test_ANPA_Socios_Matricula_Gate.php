@@ -29,11 +29,12 @@ final class Test_ANPA_Socios_Matricula_Gate extends TestCase {
 		);
 	}
 
-	private function trimestres( string $t1 = 'pechada', string $t2 = 'pechada', string $t3 = 'pechada', bool $presente = true ): array {
+	// 1.85.0: $activo = the trimester the junta activated (0 = none: the operative dates decide).
+	private function trimestres( string $t1 = 'pechada', string $t2 = 'pechada', string $t3 = 'pechada', bool $presente = true, int $activo = 1 ): array {
 		return array(
-			1 => array( 'estado' => 'activo', 'ventana_estado' => $t1, 'presente' => $presente ),
-			2 => array( 'estado' => 'pendente', 'ventana_estado' => $t2, 'presente' => $presente ),
-			3 => array( 'estado' => 'pendente', 'ventana_estado' => $t3, 'presente' => $presente ),
+			1 => array( 'estado' => 1 === $activo ? 'activo' : ( $activo > 1 ? 'pechado' : 'pendente' ), 'ventana_estado' => $t1, 'presente' => $presente ),
+			2 => array( 'estado' => 2 === $activo ? 'activo' : ( $activo > 2 ? 'pechado' : 'pendente' ), 'ventana_estado' => $t2, 'presente' => $presente ),
+			3 => array( 'estado' => 3 === $activo ? 'activo' : 'pendente', 'ventana_estado' => $t3, 'presente' => $presente ),
 		);
 	}
 
@@ -48,17 +49,31 @@ final class Test_ANPA_Socios_Matricula_Gate extends TestCase {
 		$this->assertSame( 'ventana_pechada', $g['motivo'] );
 	}
 
+	public function test_the_active_trimester_wins_over_the_dates(): void {
+		// 1.85.0: the junta keeps T1 active in February → enrolments still belong to T1.
+		$g = ANPA_Socios_Matricula_Gate::avaliar( $this->curso(), $this->trimestres( 'aberta', 'pechada' ), '2027-02-01' );
+		$this->assertSame( 1, $g['trimestre'] );
+		$this->assertTrue( $g['abertas'] );
+		// …and once it activates T2, T2's free period is the one that counts.
+		$g = ANPA_Socios_Matricula_Gate::avaliar( $this->curso(), $this->trimestres( 'aberta', 'pechada', 'pechada', true, 2 ), '2026-10-01' );
+		$this->assertSame( 2, $g['trimestre'] );
+		$this->assertFalse( $g['abertas'], 'T1 window open must not open T2' );
+		$this->assertSame( 2, ANPA_Socios_Matricula_Gate::trimestre_vixente( $this->curso(), $this->trimestres( 'pechada', 'pechada', 'pechada', true, 2 ), '2026-10-01' ) );
+		$this->assertSame( 0, ANPA_Socios_Matricula_Gate::trimestre_vixente( null, array() ) );
+	}
+
 	public function test_trimester_is_derived_from_operative_dates(): void {
 		// 2027-02-01 is after t1 (2026-12-22) and on/before t2 → T2.
-		$g = ANPA_Socios_Matricula_Gate::avaliar( $this->curso(), $this->trimestres( 'aberta', 'pechada' ), '2027-02-01' );
+		// 1.85.0: with no trimester activated, the operative dates decide.
+		$g = ANPA_Socios_Matricula_Gate::avaliar( $this->curso(), $this->trimestres( 'aberta', 'pechada', 'pechada', true, 0 ), '2027-02-01' );
 		$this->assertSame( 2, $g['trimestre'] );
 		$this->assertFalse( $g['abertas'], 'T1 window open must not open T2' );
 
-		$g = ANPA_Socios_Matricula_Gate::avaliar( $this->curso(), $this->trimestres( 'pechada', 'aberta' ), '2027-02-01' );
+		$g = ANPA_Socios_Matricula_Gate::avaliar( $this->curso(), $this->trimestres( 'pechada', 'aberta', 'pechada', true, 0 ), '2027-02-01' );
 		$this->assertTrue( $g['abertas'] );
 
 		// After t2 → T3.
-		$g = ANPA_Socios_Matricula_Gate::avaliar( $this->curso(), $this->trimestres( 'pechada', 'pechada', 'aberta' ), '2027-05-10' );
+		$g = ANPA_Socios_Matricula_Gate::avaliar( $this->curso(), $this->trimestres( 'pechada', 'pechada', 'aberta', true, 0 ), '2027-05-10' );
 		$this->assertSame( 3, $g['trimestre'] );
 		$this->assertTrue( $g['abertas'] );
 	}
@@ -97,7 +112,7 @@ final class Test_ANPA_Socios_Matricula_Gate extends TestCase {
 		$this->assertSame( '', $datas['t1'] );
 		$this->assertSame( '', $datas['t2'] );
 		// Month model: February → T2.
-		$g = ANPA_Socios_Matricula_Gate::avaliar( $row, $this->trimestres( 'pechada', 'aberta' ), '2027-02-15' );
+		$g = ANPA_Socios_Matricula_Gate::avaliar( $row, $this->trimestres( 'pechada', 'aberta', 'pechada', true, 0 ), '2027-02-15' );
 		$this->assertSame( 2, $g['trimestre'] );
 		$this->assertTrue( $g['abertas'] );
 	}
@@ -137,13 +152,13 @@ final class Test_ANPA_Socios_Matricula_Gate extends TestCase {
 
 	public function test_migration_1_41_0_keeps_open_courses_open_and_is_wired(): void {
 		$db = $this->src( 'includes/class-anpa-socios-db.php' );
-		$this->assertStringContainsString( "const DB_VERSION = '1.47.0'", $db );
+		$this->assertStringContainsString( "const DB_VERSION = '1.48.0'", $db );
 		$this->assertStringContainsString( "version_compare( \$installed_version, '1.41.0', '<' ) && ! self::migrate_to_1_41_0()", $db );
 		$this->assertStringContainsString( 'Migration halted at step 1.41.0', $db );
 		$this->assertStringContainsString( 'private static function migrate_to_1_41_0(): bool', $db );
 		$this->assertStringContainsString( "ANPA_Socios_Trimestre_Repo::ORIXE_MIGRACION, 'sistema' );", $db );
 		$this->assertStringContainsString( "ANPA_Socios_Ventana_Estado::ABERTA, 'sistema', ANPA_Socios_Trimestre_Repo::ORIXE_MIGRACION, 'e3-1.41.0'", $db );
 		$this->assertStringContainsString( 'ANPA_Socios_Matricula_Gate_Repo::sincronizar_flag( $curso );', $db );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.47.0' )", $this->src( 'anpa-socios.php' ) );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.48.0' )", $this->src( 'anpa-socios.php' ) );
 	}
 }

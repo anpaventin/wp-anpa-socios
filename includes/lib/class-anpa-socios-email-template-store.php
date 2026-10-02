@@ -100,12 +100,15 @@ final class ANPA_Socios_Email_Template_Store {
 				),
 				'html' => array(
 					'<p>' . sprintf( __( 'Ola, hai unha praza dispoñible para %%s.', 'anpa-socios' ), '<strong>%s</strong>' ) . '</p>' .
-					'<p>' . sprintf( __( 'Tes %%d días para aceptar esta oferta.', 'anpa-socios' ), '%s' ) . '</p>',
+					'<p>' . sprintf( __( 'Tes %%d días para aceptar esta oferta.', 'anpa-socios' ), '%s' ) . '</p>' .
+					// 1.85.0: what happens next.
+					'<p>' . __( 'Acéptaa ou rexéitaa na área de socios/as (Extraescolares). Se a aceptas, a directiva confirmará a praza e avisarémoste. Se a rexeitas ou non respondes a tempo, segues na lista de espera, pero ao final.', 'anpa-socios' ) . '</p>',
 					array( 'actividade', 'dias_prazo' ),
 				),
 				'text' => array(
 					__( 'Ola, hai unha praza dispoñible para %s.', 'anpa-socios' ) . "\n\n" .
-					__( 'Tes %d días para aceptar esta oferta.', 'anpa-socios' ),
+					__( 'Tes %d días para aceptar esta oferta.', 'anpa-socios' ) . "\n\n" .
+					__( 'Acéptaa ou rexéitaa na área de socios/as (Extraescolares). Se a aceptas, a directiva confirmará a praza e avisarémoste. Se a rexeitas ou non respondes a tempo, segues na lista de espera, pero ao final.', 'anpa-socios' ),
 					array( 'actividade', 'dias_prazo' ),
 				),
 			),
@@ -734,6 +737,47 @@ final class ANPA_Socios_Email_Template_Store {
 					__( 'As matrículas e as solicitudes de lista de espera deste grupo quedan anuladas, sen ningún cobro. Se hai outros grupos ou actividades con prazas, podedes matricular dende a área de socios/as.', 'anpa-socios' ) . "\n\n" .
 					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
 					array( 'grupo', 'actividade', 'contact_email' ),
+				),
+			),
+			// 1.85.0: the group stays «sen mínimo» (not created, still taking requests).
+			// Families and the company; never the canteen (the group does not run yet).
+			'grupo_sen_minimo' => array(
+				'subject' => array(
+					__( 'O grupo %s de %s aínda non se forma: seguimos admitindo inscricións — %s', 'anpa-socios' ),
+					array( 'grupo', 'actividade', 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Prezadas familias e empresa,', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'O grupo <strong>%s</strong> da actividade <strong>%s</strong> aínda non chega ao mínimo de alumnado, polo que de momento non comeza.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'O grupo segue aberto a novas inscricións durante o curso. Quen xa está inscrito conserva a súa praza e non se cobra nada mentres o grupo non se forme. Se se chega ao mínimo, avisaremos con antelación antes de comezar.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
+					array( 'grupo', 'actividade', 'contact_email' ),
+				),
+				'text' => array(
+					__( 'Prezadas familias e empresa,', 'anpa-socios' ) . "\n\n" .
+					__( 'O grupo %s da actividade %s aínda non chega ao mínimo de alumnado, polo que de momento non comeza.', 'anpa-socios' ) . "\n\n" .
+					__( 'O grupo segue aberto a novas inscricións durante o curso. Quen xa está inscrito conserva a súa praza e non se cobra nada mentres o grupo non se forme. Se se chega ao mínimo, avisaremos con antelación antes de comezar.', 'anpa-socios' ) . "\n\n" .
+					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
+					array( 'grupo', 'actividade', 'contact_email' ),
+				),
+			),
+			// 1.85.0: an offer not accepted in time (or turned down) → end of the waiting list.
+			'oferta_final_lista' => array(
+				'subject' => array(
+					__( 'Lista de espera de %s — %s', 'anpa-socios' ),
+					array( 'actividade', 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Ola,', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Como %s, a praza ofrecida para <strong>%s</strong> en <strong>%s</strong> (grupo %s) ofrecerase á seguinte familia da lista de espera, se a hai.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Segue na lista de espera, agora na posición %s. Se queres saír dela, podes darte de baixa na área de socios/as.', 'anpa-socios' ) . '</p>',
+					array( 'motivo', 'alumno', 'actividade', 'grupo', 'posicion' ),
+				),
+				'text' => array(
+					__( 'Ola,', 'anpa-socios' ) . "\n\n" .
+					__( 'Como %s, a praza ofrecida para %s en %s (grupo %s) ofrecerase á seguinte familia da lista de espera, se a hai.', 'anpa-socios' ) . "\n\n" .
+					__( 'Segue na lista de espera, agora na posición %s. Se queres saír dela, podes darte de baixa na área de socios/as.', 'anpa-socios' ),
+					array( 'motivo', 'alumno', 'actividade', 'grupo', 'posicion' ),
 				),
 			),
 			'send_from_master' => array(

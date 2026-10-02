@@ -96,7 +96,7 @@ final class Test_ANPA_Socios_Retencion extends TestCase {
 
 	public function test_schema_and_baixa_date(): void {
 		$db = $this->src( 'includes/class-anpa-socios-db.php' );
-		$this->assertStringContainsString( "const DB_VERSION = '1.47.0';", $db );
+		$this->assertStringContainsString( "const DB_VERSION = '1.48.0';", $db );
 		$this->assertStringContainsString( "version_compare( \$installed_version, '1.47.0', '<' ) && ! self::migrate_to_1_47_0()", $db );
 		$m = $this->body( $db, 'migrate_to_1_47_0' );
 		$this->assertStringContainsString( 'ADD COLUMN baixa_en datetime NULL DEFAULT NULL', $m );

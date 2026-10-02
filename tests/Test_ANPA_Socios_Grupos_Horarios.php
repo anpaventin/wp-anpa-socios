@@ -150,12 +150,15 @@ final class Test_ANPA_Socios_Grupos_Horarios extends TestCase {
 		// 1.68.0: the grid stays read-only except for the two per-group notices
 		// (start of trimester, close below minimum), which are disabled while the
 		// enrolment window is open (fail closed when the gate cannot be read).
-		$this->assertSame( 2, substr_count( $body, "method: 'POST'" ) );
+		// 1.85.0: +1 — «Deixar sen mínimo».
+		$this->assertSame( 3, substr_count( $body, "method: 'POST'" ) );
+		$this->assertStringContainsString( "'/sen-minimo'", $body );
 		$this->assertStringContainsString( "'/notificar-comezo'", $body );
 		$this->assertStringContainsString( "'/pechar-minimo'", $body );
 		// 1.68.1: the two buttons only exist with the window closed (=== false, i.e. read and closed).
 		$this->assertStringContainsString( 'var pechadas = state.matriculasAbertas === false;', $body );
-		$this->assertStringContainsString( "if (pechadas && group.estado === 'aberto' && !group.notificado) {", $body );
+		// 1.85.0: a «sen mínimo» group keeps «Notificar grupo creado».
+		$this->assertStringContainsString( "if (pechadas && (group.estado === 'aberto' || senMinimo) && !group.notificado) {", $body );
 		$this->assertStringContainsString( 'var baixoMinimo = group.min_pupilos > 0 && group.activos < group.min_pupilos;', $body );
 		$this->assertStringContainsString( 'if (baixoMinimo) {', $body );
 		$this->assertStringContainsString( 'anpa-grupos-horarios-group-card--oculto', $body );
@@ -163,7 +166,8 @@ final class Test_ANPA_Socios_Grupos_Horarios extends TestCase {
 		$this->assertStringContainsString( 'Notificar grupo creado (comezo do trimestre)', $body );
 		// 1.69.0: notified groups are painted green and lose the button until the next window cycle.
 		$this->assertStringContainsString( 'anpa-grupos-horarios-group-card--notificado', $body );
-		$this->assertStringContainsString( "if (pechadas && group.estado === 'aberto' && !group.notificado) {", $body );
+		// 1.85.0: a «sen mínimo» group keeps «Notificar grupo creado».
+		$this->assertStringContainsString( "if (pechadas && (group.estado === 'aberto' || senMinimo) && !group.notificado) {", $body );
 		$this->assertStringContainsString( '.anpa-grupos-horarios-group-card--notificado', $css );
 		$handler = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-grupos-handler.php' );
 		$this->assertStringContainsString( 'public static function ciclo_ventana( string $curso ): array', $handler );

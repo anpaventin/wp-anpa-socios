@@ -74,6 +74,12 @@ final class ANPA_Socios_Extraescolares_REST {
 			'callback'            => array( __CLASS__, 'accept_oferta' ),
 			'permission_callback' => array( 'ANPA_Socios_Area_REST', 'permission_area_session' ),
 		) );
+		// 1.85.0: turn the offered place down (stays on the list, at the end).
+		register_rest_route( self::REST_NAMESPACE, '/area/matricula/(?P<id>\d+)/oferta/rexeitar', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( __CLASS__, 'rexeitar_oferta' ),
+			'permission_callback' => array( 'ANPA_Socios_Area_REST', 'permission_area_session' ),
+		) );
 	}
 
 	/**
@@ -104,7 +110,7 @@ final class ANPA_Socios_Extraescolares_REST {
 		$curso_fillo = null;
 		$nivel_fillo_id = null;
 		$sen_curso   = false;
-		$sql         = "SELECT DISTINCT a.id, a.nome, a.descripcion FROM {$act_t} a INNER JOIN {$gru_t} offered ON offered.actividad_id = a.id AND offered.curso_escolar = %s AND offered.estado = 'aberto' WHERE a.estado = 'activo'";
+		$sql         = "SELECT DISTINCT a.id, a.nome, a.descripcion FROM {$act_t} a INNER JOIN {$gru_t} offered ON offered.actividad_id = a.id AND offered.curso_escolar = %s AND offered.estado IN ('aberto','sen_minimo') WHERE a.estado = 'activo'";
 		$params      = array( $curso );
 
 		// R-F1: optional fillo_id filters out already-enrolled activities.
@@ -143,7 +149,7 @@ final class ANPA_Socios_Extraescolares_REST {
 		foreach ( $acts as $act ) {
 			$grupos = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT id, nome, horario, curso_escolar, franxa, dias, max_pupilos, estado FROM {$gru_t} WHERE actividad_id = %d AND curso_escolar = %s AND estado = 'aberto' ORDER BY franxa ASC, nome ASC, id ASC",
+					"SELECT id, nome, horario, curso_escolar, franxa, dias, max_pupilos, estado FROM {$gru_t} WHERE actividad_id = %d AND curso_escolar = %s AND estado IN ('aberto','sen_minimo') ORDER BY franxa ASC, nome ASC, id ASC",
 					(int) $act['id'],
 					$curso
 				),
@@ -361,6 +367,10 @@ final class ANPA_Socios_Extraescolares_REST {
 		if ( ANPA_Socios_Aviso_Matricula::grupo_creado( ANPA_Socios_Season::ESTADO_ACTIVO, null === ( $locked['aviso_comezo_en'] ?? null ) ? null : (string) $locked['aviso_comezo_en'] ) ) {
 			$pendente = true;
 		}
+		// 1.85.0: a group «sen mínimo» (not created yet) takes requests for the junta to approve.
+		if ( ANPA_Socios_Grupo_Serie::ESTADO_SEN_MINIMO === (string) $locked['estado'] ) {
+			$pendente = true;
+		}
 
 		$wpdb->last_error = '';
 		$locked_niveis = $wpdb->get_col( $wpdb->prepare(
@@ -420,42 +430,26 @@ final class ANPA_Socios_Extraescolares_REST {
 			return self::err( 'anpa_extra_dup', 'Este alumno/a xa está matriculado nesta actividade', 409 );
 		}
 
-		// Capacity gate → activo or lista_espera. 1.68.0: every active enrolment of
-		// the group counts, not only the current trimester's (the public offer and
-		// the company panel already counted them all).
+		// Capacity gate → activo or lista_espera. 1.68.0: every place of the group counts,
+		// not only the current trimester's. 1.85.0: an outstanding offer and an accepted
+		// offer waiting for the junta keep their place (ANPA_Socios_Lista_Espera::ocupadas).
 		$wpdb->last_error = '';
-		$activos_result   = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(1) FROM {$mat_t} WHERE grupo_id = %d AND estado = 'activo'",
-				$grupo_id
-			)
-		);
+		$activos          = ANPA_Socios_Lista_Espera::ocupadas( $grupo_id );
 		if ( '' !== (string) $wpdb->last_error ) {
 			$wpdb->query( 'ROLLBACK' );
 			return self::err( 'anpa_extra_db', 'Erro interno ao matricular', 500 );
 		}
-		$activos = (int) $activos_result;
-		$full = ( 'pechado' === (string) $locked['estado'] ) || ( $activos >= (int) $locked['max_pupilos'] );
+		// 1.85.0: while somebody waits for this group, a newcomer queues behind them.
+		$full = ( 'pechado' === (string) $locked['estado'] ) || ( $activos >= (int) $locked['max_pupilos'] ) || ANPA_Socios_Lista_Espera::en_espera( $grupo_id ) > 0;
 
-		$estado           = $pendente ? ANPA_Socios_Matricula_Estado::PENDENTE_APROBACION : ( $full ? 'lista_espera' : 'activo' );
-		$wpdb->last_error = '';
-		$posicion_result  = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(1) FROM {$mat_t} WHERE activitad_id = %d AND trimestre = %d",
-				$actividad_id,
-				$trimestre
-			)
-		);
-		if ( '' !== (string) $wpdb->last_error ) {
-			$wpdb->query( 'ROLLBACK' );
-			return self::err( 'anpa_extra_db', 'Erro interno ao matricular', 500 );
-		}
-		$posicion = 1 + (int) $posicion_result;
+		$estado = $pendente ? ANPA_Socios_Matricula_Estado::PENDENTE_APROBACION : ( $full ? 'lista_espera' : 'activo' );
+		// 1.85.0: «posición» = place in THIS group's waiting list (only waiting rows have one).
+		$posicion = 'lista_espera' === $estado ? ANPA_Socios_Lista_Espera::seguinte_posicion( $grupo_id, $trimestre ) : null;
 
 		$fields = array(
 			'grupo_id'                   => $grupo_id,
 			'estado'                     => $estado,
-			'posicion'                   => $pendente ? null : $posicion,
+			'posicion'                   => $posicion,
 			'baixa_en'                   => null,
 			'autorizacion_comedor'       => $autorizacions['autorizacion_comedor'],
 			'tarde_transicion'           => $autorizacions['tarde_transicion'],
@@ -551,7 +545,7 @@ final class ANPA_Socios_Extraescolares_REST {
 		$gru_t   = ANPA_Socios_DB::tabela_grupos();
 
 		$curso_filter = $request->get_param( 'curso_escolar' );
-		$sql  = "SELECT m.id, m.estado, m.posicion, m.trimestre, m.grupo_id,
+		$sql  = "SELECT m.id, m.estado, m.posicion, m.trimestre, m.grupo_id, m.oferta_aceptada_en,
 			        f.id AS fillo_id, f.nome AS fillo_nome, f.apelidos AS fillo_apelidos,
 			        a.nome AS actividade, g.curso_escolar, g.nome AS grupo_nome, g.horario, g.franxa, g.dias
 			 FROM {$mat_t} m
@@ -721,9 +715,10 @@ final class ANPA_Socios_Extraescolares_REST {
 				$wpdb->query( 'ROLLBACK' );
 				return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
 			}
-			// posición is the immutable registration order in the activity.
+			// 1.85.0: the group's waiting list closes the gap (positions per group).
+			ANPA_Socios_Lista_Espera::renumerar( (int) $mat['grupo_id'], (int) $mat['trimestre'] );
 			if ( 'oferta' === $mat['estado'] ) {
-				ANPA_Socios_Extraescolar_Offers::offer_next( (int) $mat['grupo_id'], (int) $mat['trimestre'] );
+				ANPA_Socios_Extraescolar_Offers::offer_next( (int) $mat['grupo_id'], (int) $mat['trimestre'], (int) $id );
 			}
 			ANPA_Socios_Admin_Shared::write_audit_actor( $email, 'socio', 'matricula', (string) $id, 'matricula_baixa' );
 			return new WP_REST_Response( array( 'id' => $id, 'estado' => 'baixa' ), 200 );
@@ -814,6 +809,30 @@ final class ANPA_Socios_Extraescolares_REST {
 	 * @param  WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response|WP_Error
 	 */
+	/**
+	 * POST /area/matricula/<id>/oferta/rexeitar — the family turns the offered
+	 * place down (1.85.0): it stays on the waiting list, at the end, and the
+	 * place goes to the next one.
+	 *
+	 * @since  1.85.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function rexeitar_oferta( WP_REST_Request $request ) {
+		$familia_id = self::current_familia_id( $request );
+		if ( 0 === $familia_id ) {
+			return self::err( 'anpa_extra_invalid', 'Sesión inválida ou caducada', 401 );
+		}
+		$mat = self::fetch_owned_matricula( (int) $request->get_param( 'id' ), $familia_id );
+		if ( null === $mat || 'oferta' !== $mat['estado'] ) {
+			return self::err( 'anpa_extra_not_found', 'Non atopado', 404 );
+		}
+		if ( ! ANPA_Socios_Extraescolar_Offers::decline_and_advance( (int) $mat['id'], 'rexeitada', self::current_email( $request ), 'socio' ) ) {
+			return self::err( 'anpa_extra_oferta_estado', 'A oferta xa non está dispoñible', 409 );
+		}
+		return new WP_REST_Response( array( 'id' => (int) $mat['id'], 'estado' => 'lista_espera' ), 200 );
+	}
+
 	public static function accept_oferta( WP_REST_Request $request ) {
 		global $wpdb;
 
@@ -873,7 +892,8 @@ final class ANPA_Socios_Extraescolares_REST {
 		$wpdb->last_error = '';
 		$updated = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$mat_t} SET estado = 'activo', oferta_token = NULL, oferta_expira = NULL, actualizado_en = %s WHERE id = %d AND estado = 'oferta'",
+				"UPDATE {$mat_t} SET estado = 'pendente_aprobacion', oferta_token = NULL, oferta_expira = NULL, oferta_aceptada_en = %s, actualizado_en = %s WHERE id = %d AND estado = 'oferta'",
+				current_time( 'mysql' ),
 				current_time( 'mysql' ),
 				(int) $mat['id']
 			)
@@ -891,22 +911,12 @@ final class ANPA_Socios_Extraescolares_REST {
 			$wpdb->query( 'ROLLBACK' );
 			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
 		}
-		// posición is the immutable registration order in the activity.
 		ANPA_Socios_Admin_Shared::write_audit_actor( self::current_email( $request ), 'socio', 'matricula', (string) $mat['id'], 'oferta_aceptada' );
+		ANPA_Socios_Lista_Espera::renumerar( $grupo_id, (int) ( $mat['trimestre'] ?? 0 ) );
 
-		// 1.71.0 / 1.72.0: once the group was created, the family, the company and the
-		// canteen are told (before that, the group's creation is the mass notice).
-		if ( ANPA_Socios_Email::matricula_en_grupo_creado( (int) $mat['id'] ) ) {
-			$detalle = ANPA_Socios_Admin_Matriculas_Handler::detalle_para_correo( (int) $mat['id'] );
-			if ( is_array( $detalle ) ) {
-				foreach ( $detalle['emails'] as $email ) {
-					ANPA_Socios_Email::enviar_oferta_aceptada( $email, $detalle['alumno'], $detalle['actividade'], $detalle['grupo'] );
-				}
-			}
-			ANPA_Socios_Email::avisar_empresa_comedor( (int) $mat['id'], ANPA_Socios_Aviso_Matricula::PLANTILLA_ALTA );
-		}
-
-		return new WP_REST_Response( array( 'id' => (int) $mat['id'], 'estado' => 'activo' ), 200 );
+		// 1.85.0: the place is kept and the junta approves it (Operacións → Aprobacións);
+		// the approval tells the family, the company and the canteen.
+		return new WP_REST_Response( array( 'id' => (int) $mat['id'], 'estado' => ANPA_Socios_Matricula_Estado::PENDENTE_APROBACION ), 200 );
 	}
 
 	/**
@@ -1176,10 +1186,12 @@ final class ANPA_Socios_Extraescolares_REST {
 			return self::err( 'anpa_extra_curso_pechado', 'Este curso está pechado para novas matrículas ou baixas.', 409 );
 		}
 		$mat_t            = ANPA_Socios_DB::tabela_matriculas();
+		// 1.85.0: an accepted offer kept a place; withdrawing it frees the place for the next one.
+		$de_oferta        = (bool) $wpdb->get_var( $wpdb->prepare( "SELECT oferta_aceptada_en IS NOT NULL FROM {$mat_t} WHERE id = %d", (int) $mat['id'] ) );
 		$wpdb->last_error = '';
 		$affected         = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$mat_t} SET estado = 'baixa', baixa_en = %s, actualizado_en = %s WHERE id = %d AND estado = %s",
+				"UPDATE {$mat_t} SET estado = 'baixa', baixa_en = %s, oferta_aceptada_en = NULL, actualizado_en = %s WHERE id = %d AND estado = %s",
 				current_time( 'mysql' ),
 				current_time( 'mysql' ),
 				(int) $mat['id'],
@@ -1193,6 +1205,9 @@ final class ANPA_Socios_Extraescolares_REST {
 			return self::err( 'anpa_extra_estado', 'Esta matrícula xa non está pendente de aprobación', 409 );
 		}
 		ANPA_Socios_Admin_Shared::write_audit_actor( $email, 'socio', 'matricula', (string) $mat['id'], 'matricula_retirada' );
+		if ( $de_oferta ) {
+			ANPA_Socios_Extraescolar_Offers::offer_next( (int) $mat['grupo_id'], (int) $mat['trimestre'], (int) $mat['id'] );
+		}
 		return new WP_REST_Response( array( 'id' => (int) $mat['id'], 'estado' => 'baixa', 'retirada' => true ), 200 );
 	}
 
@@ -1204,8 +1219,8 @@ final class ANPA_Socios_Extraescolares_REST {
 	 * @return int
 	 */
 	private static function trimestre_actual( string $curso ): int {
-		$row = self::course_row( $curso );
-		return ANPA_Socios_Trimestre::actual_por_datas( is_array( $row ) ? ANPA_Socios_Matricula_Gate::datas_de_fila( $row ) : null );
+		// 1.85.0: the active trimester (dates only when none is active), same as the gate.
+		return ANPA_Socios_Matricula_Gate_Repo::trimestre_vixente( $curso );
 	}
 
 	/**
@@ -1270,7 +1285,7 @@ final class ANPA_Socios_Extraescolares_REST {
 
 		// 1.51.0 (E3): lock the current trimester's window row too, so an admin
 		// closing the window cannot race a family enrolment.
-		$trimestre        = ANPA_Socios_Trimestre::actual_por_datas( ANPA_Socios_Matricula_Gate::datas_de_fila( $row ) );
+		$trimestre        = ANPA_Socios_Matricula_Gate::trimestre_vixente( $row, class_exists( 'ANPA_Socios_Trimestre_Repo' ) ? ANPA_Socios_Trimestre_Repo::for_curso( $curso ) : array() );
 		$ct               = ANPA_Socios_DB::tabela_curso_trimestres();
 		$wpdb->last_error = '';
 		$win = $wpdb->get_row(

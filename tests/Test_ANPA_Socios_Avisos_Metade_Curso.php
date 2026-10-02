@@ -101,7 +101,8 @@ final class Test_ANPA_Socios_Avisos_Metade_Curso extends TestCase {
 	public function test_approval_with_a_place_notifies_but_not_from_the_trimester_activation(): void {
 		$h    = $this->src( 'includes/class-anpa-socios-admin-matriculas-handler.php' );
 		$this->assertStringContainsString( 'public static function aprobar( int $id, string $actor, string $actor_tipo, bool $avisar_empresa = true )', $h );
-		$this->assertStringContainsString( "if ( \$avisar_empresa && ANPA_Socios_Matricula_Estado::ACTIVO === \$destino ) {\n\t\t\tANPA_Socios_Email::avisar_empresa_comedor( \$id, ANPA_Socios_Aviso_Matricula::PLANTILLA_ALTA );", $h );
+		// 1.85.0: an accepted offer from the waiting list always tells them once approved.
+		$this->assertStringContainsString( "if ( ( \$avisar_empresa || \$de_oferta ) && ANPA_Socios_Matricula_Estado::ACTIVO === \$destino ) {\n\t\t\tANPA_Socios_Email::avisar_empresa_comedor( \$id, ANPA_Socios_Aviso_Matricula::PLANTILLA_ALTA );", $h );
 		$t = $this->src( 'includes/class-anpa-socios-admin-trimestres-handler.php' );
 		$this->assertStringContainsString( "(string) \$request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_ROL ), false );", $t );
 	}
@@ -111,17 +112,15 @@ final class Test_ANPA_Socios_Avisos_Metade_Curso extends TestCase {
 		$this->assertStringContainsString( "ANPA_Socios_Email::avisar_empresa_comedor( \$id, ANPA_Socios_Aviso_Matricula::PLANTILLA_BAIXA, array( 'efectos' => \$efectos ) );", $body );
 	}
 
-	public function test_offer_can_be_accepted_mid_course_and_notifies_all_three(): void {
+	public function test_offer_can_be_accepted_mid_course_and_waits_for_the_junta(): void {
 		$body = $this->method_body( $this->src( 'includes/class-anpa-socios-extraescolares-rest.php' ), 'public static function accept_oferta(' );
 		$this->assertStringContainsString( "self::course_is_active( (string) ( \$mat['curso_escolar'] ?? '' ) )", $body );
 		$this->assertStringNotContainsString( 'self::course_is_open(', $body );
 		$this->assertStringContainsString( '$course_error = self::lock_open_course_mode( $curso );', $body );
-		$notice = strpos( $body, "if ( ANPA_Socios_Email::matricula_en_grupo_creado( (int) \$mat['id'] ) ) {" );
-		$commit = strpos( $body, "query( 'COMMIT' )" );
-		$this->assertNotFalse( $notice );
-		$this->assertGreaterThan( (int) $commit, (int) $notice, 'emails only after the commit' );
-		$this->assertStringContainsString( 'ANPA_Socios_Email::enviar_oferta_aceptada( $email,', $body );
-		$this->assertStringContainsString( "ANPA_Socios_Email::avisar_empresa_comedor( (int) \$mat['id'], ANPA_Socios_Aviso_Matricula::PLANTILLA_ALTA );", $body );
+		// 1.85.0: accepting keeps the place (oferta_aceptada_en) and the junta approves it; the
+		// approval (aprobar) tells the family, the company and the canteen — not the acceptance.
+		$this->assertStringContainsString( "SET estado = 'pendente_aprobacion', oferta_token = NULL, oferta_expira = NULL, oferta_aceptada_en = %s", $body );
+		$this->assertStringNotContainsString( 'avisar_empresa_comedor', $body );
 	}
 
 	public function test_single_enrolment_lookup_reuses_the_listing_sql(): void {
@@ -153,8 +152,8 @@ final class Test_ANPA_Socios_Avisos_Metade_Curso extends TestCase {
 	public function test_audit_columns_are_widened(): void {
 		$db = $this->src( 'includes/class-anpa-socios-db.php' );
 		// 1.83.0: schema moved on to 1.47.0 (socios.baixa_en); the 1.46.0 step stays registered.
-		$this->assertStringContainsString( "const DB_VERSION = '1.47.0';", $db );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.47.0' )", $this->src( 'anpa-socios.php' ) );
+		$this->assertStringContainsString( "const DB_VERSION = '1.48.0';", $db );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.48.0' )", $this->src( 'anpa-socios.php' ) );
 		$this->assertStringContainsString( "version_compare( \$installed_version, '1.46.0', '<' ) && ! self::migrate_to_1_46_0()", $db );
 		$this->assertStringContainsString( 'MODIFY COLUMN accion varchar(40) NOT NULL, MODIFY COLUMN target_id varchar(190)', $db );
 		$this->assertStringContainsString( "target_id varchar(190) not null default '',\n\t\t\taccion varchar(40) not null,", $db );

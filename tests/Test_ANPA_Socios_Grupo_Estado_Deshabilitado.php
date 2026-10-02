@@ -37,8 +37,9 @@ final class Test_ANPA_Socios_Grupo_Estado_Deshabilitado extends TestCase {
 			$this->assertSame( $estado, $out['estado'] ?? null, "estado {$estado} debe aceptarse" );
 		}
 		$this->assertSame( array(), ANPA_Socios_Grupo_Serie::normalize( $this->payload( 'baixa' ) ) );
-		$this->assertSame( array( 'aberto', 'pechado', 'deshabilitado' ), ANPA_Socios_Grupo_Serie::estados() );
-		$this->assertSame( array( 'aberto', 'pechado', 'deshabilitado' ), ANPA_Socios_Admin_Payload::GRUPO_ESTADO );
+		// 1.85.0: + «sen_minimo».
+		$this->assertSame( array( 'aberto', 'pechado', 'deshabilitado', 'sen_minimo' ), ANPA_Socios_Grupo_Serie::estados() );
+		$this->assertSame( array( 'aberto', 'pechado', 'deshabilitado', 'sen_minimo' ), ANPA_Socios_Admin_Payload::GRUPO_ESTADO );
 	}
 
 	public function test_only_deshabilitado_requires_an_empty_group(): void {
@@ -62,7 +63,7 @@ final class Test_ANPA_Socios_Grupo_Estado_Deshabilitado extends TestCase {
 		$this->assertStringContainsString( "SUM(estado <> 'baixa') AS vixentes, COUNT(*) AS total", $h );
 
 		// Moving a pupil still targets only open groups.
-		$this->assertStringContainsString( "'aberto' !== (string) \$grupo['estado']", $h );
+		$this->assertStringContainsString( "! in_array( (string) \$grupo['estado'], array( ANPA_Socios_Grupo_Serie::ESTADO_ABERTO, ANPA_Socios_Grupo_Serie::ESTADO_SEN_MINIMO ), true )", $h );
 	}
 
 	public function test_area_enrolment_rejects_disabled_groups_before_the_capacity_gate(): void {
@@ -87,11 +88,12 @@ final class Test_ANPA_Socios_Grupo_Estado_Deshabilitado extends TestCase {
 		// confirmed («grupo creado», with pupils), labelled «Creado». Closed or disabled groups
 		// below the minimum only appear by name in «Non acadaron o mínimo».
 		$page = $this->src( 'includes/class-anpa-socios-extraescolares-page.php' );
-		$this->assertStringContainsString( "WHERE curso_escolar = %s AND estado = 'aberto' ORDER BY id", $page );
+		// 1.85.0: «sen mínimo» groups are still offered (orange badge).
+		$this->assertStringContainsString( "WHERE curso_escolar = %s AND estado IN ('aberto','sen_minimo') ORDER BY id", $page );
 		$this->assertStringContainsString( "g.estado = 'pechado' AND g.aviso_comezo_en IS NOT NULL", $page );
 		$this->assertStringContainsString( "g.estado IN ('pechado', 'deshabilitado')", $this->method_src( $page, 'private static function non_acadados_html(' ) );
 		$this->assertStringNotContainsString( 'deshabilitado', $this->method_src( $page, 'private static function grupos_creados_ids(' ) );
-		$this->assertStringContainsString( "AND estado = 'aberto' ORDER BY", $this->src( 'includes/class-anpa-socios-extraescolares-rest.php' ) );
+		$this->assertStringContainsString( "AND estado IN ('aberto','sen_minimo') ORDER BY", $this->src( 'includes/class-anpa-socios-extraescolares-rest.php' ) );
 		$this->assertStringContainsString( "'aberto' !== ( \$g['estado'] ?? '' )", $this->src( 'includes/lib/class-anpa-socios-horario-builder.php' ) );
 	}
 
@@ -113,13 +115,13 @@ final class Test_ANPA_Socios_Grupo_Estado_Deshabilitado extends TestCase {
 
 	public function test_schema_migration_1_40_0_widens_the_estado_enum_guarded(): void {
 		$db = $this->src( 'includes/class-anpa-socios-db.php' );
-		$this->assertStringContainsString( "const DB_VERSION = '1.47.0'", $db );
+		$this->assertStringContainsString( "const DB_VERSION = '1.48.0'", $db );
 		$this->assertStringContainsString( "version_compare( \$installed_version, '1.40.0', '<' ) && ! self::migrate_to_1_40_0()", $db );
 		$this->assertStringContainsString( 'Migration halted at step 1.40.0', $db );
 		$this->assertStringContainsString( 'private static function migrate_to_1_40_0(): bool', $db );
 		$this->assertStringContainsString( "MODIFY COLUMN estado enum('aberto','pechado','deshabilitado') NOT NULL DEFAULT 'aberto'", $db );
 		// Fresh installs get the widened enum straight from the CREATE statement too.
 		$this->assertStringContainsString( "estado enum('aberto','pechado','deshabilitado') not null default 'aberto'", $db );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.47.0' )", $this->src( 'anpa-socios.php' ) );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.48.0' )", $this->src( 'anpa-socios.php' ) );
 	}
 }

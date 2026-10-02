@@ -79,6 +79,14 @@ final class ANPA_Socios_Correos_Masivos {
 				'plantillas'    => array( 'grupo_comezo_trimestre', 'grupo_comezo_espera' ),
 			),
 			array(
+				'id'            => 'grupo_sen_minimo',
+				'titulo'        => 'Grupo sen mínimo (segue admitindo inscricións)',
+				'descricion'    => 'O grupo aínda non chega ao mínimo pero segue aberto a novas inscricións durante o curso; quen ten praza consérvaa. Envíase dende cada grupo.',
+				'destinatarios' => 'Familias e empresa do grupo (non o comedor)',
+				'onde'          => 'grupos-horarios',
+				'plantillas'    => array( 'grupo_sen_minimo' ),
+			),
+			array(
 				'id'            => 'grupo_minimo',
 				'titulo'        => 'Grupo pechado por non acadar o mínimo',
 				'descricion'    => 'Pecha o grupo, dá de baixa as súas matrículas e avisa. Envíase dende cada grupo.',
@@ -114,6 +122,7 @@ final class ANPA_Socios_Correos_Masivos {
 			'grupo_comezo'         => 'Grupo creado: inscritos/as',
 			'grupo_espera'         => 'Grupo creado: lista de espera',
 			'grupo_minimo'         => 'Grupo pechado por non acadar o mínimo',
+			'grupo_sen_minimo'     => 'Grupo sen mínimo (segue admitindo inscricións)',
 		);
 		return $t[ $tag ] ?? $tag;
 	}

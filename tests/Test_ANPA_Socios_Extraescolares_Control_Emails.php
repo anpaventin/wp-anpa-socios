@@ -27,7 +27,7 @@ final class Test_ANPA_Socios_Extraescolares_Control_Emails extends TestCase {
 
 	public function test_eleven_new_templates_exist_in_galician_with_the_association_and_a_contact_email(): void {
 		$defaults = ANPA_Socios_Email_Template_Store::get_all_defaults();
-		$this->assertCount( 34, $defaults );
+		$this->assertCount( 36, $defaults );
 		foreach ( self::NOVAS as $id ) {
 			$this->assertArrayHasKey( $id, $defaults, $id );
 			$this->assertContains( 'association_name', ANPA_Socios_Email_Template_Store::get_variables( $id )['subject'], "$id subject names the association" );

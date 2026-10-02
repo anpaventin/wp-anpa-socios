@@ -113,11 +113,12 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 	// ── Trimester rule ───────────────────────────────────────────────────
 
 	/** Trimester rows by WINDOW state (what the rule really depends on since 1.63.0). */
-	private function ventanas( string $v1, string $v2 = 'pechada', string $v3 = 'pechada' ): array {
+	// 1.85.0: $activo = the trimester the junta activated (it decides, not the dates).
+	private function ventanas( string $v1, string $v2 = 'pechada', string $v3 = 'pechada', int $activo = 1 ): array {
 		return array(
-			1 => array( 'estado' => 'activo', 'ventana_estado' => $v1, 'presente' => true ),
-			2 => array( 'estado' => 'pendente', 'ventana_estado' => $v2, 'presente' => true ),
-			3 => array( 'estado' => 'pendente', 'ventana_estado' => $v3, 'presente' => true ),
+			1 => array( 'estado' => 1 === $activo ? 'activo' : 'pechado', 'ventana_estado' => $v1, 'presente' => true ),
+			2 => array( 'estado' => 2 === $activo ? 'activo' : ( $activo > 2 ? 'pechado' : 'pendente' ), 'ventana_estado' => $v2, 'presente' => true ),
+			3 => array( 'estado' => 3 === $activo ? 'activo' : 'pendente', 'ventana_estado' => $v3, 'presente' => true ),
 		);
 	}
 
@@ -136,8 +137,8 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 		$this->assertStringNotContainsString( '22/12/2026', $r['texto'] );
 
 		// Same in any trimester: T2 window open in February.
-		$gate = ANPA_Socios_Matricula_Gate::avaliar( $curso, $this->ventanas( 'pechada', 'aberta' ), '2027-02-01' );
-		$r    = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $this->ventanas( 'pechada', 'aberta' ), $this->datas() );
+		$gate = ANPA_Socios_Matricula_Gate::avaliar( $curso, $this->ventanas( 'pechada', 'aberta', 'pechada', 2 ), '2027-02-01' );
+		$r    = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $this->ventanas( 'pechada', 'aberta', 'pechada', 2 ), $this->datas() );
 		$this->assertSame( ANPA_Socios_Baixa_Extraescolar_Efectos::INMEDIATA, $r['efecto'] );
 		$this->assertStringContainsString( '2º trimestre segue aberta', $r['texto'] );
 	}
@@ -153,8 +154,8 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 		$this->assertStringContainsString( '(o 22/12/2026)', $r['texto'] );
 		$this->assertStringContainsString( 'non se cobrará o trimestre seguinte', $r['texto'] );
 
-		$gate = ANPA_Socios_Matricula_Gate::avaliar( $curso, $this->ventanas( 'pechada', 'pechada' ), '2027-02-01' );
-		$r    = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $this->ventanas( 'pechada', 'pechada' ), $this->datas() );
+		$gate = ANPA_Socios_Matricula_Gate::avaliar( $curso, $this->ventanas( 'pechada', 'pechada', 'pechada', 2 ), '2027-02-01' );
+		$r    = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $this->ventanas( 'pechada', 'pechada', 'pechada', 2 ), $this->datas() );
 		$this->assertSame( 2, $r['trimestre'] );
 		$this->assertSame( '2027-03-19', $r['data_fin'] );
 	}

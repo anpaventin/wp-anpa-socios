@@ -1228,7 +1228,7 @@
 		root.appendChild(h3m);
 		var introM = document.createElement('p');
 		introM.className = 'description';
-		introM.textContent = 'Solicitudes feitas polas familias co prazo de matrícula pechado. Aprobar dá praza se o grupo está aberto e ten sitio (se non, lista de espera); rexeitar anula a solicitude. Nos dous casos a familia recibe un correo («matricula_aprobada_praza», «matricula_aprobada_espera» ou «matricula_rexeitada» en Axustes → Plantillas de email). Ao activar o seguinte trimestre en Extraescolares → Matrículas pódense aprobar todas dunha vez.';
+		introM.textContent = 'Solicitudes feitas polas familias fóra do prazo de inscrición libre, ou ofertas da lista de espera que a familia aceptou (teñen a praza reservada; ao aprobalas avísase á empresa e ao comedor). Aprobar dá praza se o grupo está aberto e ten sitio (se non, lista de espera); rexeitar anula a solicitude. Nos dous casos a familia recibe un correo («matricula_aprobada_praza», «matricula_aprobada_espera» ou «matricula_rexeitada» en Axustes → Plantillas de email). Ao activar o seguinte trimestre en Extraescolares → Matrículas pódense aprobar todas dunha vez.';
 		root.appendChild(introM);
 		if (!pend.length) {
 			root.appendChild(emptyEl('Non hai matrículas pendentes de aprobación.'));
@@ -1248,12 +1248,13 @@
 				tr.appendChild(cellM(m.actividade));
 				tr.appendChild(cellM([m.grupo, m.dias, m.franxa].filter(Boolean).join(' · ')));
 				tr.appendChild(cellM((m.activos || 0) + '/' + (m.max_pupilos || 0) + ' inscritos' + (m.espera ? ' · ' + m.espera + ' en espera' : '') + (m.grupo_estado && m.grupo_estado !== 'aberto' ? ' · grupo ' + m.grupo_estado : '')));
-				tr.appendChild(cellM(m.destino === 'activo' ? 'Praza' : 'Lista de espera'));
+				// 1.85.0: a family that accepted an offered place from the waiting list (place held).
+				tr.appendChild(cellM(m.de_oferta ? 'Praza (aceptou a oferta da lista de espera)' : (m.destino === 'activo' ? 'Praza' : 'Lista de espera')));
 				tr.appendChild(cellM(m.socio_email));
 				var td = document.createElement('td');
 				var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'anpa-mgmt-btn'; ok.textContent = 'Aprobar';
 				ok.addEventListener('click', function () {
-					if (!window.confirm('Aprobar a matrícula de ' + (m.fillo_nome || '') + ' en ' + (m.actividade || '') + '? ' + (m.destino === 'activo' ? 'Ten praza: queda activa.' : 'Non hai praza libre: queda en lista de espera.') + ' A familia recibe un correo.')) { return; }
+					if (!window.confirm('Aprobar a matrícula de ' + (m.fillo_nome || '') + ' en ' + (m.actividade || '') + '? ' + (m.de_oferta ? 'Aceptou a praza ofrecida da lista de espera: queda activa e avísase á familia, á empresa e ao comedor.' : (m.destino === 'activo' ? 'Ten praza: queda activa.' : 'Non hai praza libre: queda en lista de espera.') + ' A familia recibe un correo.'))) { return; }
 					anpaAdminFetch('matricula/' + m.id + '/aprobar', { method: 'POST' }).then(function (r) {
 						showMessage('Matrícula aprobada: ' + (r && r.estado === 'activo' ? 'praza confirmada' : 'lista de espera (posición ' + (r && r.posicion) + ')') + '. Correos enviados: ' + (r && r.correos) + '.', 'success');
 						loadApprovals();
@@ -2663,7 +2664,9 @@
 	var GRUPO_ESTADOS = [
 		['aberto', 'Aberto', 'Visible na páxina pública e no horario, ofertado na área; matrícula activa mentres haxa praza.'],
 		['pechado', 'Pechado', 'Oculto da oferta pública e da área; as matrículas existentes seguen e unha nova iría a lista de espera.'],
-		['deshabilitado', 'Deshabilitado', 'Oculto e sen matrículas; só se pode escoller cando o grupo non ten ningunha matrícula vixente. Consérvase para o histórico e para reutilizalo.']
+		['deshabilitado', 'Deshabilitado', 'Oculto e sen matrículas; só se pode escoller cando o grupo non ten ningunha matrícula vixente. Consérvase para o histórico e para reutilizalo.'],
+		// 1.85.0
+		['sen_minimo', 'Sen mínimo', 'Aínda non creado por non chegar ao mínimo: segue na oferta e na área e as novas inscricións quedan pendentes de aprobación; quen ten praza consérvaa (sen cobro mentres non se cree).']
 	];
 	function grupoEstadoLabel(v) {
 		for (var i = 0; i < GRUPO_ESTADOS.length; i++) { if (GRUPO_ESTADOS[i][0] === v) { return GRUPO_ESTADOS[i][1]; } }
@@ -3397,7 +3400,7 @@
 		}
 
 		panel.appendChild(el('h3', null, 'Estado do curso ' + curso + ' e matrículas'));
-		panel.appendChild(el('p', 'description', 'Aquí está o único interruptor das matrículas. O trimestre activo é informativo (calendario e avisos); «Matrículas abertas para» é o que abre ou pecha as matrículas, baixas e solicitudes das familias. Só pode haber un trimestre activo e unha ventá aberta á vez. Cada cambio queda rexistrado (quen, cando, orixe) e o sistema nunca cambia un estado por si só. Co prazo pechado e o curso activo, as solicitudes das familias quedan pendentes de aprobación (Operacións → Aprobacións).'));
+		panel.appendChild(el('p', 'description', 'As matrículas están abertas todo o curso: cada inscrición queda pendente de aprobación da xunta (Operacións → Aprobacións). O «Trimestre activo» indica a que trimestre van as inscricións; o «Prazo de inscrición libre» (normalmente ao comezo dun trimestre) deixa inscribirse sen aprobación para ver a demanda antes de formar os grupos. Cada cambio queda rexistrado (quen, cando, orixe) e o sistema nunca cambia un estado por si só. Co prazo pechado e o curso activo, as solicitudes das familias quedan pendentes de aprobación (Operacións → Aprobacións).'));
 
 		if (d.estado_curso !== 'activo') {
 			var warn = el('div', 'anpa-mgmt-aviso-matriculas anpa-mgmt-aviso-matriculas--outro');
@@ -3465,7 +3468,7 @@
 			var body = { curso: curso, destino: destino === 'pechado' ? 'pechado' : parseInt(destino, 10) };
 			var txt = destino === 'pechado'
 				? 'Pechar o curso ' + curso + '? Péchanse os tres trimestres, as matrículas e o curso. As familias non poderán matricular nin dar de baixa. Para pechar tamén os grupos e as matrículas e avisar ás familias usa «Notificar fin de curso».'
-				: 'Activar o ' + ordinal(destino) + ' trimestre? Os trimestres anteriores quedan pechados. As matrículas non cambian: ábrense ou péchanse co combo «Matrículas abertas para».';
+				: 'Activar o ' + ordinal(destino) + ' trimestre? Os trimestres anteriores quedan pechados. O prazo de inscrición libre non cambia: ábrese ou péchase co seu botón.';
 			if (!window.confirm(txt)) { return; }
 			if (destino !== 'pechado' && d.matriculas_pendentes > 0) {
 				if (!window.confirm('Hai ' + d.matriculas_pendentes + ' matrícula(s) pendente(s) de aprobación. Ao activar o trimestre pasarán TODAS á súa actividade (praza se hai sitio, se non lista de espera) e as familias recibirán correo.\n\nAceptar = aprobalas todas agora e activar.\nCancelar = non activar; xestiónaas antes unha a unha en Operacións → Aprobacións.')) { return; }
@@ -3476,26 +3479,31 @@
 		l1.appendChild(b1);
 		combos.appendChild(l1);
 
-		var l2 = el('label', null, 'Matrículas abertas para: ');
-		var selVen = document.createElement('select'); selVen.disabled = !d.inicializado;
-		[['0', 'Matrículas pechadas'], ['1', 'Abertas para o 1\u00BA trimestre'], ['2', 'Abertas para o 2\u00BA trimestre'], ['3', 'Abertas para o 3\u00BA trimestre']].forEach(function (p) {
-			var o = el('option', null, p[1]); o.value = p[0]; selVen.appendChild(o);
-		});
+		// 1.85.0: one switch instead of the «Matrículas abertas para» combo. Enrolments are open all
+		// year and each one waits for the junta; the free period (no approval) is only the ACTIVE
+		// trimester's, typically at its start, to see the demand before the groups are formed.
+		var triActivo = 0;
+		(d.trimestres || []).forEach(function (t) { if (t.presente && t.estado === 'activo') { triActivo = parseInt(t.trimestre, 10) || 0; } });
 		var actualVen = String(parseInt(d.ventana_aberta, 10) || 0);
-		selVen.value = actualVen;
-		l2.appendChild(selVen);
+		var libre = actualVen !== '0' && parseInt(actualVen, 10) === triActivo;
+		var l2 = el('label', null, 'Prazo de inscrición libre (sen aprobación): ');
+		l2.appendChild(el('strong', null, libre ? 'ABERTO (' + ordinal(triActivo) + ' trimestre) ' : (actualVen !== '0' ? 'aberto para o ' + ordinal(actualVen) + ' trimestre, que xa non é o activo ' : 'PECHADO ')));
 		var chk = document.createElement('input'); chk.type = 'checkbox'; chk.id = 'anpa-estado-curso-notificar';
 		var chkLabel = el('label', 'anpa-estado-curso-check'); chkLabel.appendChild(chk); chkLabel.appendChild(document.createTextNode(' Avisar por correo a todas as familias'));
-		var b2 = el('button', 'anpa-mgmt-btn anpa-mgmt-btn-secondary', 'Aplicar'); b2.type = 'button'; b2.disabled = !d.inicializado;
+		var abrir = actualVen === '0';
+		var b2 = el('button', 'anpa-mgmt-btn anpa-mgmt-btn-secondary', abrir ? (triActivo ? 'Abrir o prazo libre do ' + ordinal(triActivo) + ' trimestre' : 'Abrir o prazo libre') : 'Pechar o prazo libre'); b2.type = 'button';
+		b2.disabled = !d.inicializado || (abrir && !triActivo);
+		if (abrir && !triActivo) { b2.title = 'Activa primeiro un trimestre.'; }
 		b2.addEventListener('click', function () {
-			var destino = parseInt(selVen.value, 10) || 0;
-			if (String(destino) === actualVen) { showMessage('Escolle un estado distinto do actual.', 'error'); return; }
-			if (destino > 0 && d.estado_curso !== 'activo') { showMessage('Só se poden abrir as matrículas do curso activo. Usa «Notificar comezo do curso».', 'error'); return; }
+			var destino = abrir ? triActivo : 0;
+			if (destino > 0 && d.estado_curso !== 'activo') { showMessage('Só se pode abrir o prazo do curso activo. Usa «Notificar comezo do curso».', 'error'); return; }
 			var notificar = !!chk.checked;
-			var txt = (destino > 0 ? 'Abrir as matrículas para o ' + ordinal(destino) + ' trimestre' : 'Pechar as matrículas') + (actualVen !== '0' && destino > 0 ? ' (a ventá do ' + ordinal(actualVen) + ' péchase)' : '') + '.'
+			var txt = (destino > 0
+				? 'Abrir o prazo de inscrición libre do ' + ordinal(destino) + ' trimestre? Mentres estea aberto, as familias inscríbense directamente (praza ou lista de espera) sen aprobación e as baixas son inmediatas.'
+				: 'Pechar o prazo de inscrición libre? As novas inscricións quedarán pendentes de aprobación da xunta e as baixas serán ao remate do trimestre.')
 				+ (notificar ? '\n\nAvisarase ás familias co correo «' + (destino > 0 ? 'matriculas_abertas' : 'matriculas_pechadas') + '». ' + destinatarios() : '\n\nSen correo ás familias (marca a casilla se queres avisalas).');
 			if (!window.confirm(txt)) { return; }
-			post('trimestres/ventana', { curso: curso, destino: destino, notificar: notificar }, destino > 0 ? 'Matrículas abertas para o ' + ordinal(destino) + ' trimestre.' : 'Matrículas pechadas.');
+			post('trimestres/ventana', { curso: curso, destino: destino, notificar: notificar }, destino > 0 ? 'Prazo de inscrición libre aberto (' + ordinal(destino) + ' trimestre).' : 'Prazo de inscrición libre pechado: as inscricións quedan pendentes de aprobación.');
 		});
 		l2.appendChild(b2);
 		combos.appendChild(l2);
@@ -4020,8 +4028,12 @@
 				card.className += ' anpa-grupos-horarios-comedor';
 			}
 			// 1.68.1: closed or disabled groups (hidden from the offer) stay in the grid, shaded.
-			if (group.estado && group.estado !== 'aberto') {
+			if (group.estado && group.estado !== 'aberto' && group.estado !== 'sen_minimo') {
 				card.className += ' anpa-grupos-horarios-group-card--oculto';
+			}
+			// 1.85.0: not created yet, still taking requests (orange).
+			if (group.estado === 'sen_minimo') {
+				card.className += ' anpa-grupos-horarios-group-card--sen-minimo';
 			}
 			// 1.69.0: the «grupo creado» notice already went out in this window cycle.
 			if (group.notificado && group.estado === 'aberto') {
@@ -4035,7 +4047,7 @@
 			meta.className = 'anpa-grupos-horarios-slot-meta';
 			meta.appendChild(makeMetaLabel('Grupo', group.grupo_nome || '—'));
 			meta.appendChild(makeMetaLabel('Niveis', uniqueLevelLabels(group.nivel_ids, levelLookup).join(', ') || '—'));
-			meta.appendChild(makeMetaLabel('Estado', group.estado || '—'));
+			meta.appendChild(makeMetaLabel('Estado', grupoEstadoLabel(group.estado) || '—'));
 			var ocup = makeMetaLabel('Ocupación', group.activos + '/' + group.max_pupilos + ' inscritos · ' + group.espera + ' en espera' + (group.pendentes ? ' · ' + group.pendentes + ' pendentes' : '') + ' · mínimo ' + group.min_pupilos);
 			ocup.className = 'anpa-grupos-horarios-ocupacion' + (group.min_pupilos > 0 && group.activos < group.min_pupilos ? ' anpa-grupos-horarios-ocupacion--baixo-minimo' : '');
 			meta.appendChild(ocup);
@@ -4069,7 +4081,9 @@
 				// group below its minimum); «Pechar por non acadar o mínimo» only below the minimum.
 				var pechadas = state.matriculasAbertas === false;
 				var baixoMinimo = group.min_pupilos > 0 && group.activos < group.min_pupilos;
-				if (pechadas && group.estado === 'aberto' && !group.notificado) {
+				// 1.85.0: a «sen mínimo» group keeps «Notificar grupo creado» (it opens when created).
+				var senMinimo = group.estado === 'sen_minimo';
+				if (pechadas && (group.estado === 'aberto' || senMinimo) && !group.notificado) {
 				var gid = group.group_id || group.grupo_id;
 				var nomeG = group.grupo_nome || 'Grupo';
 				var nomeA = group.actividade_nome || '';
@@ -4086,6 +4100,22 @@
 					}).catch(function (err) { showMessage(err.message, 'error'); });
 				});
 				actions.appendChild(bComezo);
+				// 1.85.0: below the minimum, the junta may keep the group waiting instead of closing it.
+				if (baixoMinimo && !senMinimo) {
+				var bSen = document.createElement('button');
+				bSen.type = 'button';
+				bSen.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary anpa-mgmt-btn-sen-minimo';
+				bSen.textContent = 'Deixar sen mínimo (segue admitindo inscricións)';
+				bSen.addEventListener('click', function () {
+					if (!window.confirm('Deixar o grupo «' + nomeG + '» de «' + nomeA + '» sen mínimo (' + group.activos + ' de ' + group.min_pupilos + ')?\n\nNon se crea agora, pero segue na oferta: quen ten praza consérvaa (sen cobro mentres non se cree) e as novas inscricións quedan pendentes de aprobación. As familias e a empresa reciben o correo «grupo_sen_minimo» (o comedor non). Cando chegue ao mínimo, usa «Notificar grupo creado».')) { return; }
+					anpaAdminFetch('grupo/' + gid + '/sen-minimo', { method: 'POST' }).then(function (r) {
+						var e = (r && r.envio) || {};
+						showMessage('Grupo sen mínimo. Correo enviado a ' + (e.enviados || 0) + ' de ' + (e.destinatarios || 0) + ' destinatarios.', e.fallidos ? 'warning' : 'success');
+						renderCourse(state.curso);
+					}).catch(function (err) { showMessage(err.message, 'error'); });
+				});
+				actions.appendChild(bSen);
+				}
 				if (baixoMinimo) {
 				var bMin = document.createElement('button');
 				bMin.type = 'button';

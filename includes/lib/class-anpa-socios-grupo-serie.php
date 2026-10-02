@@ -24,7 +24,9 @@ final class ANPA_Socios_Grupo_Serie {
 	public const ESTADO_ABERTO        = 'aberto';
 	public const ESTADO_PECHADO       = 'pechado';
 	public const ESTADO_DESHABILITADO = 'deshabilitado';
-	private const ESTADOS = array( self::ESTADO_ABERTO, self::ESTADO_PECHADO, self::ESTADO_DESHABILITADO );
+	// 1.85.0: not created yet (below its minimum) but still taking requests, which wait for the junta.
+	public const ESTADO_SEN_MINIMO = 'sen_minimo';
+	private const ESTADOS = array( self::ESTADO_ABERTO, self::ESTADO_PECHADO, self::ESTADO_DESHABILITADO, self::ESTADO_SEN_MINIMO );
 
 	/**
 	 * Normalizes a group-series payload. Returns an empty array on any error.
@@ -121,6 +123,7 @@ final class ANPA_Socios_Grupo_Serie {
 			self::ESTADO_ABERTO        => __( 'Aberto', 'anpa-socios' ),
 			self::ESTADO_PECHADO       => __( 'Pechado', 'anpa-socios' ),
 			self::ESTADO_DESHABILITADO => __( 'Deshabilitado', 'anpa-socios' ),
+			self::ESTADO_SEN_MINIMO    => __( 'Sen mínimo', 'anpa-socios' ),
 		);
 		return $labels[ $estado ] ?? $estado;
 	}

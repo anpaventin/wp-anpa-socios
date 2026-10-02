@@ -105,7 +105,7 @@ class ANPA_Socios_DB {
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.47.0';
+	const DB_VERSION = '1.48.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -387,6 +387,12 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.47.0', '<' ) && ! self::migrate_to_1_47_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.47.0 (migrate_to_1_47_0): ' . $wpdb->last_error );
+			return;
+		}
+		// 1.48.0 (1.85.0): group state «sen_minimo» + matriculas.oferta_aceptada_en (held place).
+		if ( version_compare( $installed_version, '1.48.0', '<' ) && ! self::migrate_to_1_48_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.48.0 (migrate_to_1_48_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -4325,5 +4331,32 @@ class ANPA_Socios_DB {
 		}
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one-time backfill.
 		return false !== $wpdb->query( $wpdb->prepare( "UPDATE {$socios} SET baixa_en = %s WHERE estado = 'baixa' AND baixa_en IS NULL", current_time( 'mysql' ) ) );
+	}
+
+	/**
+	 * Migration 1.47.0 → 1.48.0 (1.85.0): groups can be «sen_minimo» (not created
+	 * yet, still taking requests), and an offer accepted by the family keeps its
+	 * place while the junta approves it (matriculas.oferta_aceptada_en).
+	 *
+	 * @since  1.85.0
+	 * @return bool
+	 */
+	private static function migrate_to_1_48_0(): bool {
+		global $wpdb;
+		$grupos     = self::tabela_grupos();
+		$matriculas = self::tabela_matriculas();
+		if ( self::tem_columna( $grupos, 'estado' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$grupos} MODIFY COLUMN estado enum('aberto','pechado','deshabilitado','sen_minimo') NOT NULL DEFAULT 'aberto'" ) ) {
+				return false;
+			}
+		}
+		if ( self::tem_columna( $matriculas, 'estado' ) && ! self::tem_columna( $matriculas, 'oferta_aceptada_en' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
+			if ( false === $wpdb->query( "ALTER TABLE {$matriculas} ADD COLUMN oferta_aceptada_en datetime NULL DEFAULT NULL AFTER oferta_expira" ) ) {
+				return false;
+			}
+		}
+		return true;
 	}
 }

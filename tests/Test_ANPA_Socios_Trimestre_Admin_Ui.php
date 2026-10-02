@@ -94,7 +94,8 @@ final class Test_ANPA_Socios_Trimestre_Admin_Ui extends TestCase {
 		$this->assertStringContainsString( "ANPA_Socios_Envio_Masivo::etiqueta_auditoria( \$template_id, \$resumo ), 'masivo'", $handler );
 		// End of year closes groups and current enrolments of that course only.
 		$this->assertStringContainsString( "WHERE g.curso_escolar = %s AND m.estado IN ({\$in})", $handler );
-		$this->assertStringContainsString( "WHERE curso_escolar = %s AND estado = 'aberto'", $handler );
+		// 1.85.0: the end of the course closes «sen mínimo» groups too.
+		$this->assertStringContainsString( "WHERE curso_escolar = %s AND estado IN ('aberto','sen_minimo')", $handler );
 	}
 
 	public function test_repo_delegates_transition_rules_to_value_objects(): void {

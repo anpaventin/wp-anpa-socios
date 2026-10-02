@@ -24,7 +24,7 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 	}
 
 	public function test_schema_adds_group_series_fields_and_backfill(): void {
-		$this->assertStringContainsString( "const DB_VERSION = '1.47.0'", $this->db );
+		$this->assertStringContainsString( "const DB_VERSION = '1.48.0'", $this->db );
 		$this->assertStringContainsString( 'function migrate_to_1_29_0', $this->db );
 		$this->assertStringContainsString( 'ADD COLUMN serie_uid', $this->db );
 		$this->assertStringContainsString( 'ADD COLUMN nome', $this->db );
@@ -144,7 +144,8 @@ final class Test_ANPA_Socios_Grupo_Series_Handler extends TestCase {
 		$this->assertLessThan( $mat, $target );
 		$this->assertLessThan( $count, $mat );
 		$this->assertLessThan( $write, $count );
-		$this->assertStringContainsString( "'aberto' !== (string) \$grupo['estado']", $method );
+		// 1.85.0: a «sen mínimo» group can receive pupils too.
+		$this->assertStringContainsString( "! in_array( (string) \$grupo['estado'], array( ANPA_Socios_Grupo_Serie::ESTADO_ABERTO, ANPA_Socios_Grupo_Serie::ESTADO_SEN_MINIMO ), true )", $method );
 		$this->assertStringContainsString( 'ANPA_Socios_Grupo_Comedor_Gate::conflicts_for_series', $method );
 		$this->assertStringContainsString( 'WHERE grupo_id = %d ORDER BY nivel_id FOR UPDATE', $method );
 		$this->assertStringContainsString( "'' !== (string) \$wpdb->last_error", $method );
