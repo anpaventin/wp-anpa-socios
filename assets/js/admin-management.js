@@ -4087,15 +4087,24 @@
 				var gid = group.group_id || group.grupo_id;
 				var nomeG = group.grupo_nome || 'Grupo';
 				var nomeA = group.actividade_nome || '';
+				// 1.86.0: every state action may go without email (checked = send, the default).
+				var lblCorreo = document.createElement('label');
+				lblCorreo.className = 'anpa-grupos-horarios-correo';
+				var chkCorreo = document.createElement('input'); chkCorreo.type = 'checkbox'; chkCorreo.checked = true;
+				lblCorreo.appendChild(chkCorreo);
+				lblCorreo.appendChild(document.createTextNode(' Enviar correo (familias e empresa)'));
+				actions.appendChild(lblCorreo);
+				var semCorreoTxt = function () { return chkCorreo.checked ? '' : '\n\nSEN CORREO: cámbiase o estado do grupo pero non se avisa a ninguén.'; };
+				var semCorreoMsg = function (r) { return r && r.correo === false ? ' Non se enviou ningún correo.' : ''; };
 				var bComezo = document.createElement('button');
 				bComezo.type = 'button';
 				bComezo.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
 				bComezo.textContent = 'Notificar grupo creado (comezo do trimestre)';
 				bComezo.addEventListener('click', function () {
-					if (!window.confirm('Avisar ás familias inscritas no grupo «' + nomeG + '» de «' + nomeA + '» (e á empresa) de que o grupo queda confirmado e comeza o trimestre? As de lista de espera reciben outro correo. Envío en CCO por lotes, coa xunta como destinatario visible.')) { return; }
-					anpaAdminFetch('grupo/' + gid + '/notificar-comezo', { method: 'POST' }).then(function (r) {
+					if (!window.confirm('Avisar ás familias inscritas no grupo «' + nomeG + '» de «' + nomeA + '» (e á empresa) de que o grupo queda confirmado e comeza o trimestre? As de lista de espera reciben outro correo. Envío en CCO por lotes, coa xunta como destinatario visible.' + semCorreoTxt())) { return; }
+					anpaAdminFetch('grupo/' + gid + '/notificar-comezo', { method: 'POST', body: { notificar: chkCorreo.checked } }).then(function (r) {
 						var i = (r && r.inscritos) || {}; var e = (r && r.espera) || {};
-						showMessage('Aviso enviado. Inscritos e empresa: ' + (i.enviados || 0) + ' de ' + (i.destinatarios || 0) + '; lista de espera: ' + (e.enviados || 0) + ' de ' + (e.destinatarios || 0) + '. O grupo queda marcado como notificado' + (r && r.notificado_trimestre ? ' (' + r.notificado_trimestre + '\u00BA trimestre)' : '') + '.', (i.fallidos || e.fallidos) ? 'warning' : 'success');
+						showMessage('Aviso enviado. Inscritos e empresa: ' + (i.enviados || 0) + ' de ' + (i.destinatarios || 0) + '; lista de espera: ' + (e.enviados || 0) + ' de ' + (e.destinatarios || 0) + '. O grupo queda marcado como notificado' + (r && r.notificado_trimestre ? ' (' + r.notificado_trimestre + '\u00BA trimestre)' : '') + '.' + semCorreoMsg(r), (i.fallidos || e.fallidos) ? 'warning' : 'success');
 						renderCourse(state.curso);
 					}).catch(function (err) { showMessage(err.message, 'error'); });
 				});
@@ -4107,10 +4116,10 @@
 				bSen.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary anpa-mgmt-btn-sen-minimo';
 				bSen.textContent = 'Deixar sen mínimo (segue admitindo inscricións)';
 				bSen.addEventListener('click', function () {
-					if (!window.confirm('Deixar o grupo «' + nomeG + '» de «' + nomeA + '» sen mínimo (' + group.activos + ' de ' + group.min_pupilos + ')?\n\nNon se crea agora, pero segue na oferta: quen ten praza consérvaa (sen cobro mentres non se cree) e as novas inscricións quedan pendentes de aprobación. As familias e a empresa reciben o correo «grupo_sen_minimo» (o comedor non). Cando chegue ao mínimo, usa «Notificar grupo creado».')) { return; }
-					anpaAdminFetch('grupo/' + gid + '/sen-minimo', { method: 'POST' }).then(function (r) {
+					if (!window.confirm('Deixar o grupo «' + nomeG + '» de «' + nomeA + '» sen mínimo (' + group.activos + ' de ' + group.min_pupilos + ')?\n\nNon se crea agora, pero segue na oferta: quen ten praza consérvaa (sen cobro mentres non se cree) e as novas inscricións quedan pendentes de aprobación. As familias e a empresa reciben o correo «grupo_sen_minimo» (o comedor non). Cando chegue ao mínimo, usa «Notificar grupo creado».' + semCorreoTxt())) { return; }
+					anpaAdminFetch('grupo/' + gid + '/sen-minimo', { method: 'POST', body: { notificar: chkCorreo.checked } }).then(function (r) {
 						var e = (r && r.envio) || {};
-						showMessage('Grupo sen mínimo. Correo enviado a ' + (e.enviados || 0) + ' de ' + (e.destinatarios || 0) + ' destinatarios.', e.fallidos ? 'warning' : 'success');
+						showMessage('Grupo sen mínimo. Correo enviado a ' + (e.enviados || 0) + ' de ' + (e.destinatarios || 0) + ' destinatarios.' + semCorreoMsg(r), e.fallidos ? 'warning' : 'success');
 						renderCourse(state.curso);
 					}).catch(function (err) { showMessage(err.message, 'error'); });
 				});
@@ -4122,10 +4131,10 @@
 				bMin.className = 'anpa-mgmt-btn anpa-mgmt-btn-danger';
 				bMin.textContent = 'Pechar por non acadar o mínimo';
 				bMin.addEventListener('click', function () {
-					if (!window.confirm('Pechar o grupo «' + nomeG + '» de «' + nomeA + '» por non acadar o mínimo (' + group.activos + ' de ' + group.min_pupilos + ')? O grupo queda deshabilitado (desaparece de Grupos e horarios, da oferta e da área; pódese reactivar dende Actividades → grupos), as súas matrículas e as de lista de espera pasan a baixa, e as familias e a empresa reciben o correo «grupo_pechado_minimo». Esta acción non se pode desfacer.')) { return; }
-					anpaAdminFetch('grupo/' + gid + '/pechar-minimo', { method: 'POST' }).then(function (r) {
+					if (!window.confirm('Pechar o grupo «' + nomeG + '» de «' + nomeA + '» por non acadar o mínimo (' + group.activos + ' de ' + group.min_pupilos + ')? O grupo queda deshabilitado (desaparece de Grupos e horarios, da oferta e da área; pódese reactivar dende Actividades → grupos), as súas matrículas e as de lista de espera pasan a baixa, e as familias e a empresa reciben o correo «grupo_pechado_minimo». Esta acción non se pode desfacer.' + semCorreoTxt())) { return; }
+					anpaAdminFetch('grupo/' + gid + '/pechar-minimo', { method: 'POST', body: { notificar: chkCorreo.checked } }).then(function (r) {
 						var e = (r && r.envio) || {};
-						showMessage('Grupo deshabilitado; matrículas dadas de baixa: ' + (r && r.matriculas_baixa) + '. Correo enviado a ' + (e.enviados || 0) + ' de ' + (e.destinatarios || 0) + ' destinatarios.', e.fallidos ? 'warning' : 'success');
+						showMessage('Grupo deshabilitado; matrículas dadas de baixa: ' + (r && r.matriculas_baixa) + '. Correo enviado a ' + (e.enviados || 0) + ' de ' + (e.destinatarios || 0) + ' destinatarios.' + semCorreoMsg(r), e.fallidos ? 'warning' : 'success');
 						renderCourse(state.curso);
 					}).catch(function (err) { showMessage(err.message, 'error'); });
 				});

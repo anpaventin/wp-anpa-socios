@@ -144,6 +144,7 @@ final class ANPA_Socios_Auditoria {
 		'oferta_enviada'             => 'Praza ofrecida da lista de espera',
 		'oferta_caducada'            => 'Oferta sen resposta: ao final da lista de espera',
 		'oferta_rexeitada'           => 'Oferta rexeitada: ao final da lista de espera',
+		'sen_correo'                 => 'Cambio de estado do grupo sen enviar correo',
 		'restaurado_sen_minimo'      => 'Grupo recuperado como «sen mínimo» (reparación 1.85.0)',
 		'curso_pechado'              => 'Curso pechado',
 		'activar_pechado'            => 'Curso reactivado',

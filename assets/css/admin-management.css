@@ -1174,3 +1174,6 @@
 .anpa-row-grupo-sen_minimo td { background: #fff7f0; }
 .anpa-grupos-horarios-group-card--sen-minimo { border-color: #e8833a; background: #fff7f0; }
 .anpa-grupos-horarios-group-card--sen-minimo .anpa-grupos-horarios-slot-title::after { content: " · Sen mínimo"; color: #bc4c00; font-weight: 600; }
+
+/* 1.86.0: «Enviar correo» for the group state actions. */
+.anpa-grupos-horarios-correo { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.85em; margin-right: 0.5rem; }

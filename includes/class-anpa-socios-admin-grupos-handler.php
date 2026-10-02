@@ -952,6 +952,18 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 	 * @param  WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response|WP_Error
 	 */
+	/**
+	 * 1.86.0: the group state actions send their email unless the body says
+	 * «notificar: false» (the change is made silently and audited as such).
+	 *
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return bool
+	 */
+	private static function con_correo( WP_REST_Request $request ): bool {
+		$body = ANPA_Socios_Admin_Shared::json_body( $request );
+		return ! array_key_exists( 'notificar', $body ) || ! empty( $body['notificar'] );
+	}
+
 	public static function notificar_comezo( WP_REST_Request $request ) {
 		$ctx = self::contexto_aviso_grupo( (int) $request->get_param( 'id' ) );
 		if ( is_wp_error( $ctx ) ) {
@@ -959,10 +971,16 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		}
 		$vars = array( 'actividade' => $ctx['actividade'], 'grupo' => $ctx['grupo_nome'], 'horario' => $ctx['horario'], 'trimestre' => $ctx['trimestre'] );
 
-		$inscritos = ANPA_Socios_Email::enviar_masivo( array_merge( $ctx['emails_activos'], $ctx['empresa_email'] ), 'grupo_comezo_trimestre', $vars );
-		ANPA_Socios_Admin_Shared::write_audit( $request, 'email', ANPA_Socios_Envio_Masivo::etiqueta_auditoria( 'grupo_comezo', $inscritos ), 'masivo' );
-		$espera = array( 'lotes' => 0, 'enviados' => 0, 'fallidos' => 0, 'lotes_fallidos' => 0, 'destinatarios' => 0 );
-		if ( array() !== $ctx['emails_espera'] ) {
+		$correo    = self::con_correo( $request );
+		$inscritos = array( 'lotes' => 0, 'enviados' => 0, 'fallidos' => 0, 'lotes_fallidos' => 0, 'destinatarios' => 0 );
+		$espera    = array( 'lotes' => 0, 'enviados' => 0, 'fallidos' => 0, 'lotes_fallidos' => 0, 'destinatarios' => 0 );
+		if ( $correo ) {
+			$inscritos = ANPA_Socios_Email::enviar_masivo( array_merge( $ctx['emails_activos'], $ctx['empresa_email'] ), 'grupo_comezo_trimestre', $vars );
+			ANPA_Socios_Admin_Shared::write_audit( $request, 'email', ANPA_Socios_Envio_Masivo::etiqueta_auditoria( 'grupo_comezo', $inscritos ), 'masivo' );
+		} else {
+			ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $ctx['grupo_id'], 'sen_correo' );
+		}
+		if ( $correo && array() !== $ctx['emails_espera'] ) {
 			$espera = ANPA_Socios_Email::enviar_masivo( $ctx['emails_espera'], 'grupo_comezo_espera', $vars );
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'email', ANPA_Socios_Envio_Masivo::etiqueta_auditoria( 'grupo_espera', $espera ), 'masivo' );
 		}
@@ -978,7 +996,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $ctx['grupo_id'], 'estado_aberto' );
 		}
 
-		return new WP_REST_Response( array( 'id' => $ctx['grupo_id'], 'trimestre' => $ctx['trimestre'], 'notificado_trimestre' => $tri, 'inscritos' => $inscritos, 'espera' => $espera ), 200 );
+		return new WP_REST_Response( array( 'id' => $ctx['grupo_id'], 'trimestre' => $ctx['trimestre'], 'notificado_trimestre' => $tri, 'inscritos' => $inscritos, 'espera' => $espera, 'correo' => $correo ), 200 );
 	}
 
 	/**
@@ -1007,10 +1025,16 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $ctx['grupo_id'], 'sen_minimo' );
-		$envio = ANPA_Socios_Email::enviar_masivo( array_merge( $ctx['emails_activos'], $ctx['emails_espera'], $ctx['emails_pendentes'], $ctx['empresa_email'] ), 'grupo_sen_minimo', array( 'actividade' => $ctx['actividade'], 'grupo' => $ctx['grupo_nome'] ) );
-		ANPA_Socios_Admin_Shared::write_audit( $request, 'email', ANPA_Socios_Envio_Masivo::etiqueta_auditoria( 'grupo_sen_minimo', $envio ), 'masivo' );
+		$correo = self::con_correo( $request );
+		$envio  = array( 'lotes' => 0, 'enviados' => 0, 'fallidos' => 0, 'lotes_fallidos' => 0, 'destinatarios' => 0 );
+		if ( $correo ) {
+			$envio = ANPA_Socios_Email::enviar_masivo( array_merge( $ctx['emails_activos'], $ctx['emails_espera'], $ctx['emails_pendentes'], $ctx['empresa_email'] ), 'grupo_sen_minimo', array( 'actividade' => $ctx['actividade'], 'grupo' => $ctx['grupo_nome'] ) );
+			ANPA_Socios_Admin_Shared::write_audit( $request, 'email', ANPA_Socios_Envio_Masivo::etiqueta_auditoria( 'grupo_sen_minimo', $envio ), 'masivo' );
+		} else {
+			ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $ctx['grupo_id'], 'sen_correo' );
+		}
 
-		return new WP_REST_Response( array( 'id' => $ctx['grupo_id'], 'estado' => ANPA_Socios_Grupo_Serie::ESTADO_SEN_MINIMO, 'envio' => $envio ), 200 );
+		return new WP_REST_Response( array( 'id' => $ctx['grupo_id'], 'estado' => ANPA_Socios_Grupo_Serie::ESTADO_SEN_MINIMO, 'envio' => $envio, 'correo' => $correo ), 200 );
 	}
 
 	/**
@@ -1064,10 +1088,16 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $ctx['grupo_id'], 'pechado_minimo' );
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', sprintf( '%d:m%d', $ctx['grupo_id'], (int) $m_ok ), 'minimo_baixas' );
 
-		$envio = ANPA_Socios_Email::enviar_masivo( array_merge( $ctx['emails_activos'], $ctx['emails_espera'], $ctx['emails_pendentes'], $ctx['empresa_email'] ), 'grupo_pechado_minimo', array( 'actividade' => $ctx['actividade'], 'grupo' => $ctx['grupo_nome'] ) );
-		ANPA_Socios_Admin_Shared::write_audit( $request, 'email', ANPA_Socios_Envio_Masivo::etiqueta_auditoria( 'grupo_minimo', $envio ), 'masivo' );
+		$correo = self::con_correo( $request );
+		$envio  = array( 'lotes' => 0, 'enviados' => 0, 'fallidos' => 0, 'lotes_fallidos' => 0, 'destinatarios' => 0 );
+		if ( $correo ) {
+			$envio = ANPA_Socios_Email::enviar_masivo( array_merge( $ctx['emails_activos'], $ctx['emails_espera'], $ctx['emails_pendentes'], $ctx['empresa_email'] ), 'grupo_pechado_minimo', array( 'actividade' => $ctx['actividade'], 'grupo' => $ctx['grupo_nome'] ) );
+			ANPA_Socios_Admin_Shared::write_audit( $request, 'email', ANPA_Socios_Envio_Masivo::etiqueta_auditoria( 'grupo_minimo', $envio ), 'masivo' );
+		} else {
+			ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $ctx['grupo_id'], 'sen_correo' );
+		}
 
-		return new WP_REST_Response( array( 'id' => $ctx['grupo_id'], 'estado' => ANPA_Socios_Grupo_Serie::ESTADO_DESHABILITADO, 'matriculas_baixa' => (int) $m_ok, 'envio' => $envio ), 200 );
+		return new WP_REST_Response( array( 'id' => $ctx['grupo_id'], 'estado' => ANPA_Socios_Grupo_Serie::ESTADO_DESHABILITADO, 'matriculas_baixa' => (int) $m_ok, 'envio' => $envio, 'correo' => $correo ), 200 );
 	}
 
 	/**
