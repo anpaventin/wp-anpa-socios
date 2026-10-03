@@ -1259,7 +1259,8 @@
 					o.value = String(g.id);
 					o.dataset.franxa = String(g.franxa || '');
 					let label = (g.nome || 'Grupo') + ' · ' + (g.horario_label || '') + ' · ' + (g.franxa || '') + ' · ' + extraDiasText(g.dias);
-					label += g.cheo ? ' (completo — lista de espera)' : ' (' + (g.max_pupilos - g.activos) + ' prazas)';
+					// 1.87.0: max 0 = no limit.
+					label += g.cheo ? ' (completo — lista de espera)' : (parseInt(g.max_pupilos, 10) > 0 ? ' (' + (g.max_pupilos - g.activos) + ' prazas)' : ' (prazas sen límite)');
 					o.textContent = label;
 					grupoSel.appendChild(o);
 				});
@@ -1824,7 +1825,7 @@
 					const ul = document.createElement('ul'); ul.className = 'anpa-extra-mine';
 					(a.grupos || []).forEach(function (g) {
 						const li = document.createElement('li');
-						li.textContent = (g.nome || 'Grupo') + ' · ' + (g.horario_label || '') + ' ' + (g.franxa || '') + ' · ' + (g.dias || '') + ' · ' + (g.estado_label || g.estado) + ' · ' + __( 'activos', 'anpa-socios' ) + ' ' + g.activos + '/' + g.max_pupilos + (g.lista_espera ? ' · ' + __( 'en espera', 'anpa-socios' ) + ' ' + g.lista_espera : '') + (g.baixas ? ' · ' + __( 'baixas', 'anpa-socios' ) + ' ' + g.baixas : '');
+						li.textContent = (g.nome || 'Grupo') + ' · ' + (g.horario_label || '') + ' ' + (g.franxa || '') + ' · ' + (g.dias || '') + ' · ' + (g.estado_label || g.estado) + ' · ' + __( 'activos', 'anpa-socios' ) + ' ' + g.activos + (parseInt(g.max_pupilos, 10) > 0 ? '/' + g.max_pupilos : ' (' + __( 'sen límite', 'anpa-socios' ) + ')') + (g.lista_espera ? ' · ' + __( 'en espera', 'anpa-socios' ) + ' ' + g.lista_espera : '') + (g.baixas ? ' · ' + __( 'baixas', 'anpa-socios' ) + ' ' + g.baixas : '');
 						ul.appendChild(li);
 					});
 					actHost.appendChild(ul);

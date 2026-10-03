@@ -110,7 +110,7 @@ final class ANPA_Socios_Extraescolares_REST {
 		$curso_fillo = null;
 		$nivel_fillo_id = null;
 		$sen_curso   = false;
-		$sql         = "SELECT DISTINCT a.id, a.nome, a.descripcion FROM {$act_t} a INNER JOIN {$gru_t} offered ON offered.actividad_id = a.id AND offered.curso_escolar = %s AND offered.estado IN ('aberto','sen_minimo') WHERE a.estado = 'activo'";
+		$sql         = "SELECT DISTINCT a.id, a.nome, a.descripcion FROM {$act_t} a INNER JOIN {$gru_t} offered ON offered.actividad_id = a.id AND offered.curso_escolar = %s AND offered.estado IN ('aberto','sen_minimo') WHERE a.estado = 'activo' AND a.sen_inscricion = 0";
 		$params      = array( $curso );
 
 		// R-F1: optional fillo_id filters out already-enrolled activities.
@@ -197,7 +197,7 @@ final class ANPA_Socios_Extraescolares_REST {
 					'dias'        => $g['dias'],
 					'max_pupilos' => (int) $g['max_pupilos'],
 					'activos'     => $activos,
-					'cheo'        => $activos >= (int) $g['max_pupilos'],
+					'cheo'        => (int) $g['max_pupilos'] > 0 && $activos >= (int) $g['max_pupilos'],
 				);
 			}
 
@@ -367,6 +367,11 @@ final class ANPA_Socios_Extraescolares_REST {
 		if ( ANPA_Socios_Aviso_Matricula::grupo_creado( ANPA_Socios_Season::ESTADO_ACTIVO, null === ( $locked['aviso_comezo_en'] ?? null ) ? null : (string) $locked['aviso_comezo_en'] ) ) {
 			$pendente = true;
 		}
+		// 1.87.0: an activity that needs no enrolment takes none.
+		if ( (int) $wpdb->get_var( $wpdb->prepare( 'SELECT sen_inscricion FROM ' . ANPA_Socios_DB::tabela_actividades() . ' WHERE id = %d', $actividad_id ) ) > 0 ) {
+			$wpdb->query( 'ROLLBACK' );
+			return self::err( 'anpa_extra_sen_inscricion', 'Esta actividade non precisa inscrición.', 409 );
+		}
 		// 1.85.0: a group «sen mínimo» (not created yet) takes requests for the junta to approve.
 		if ( ANPA_Socios_Grupo_Serie::ESTADO_SEN_MINIMO === (string) $locked['estado'] ) {
 			$pendente = true;
@@ -440,7 +445,8 @@ final class ANPA_Socios_Extraescolares_REST {
 			return self::err( 'anpa_extra_db', 'Erro interno ao matricular', 500 );
 		}
 		// 1.85.0: while somebody waits for this group, a newcomer queues behind them.
-		$full = ( 'pechado' === (string) $locked['estado'] ) || ( $activos >= (int) $locked['max_pupilos'] ) || ANPA_Socios_Lista_Espera::en_espera( $grupo_id ) > 0;
+		// 1.87.0: max 0 = no limit.
+		$full = ( 'pechado' === (string) $locked['estado'] ) || ( (int) $locked['max_pupilos'] > 0 && $activos >= (int) $locked['max_pupilos'] ) || ANPA_Socios_Lista_Espera::en_espera( $grupo_id ) > 0;
 
 		$estado = $pendente ? ANPA_Socios_Matricula_Estado::PENDENTE_APROBACION : ( $full ? 'lista_espera' : 'activo' );
 		// 1.85.0: «posición» = place in THIS group's waiting list (only waiting rows have one).

@@ -130,6 +130,7 @@
       <file>tests/Test_ANPA_Socios_Correos_Masivos.php</file>
       <file>tests/Test_ANPA_Socios_Sen_Minimo_Lista_Espera.php</file>
       <file>tests/Test_ANPA_Socios_Grupo_Sen_Correo.php</file>
+      <file>tests/Test_ANPA_Socios_Actividade_Datas_Gratuita.php</file>
       <file>tests/Test_ANPA_Socios_Area_Matriculas_List.php</file>
       <file>tests/Test_ANPA_Socios_Area_Fillos_Nivel.php</file>
       <file>tests/Test_ANPA_Socios_Admin_Baixas_Panel.php</file>

@@ -465,6 +465,20 @@ final class ANPA_Socios_Admin_Payload {
 		if ( isset( $input['estado'] ) && ! in_array( (string) $input['estado'], self::EMPRESA_ESTADO, true ) ) {
 			return 'estado_invalid';
 		}
+		// 1.87.0: own dates — at least one, valid, and the end not before the start.
+		if ( ! empty( $input['datas_propias'] ) ) {
+			$ini = trim( (string) ( $input['data_inicio'] ?? '' ) );
+			$rem = trim( (string) ( $input['data_remate'] ?? '' ) );
+			if ( '' === $ini && '' === $rem ) {
+				return 'datas_required';
+			}
+			if ( ( '' !== $ini && '' === ANPA_Socios_Oferta_Publica::data_valida( $ini ) ) || ( '' !== $rem && '' === ANPA_Socios_Oferta_Publica::data_valida( $rem ) ) ) {
+				return 'datas_invalid';
+			}
+			if ( '' !== $ini && '' !== $rem && strcmp( $rem, $ini ) < 0 ) {
+				return 'datas_orde';
+			}
+		}
 
 		return null;
 	}
@@ -502,14 +516,25 @@ final class ANPA_Socios_Admin_Payload {
 		if ( null === $custo ) {
 			return null;
 		}
+		// 1.87.0: own dates (instead of the global ones) and «non é necesaria inscrición».
+		$datas_propias = ! empty( $input['datas_propias'] );
+		$data_inicio   = $datas_propias ? ANPA_Socios_Oferta_Publica::data_valida( (string) ( $input['data_inicio'] ?? '' ) ) : '';
+		$data_remate   = $datas_propias ? ANPA_Socios_Oferta_Publica::data_valida( (string) ( $input['data_remate'] ?? '' ) ) : '';
+		if ( $datas_propias && ( ( '' === $data_inicio && '' === $data_remate ) || ( '' !== $data_inicio && '' !== $data_remate && strcmp( $data_remate, $data_inicio ) < 0 ) ) ) {
+			return null;
+		}
 
 		return array(
-			'empresa_id'    => $empresa_id,
-			'nome'          => $nome,
-			'icono'         => ( null === $icono || '' === $icono ) ? '🎒' : $icono,
-			'descripcion'   => $descripcion,
-			'custo'         => $custo,
-			'estado'        => $estado,
+			'empresa_id'     => $empresa_id,
+			'nome'           => $nome,
+			'icono'          => ( null === $icono || '' === $icono ) ? '🎒' : $icono,
+			'descripcion'    => $descripcion,
+			'custo'          => $custo,
+			'estado'         => $estado,
+			'datas_propias'  => $datas_propias ? 1 : 0,
+			'data_inicio'    => '' === $data_inicio ? null : $data_inicio,
+			'data_remate'    => '' === $data_remate ? null : $data_remate,
+			'sen_inscricion' => empty( $input['sen_inscricion'] ) ? 0 : 1,
 		);
 	}
 

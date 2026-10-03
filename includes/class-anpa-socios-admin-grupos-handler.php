@@ -186,7 +186,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		$group_rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT g.id AS grupo_id, g.actividad_id AS actividade_id, g.serie_uid,
-				        a.nome AS actividade_nome, g.nome AS grupo_nome,
+				        a.nome AS actividade_nome, a.sen_inscricion, g.nome AS grupo_nome,
 				        g.horario, g.franxa, g.dias, g.estado, gn.nivel_id,
 				        g.min_pupilos, g.max_pupilos,
 				        g.aviso_comezo_ciclo, g.aviso_comezo_trimestre, g.aviso_comezo_en
@@ -730,7 +730,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido comprobar a capacidade do grupo.', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 		// 1.85.0: offers and held places count too (same rule as enrolments).
-		if ( max( count( $active_rows ), ANPA_Socios_Lista_Espera::ocupadas( $target, $mat_id ) ) >= (int) $grupo['max_pupilos'] ) {
+		if ( (int) $grupo['max_pupilos'] > 0 && max( count( $active_rows ), ANPA_Socios_Lista_Espera::ocupadas( $target, $mat_id ) ) >= (int) $grupo['max_pupilos'] ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_mover_cheo', __( 'O grupo destino está completo', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
@@ -1118,7 +1118,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only context for the notice.
 		$g = $wpdb->get_row( $wpdb->prepare(
 			"SELECT g.id, g.curso_escolar, g.nome, g.horario, g.franxa, g.dias, g.min_pupilos, g.max_pupilos, g.estado,
-			        a.nome AS actividade, COALESCE(e.email, '') AS empresa_email
+			        a.nome AS actividade, a.sen_inscricion, COALESCE(e.email, '') AS empresa_email
 			 FROM {$gru_t} g
 			 INNER JOIN {$act_t} a ON a.id = g.actividad_id
 			 LEFT JOIN {$emp_t} e ON e.id = a.empresa_id
@@ -1127,6 +1127,10 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		), ARRAY_A );
 		if ( ! is_array( $g ) ) {
 			return new WP_Error( 'anpa_admin_grupo_not_found', __( 'Grupo non atopado', 'anpa-socios' ), array( 'status' => 404 ) );
+		}
+		// 1.87.0: an activity that needs no enrolment has no group notices at all.
+		if ( ! empty( $g['sen_inscricion'] ) ) {
+			return new WP_Error( 'anpa_admin_sen_inscricion', __( 'Esta actividade non precisa inscrición: os seus grupos non teñen avisos.', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
 		$gate = ANPA_Socios_Matricula_Gate_Repo::para_curso( (string) $g['curso_escolar'] );
 		if ( ! empty( $gate['abertas'] ) ) {

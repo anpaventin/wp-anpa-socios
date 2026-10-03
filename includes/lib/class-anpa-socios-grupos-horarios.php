@@ -100,6 +100,8 @@ final class ANPA_Socios_Grupos_Horarios {
 					'horario_label'    => ANPA_Socios_Grupo_Serie::horario_label( (string) ( $row['horario'] ?? '' ) ),
 					'franxa'           => $franxa,
 					'estado'           => (string) ( $row['estado'] ?? '' ),
+					// 1.87.0: the activity needs no enrolment (no notices, shown «Creado»).
+					'sen_inscricion'   => ! empty( $row['sen_inscricion'] ),
 					'conflito_comedor' => array() !== $conflicts,
 					// 1.68.0: occupancy for the admin card (counts only, no PII).
 					'min_pupilos'      => (int) ( $row['min_pupilos'] ?? 0 ),

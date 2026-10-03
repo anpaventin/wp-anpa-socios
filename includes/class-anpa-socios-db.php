@@ -105,7 +105,7 @@ class ANPA_Socios_DB {
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.48.0';
+	const DB_VERSION = '1.49.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -393,6 +393,12 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.48.0', '<' ) && ! self::migrate_to_1_48_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.48.0 (migrate_to_1_48_0): ' . $wpdb->last_error );
+			return;
+		}
+		// 1.49.0 (1.87.0): per-activity dates and «non é necesaria inscrición».
+		if ( version_compare( $installed_version, '1.49.0', '<' ) && ! self::migrate_to_1_49_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.49.0 (migrate_to_1_49_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -4355,6 +4361,36 @@ class ANPA_Socios_DB {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded schema migration.
 			if ( false === $wpdb->query( "ALTER TABLE {$matriculas} ADD COLUMN oferta_aceptada_en datetime NULL DEFAULT NULL AFTER oferta_expira" ) ) {
 				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Migration 1.48.0 → 1.49.0 (1.87.0): an activity may have its own start/end
+	 * dates (instead of the global ones in Axustes) and may need no enrolment.
+	 *
+	 * @since  1.87.0
+	 * @return bool
+	 */
+	private static function migrate_to_1_49_0(): bool {
+		global $wpdb;
+		$act = self::tabela_actividades();
+		if ( ! self::tem_columna( $act, 'nome' ) ) {
+			return true;
+		}
+		$cols = array(
+			'datas_propias'  => 'tinyint(1) NOT NULL DEFAULT 0',
+			'data_inicio'    => 'date NULL DEFAULT NULL',
+			'data_remate'    => 'date NULL DEFAULT NULL',
+			'sen_inscricion' => 'tinyint(1) NOT NULL DEFAULT 0',
+		);
+		foreach ( $cols as $col => $def ) {
+			if ( ! self::tem_columna( $act, $col ) ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- guarded schema migration.
+				if ( false === $wpdb->query( "ALTER TABLE {$act} ADD COLUMN {$col} {$def}" ) ) {
+					return false;
+				}
 			}
 		}
 		return true;

@@ -158,7 +158,7 @@ final class Test_ANPA_Socios_Grupos_Horarios extends TestCase {
 		// 1.68.1: the two buttons only exist with the window closed (=== false, i.e. read and closed).
 		$this->assertStringContainsString( 'var pechadas = state.matriculasAbertas === false;', $body );
 		// 1.85.0: a «sen mínimo» group keeps «Notificar grupo creado».
-		$this->assertStringContainsString( "if (pechadas && (group.estado === 'aberto' || senMinimo) && !group.notificado) {", $body );
+		$this->assertStringContainsString( "if (pechadas && (group.estado === 'aberto' || senMinimo) && !group.notificado && !group.sen_inscricion) {", $body );
 		$this->assertStringContainsString( 'var baixoMinimo = group.min_pupilos > 0 && group.activos < group.min_pupilos;', $body );
 		$this->assertStringContainsString( 'if (baixoMinimo) {', $body );
 		$this->assertStringContainsString( 'anpa-grupos-horarios-group-card--oculto', $body );
@@ -167,7 +167,7 @@ final class Test_ANPA_Socios_Grupos_Horarios extends TestCase {
 		// 1.69.0: notified groups are painted green and lose the button until the next window cycle.
 		$this->assertStringContainsString( 'anpa-grupos-horarios-group-card--notificado', $body );
 		// 1.85.0: a «sen mínimo» group keeps «Notificar grupo creado».
-		$this->assertStringContainsString( "if (pechadas && (group.estado === 'aberto' || senMinimo) && !group.notificado) {", $body );
+		$this->assertStringContainsString( "if (pechadas && (group.estado === 'aberto' || senMinimo) && !group.notificado && !group.sen_inscricion) {", $body );
 		$this->assertStringContainsString( '.anpa-grupos-horarios-group-card--notificado', $css );
 		$handler = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-grupos-handler.php' );
 		$this->assertStringContainsString( 'public static function ciclo_ventana( string $curso ): array', $handler );

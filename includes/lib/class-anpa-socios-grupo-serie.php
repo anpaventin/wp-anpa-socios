@@ -87,7 +87,8 @@ final class ANPA_Socios_Grupo_Serie {
 
 		$min = isset( $input['min_pupilos'] ) ? (int) $input['min_pupilos'] : 10;
 		$max = isset( $input['max_pupilos'] ) ? (int) $input['max_pupilos'] : 15;
-		if ( $min < 1 || $max < $min ) {
+		// 1.87.0: 0 = no limit (min 0: no minimum; max 0: no maximum, everyone gets a place).
+		if ( $min < 0 || $max < 0 || ( $max > 0 && $max < $min ) ) {
 			return array();
 		}
 		$estado = (string) ( $input['estado'] ?? 'aberto' );

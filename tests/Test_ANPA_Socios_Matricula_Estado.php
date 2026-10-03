@@ -29,7 +29,9 @@ final class Test_ANPA_Socios_Matricula_Estado extends TestCase {
 		$this->assertSame( 'activo', ANPA_Socios_Matricula_Estado::destino_aprobacion( 'aberto', 9, 10 ) );
 		$this->assertSame( 'lista_espera', ANPA_Socios_Matricula_Estado::destino_aprobacion( 'aberto', 10, 10 ) );
 		$this->assertSame( 'lista_espera', ANPA_Socios_Matricula_Estado::destino_aprobacion( 'pechado', 0, 10 ) );
-		$this->assertSame( 'lista_espera', ANPA_Socios_Matricula_Estado::destino_aprobacion( 'aberto', 0, 0 ), 'a zero maximum never grants a place' );
+		// 1.87.0: a maximum of 0 means no limit — always a place (but never in a closed group).
+		$this->assertSame( 'activo', ANPA_Socios_Matricula_Estado::destino_aprobacion( 'aberto', 40, 0 ), 'a zero maximum is no limit' );
+		$this->assertSame( 'lista_espera', ANPA_Socios_Matricula_Estado::destino_aprobacion( 'pechado', 0, 0 ) );
 	}
 
 	public function test_only_pending_requests_can_be_withdrawn_by_the_family(): void {

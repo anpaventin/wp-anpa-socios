@@ -2406,6 +2406,9 @@
 							empresa_id: row.empresa_id, nome: row.nome, icono: row.icono || '',
 							descripcion: row.descripcion || '',
 							custo: row.custo, estado: newEstado,
+							// 1.87.0: keep the activity's own dates and «no enrolment» on a toggle.
+							datas_propias: String(row.datas_propias || '0') === '1', data_inicio: row.data_inicio || '', data_remate: row.data_remate || '',
+							sen_inscricion: String(row.sen_inscricion || '0') === '1',
 						};
 
 						anpaAdminFetch('actividad/' + row.id, { method: 'PUT', body: payload }).then(function () {
@@ -2617,7 +2620,28 @@
 
 		var custoInput = document.createElement('input'); custoInput.type = 'text'; custoInput.placeholder = '0.00';
 		custoInput.value = isEdit ? (act.custo || '0') : '';
-		addField('anpa-act-custo', 'Custo (€)', custoInput);
+		addField('anpa-act-custo', 'Custo (€) — 0 = gratuíta', custoInput);
+
+		// 1.87.0: own dates instead of the global ones (Axustes → Xeral), and «no enrolment needed».
+		var datasChk = document.createElement('input'); datasChk.type = 'checkbox'; datasChk.id = 'anpa-act-datas-propias';
+		datasChk.checked = isEdit && String(act.datas_propias || '0') === '1';
+		var datasLbl = document.createElement('label'); datasLbl.htmlFor = 'anpa-act-datas-propias';
+		datasLbl.appendChild(datasChk); datasLbl.appendChild(document.createTextNode(' Datas propias (distintas das xerais das extraescolares)'));
+		form.appendChild(datasLbl);
+		var datasBox = document.createElement('div'); datasBox.className = 'anpa-act-datas-propias';
+		var iniInput = document.createElement('input'); iniInput.type = 'date'; iniInput.value = isEdit ? String(act.data_inicio || '').slice(0, 10) : '';
+		var remInput = document.createElement('input'); remInput.type = 'date'; remInput.value = isEdit ? String(act.data_remate || '').slice(0, 10) : '';
+		var lIni = document.createElement('label'); lIni.textContent = 'Comeza o '; lIni.appendChild(iniInput);
+		var lRem = document.createElement('label'); lRem.textContent = ' Remata o '; lRem.appendChild(remInput);
+		datasBox.appendChild(lIni); datasBox.appendChild(lRem);
+		datasBox.style.display = datasChk.checked ? '' : 'none';
+		datasChk.addEventListener('change', function () { datasBox.style.display = datasChk.checked ? '' : 'none'; });
+		form.appendChild(datasBox);
+		var senInsChk = document.createElement('input'); senInsChk.type = 'checkbox'; senInsChk.id = 'anpa-act-sen-inscricion';
+		senInsChk.checked = isEdit && String(act.sen_inscricion || '0') === '1';
+		var senInsLbl = document.createElement('label'); senInsLbl.htmlFor = 'anpa-act-sen-inscricion';
+		senInsLbl.appendChild(senInsChk); senInsLbl.appendChild(document.createTextNode(' Non é necesaria inscrición (os grupos saen como «Creado», non se ofrecen na área e non hai avisos de grupo)'));
+		form.appendChild(senInsLbl);
 		var estadoSelect = document.createElement('select');
 		['activo', 'inactivo'].forEach(function (v) {
 			var opt = document.createElement('option'); opt.value = v; opt.textContent = v;
@@ -2645,7 +2669,9 @@
 			var payload = {
 				empresa_id: parseInt(empresaSelect.value, 10) || 0,
 				nome: nomeInput.value.trim(), icono: getSelectedIcono(), descripcion: descInput.value.trim(),
-				custo: custoInput.value.trim(), estado: estadoSelect.value
+				custo: custoInput.value.trim(), estado: estadoSelect.value,
+				datas_propias: datasChk.checked, data_inicio: iniInput.value, data_remate: remInput.value,
+				sen_inscricion: senInsChk.checked
 			};
 			if (!payload.empresa_id || !payload.nome || !payload.descripcion) {
 				showMessage('Empresa, nome e descrición son obrigatorios.', 'error'); return;
@@ -2882,8 +2908,9 @@
 		var times = payload.franxa.split('-');
 		if (times[0] >= times[1]) { return 'A hora de fin debe ser posterior á de inicio.'; }
 		if (!Array.isArray(payload.dias) || !payload.dias.length) { return 'Selecciona polo menos un día.'; }
-		if (!Number.isInteger(payload.min_pupilos) || payload.min_pupilos < 1) { return 'Indica un mínimo válido de alumnos/as.'; }
-		if (!Number.isInteger(payload.max_pupilos) || payload.max_pupilos < payload.min_pupilos) { return 'O máximo debe ser igual ou superior ao mínimo.'; }
+		// 1.87.0: 0 = no limit (no minimum / no maximum).
+		if (!Number.isInteger(payload.min_pupilos) || payload.min_pupilos < 0) { return 'Indica un mínimo válido de alumnos/as (0 = sen mínimo).'; }
+		if (!Number.isInteger(payload.max_pupilos) || payload.max_pupilos < 0 || (payload.max_pupilos > 0 && payload.max_pupilos < payload.min_pupilos)) { return 'O máximo debe ser igual ou superior ao mínimo (0 = sen máximo).'; }
 		return '';
 	}
 
@@ -2997,8 +3024,8 @@
 		var days = document.createElement('div'); var dayTokens = ['luns','martes','mercores','xoves','venres']; var dayLabels = ['Luns','Martes','Mércores','Xoves','Venres']; var existingDays = isEdit ? String(grupo.dias || '').split(',') : [];
 		dayTokens.forEach(function (day, i) { var label = document.createElement('label'); var chk = document.createElement('input'); chk.type = 'checkbox'; chk.value = day; chk.checked = existingDays.indexOf(day) !== -1; label.appendChild(chk); label.appendChild(document.createTextNode(' ' + dayLabels[i])); days.appendChild(label); });
 		var daysLabel = document.createElement('label'); daysLabel.textContent = 'Días'; form.appendChild(daysLabel); form.appendChild(days);
-		var min = document.createElement('input'); min.type = 'number'; min.min = '1'; min.value = isEdit ? grupo.min_pupilos : '10'; addField('anpa-grupo-min', 'Mínimo de alumnos/as', min);
-		var max = document.createElement('input'); max.type = 'number'; max.min = '1'; max.value = isEdit ? grupo.max_pupilos : '15'; addField('anpa-grupo-max', 'Máximo de alumnos/as', max);
+		var min = document.createElement('input'); min.type = 'number'; min.min = '0'; min.value = isEdit ? grupo.min_pupilos : '10'; addField('anpa-grupo-min', 'Mínimo de alumnos/as (0 = sen mínimo)', min);
+		var max = document.createElement('input'); max.type = 'number'; max.min = '0'; max.value = isEdit ? grupo.max_pupilos : '15'; addField('anpa-grupo-max', 'Máximo de alumnos/as (0 = sen límite, todos teñen praza)', max);
 		var vixentes = isEdit ? Number(grupo.matriculas_vixentes || 0) : 0;
 		var state = document.createElement('select');
 		GRUPO_ESTADOS.forEach(function (e) {
@@ -3945,6 +3972,7 @@
 						franxa: slot.franxa || '',
 						dia: slot.dia || '',
 						estado: slot.estado || '',
+						sen_inscricion: !!slot.sen_inscricion,
 						conflito_comedor: !!slot.conflito_comedor,
 						// 1.68.0: occupancy (same for every slot of the group).
 						min_pupilos: parseInt(slot.min_pupilos, 10) || 0,
@@ -4036,7 +4064,7 @@
 				card.className += ' anpa-grupos-horarios-group-card--sen-minimo';
 			}
 			// 1.69.0: the «grupo creado» notice already went out in this window cycle.
-			if (group.notificado && group.estado === 'aberto') {
+			if ((group.notificado || group.sen_inscricion) && group.estado === 'aberto') {
 				card.className += ' anpa-grupos-horarios-group-card--notificado';
 			}
 			var title = document.createElement('div');
@@ -4048,10 +4076,14 @@
 			meta.appendChild(makeMetaLabel('Grupo', group.grupo_nome || '—'));
 			meta.appendChild(makeMetaLabel('Niveis', uniqueLevelLabels(group.nivel_ids, levelLookup).join(', ') || '—'));
 			meta.appendChild(makeMetaLabel('Estado', grupoEstadoLabel(group.estado) || '—'));
-			var ocup = makeMetaLabel('Ocupación', group.activos + '/' + group.max_pupilos + ' inscritos · ' + group.espera + ' en espera' + (group.pendentes ? ' · ' + group.pendentes + ' pendentes' : '') + ' · mínimo ' + group.min_pupilos);
+			// 1.87.0: 0 = no limit; activities without enrolment have no occupancy.
+			var ocup = group.sen_inscricion
+				? makeMetaLabel('Inscrición', 'non é necesaria (grupo creado, sen avisos)')
+				: makeMetaLabel('Ocupación', group.activos + '/' + (group.max_pupilos > 0 ? group.max_pupilos : 'sen límite') + ' inscritos · ' + group.espera + ' en espera' + (group.pendentes ? ' · ' + group.pendentes + ' pendentes' : '') + ' · mínimo ' + (group.min_pupilos > 0 ? group.min_pupilos : 'sen mínimo'));
 			ocup.className = 'anpa-grupos-horarios-ocupacion' + (group.min_pupilos > 0 && group.activos < group.min_pupilos ? ' anpa-grupos-horarios-ocupacion--baixo-minimo' : '');
 			meta.appendChild(ocup);
-			if (group.notificado) {
+			// 1.87.0: a «sen mínimo» group never shows the green «notificado» line.
+			if (group.notificado && group.estado !== 'sen_minimo') {
 				var notif = makeMetaLabel('Notificado', 'grupo creado' + (group.notificado_trimestre ? ' · ' + group.notificado_trimestre + '\u00BA trimestre' : '') + (group.notificado_en ? ' · ' + formatAdminDate(group.notificado_en) : ''));
 				notif.className = 'anpa-grupos-horarios-notificado';
 				meta.appendChild(notif);
@@ -4083,7 +4115,7 @@
 				var baixoMinimo = group.min_pupilos > 0 && group.activos < group.min_pupilos;
 				// 1.85.0: a «sen mínimo» group keeps «Notificar grupo creado» (it opens when created).
 				var senMinimo = group.estado === 'sen_minimo';
-				if (pechadas && (group.estado === 'aberto' || senMinimo) && !group.notificado) {
+				if (pechadas && (group.estado === 'aberto' || senMinimo) && !group.notificado && !group.sen_inscricion) {
 				var gid = group.group_id || group.grupo_id;
 				var nomeG = group.grupo_nome || 'Grupo';
 				var nomeA = group.actividade_nome || '';

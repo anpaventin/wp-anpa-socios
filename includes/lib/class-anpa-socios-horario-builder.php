@@ -75,9 +75,11 @@ final class ANPA_Socios_Horario_Builder {
 			}
 
 			$entry = array(
-				'nome'    => (string) ( $act['nome'] ?? '' ),
-				'grupos'  => $grupo_labels,
-				'horario' => $horario,
+				'nome'       => (string) ( $act['nome'] ?? '' ),
+				'grupos'     => $grupo_labels,
+				'horario'    => $horario,
+				// 1.87.0: the timetable marks «sen mínimo» groups (orange, not green).
+				'sen_minimo' => 'sen_minimo' === (string) ( $act['estado'] ?? '' ),
 			);
 
 			foreach ( $dias as $dia ) {

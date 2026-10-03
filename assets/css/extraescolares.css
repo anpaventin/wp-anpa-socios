@@ -223,3 +223,7 @@
 
 /* 1.85.0: group not created yet (below its minimum), still taking requests. */
 .anpa-extra-grupo-sen-minimo { display: inline-block; margin-left: 0.35rem; padding: 0.05rem 0.5rem; border-radius: 999px; background: #fff1e6; color: #bc4c00; border: 1px solid #f0b48a; font-size: 0.8em; font-weight: 600; }
+
+/* 1.87.0: timetable entry of a «sen mínimo» group (not green) and «Non precisa inscrición». */
+.anpa-extra-lista li.anpa-extra-lista-sen-minimo { background: #fff7f0; border: 1px solid #f0b48a; }
+.anpa-extra-sen-inscricion { color: #2e7d32; font-weight: 600; }

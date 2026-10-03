@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.87.0] - 2026-10-03
+
+### Added
+
+- **Datas propias por actividade** (esquema **1.49.0**): casilla «Datas propias» na ficha da actividade con data de
+  inicio e/ou de remate; na páxina pública esa tarxeta amosa as súas datas en vez das xerais (Axustes → Xeral).
+- **«Non é necesaria inscrición»** (casilla na actividade): os seus grupos saen en verde «Creado» co texto «Non
+  precisa inscrición» (sen prazas nin mínimo), non se ofrecen na área (a inscrición devolve 409) e non teñen avisos
+  de grupo («Notificar grupo creado», «sen mínimo», «pechar» devolven 409 e os botóns non saen).
+- **Grupos sen límite**: mínimo 0 = sen mínimo; máximo 0 = sen máximo (todos teñen praza, nunca lista de espera).
+  Na web «Prazas: sen límite (N inscritos)», e en Xestión e na área «sen límite».
+
+### Changed
+
+- Prezo 0 → «**Gratuíta**» na páxina de extraescolares (antes «consultar condicións»).
+- **Horario** público: os grupos «sen mínimo» saen sen o fondo verde e coa marca laranxa «Sen mínimo». En Xestión
+  un grupo «sen mínimo» xa non amosa a liña verde de «notificado».
+
 ## [1.86.0] - 2026-10-03
 
 ### Added

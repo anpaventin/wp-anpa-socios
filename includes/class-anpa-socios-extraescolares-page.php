@@ -76,7 +76,10 @@ final class ANPA_Socios_Extraescolares_Page {
 						if ( ! empty( $entry['grupos'] ) ) {
 							$grupos = ' <span class="anpa-extra-grupos">(' . esc_html( implode( ', ', $entry['grupos'] ) ) . ')</span>';
 						}
-						$html .= '<li><span class="anpa-extra-act">' . esc_html( $entry['nome'] ) . '</span>' . $grupos . '</li>';
+						// 1.85/1.87: a «sen mínimo» group is not green and carries the orange mark.
+						$sen_min = ! empty( $entry['sen_minimo'] );
+						$html   .= '<li' . ( $sen_min ? ' class="anpa-extra-lista-sen-minimo"' : '' ) . '><span class="anpa-extra-act">' . esc_html( $entry['nome'] ) . '</span>' . $grupos
+							. ( $sen_min ? ' <span class="anpa-extra-grupo-sen-minimo">' . esc_html__( 'Sen mínimo', 'anpa-socios' ) . '</span>' : '' ) . '</li>';
 					}
 					$html .= '</ul>';
 				}
@@ -132,8 +135,12 @@ final class ANPA_Socios_Extraescolares_Page {
 			$html .= '<div class="anpa-card anpa-extra-card">';
 			$html .= '<p class="anpa-icon-circle">' . esc_html( self::activity_icon( (string) ( $act['icono'] ?? '' ) ) ) . '</p>';
 			$html .= '<h3>' . esc_html( (string) ( $act['nome'] ?? '' ) ) . '</h3>';
-			if ( '' !== $curto ) {
-				$html .= '<p class="anpa-extra-meta anpa-extra-card-datas">' . esc_html( $curto ) . '</p>';
+			// 1.87.0: an activity with its own dates shows them instead of the global ones.
+			$curto_act = ! empty( $act['datas_propias'] )
+				? ANPA_Socios_Oferta_Publica::texto_curto( ANPA_Socios_Oferta_Publica::data_valida( (string) ( $act['data_inicio'] ?? '' ) ), ANPA_Socios_Oferta_Publica::data_valida( (string) ( $act['data_remate'] ?? '' ) ) )
+				: $curto;
+			if ( '' !== $curto_act ) {
+				$html .= '<p class="anpa-extra-meta anpa-extra-card-datas">' . esc_html( $curto_act ) . '</p>';
 			}
 
 			// Empresa — the name itself is the link when a website is set
@@ -360,7 +367,7 @@ final class ANPA_Socios_Extraescolares_Page {
 		// provisional fallback in the revised fase24 model.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT a.nome, g.nome AS grupo_nome, g.horario, g.franxa, g.dias, g.max_pupilos,
+				"SELECT a.nome, g.nome AS grupo_nome, g.horario, g.franxa, g.dias, g.max_pupilos, g.estado,
 				        COUNT(DISTINCT CASE WHEN m.estado = 'activo' THEN m.id END) AS activos
 				 FROM {$act_t} a
 				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = %s
@@ -368,7 +375,7 @@ final class ANPA_Socios_Extraescolares_Page {
 				 WHERE a.estado = 'activo'
 				   AND g.id IN ({$available_placeholders})
 				   AND g.horario IN ('maña','manha','tarde') AND g.franxa <> '' AND g.dias <> ''
-				 GROUP BY g.id, a.nome, g.nome, g.horario, g.franxa, g.dias, g.max_pupilos
+				 GROUP BY g.id, a.nome, g.nome, g.horario, g.franxa, g.dias, g.max_pupilos, g.estado
 				 ORDER BY g.franxa ASC, a.nome ASC, g.nome ASC",
 				...array_merge( array( $curso ), $available_ids )
 			),
@@ -409,7 +416,7 @@ final class ANPA_Socios_Extraescolares_Page {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only public blocks from activity/group tables.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT a.id, a.nome, a.icono, a.descripcion, a.custo,
+				"SELECT a.id, a.nome, a.icono, a.descripcion, a.custo, a.datas_propias, a.data_inicio, a.data_remate, a.sen_inscricion,
 				        e.nome AS empresa_nome, e.url_web,
 				        MIN(g.franxa) AS sort_franxa,
 				        GROUP_CONCAT(DISTINCT g.nome ORDER BY g.nome SEPARATOR ',') AS grupos,
@@ -419,7 +426,7 @@ final class ANPA_Socios_Extraescolares_Page {
 				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = %s
 				 WHERE a.estado = 'activo'
 				   AND g.id IN ({$available_placeholders})
-				 GROUP BY a.id, a.nome, a.icono, a.descripcion, a.custo, e.nome, e.url_web
+				 GROUP BY a.id, a.nome, a.icono, a.descripcion, a.custo, a.datas_propias, a.data_inicio, a.data_remate, a.sen_inscricion, e.nome, e.url_web
 				 ORDER BY sort_franxa ASC, a.nome ASC",
 				...array_merge( array( $curso ), $available_ids )
 			),
@@ -544,8 +551,10 @@ final class ANPA_Socios_Extraescolares_Page {
 		$html = '';
 		foreach ( $parts as $part ) {
 			$html .= '<div class="anpa-extra-horario-grupo">';
-			$creado     = is_array( $part['capacity'] ) && ! empty( $part['capacity']['creado'] );
-			$sen_minimo = is_array( $part['capacity'] ) && ! empty( $part['capacity']['sen_minimo'] );
+			// 1.87.0: an activity that needs no enrolment: every group «Creado», no places.
+			$sen_inscricion = ! empty( $act['sen_inscricion'] );
+			$creado         = $sen_inscricion || ( is_array( $part['capacity'] ) && ! empty( $part['capacity']['creado'] ) );
+			$sen_minimo     = ! $sen_inscricion && is_array( $part['capacity'] ) && ! empty( $part['capacity']['sen_minimo'] );
 			$html  .= '<p class="anpa-extra-meta anpa-extra-horario-line"><strong>' . esc_html( $part['grupo'] ) . '</strong>'
 				. ( $creado ? ' <span class="anpa-extra-grupo-creado">' . esc_html__( 'Creado', 'anpa-socios' ) . '</span>' : '' )
 				. ( $sen_minimo ? ' <span class="anpa-extra-grupo-sen-minimo" title="' . esc_attr__( 'Aínda non chega ao mínimo para formarse: segue admitindo inscricións.', 'anpa-socios' ) . '">' . esc_html__( 'Sen mínimo', 'anpa-socios' ) . '</span>' : '' )
@@ -557,7 +566,9 @@ final class ANPA_Socios_Extraescolares_Page {
 						. esc_html__( 'Cursos:', 'anpa-socios' ) . '</strong> '
 						. esc_html( (string) $part['capacity']['niveis'] ) . '</p>';
 				}
-				$html .= self::group_prazas_html( $part['capacity'] );
+				$html .= $sen_inscricion
+					? '<p class="anpa-extra-meta anpa-extra-sen-inscricion">' . esc_html__( 'Non precisa inscrición.', 'anpa-socios' ) . '</p>'
+					: self::group_prazas_html( $part['capacity'] );
 			}
 			$html .= '</div>';
 		}
@@ -579,6 +590,17 @@ final class ANPA_Socios_Extraescolares_Page {
 		$activos_class = ANPA_Socios_Prazas::activos_class( $s );
 
 		$html  = '<p class="anpa-extra-meta anpa-extra-prazas"><strong>' . esc_html__( 'Prazas:', 'anpa-socios' ) . '</strong> ';
+		if ( (int) $s['max_pupilos'] <= 0 ) {
+			// 1.87.0: max 0 = no limit, for everyone.
+			/* translators: %d: pupils enrolled */
+			$html .= esc_html__( 'sen límite', 'anpa-socios' ) . ' (' . esc_html( sprintf( _n( '%d inscrito/a', '%d inscritos/as', (int) $s['activos'], 'anpa-socios' ), (int) $s['activos'] ) ) . ')</p>';
+			$minimo = (int) ( $group['min_pupilos'] ?? 0 );
+			if ( $minimo > 0 && empty( $group['creado'] ) ) {
+				/* translators: %d: minimum pupils required to form this group. */
+				$html .= '<p class="anpa-extra-meta anpa-extra-prazas-minimo">' . esc_html( sprintf( __( 'Mínimo de %d para crear grupo.', 'anpa-socios' ), $minimo ) ) . '</p>';
+			}
+			return $html;
+		}
 		$html .= '<span class="' . esc_attr( $activos_class ) . '">' . (int) $s['activos'] . '</span>';
 		$html .= '/' . (int) $s['max_pupilos'];
 		if ( ! empty( $s['espera_visible'] ) ) {
@@ -632,7 +654,8 @@ final class ANPA_Socios_Extraescolares_Page {
 	private static function price_label( $value ): string {
 		$price = is_numeric( $value ) ? (float) $value : 0.0;
 		if ( $price <= 0 ) {
-			return __( 'consultar condicións', 'anpa-socios' );
+			// 1.87.0: a price of 0 is a free activity.
+			return __( 'Gratuíta', 'anpa-socios' );
 		}
 
 		/* translators: %s: formatted price with decimals */

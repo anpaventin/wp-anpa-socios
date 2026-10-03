@@ -207,7 +207,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 		$inserted = $wpdb->insert(
 			ANPA_Socios_DB::tabela_actividades(),
 			self::base_payload( $payload ),
-			array( '%d', '%s', '%s', '%s', '%f', '%s' )
+			self::base_formats()
 		);
 		if ( false === $inserted ) {
 			$wpdb->query( 'ROLLBACK' );
@@ -252,7 +252,7 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			$table,
 			$base,
 			array( 'id' => $id ),
-			array( '%d', '%s', '%s', '%s', '%f', '%s', '%s' ),
+			array_merge( self::base_formats(), array( '%s' ) ),
 			array( '%d' )
 		);
 		if ( false === $updated ) {
@@ -323,7 +323,17 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			'descripcion'   => (string) $payload['descripcion'],
 			'custo'         => (float) $payload['custo'],
 			'estado'        => (string) $payload['estado'],
+			// 1.87.0
+			'datas_propias'  => (int) ( $payload['datas_propias'] ?? 0 ),
+			'data_inicio'    => $payload['data_inicio'] ?? null,
+			'data_remate'    => $payload['data_remate'] ?? null,
+			'sen_inscricion' => (int) ( $payload['sen_inscricion'] ?? 0 ),
 		);
+	}
+
+	/** Formats of base_payload(), in order. @return array<int,string> */
+	private static function base_formats(): array {
+		return array( '%d', '%s', '%s', '%s', '%f', '%s', '%d', '%s', '%s', '%d' );
 	}
 
 	private static function get_row( int $id ): array {
@@ -384,11 +394,16 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 			'descripcion' => (string) ( $src['descripcion'] ?? '' ),
 			'custo'       => (float) ( $src['custo'] ?? 0 ),
 			'estado'      => 'activo',
+			// 1.87.0
+			'datas_propias'  => (int) ( $src['datas_propias'] ?? 0 ),
+			'data_inicio'    => $src['data_inicio'] ?? null,
+			'data_remate'    => $src['data_remate'] ?? null,
+			'sen_inscricion' => (int) ( $src['sen_inscricion'] ?? 0 ),
 		);
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
-		$ok = $wpdb->insert( $act_t, $copy, array( '%d', '%s', '%s', '%s', '%f', '%s' ) );
+		$ok = $wpdb->insert( $act_t, $copy, self::base_formats() );
 		if ( false === $ok ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_socios_db_error', 'Erro ao crear a actividade duplicada.', array( 'status' => 500 ) );
@@ -425,6 +440,9 @@ final class ANPA_Socios_Admin_Actividades_Handler {
 
 			'custo_invalid'          => __( 'O custo debe ser un número válido.', 'anpa-socios' ),
 			'estado_invalid'         => __( 'O estado da actividade non é válido.', 'anpa-socios' ),
+			'datas_required'         => __( 'Con «Datas propias» indica polo menos a data de inicio ou a de remate.', 'anpa-socios' ),
+			'datas_invalid'          => __( 'As datas propias da actividade non son válidas.', 'anpa-socios' ),
+			'datas_orde'             => __( 'A data de remate da actividade non pode ser anterior á de inicio.', 'anpa-socios' ),
 		);
 
 		return new WP_Error( 'anpa_admin_' . $issue, $messages[ $issue ] ?? __( 'Revisa os datos da actividade.', 'anpa-socios' ), array( 'status' => 400 ) );

@@ -152,8 +152,8 @@ final class Test_ANPA_Socios_Avisos_Metade_Curso extends TestCase {
 	public function test_audit_columns_are_widened(): void {
 		$db = $this->src( 'includes/class-anpa-socios-db.php' );
 		// 1.83.0: schema moved on to 1.47.0 (socios.baixa_en); the 1.46.0 step stays registered.
-		$this->assertStringContainsString( "const DB_VERSION = '1.48.0';", $db );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.48.0' )", $this->src( 'anpa-socios.php' ) );
+		$this->assertStringContainsString( "const DB_VERSION = '1.49.0';", $db );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.49.0' )", $this->src( 'anpa-socios.php' ) );
 		$this->assertStringContainsString( "version_compare( \$installed_version, '1.46.0', '<' ) && ! self::migrate_to_1_46_0()", $db );
 		$this->assertStringContainsString( 'MODIFY COLUMN accion varchar(40) NOT NULL, MODIFY COLUMN target_id varchar(190)', $db );
 		$this->assertStringContainsString( "target_id varchar(190) not null default '',\n\t\t\taccion varchar(40) not null,", $db );
