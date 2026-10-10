@@ -120,8 +120,8 @@ final class Test_ANPA_Socios_Oferta_Publica extends TestCase {
 			'actividade_nome' => 'Xadrez', 'grupo_nome' => 'Luns', 'horario' => 'tarde', 'franxa' => '16:00-17:00', 'dias' => 'luns',
 			'empresa_nome' => 'Empresa Exemplo', 'trimestre' => '2',
 			'autorizacion_comedor' => 'si', 'tarde_transicion' => 'comedor', 'tardes_divertidas_continua' => '1', 'recollida_autorizada' => '0',
-			'proxenitor1_nome' => 'Ana Souto', 'proxenitor1_telefono' => '600000001', 'proxenitor1_email' => 'ana@example.com',
-			'proxenitor2_nome' => '', 'proxenitor2_telefono' => '', 'proxenitor2_email' => '',
+			'proxenitor1_nome' => 'Ana', 'proxenitor1_apelidos' => 'Souto', 'proxenitor1_telefono' => '600000001', 'proxenitor1_email' => 'ana@example.com',
+			'proxenitor2_nome' => '', 'proxenitor2_apelidos' => '', 'proxenitor2_telefono' => '', 'proxenitor2_email' => '',
 		) );
 		$this->assertSame( 'Uxía Pérez Souto', $ctx['alumno'] );
 		$this->assertSame( '3º A', $ctx['curso'] );

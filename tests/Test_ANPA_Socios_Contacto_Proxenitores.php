@@ -17,9 +17,11 @@ final class Test_ANPA_Socios_Contacto_Proxenitores extends TestCase {
 
 	private const CONTACTO = array(
 		'proxenitor1_nome',
+		'proxenitor1_apelidos',
 		'proxenitor1_telefono',
 		'proxenitor1_email',
 		'proxenitor2_nome',
+		'proxenitor2_apelidos',
 		'proxenitor2_telefono',
 		'proxenitor2_email',
 	);
@@ -32,7 +34,7 @@ final class Test_ANPA_Socios_Contacto_Proxenitores extends TestCase {
 
 	public function test_panel_columns_end_with_both_parents_contact(): void {
 		foreach ( array( ANPA_Socios_Alumnos_Export::columns_panel_empresa(), ANPA_Socios_Alumnos_Export::columns_panel_comedor() ) as $cols ) {
-			$this->assertSame( self::CONTACTO, array_slice( $cols, -6 ), 'Contact columns close the listing, 1st parent first.' );
+			$this->assertSame( self::CONTACTO, array_slice( $cols, -8 ), 'Contact columns close the listing, 1st parent first.' );
 			$this->assertNotContains( 'socio_email', $cols, 'The loose fillo email is replaced by the 1st parent email.' );
 		}
 		$this->assertSame( 'empresa_nome', ANPA_Socios_Alumnos_Export::columns_panel_comedor()[0] );

@@ -1868,14 +1868,17 @@
 				estado: EMPRESA_ESTADO_LABELS[r.estado] || r.estado || '',
 				opcions: opcionsLabel(r),
 				// 1.70.0: both parents; flat text for search/sort, raw parts for the links.
-				proxenitor1: [r.proxenitor1_nome, r.proxenitor1_telefono, r.proxenitor1_email].filter(Boolean).join(' · '),
-				proxenitor2: [r.proxenitor2_nome, r.proxenitor2_telefono, r.proxenitor2_email].filter(Boolean).join(' · '),
+				proxenitor1: [nomeCompleto(r.proxenitor1_nome, r.proxenitor1_apelidos), r.proxenitor1_telefono, r.proxenitor1_email].filter(Boolean).join(' · '),
+				proxenitor2: [nomeCompleto(r.proxenitor2_nome, r.proxenitor2_apelidos), r.proxenitor2_telefono, r.proxenitor2_email].filter(Boolean).join(' · '),
 				// Raw state for the row colour; leading underscore = not a column.
 				_estado: r.estado || '',
-				_proxenitor1: { nome: r.proxenitor1_nome || '', telefono: r.proxenitor1_telefono || '', email: r.proxenitor1_email || '' },
-				_proxenitor2: { nome: r.proxenitor2_nome || '', telefono: r.proxenitor2_telefono || '', email: r.proxenitor2_email || '' },
+				_proxenitor1: { nome: nomeCompleto(r.proxenitor1_nome, r.proxenitor1_apelidos), telefono: r.proxenitor1_telefono || '', email: r.proxenitor1_email || '' },
+				_proxenitor2: { nome: nomeCompleto(r.proxenitor2_nome, r.proxenitor2_apelidos), telefono: r.proxenitor2_telefono || '', email: r.proxenitor2_email || '' },
 			};
 		}
+
+		/** «Nome Apelidos» (1.88.0: the API sends name and surnames apart). */
+		function nomeCompleto(nome, apelidos) { return ((nome || '') + ' ' + (apelidos || '')).trim(); }
 
 		/** Contact cell: name, then the phone as a tel: link and the email as a mailto: link, one per line. */
 		function fillContactoCell(td, p) {

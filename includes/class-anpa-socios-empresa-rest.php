@@ -515,9 +515,11 @@ class ANPA_Socios_Empresa_REST {
 					'trimestre'  => (int) $r['trimestre'],
 					// 1.70.0: both parents' contact (the 2nd one empty when the family has none).
 					'proxenitor1_nome'     => (string) ( $r['proxenitor1_nome'] ?? '' ),
+					'proxenitor1_apelidos' => (string) ( $r['proxenitor1_apelidos'] ?? '' ),
 					'proxenitor1_telefono' => (string) ( $r['proxenitor1_telefono'] ?? '' ),
 					'proxenitor1_email'    => (string) ( $r['proxenitor1_email'] ?? '' ),
 					'proxenitor2_nome'     => (string) ( $r['proxenitor2_nome'] ?? '' ),
+					'proxenitor2_apelidos' => (string) ( $r['proxenitor2_apelidos'] ?? '' ),
 					'proxenitor2_telefono' => (string) ( $r['proxenitor2_telefono'] ?? '' ),
 					'proxenitor2_email'    => (string) ( $r['proxenitor2_email'] ?? '' ),
 					// 1.56.0: options and authorisations chosen by the family.

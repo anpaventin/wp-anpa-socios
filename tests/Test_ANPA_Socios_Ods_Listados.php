@@ -75,14 +75,14 @@ final class Test_ANPA_Socios_Ods_Listados extends TestCase {
 			'actividade_nome' => 'Xadrez', 'empresa_nome' => 'Empresa Exemplo', 'grupo_nome' => 'Luns', 'horario' => 'tarde', 'franxa' => '16:00-17:00', 'dias' => 'luns',
 			'nome' => 'Uxía', 'apelidos' => 'Pérez Souto', 'curso' => '3º', 'aula' => 'A', 'estado' => 'activo', 'trimestre' => '1',
 			'autorizacion_comedor' => 'na', 'tarde_transicion' => 'comedor', 'tardes_divertidas_continua' => '0', 'recollida_autorizada' => '1',
-			'proxenitor1_nome' => 'Ana Souto', 'proxenitor1_telefono' => '600000001', 'proxenitor1_email' => 'ana@example.com',
-			'proxenitor2_nome' => '', 'proxenitor2_telefono' => '', 'proxenitor2_email' => '',
+			'proxenitor1_nome' => 'Ana', 'proxenitor1_apelidos' => 'Souto', 'proxenitor1_telefono' => '600000001', 'proxenitor1_email' => 'ana@example.com',
+			'proxenitor2_nome' => '', 'proxenitor2_apelidos' => '', 'proxenitor2_telefono' => '', 'proxenitor2_email' => '',
 		);
 	}
 
 	public function test_sheet_columns_mirror_the_web_panel(): void {
-		$this->assertSame( array( 'Actividade', 'Grupo', 'Alumno/a', 'Curso', 'Estado', 'Opcións e autorizacións', '1º proxenitor', '2º proxenitor' ), ANPA_Socios_Listado_Empresa::cabeceira( false ) );
-		$this->assertSame( array( 'Actividade', 'Empresa', 'Grupo', 'Alumno/a', 'Curso', 'Estado', 'Opcións e autorizacións', '1º proxenitor', '2º proxenitor' ), ANPA_Socios_Listado_Empresa::cabeceira( true ) );
+		$this->assertSame( array( 'Actividade', 'Grupo', 'Alumno/a', 'Curso', 'Estado', 'Opcións e autorizacións', 'Nome 1º proxenitor', 'Apelidos 1º proxenitor', 'Teléfono 1º proxenitor', 'Correo 1º proxenitor', 'Nome 2º proxenitor', 'Apelidos 2º proxenitor', 'Teléfono 2º proxenitor', 'Correo 2º proxenitor' ), ANPA_Socios_Listado_Empresa::cabeceira( false ) );
+		$this->assertSame( array( 'Actividade', 'Empresa', 'Grupo', 'Alumno/a', 'Curso', 'Estado', 'Opcións e autorizacións', 'Nome 1º proxenitor', 'Apelidos 1º proxenitor', 'Teléfono 1º proxenitor', 'Correo 1º proxenitor', 'Nome 2º proxenitor', 'Apelidos 2º proxenitor', 'Teléfono 2º proxenitor', 'Correo 2º proxenitor' ), ANPA_Socios_Listado_Empresa::cabeceira( true ) );
 	}
 
 	public function test_sheet_row_is_human_readable(): void {
@@ -93,11 +93,12 @@ final class Test_ANPA_Socios_Ods_Listados extends TestCase {
 		$this->assertSame( '3º A', $f[3] );
 		$this->assertSame( 'Activa', $f[4] );
 		$this->assertSame( 'Tras o comedor pasa á actividade · Recollida por persoa autorizada', $f[5] );
-		$this->assertSame( "Ana Souto\n600000001\nana@example.com", $f[6] );
-		$this->assertSame( '—', $f[7] );
+		// 1.88.0: one column per datum of each parent; the 2nd parent's cells stay empty when the family has none.
+		$this->assertSame( array( 'Ana', 'Souto', '600000001', 'ana@example.com', '', '', '', '' ), array_slice( $f, 6 ) );
+		$this->assertCount( 14, $f );
 		$c = ANPA_Socios_Listado_Empresa::fila( $this->fila(), true );
 		$this->assertSame( 'Empresa Exemplo', $c[1] );
-		$this->assertCount( 9, $c );
+		$this->assertCount( 15, $c );
 	}
 
 	public function test_every_state_has_a_label(): void {

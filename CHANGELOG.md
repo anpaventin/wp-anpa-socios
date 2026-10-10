@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.88.0] - 2026-10-10
+
+### Changed
+
+- **Listado das empresas e do comedor: datos dos dous proxenitores por separado.** O CSV leva agora oito columnas
+  de contacto (`proxenitor1_nome`, `proxenitor1_apelidos`, `proxenitor1_telefono`, `proxenitor1_email` e as mesmas
+  do 2º proxenitor; antes nome e apelidos ían xuntos nunha soa columna). A folla de cálculo (.ods) pasa de dúas
+  celas «1º proxenitor» / «2º proxenitor» con tres liñas a oito columnas: nome, apelidos, teléfono e correo de cada
+  proxenitor (baleiras cando a familia non ten 2º proxenitor). A guía do CSV describe as columnas novas.
+- A táboa do panel de empresa e os correos á empresa e ao comedor seguen a amosar «Nome Apelidos · teléfono ·
+  correo» de cada proxenitor (compoñen o nome a partir dos dous campos).
+
 ## [1.87.0] - 2026-10-03
 
 ### Added

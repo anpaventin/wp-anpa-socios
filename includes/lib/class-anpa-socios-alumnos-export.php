@@ -107,11 +107,12 @@ final class ANPA_Socios_Alumnos_Export {
 	/**
 	 * Columns of the company panel listing / export (1.55.0). Superset of
 	 * columns( false ) with the group, the enrolment state and the trimester.
+	 * 1.88.0: name, surnames, phone and email of both parents, one column each.
 	 *
 	 * @return string[]
 	 */
 	public static function columns_panel_empresa(): array {
-		return array( 'actividade_nome', 'grupo_nome', 'horario', 'franxa', 'dias', 'nome', 'apelidos', 'curso', 'aula', 'estado', 'trimestre', 'comedor', 'tarde', 'autorizacion_comedor', 'tarde_transicion', 'tardes_divertidas_continua', 'recollida_autorizada', 'cesion_datos_empresa', 'proxenitor1_nome', 'proxenitor1_telefono', 'proxenitor1_email', 'proxenitor2_nome', 'proxenitor2_telefono', 'proxenitor2_email' );
+		return array( 'actividade_nome', 'grupo_nome', 'horario', 'franxa', 'dias', 'nome', 'apelidos', 'curso', 'aula', 'estado', 'trimestre', 'comedor', 'tarde', 'autorizacion_comedor', 'tarde_transicion', 'tardes_divertidas_continua', 'recollida_autorizada', 'cesion_datos_empresa', 'proxenitor1_nome', 'proxenitor1_apelidos', 'proxenitor1_telefono', 'proxenitor1_email', 'proxenitor2_nome', 'proxenitor2_apelidos', 'proxenitor2_telefono', 'proxenitor2_email' );
 	}
 
 	/**
@@ -191,8 +192,8 @@ final class ANPA_Socios_Alumnos_Export {
 		$socios      = ANPA_Socios_DB::tabela_socios();
 		return "SELECT {$extra}a.id AS actividad_id, COALESCE(e.nome, '') AS empresa_nome, a.nome AS actividade_nome, COALESCE(g.nome, '') AS grupo_nome, COALESCE(g.horario, '') AS horario, COALESCE(g.franxa, '') AS franxa, COALESCE(g.dias, '') AS dias, "
 			. "f.nome, f.apelidos, COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula, '') AS aula, m.estado, m.trimestre, m.comedor, m.tarde, m.autorizacion_comedor, m.tarde_transicion, m.tardes_divertidas_continua, m.recollida_autorizada, m.cesion_datos_empresa, "
-			. "TRIM(CONCAT(COALESCE(p1.nome, ''), ' ', COALESCE(p1.apelidos, ''))) AS proxenitor1_nome, COALESCE(p1.telefono, '') AS proxenitor1_telefono, COALESCE(NULLIF(p1.email, ''), f.socio_email, '') AS proxenitor1_email, "
-			. "TRIM(CONCAT(COALESCE(p2.nome, ''), ' ', COALESCE(p2.apelidos, ''))) AS proxenitor2_nome, COALESCE(p2.telefono, '') AS proxenitor2_telefono, COALESCE(p2.email, '') AS proxenitor2_email "
+			. "COALESCE(p1.nome, '') AS proxenitor1_nome, COALESCE(p1.apelidos, '') AS proxenitor1_apelidos, COALESCE(p1.telefono, '') AS proxenitor1_telefono, COALESCE(NULLIF(p1.email, ''), f.socio_email, '') AS proxenitor1_email, "
+			. "COALESCE(p2.nome, '') AS proxenitor2_nome, COALESCE(p2.apelidos, '') AS proxenitor2_apelidos, COALESCE(p2.telefono, '') AS proxenitor2_telefono, COALESCE(p2.email, '') AS proxenitor2_email "
 			. "FROM {$matriculas} m "
 			. "JOIN {$fillos} f ON f.id = m.fillo_id "
 			. "JOIN {$actividades} a ON a.id = m.activitad_id "

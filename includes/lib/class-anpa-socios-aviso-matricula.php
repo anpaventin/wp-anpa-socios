@@ -123,8 +123,8 @@ final class ANPA_Socios_Aviso_Matricula {
 			'grupo'       => $grupo,
 			'empresa'     => '' !== $v( 'empresa_nome' ) ? $v( 'empresa_nome' ) : '—',
 			'trimestre'   => $v( 'trimestre' ),
-			'proxenitor1' => self::proxenitor( $v( 'proxenitor1_nome' ), $v( 'proxenitor1_telefono' ), $v( 'proxenitor1_email' ) ),
-			'proxenitor2' => self::proxenitor( $v( 'proxenitor2_nome' ), $v( 'proxenitor2_telefono' ), $v( 'proxenitor2_email' ) ),
+			'proxenitor1' => self::proxenitor( trim( $v( 'proxenitor1_nome' ) . ' ' . $v( 'proxenitor1_apelidos' ) ), $v( 'proxenitor1_telefono' ), $v( 'proxenitor1_email' ) ),
+			'proxenitor2' => self::proxenitor( trim( $v( 'proxenitor2_nome' ) . ' ' . $v( 'proxenitor2_apelidos' ) ), $v( 'proxenitor2_telefono' ), $v( 'proxenitor2_email' ) ),
 			'opcions'     => self::opcions( $r ),
 		);
 	}

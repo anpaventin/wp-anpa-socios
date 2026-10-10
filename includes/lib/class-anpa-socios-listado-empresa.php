@@ -27,13 +27,14 @@ final class ANPA_Socios_Listado_Empresa {
 	);
 
 	/**
-	 * Sheet header, same columns as the web table.
+	 * Sheet header, same columns as the web table; 1.88.0: one column per datum
+	 * of each parent (name, surnames, phone, email).
 	 *
 	 * @param  bool $comedor Canteen account (adds «Empresa»).
 	 * @return string[]
 	 */
 	public static function cabeceira( bool $comedor ): array {
-		$cols = array( 'Actividade', 'Grupo', 'Alumno/a', 'Curso', 'Estado', 'Opcións e autorizacións', '1º proxenitor', '2º proxenitor' );
+		$cols = array( 'Actividade', 'Grupo', 'Alumno/a', 'Curso', 'Estado', 'Opcións e autorizacións', 'Nome 1º proxenitor', 'Apelidos 1º proxenitor', 'Teléfono 1º proxenitor', 'Correo 1º proxenitor', 'Nome 2º proxenitor', 'Apelidos 2º proxenitor', 'Teléfono 2º proxenitor', 'Correo 2º proxenitor' );
 		if ( $comedor ) {
 			array_splice( $cols, 1, 0, array( 'Empresa' ) );
 		}
@@ -61,8 +62,14 @@ final class ANPA_Socios_Listado_Empresa {
 			trim( $v( 'curso' ) . ' ' . $v( 'aula' ) ),
 			self::estado_label( $v( 'estado' ) ),
 			$ctx['opcions'],
-			self::contacto( $v( 'proxenitor1_nome' ), $v( 'proxenitor1_telefono' ), $v( 'proxenitor1_email' ) ),
-			self::contacto( $v( 'proxenitor2_nome' ), $v( 'proxenitor2_telefono' ), $v( 'proxenitor2_email' ) ),
+			$v( 'proxenitor1_nome' ),
+			$v( 'proxenitor1_apelidos' ),
+			$v( 'proxenitor1_telefono' ),
+			$v( 'proxenitor1_email' ),
+			$v( 'proxenitor2_nome' ),
+			$v( 'proxenitor2_apelidos' ),
+			$v( 'proxenitor2_telefono' ),
+			$v( 'proxenitor2_email' ),
 		);
 		if ( $comedor ) {
 			array_splice( $out, 1, 0, array( '' !== $v( 'empresa_nome' ) ? $v( 'empresa_nome' ) : '—' ) );
@@ -128,21 +135,16 @@ final class ANPA_Socios_Listado_Empresa {
 			'tardes_divertidas_continua' => '1 = ao rematar a actividade continúa en Tardes Divertidas; 0 = non.',
 			'recollida_autorizada'       => '1 = ao rematar a actividade recólleo a familia ou unha persoa autorizada; 0 = non se indicou.',
 			'cesion_datos_empresa'       => '1 = a familia autorizou a cesión dos datos necesarios á empresa (obrigatorio para matricular).',
-			'proxenitor1_nome'           => 'Nome e apelidos do 1º proxenitor.',
+			'proxenitor1_nome'           => 'Nome do 1º proxenitor.',
+			'proxenitor1_apelidos'       => 'Apelidos do 1º proxenitor.',
 			'proxenitor1_telefono'       => 'Teléfono do 1º proxenitor.',
 			'proxenitor1_email'          => 'Correo do 1º proxenitor.',
-			'proxenitor2_nome'           => 'Nome e apelidos do 2º proxenitor (baleiro se non hai).',
+			'proxenitor2_nome'           => 'Nome do 2º proxenitor (baleiro se non hai).',
+			'proxenitor2_apelidos'       => 'Apelidos do 2º proxenitor.',
 			'proxenitor2_telefono'       => 'Teléfono do 2º proxenitor.',
 			'proxenitor2_email'          => 'Correo do 2º proxenitor.',
 		);
 		return $comedor ? array( 'empresa_nome' => 'Empresa que imparte a actividade.' ) + $g : $g;
 	}
 
-	/**
-	 * Name, phone and email on separate lines, or «—».
-	 */
-	private static function contacto( string $nome, string $tel, string $email ): string {
-		$l = array_values( array_filter( array( $nome, $tel, $email ), static function ( string $s ): bool { return '' !== $s; } ) );
-		return array() === $l ? '—' : implode( "\n", $l );
-	}
 }
