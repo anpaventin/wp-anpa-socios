@@ -2,8 +2,9 @@
 /**
  * Waiting list of a group (1.85.0): places taken (an offer and an accepted
  * offer waiting for the junta keep the place), positions numbered PER GROUP
- * and trimester (1..N, waiting rows only), and the «end of the list» move used
- * when a family lets an offer expire or turns it down.
+ * (1.89.0: one queue for the whole group, every trimester, 1..N, waiting rows
+ * only — older trimester first), and the «end of the list» move used when a
+ * family lets an offer expire or turns it down.
  *
  * @since   1.85.0
  * @package ANPA_Socios
@@ -60,28 +61,26 @@ final class ANPA_Socios_Lista_Espera {
 	}
 
 	/**
-	 * Next position at the end of a group's waiting list.
+	 * Next position at the end of a group's waiting list (every trimester).
 	 *
-	 * @param  int $grupo_id  Group id.
-	 * @param  int $trimestre Trimester.
+	 * @param  int $grupo_id Group id.
 	 * @return int
 	 */
-	public static function seguinte_posicion( int $grupo_id, int $trimestre ): int {
+	public static function seguinte_posicion( int $grupo_id ): int {
 		global $wpdb;
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only.
-		return 1 + (int) $wpdb->get_var( $wpdb->prepare( "SELECT MAX(posicion) FROM {$mat_t} WHERE grupo_id = %d AND trimestre = %d AND estado = 'lista_espera'", $grupo_id, $trimestre ) );
+		return 1 + (int) $wpdb->get_var( $wpdb->prepare( "SELECT MAX(posicion) FROM {$mat_t} WHERE grupo_id = %d AND estado = 'lista_espera'", $grupo_id ) );
 	}
 
 	/**
-	 * Renumbers a group's waiting list to 1..N keeping its order (posicion, id).
+	 * Renumbers a group's waiting list to 1..N keeping its order (trimestre, posicion, id).
 	 *
-	 * @param  int $grupo_id  Group id.
-	 * @param  int $trimestre Trimester.
+	 * @param  int $grupo_id Group id.
 	 * @return void
 	 */
-	public static function renumerar( int $grupo_id, int $trimestre ): void {
-		ANPA_Socios_Extraescolar_Offers::renumber_group( $grupo_id, $trimestre );
+	public static function renumerar( int $grupo_id ): void {
+		ANPA_Socios_Extraescolar_Offers::renumber_group( $grupo_id );
 	}
 
 	/**
@@ -101,7 +100,7 @@ final class ANPA_Socios_Lista_Espera {
 		}
 		$g   = (int) $row['grupo_id'];
 		$t   = (int) $row['trimestre'];
-		$pos = self::seguinte_posicion( $g, $t );
+		$pos = self::seguinte_posicion( $g );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- guarded state change.
 		$n = $wpdb->query( $wpdb->prepare(
 			"UPDATE {$mat_t} SET estado = 'lista_espera', posicion = %d, oferta_token = NULL, oferta_expira = %s, actualizado_en = %s WHERE id = %d AND estado = 'oferta'",
@@ -113,7 +112,7 @@ final class ANPA_Socios_Lista_Espera {
 		if ( 1 !== (int) $n ) {
 			return null;
 		}
-		self::renumerar( $g, $t );
+		self::renumerar( $g );
 		return array( 'grupo_id' => $g, 'trimestre' => $t );
 	}
 }

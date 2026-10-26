@@ -105,7 +105,7 @@ class ANPA_Socios_DB {
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.49.0';
+	const DB_VERSION = '1.50.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -399,6 +399,12 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.49.0', '<' ) && ! self::migrate_to_1_49_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.49.0 (migrate_to_1_49_0): ' . $wpdb->last_error );
+			return;
+		}
+		// 1.50.0 (1.89.0): one waiting list per group (positions renumbered across trimesters).
+		if ( version_compare( $installed_version, '1.50.0', '<' ) && ! self::migrate_to_1_50_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.50.0 (migrate_to_1_50_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -4391,6 +4397,41 @@ class ANPA_Socios_DB {
 				if ( false === $wpdb->query( "ALTER TABLE {$act} ADD COLUMN {$col} {$def}" ) ) {
 					return false;
 				}
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Migration 1.49.0 → 1.50.0 (1.89.0): one waiting list per group. Positions were
+	 * numbered per group AND trimester, so two waiting rows of the same group could
+	 * both read «1». Renumbers every group's waiting rows 1..N, older trimester first.
+	 * Data only; no schema change.
+	 *
+	 * @return bool
+	 */
+	private static function migrate_to_1_50_0(): bool {
+		global $wpdb;
+		$mat = self::tabela_matriculas();
+		if ( ! self::tem_columna( $mat, 'posicion' ) ) {
+			return true;
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table from DB helper.
+		$rows = $wpdb->get_results( "SELECT id, grupo_id FROM {$mat} WHERE estado = 'lista_espera' AND grupo_id > 0 ORDER BY grupo_id ASC, trimestre ASC, posicion ASC, id ASC", ARRAY_A );
+		if ( ! is_array( $rows ) ) {
+			return false;
+		}
+		$pos   = 0;
+		$grupo = 0;
+		foreach ( $rows as $r ) {
+			if ( (int) $r['grupo_id'] !== $grupo ) {
+				$grupo = (int) $r['grupo_id'];
+				$pos   = 0;
+			}
+			++$pos;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- data backfill.
+			if ( false === $wpdb->update( $mat, array( 'posicion' => $pos ), array( 'id' => (int) $r['id'] ), array( '%d' ), array( '%d' ) ) ) {
+				return false;
 			}
 		}
 		return true;

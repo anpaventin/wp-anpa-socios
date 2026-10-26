@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.89.0] - 2026-10-26
+
+### Changed
+
+- **Unha soa lista de espera por grupo** (esquema **1.50.0**, só datos). Ata agora a posición numerábase por grupo e
+  trimestre, así que dúas matrículas en espera do mesmo grupo podían ler as dúas «1». Agora a cola é do grupo
+  enteiro: primeiro o trimestre máis antigo e despois a orde de chegada, 1..N. A migración renumera as listas que xa
+  existen. A quen se lle ofrece a praza non cambia (xa se collía da lista enteira do grupo).
+- **Listado de matrículas de Xestión**: a columna chámase «Posto na lista de espera» e as matrículas con praza
+  amosan «—» en vez de quedar en branco. Só as que están en espera teñen posto, como ata agora.
+
 ## [1.88.0] - 2026-10-10
 
 ### Changed

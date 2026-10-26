@@ -32,6 +32,7 @@
 		resolto_por: 'Resolto por',
 		cursos_ofertados: 'Cursos nos que se oferta',
 		trimestres: 'Trimestre inscripción',
+		posicion: 'Posto na lista de espera',
 		// buildTable strips the leading underscore before calling colLabel(),
 		// so the lookup key here must be WITHOUT the underscore.
 		estado_efectivo: 'Estado',
@@ -339,6 +340,9 @@
 				if (Array.isArray(v)) {
 					// e.g. cursos_ofertados: comma+space separated, em-dash when empty.
 					td.textContent = v.length ? v.join(', ') : '\u2014';
+				} else if (c === 'posicion' && (v === null || v === undefined || v === '')) {
+					// 1.89.0: only waiting rows hold a place in the queue; the rest show «—».
+					td.textContent = '\u2014';
 				} else {
 					td.textContent = v === null || v === undefined ? '' : String(v);
 				}

@@ -752,7 +752,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'matricula', (string) $mat_id, 'mover' );
 		// 1.85.0: the source group's list closes the gap; a place freed there goes to its next one.
-		ANPA_Socios_Lista_Espera::renumerar( (int) $mat['grupo_id'], (int) $mat['trimestre'] );
+		ANPA_Socios_Lista_Espera::renumerar( (int) $mat['grupo_id'] );
 		if ( (int) $mat['grupo_id'] !== $target && in_array( (string) $mat['estado'], array( 'activo', 'oferta', 'baixa_solicitada' ), true ) ) {
 			ANPA_Socios_Extraescolar_Offers::offer_next( (int) $mat['grupo_id'], (int) $mat['trimestre'] );
 		}

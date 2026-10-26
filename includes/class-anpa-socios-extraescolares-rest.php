@@ -450,7 +450,7 @@ final class ANPA_Socios_Extraescolares_REST {
 
 		$estado = $pendente ? ANPA_Socios_Matricula_Estado::PENDENTE_APROBACION : ( $full ? 'lista_espera' : 'activo' );
 		// 1.85.0: «posición» = place in THIS group's waiting list (only waiting rows have one).
-		$posicion = 'lista_espera' === $estado ? ANPA_Socios_Lista_Espera::seguinte_posicion( $grupo_id, $trimestre ) : null;
+		$posicion = 'lista_espera' === $estado ? ANPA_Socios_Lista_Espera::seguinte_posicion( $grupo_id ) : null;
 
 		$fields = array(
 			'grupo_id'                   => $grupo_id,
@@ -722,7 +722,7 @@ final class ANPA_Socios_Extraescolares_REST {
 				return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
 			}
 			// 1.85.0: the group's waiting list closes the gap (positions per group).
-			ANPA_Socios_Lista_Espera::renumerar( (int) $mat['grupo_id'], (int) $mat['trimestre'] );
+			ANPA_Socios_Lista_Espera::renumerar( (int) $mat['grupo_id'] );
 			if ( 'oferta' === $mat['estado'] ) {
 				ANPA_Socios_Extraescolar_Offers::offer_next( (int) $mat['grupo_id'], (int) $mat['trimestre'], (int) $id );
 			}
@@ -918,7 +918,7 @@ final class ANPA_Socios_Extraescolares_REST {
 			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
 		}
 		ANPA_Socios_Admin_Shared::write_audit_actor( self::current_email( $request ), 'socio', 'matricula', (string) $mat['id'], 'oferta_aceptada' );
-		ANPA_Socios_Lista_Espera::renumerar( $grupo_id, (int) ( $mat['trimestre'] ?? 0 ) );
+		ANPA_Socios_Lista_Espera::renumerar( $grupo_id );
 
 		// 1.85.0: the place is kept and the junta approves it (Operacións → Aprobacións);
 		// the approval tells the family, the company and the canteen.

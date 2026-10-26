@@ -106,7 +106,6 @@ final class ANPA_Socios_Extraescolar_Offers {
 		if ( ! is_array( $next ) ) {
 			return;
 		}
-		$trimestre = (int) $next['trimestre'];
 
 		try {
 			$token = bin2hex( random_bytes( 16 ) );
@@ -131,7 +130,7 @@ final class ANPA_Socios_Extraescolar_Offers {
 			return; // it changed meanwhile (baixa, another offer…).
 		}
 
-		ANPA_Socios_Lista_Espera::renumerar( $grupo_id, $trimestre );
+		ANPA_Socios_Lista_Espera::renumerar( $grupo_id );
 		ANPA_Socios_Admin_Shared::write_audit_actor( 'system', 'system', 'matricula', (string) $next['id'], 'oferta_enviada' );
 		self::notify_offer( (int) $next['id'] );
 	}
@@ -213,19 +212,19 @@ final class ANPA_Socios_Extraescolar_Offers {
 	 * Renumbers the remaining waitlist of a group/trimester to contiguous 1..N.
 	 *
 	 * @since  1.9.0
-	 * @param  int $grupo_id  Group id.
-	 * @param  int $trimestre Trimester.
+	 * 1.89.0: one queue per group — older trimester first, then position.
+	 *
+	 * @param  int $grupo_id Group id.
 	 * @return void
 	 */
-	public static function renumber_group( int $grupo_id, int $trimestre ): void {
+	public static function renumber_group( int $grupo_id ): void {
 		global $wpdb;
 
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
 		$ids   = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT id FROM {$mat_t} WHERE grupo_id = %d AND trimestre = %d AND estado = 'lista_espera' ORDER BY posicion ASC, id ASC",
-				$grupo_id,
-				$trimestre
+				"SELECT id FROM {$mat_t} WHERE grupo_id = %d AND estado = 'lista_espera' ORDER BY trimestre ASC, posicion ASC, id ASC",
+				$grupo_id
 			)
 		);
 		$map = ANPA_Socios_Waitlist::renumber( is_array( $ids ) ? $ids : array() );

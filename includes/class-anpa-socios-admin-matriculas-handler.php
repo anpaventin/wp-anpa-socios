@@ -446,7 +446,7 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 			$trimestre = ANPA_Socios_Matricula_Gate_Repo::trimestre_vixente( (string) $grupo['curso_escolar'] );
 		}
 		// «posición» = place in this group's waiting list (only waiting rows have one).
-		$posicion = ANPA_Socios_Matricula_Estado::LISTA_ESPERA === $destino ? ANPA_Socios_Lista_Espera::seguinte_posicion( (int) $grupo['id'], $trimestre ) : null;
+		$posicion = ANPA_Socios_Matricula_Estado::LISTA_ESPERA === $destino ? ANPA_Socios_Lista_Espera::seguinte_posicion( (int) $grupo['id'] ) : null;
 
 		$updated = $wpdb->update(
 			$mat_t,
@@ -465,7 +465,7 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 		}
 		ANPA_Socios_Admin_Shared::write_audit_actor( $actor, $actor_tipo, 'matricula', (string) $id, 'aprobada_' . ( ANPA_Socios_Matricula_Estado::ACTIVO === $destino ? 'praza' : 'espera' ) );
 		if ( ANPA_Socios_Matricula_Estado::LISTA_ESPERA === $destino ) {
-			ANPA_Socios_Lista_Espera::renumerar( (int) $grupo['id'], $trimestre );
+			ANPA_Socios_Lista_Espera::renumerar( (int) $grupo['id'] );
 		}
 
 		$correos = 0;

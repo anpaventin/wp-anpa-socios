@@ -108,7 +108,7 @@ final class Test_ANPA_Socios_Sen_Minimo_Lista_Espera extends TestCase {
 		// oferta_expira keeps when the offer ended: the family rests DESCANSO_DIAS before another offer.
 		$this->assertStringContainsString( "SET estado = 'lista_espera', posicion = %d, oferta_token = NULL, oferta_expira = %s", $l );
 		$this->assertSame( 3, ANPA_Socios_Lista_Espera::DESCANSO_DIAS );
-		$this->assertStringContainsString( 'self::renumerar( $g, $t );', $l );
+		$this->assertStringContainsString( 'self::renumerar( $g );', $l );
 		// The family can turn it down from the area (session-protected).
 		$e = $this->src( 'includes/class-anpa-socios-extraescolares-rest.php' );
 		$i = strpos( $e, "'/area/matricula/(?P<id>\\d+)/oferta/rexeitar'" );
@@ -124,10 +124,27 @@ final class Test_ANPA_Socios_Sen_Minimo_Lista_Espera extends TestCase {
 
 	public function test_positions_are_per_group(): void {
 		$l = $this->src( 'includes/class-anpa-socios-lista-espera.php' );
-		$this->assertStringContainsString( "SELECT MAX(posicion) FROM {\$mat_t} WHERE grupo_id = %d AND trimestre = %d AND estado = 'lista_espera'", $l );
+		// 1.89.0: ONE queue per group — no trimester in the position queries; renumbering orders older trimester first.
+		$this->assertStringContainsString( "SELECT MAX(posicion) FROM {\$mat_t} WHERE grupo_id = %d AND estado = 'lista_espera'", $l );
+		$this->assertStringNotContainsString( 'AND trimestre = %d', $l );
+		$o = $this->src( 'includes/class-anpa-socios-extraescolar-offers.php' );
+		$this->assertStringContainsString( "WHERE grupo_id = %d AND estado = 'lista_espera' ORDER BY trimestre ASC, posicion ASC, id ASC", $o );
+		$this->assertStringContainsString( 'public static function renumber_group( int $grupo_id ): void', $o );
+		foreach ( array( 'includes/class-anpa-socios-admin-grupos-handler.php', 'includes/class-anpa-socios-admin-matriculas-handler.php', 'includes/class-anpa-socios-extraescolares-rest.php', 'includes/class-anpa-socios-extraescolar-offers.php' ) as $rel ) {
+			$this->assertSame( 0, preg_match( '/ANPA_Socios_Lista_Espera::(renumerar|seguinte_posicion)\\([^;]*,/', $this->src( $rel ) ), $rel . ': no caller passes a trimester any more' );
+		}
+		// Migration 1.50.0 renumbers the existing lists once; the admin column is labelled and shows «—» for rows with a place.
+		$db = $this->src( 'includes/class-anpa-socios-db.php' );
+		$this->assertStringContainsString( "version_compare( \$installed_version, '1.50.0', '<' ) && ! self::migrate_to_1_50_0()", $db );
+		$m = $this->body( $db, 'migrate_to_1_50_0' );
+		$this->assertStringContainsString( "WHERE estado = 'lista_espera' AND grupo_id > 0 ORDER BY grupo_id ASC, trimestre ASC, posicion ASC, id ASC", $m );
+		$this->assertStringNotContainsString( 'ALTER TABLE', $m );
+		$js = $this->src( 'assets/js/admin-management.js' );
+		$this->assertStringContainsString( "posicion: 'Posto na lista de espera',", $js );
+		$this->assertStringContainsString( "c === 'posicion' && (v === null || v === undefined || v === '')", $js );
 		$e = $this->src( 'includes/class-anpa-socios-extraescolares-rest.php' );
 		$this->assertStringNotContainsString( 'WHERE activitad_id = %d AND trimestre = %d"', $e, 'no per-activity count any more' );
-		$this->assertStringContainsString( "\$posicion = 'lista_espera' === \$estado ? ANPA_Socios_Lista_Espera::seguinte_posicion( \$grupo_id, \$trimestre ) : null;", $e );
+		$this->assertStringContainsString( "\$posicion = 'lista_espera' === \$estado ? ANPA_Socios_Lista_Espera::seguinte_posicion( \$grupo_id ) : null;", $e );
 		$a = $this->src( 'includes/class-anpa-socios-admin-matriculas-handler.php' );
 		$this->assertStringNotContainsString( 'WHERE activitad_id = %d AND trimestre = %d AND id <> %d', $a );
 		$this->assertStringContainsString( "CASE WHEN m.estado = 'lista_espera' THEN m.posicion ELSE NULL END AS posicion", $a );
