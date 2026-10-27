@@ -110,7 +110,7 @@ final class Test_ANPA_Socios_Extraescolares_Control_Emails extends TestCase {
 			$this->assertStringContainsString( "public static function $fn(", $email, $fn );
 		}
 		// inicio_curso keeps working through the shared links context.
-		$this->assertStringContainsString( "return self::send_template( \$to, 'inicio_curso', self::links_context() );", $email );
+		$this->assertStringContainsString( "self::send_template( \$to, 'inicio_curso', self::links_context() );", $email );
 	}
 
 	public function test_new_lib_files_are_wired_in_plugin_and_bootstrap(): void {

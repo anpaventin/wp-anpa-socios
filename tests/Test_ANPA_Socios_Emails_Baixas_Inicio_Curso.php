@@ -200,7 +200,8 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 			$start = strpos( $email, "public static function {$fn}(" );
 			$this->assertNotFalse( $start, $fn );
 			$body = substr( $email, $start, strpos( $email, "\n\t}\n", $start ) - $start );
-			$this->assertStringContainsString( 'return self::send_from_master(', $body, "$fn must send through send_from_master()" );
+			// 1.90.0: the junta notices keep the result in $ok to copy it to Telegram first.
+			$this->assertMatchesRegularExpression( '/(return|\$ok =) self::send_from_master\(/', $body, "$fn must send through send_from_master()" );
 		}
 	}
 

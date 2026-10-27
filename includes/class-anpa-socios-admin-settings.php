@@ -39,6 +39,7 @@ final class ANPA_Socios_Admin_Settings {
 		add_action( 'admin_post_anpa_socios_save_settings', array( __CLASS__, 'handle_save_settings' ) );
 		add_action( 'admin_post_anpa_socios_save_location', array( __CLASS__, 'handle_save_location' ) );
 		add_action( 'admin_post_anpa_socios_save_retencion', array( __CLASS__, 'handle_save_retencion' ) );
+		add_action( 'admin_post_anpa_socios_telegram_proba', array( __CLASS__, 'handle_telegram_proba' ) );
 		add_action( 'admin_post_anpa_socios_save_cursos', array( __CLASS__, 'handle_save_cursos' ) );
 		add_action( 'admin_post_anpa_socios_copiar_datas_curso', array( __CLASS__, 'handle_copiar_datas_curso' ) );
 		add_action( 'admin_post_anpa_socios_run_season', array( __CLASS__, 'handle_run_season' ) );
@@ -791,9 +792,82 @@ final class ANPA_Socios_Admin_Settings {
 			esc_html__( 'Último día das actividades (por exemplo, o 15 de xuño). Aparece na páxina pública de extraescolares. Se queda baleira non se amosa.', 'anpa-socios' )
 		);
 
+		self::render_telegram_rows();
+
 		echo '</tbody></table>';
 		submit_button( __( 'Gardar configuración', 'anpa-socios' ) );
 		echo '</form>';
+
+		// 1.90.0: own form (forms cannot nest) for the Telegram test message.
+		if ( ANPA_Socios_Telegram_Xunta::configurado() ) {
+			echo '<form method="post" action="' . $post_url . '">';
+			echo '<input type="hidden" name="action" value="anpa_socios_telegram_proba">';
+			echo '<input type="hidden" name="tab" value="xeral">';
+			echo '<input type="hidden" name="section" value="' . esc_attr( $section ) . '">';
+			wp_nonce_field( 'anpa_socios_telegram_proba' );
+			submit_button( __( 'Enviar mensaxe de proba a Telegram', 'anpa-socios' ), 'secondary', 'submit', false );
+			echo '</form>';
+		}
+	}
+
+	/**
+	 * 1.90.0: «Avisos por Telegram» rows of Axustes → Xeral → Configuración.
+	 *
+	 * The saved token is never printed back: the field stays empty and the
+	 * description shows its masked form or the wp-config constant / mu-plugin
+	 * filter it is reused from.
+	 *
+	 * @return void
+	 */
+	private static function render_telegram_rows(): void {
+		$bot   = ANPA_Socios_Config::telegram_bot();
+		$orixe = $bot['orixe'];
+		if ( 'axustes' === $orixe ) {
+			/* translators: %s: masked token */
+			$estado = sprintf( __( 'Gardado aquí (%s). Déixao baleiro para conservalo.', 'anpa-socios' ), ANPA_Socios_Telegram::token_mascarado( $bot['token'] ) );
+		} elseif ( 'filtro' === $orixe ) {
+			/* translators: %s: masked token */
+			$estado = sprintf( __( 'Reutilízase o bot que comparte outro plugin do sitio (%s). Escribe un token só se queres usar outro bot.', 'anpa-socios' ), ANPA_Socios_Telegram::token_mascarado( $bot['token'] ) );
+		} elseif ( '' !== $orixe ) {
+			/* translators: 1: wp-config constant, 2: masked token */
+			$estado = sprintf( __( 'Reutilízase o bot definido en wp-config.php (%1$s, %2$s). Escribe un token só se queres usar outro bot.', 'anpa-socios' ), $orixe, ANPA_Socios_Telegram::token_mascarado( $bot['token'] ) );
+		} else {
+			$estado = __( 'Sen bot. Créao con @BotFather en Telegram (/newbot) e pega aquí o token, ou reutiliza o bot que publica as novas: pega o seu token ou defíneo en wp-config.php como TELEGRAM_BOT_TOKEN.', 'anpa-socios' );
+		}
+		if ( '' !== $bot['token'] && ! ANPA_Socios_Telegram::token_valido( $bot['token'] ) ) {
+			$estado .= ' ' . __( '⚠️ O token non ten o formato «número:código» de BotFather.', 'anpa-socios' );
+		}
+
+		echo '<tr><th scope="row" colspan="2"><h3 style="margin:0">' . esc_html__( 'Avisos por Telegram', 'anpa-socios' ) . '</h3><p class="description" style="font-weight:normal">' . esc_html__( 'Opcional. Copia en Telegram os correos que a web envía á conta da xunta. Só vai o tipo de aviso e unha liña curta coa ligazón a Xestión, nunca nomes nin correos das familias: Telegram non é un provedor contratado pola ANPA.', 'anpa-socios' ) . '</p></th></tr>';
+		printf(
+			'<tr><th scope="row"><label for="cfg-telegram-token">%s</label></th><td><input name="telegram_bot_token" id="cfg-telegram-token" type="password" class="regular-text" value="" autocomplete="off" spellcheck="false">%s<p class="description">%s</p>%s</td></tr>',
+			esc_html__( 'Token do bot', 'anpa-socios' ),
+			self::eye_button( 'cfg-telegram-token' ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in eye_button().
+			esc_html( $estado ),
+			'axustes' === $orixe ? '<label><input type="checkbox" name="telegram_borrar_token" value="1"> ' . esc_html__( 'Borrar o token gardado aquí', 'anpa-socios' ) . '</label>' : ''
+		);
+		printf(
+			'<tr><th scope="row"><label for="cfg-telegram-chat">%s</label></th><td><input name="telegram_chat_id" id="cfg-telegram-chat" type="text" class="regular-text" value="%s" placeholder="-1001234567890"><p class="description">%s</p></td></tr>',
+			esc_html__( 'ID do chat de Telegram', 'anpa-socios' ),
+			esc_attr( ANPA_Socios_Config::telegram_chat_id() ),
+			esc_html__( 'Grupo, canle ou persoa que recibe os avisos. Engade o bot ao grupo (ou como administrador da canle) e escribe aquí o seu ID numérico (os grupos e canles empezan por -100) ou o @nome dunha canle pública. Se o deixas baleiro, non se envía nada a Telegram.', 'anpa-socios' )
+		);
+		$modo   = ANPA_Socios_Config::telegram_modo();
+		$radios = '';
+		foreach ( ANPA_Socios_Telegram::modos() as $valor => $etiqueta ) {
+			$radios .= sprintf(
+				'<label style="display:block;margin-bottom:4px"><input type="radio" name="telegram_modo" value="%s" %s> %s</label>',
+				esc_attr( $valor ),
+				checked( $modo, $valor, false ),
+				esc_html( $etiqueta )
+			);
+		}
+		printf(
+			'<tr><th scope="row">%s</th><td><fieldset>%s</fieldset><p class="description">%s</p></td></tr>',
+			esc_html__( 'Que correos á xunta van a Telegram', 'anpa-socios' ),
+			$radios, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
+			esc_html__( 'Os correos masivos van á conta da xunta coas familias en copia oculta; en Telegram aparecen como unha liña de resumo co número de enderezos.', 'anpa-socios' )
+		);
 	}
 
 	/**
@@ -1936,6 +2010,35 @@ final class ANPA_Socios_Admin_Settings {
 			$msg = 'datas_orde';
 		}
 
+		// 1.90.0: Telegram copy of the junta emails. An empty token field keeps the
+		// saved one (it is never printed back); the checkbox deletes it.
+		if ( ! empty( $_POST['telegram_borrar_token'] ) ) {
+			delete_option( ANPA_Socios_Config::OPTION_TELEGRAM_TOKEN );
+		} elseif ( array_key_exists( 'telegram_bot_token', $_POST ) ) {
+			$token = trim( sanitize_text_field( (string) wp_unslash( $_POST['telegram_bot_token'] ) ) );
+			if ( '' !== $token ) {
+				if ( ANPA_Socios_Telegram::token_valido( $token ) ) {
+					update_option( ANPA_Socios_Config::OPTION_TELEGRAM_TOKEN, $token, false );
+				} else {
+					$msg = 'telegram_token_invalid';
+				}
+			}
+		}
+		if ( array_key_exists( 'telegram_chat_id', $_POST ) ) {
+			$raw  = trim( sanitize_text_field( (string) wp_unslash( $_POST['telegram_chat_id'] ) ) );
+			$chat = ANPA_Socios_Telegram::chat_id( $raw );
+			if ( '' === $raw ) {
+				delete_option( ANPA_Socios_Config::OPTION_TELEGRAM_CHAT );
+			} elseif ( '' === $chat ) {
+				$msg = 'telegram_chat_invalid';
+			} else {
+				update_option( ANPA_Socios_Config::OPTION_TELEGRAM_CHAT, $chat );
+			}
+		}
+		if ( array_key_exists( 'telegram_modo', $_POST ) ) {
+			update_option( ANPA_Socios_Config::OPTION_TELEGRAM_MODO, ANPA_Socios_Telegram::modo( sanitize_key( (string) wp_unslash( $_POST['telegram_modo'] ) ) ) );
+		}
+
 		if ( array_key_exists( 'landing_page_id', $_POST ) ) {
 			$landing = (int) $_POST['landing_page_id'];
 			update_option( self::LANDING_OPTION, $landing > 0 ? $landing : 0 );
@@ -1972,6 +2075,21 @@ final class ANPA_Socios_Admin_Settings {
 		}
 
 		self::redirect_msg( $msg );
+	}
+
+	/**
+	 * admin-post: 1.90.0 test message to the configured Telegram chat.
+	 *
+	 * @return void
+	 */
+	public static function handle_telegram_proba(): void {
+		self::guard( 'anpa_socios_telegram_proba' );
+		$resultado = ANPA_Socios_Telegram_Xunta::proba();
+		if ( true === $resultado ) {
+			self::redirect_msg( 'telegram_proba_ok' );
+		}
+		set_transient( 'anpa_socios_telegram_proba_erro_' . get_current_user_id(), (string) $resultado, 300 );
+		self::redirect_msg( 'telegram_proba_erro' );
 	}
 
 	/**
@@ -2623,6 +2741,16 @@ final class ANPA_Socios_Admin_Settings {
 			);
 			return;
 		}
+		if ( 'telegram_proba_erro' === $key ) {
+			$erro = (string) get_transient( 'anpa_socios_telegram_proba_erro_' . get_current_user_id() );
+			delete_transient( 'anpa_socios_telegram_proba_erro_' . get_current_user_id() );
+			printf(
+				'<div class="notice notice-error is-dismissible"><p><strong>%s</strong> %s</p></div>',
+				esc_html__( 'Non chegou a mensaxe de proba a Telegram.', 'anpa-socios' ),
+				esc_html( '' !== $erro ? $erro : __( 'Revisa o token e o ID do chat, e que o bot estea no grupo ou na canle.', 'anpa-socios' ) )
+			);
+			return;
+		}
 		$map = array(
 			'settings_saved' => array( 'success', __( 'Configuración gardada.', 'anpa-socios' ) ),
 			'comedor_email_invalid'  => array( 'error', __( 'O correo do comedor non é válido; o resto da configuración gardouse.', 'anpa-socios' ) ),
@@ -2630,6 +2758,9 @@ final class ANPA_Socios_Admin_Settings {
 			'google_email_invalid'   => array( 'error', __( 'A conta de Google da xunta non é un correo válido; o resto da configuración gardouse.', 'anpa-socios' ) ),
 			'data_invalida'          => array( 'error', __( 'Unha das datas das actividades non é válida. O resto da configuración gardouse.', 'anpa-socios' ) ),
 			'datas_orde'             => array( 'error', __( 'O remate das actividades é anterior ao comezo: revisa as dúas datas. Gardáronse tal como se escribiron.', 'anpa-socios' ) ),
+			'telegram_token_invalid' => array( 'error', __( 'O token de Telegram non ten o formato de BotFather («número:código») e non se gardou; o resto da configuración gardouse.', 'anpa-socios' ) ),
+			'telegram_chat_invalid'  => array( 'error', __( 'O ID do chat de Telegram ten que ser un número (os grupos e canles empezan por -100) ou o @nome dunha canle pública; non se gardou. O resto da configuración gardouse.', 'anpa-socios' ) ),
+			'telegram_proba_ok'      => array( 'success', __( 'Mensaxe de proba enviada a Telegram. Comproba que chegou ao chat.', 'anpa-socios' ) ),
 			'url_invalid'            => array( 'error', __( 'Unha das URL (entrada de instrucións ou páxina de extraescolares) non é válida: ten que empezar por http:// ou https://. O resto da configuración gardouse.', 'anpa-socios' ) ),
 			'pw_ok'          => array( 'success', __( 'Contrasinal de admin actualizado.', 'anpa-socios' ) ),
 			'pw_bad'         => array( 'error', __( 'O contrasinal non cumpre os requisitos (mín. 8 caracteres, unha maiúscula e un símbolo).', 'anpa-socios' ) ),

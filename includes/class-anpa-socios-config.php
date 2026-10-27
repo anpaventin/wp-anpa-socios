@@ -228,6 +228,71 @@ final class ANPA_Socios_Config {
 	}
 
 	/**
+	 * 1.90.0: Telegram copy of the emails to the junta (Axustes → Xeral → Configuración).
+	 *
+	 * @var string
+	 */
+	const OPTION_TELEGRAM_TOKEN = 'anpa_socios_telegram_bot_token';
+	const OPTION_TELEGRAM_CHAT  = 'anpa_socios_telegram_chat_id';
+	const OPTION_TELEGRAM_MODO  = 'anpa_socios_telegram_modo';
+
+	/**
+	 * wp-config constants checked, in order, when Axustes has no token of its
+	 * own: the plugin's own one and the usual name of a site-wide bot (the
+	 * one that already publishes the news), so the same bot can be reused.
+	 *
+	 * @var string[]
+	 */
+	const TELEGRAM_TOKEN_CONSTANTS = array( 'ANPA_SOCIOS_TELEGRAM_BOT_TOKEN', 'TELEGRAM_BOT_TOKEN' );
+
+	/**
+	 * Bot token and where it came from.
+	 *
+	 * Precedence: the token saved in Axustes > a wp-config constant
+	 * (TELEGRAM_TOKEN_CONSTANTS) > the 'anpa_socios_telegram_bot_token'
+	 * filter, which a mu-plugin can use to share its bot.
+	 *
+	 * @since  1.90.0
+	 * @return array{token:string,orixe:string} orixe: 'axustes', the constant name, 'filtro' or ''.
+	 */
+	public static function telegram_bot(): array {
+		$opt = trim( (string) get_option( self::OPTION_TELEGRAM_TOKEN, '' ) );
+		if ( '' !== $opt ) {
+			return array( 'token' => $opt, 'orixe' => 'axustes' );
+		}
+		foreach ( self::TELEGRAM_TOKEN_CONSTANTS as $const ) {
+			if ( defined( $const ) && '' !== trim( (string) constant( $const ) ) ) {
+				return array( 'token' => trim( (string) constant( $const ) ), 'orixe' => $const );
+			}
+		}
+		$filtro = function_exists( 'apply_filters' ) ? trim( (string) apply_filters( 'anpa_socios_telegram_bot_token', '' ) ) : '';
+		if ( '' !== $filtro ) {
+			return array( 'token' => $filtro, 'orixe' => 'filtro' );
+		}
+		return array( 'token' => '', 'orixe' => '' );
+	}
+
+	/**
+	 * Chat that receives the junta notices ('' = Telegram off).
+	 *
+	 * @since  1.90.0
+	 * @return string
+	 */
+	public static function telegram_chat_id(): string {
+		return ANPA_Socios_Telegram::chat_id( (string) get_option( self::OPTION_TELEGRAM_CHAT, '' ) );
+	}
+
+	/**
+	 * Which emails to the junta are copied to Telegram (ANPA_Socios_Telegram::MODO_*).
+	 *
+	 * @since  1.90.0
+	 * @return string
+	 */
+	public static function telegram_modo(): string {
+		return ANPA_Socios_Telegram::modo( get_option( self::OPTION_TELEGRAM_MODO, ANPA_Socios_Telegram::MODO_AVISOS ) );
+	}
+
+	/**
 	 * URL of the blog post with the instructions for families ('' when not set).
 	 *
 	 * @since  1.63.0

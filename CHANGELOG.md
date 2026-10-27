@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.90.0] - 2026-10-27
+
+### Added
+
+- **Avisos por Telegram** (Axustes → Xeral → Configuración → «Avisos por Telegram»). Os correos que a web envía á
+  conta da xunta cópianse tamén a un chat de Telegram (grupo, canle ou persoa):
+  - **Token do bot**: o que se pega aquí (nunca se volve amosar; só o número do bot e os catro últimos caracteres)
+    ou, se queda baleiro, o mesmo bot que xa publica as novas, definido en `wp-config.php` como
+    `TELEGRAM_BOT_TOKEN` (ou `ANPA_SOCIOS_TELEGRAM_BOT_TOKEN`), ou compartido por un mu-plugin co filtro
+    `anpa_socios_telegram_bot_token`.
+  - **ID do chat**: número (os grupos e canles empezan por -100) ou `@canle` pública. Baleiro = sen Telegram.
+  - **Que correos**: «Só os avisos da web» (por defecto: baixas de socio/a e de extraescolar, reactivacións, altas
+    pendentes de aprobación e o resumo semanal dos luns) ou «Todo o que a web envía á xunta» (tamén o correo de
+    inicio de curso e os correos masivos, cada envío nunha soa liña de resumo co número de enderezos).
+  - Botón **«Enviar mensaxe de proba a Telegram»**, que amosa o erro de Telegram se non chega.
+- Telegram non é un provedor contratado pola ANPA: a mensaxe leva só o tipo de aviso, unha liña curta e a ligazón a
+  Xestión, nunca nomes, correos nin o asunto real (os avisos á empresa levan o nome do alumno no asunto). Os avisos
+  envíanse sen esperar resposta, para non frear a petición da familia, e un fallo de Telegram nunca afecta ao correo.
+
 ## [1.89.0] - 2026-10-26
 
 ### Changed

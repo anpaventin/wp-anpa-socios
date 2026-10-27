@@ -54,6 +54,29 @@ class ANPA_Socios_Email {
 	}
 
 	/**
+	 * 1.90.0: Telegram copy of an email to the junta (Axustes → Xeral →
+	 * Configuración). Only a fixed title and a short line, never family data.
+	 * Best-effort: never throws, never changes what the email call returns.
+	 *
+	 * @since  1.90.0
+	 * @param  string $tipo   ANPA_Socios_Telegram::TIPO_AVISO or TIPO_OUTRO.
+	 * @param  string $titulo Title (the subject without data).
+	 * @param  string $aviso  Short line.
+	 * @param  string $url    Xestión link ('' = Aprobacións).
+	 * @return void
+	 */
+	private static function telegram( string $tipo, string $titulo, string $aviso, string $url = '' ): void {
+		if ( ! class_exists( 'ANPA_Socios_Telegram_Xunta' ) ) {
+			return;
+		}
+		try {
+			ANPA_Socios_Telegram_Xunta::avisar( $tipo, $titulo, $aviso, $url );
+		} catch ( \Throwable $e ) {
+			return;
+		}
+	}
+
+	/**
 	 * FASE36: Renders email content with template override support.
 	 *
 	 * If a custom template exists for the given ID, uses the template renderer.
@@ -283,7 +306,9 @@ class ANPA_Socios_Email {
 		);
 
 		// 1.65.1: junta notices go through send_from_master() too (full HTML + signature).
-		return self::send_from_master( self::junta_email(), (string) $content['subject'], (string) $content['html'] );
+		$ok = self::send_from_master( self::junta_email(), (string) $content['subject'], (string) $content['html'] );
+		self::telegram( ANPA_Socios_Telegram::TIPO_AVISO, __( 'Solicitude de baixa de socio/a', 'anpa-socios' ), __( 'Unha familia pediu a baixa como socia. Revísaa en Aprobacións.', 'anpa-socios' ) );
+		return $ok;
 	}
 
 	/**
@@ -324,7 +349,9 @@ class ANPA_Socios_Email {
 		);
 
 		// 1.65.1: junta notices go through send_from_master() too (full HTML + signature).
-		return self::send_from_master( self::junta_email(), (string) $content['subject'], (string) $content['html'] );
+		$ok = self::send_from_master( self::junta_email(), (string) $content['subject'], (string) $content['html'] );
+		self::telegram( ANPA_Socios_Telegram::TIPO_AVISO, __( 'Solicitude de reactivación de socio/a', 'anpa-socios' ), __( 'Unha antiga familia socia pediu reactivar a conta. Actívaa en Aprobacións.', 'anpa-socios' ) );
+		return $ok;
 	}
 
 	/**
@@ -370,7 +397,9 @@ class ANPA_Socios_Email {
 		);
 
 		// 1.65.1: junta notices go through send_from_master() too (full HTML + signature).
-		return self::send_from_master( self::junta_email(), (string) $content['subject'], (string) $content['html'] );
+		$ok = self::send_from_master( self::junta_email(), (string) $content['subject'], (string) $content['html'] );
+		self::telegram( ANPA_Socios_Telegram::TIPO_AVISO, __( 'Solicitude de baixa nunha extraescolar', 'anpa-socios' ), __( 'Unha familia pediu a baixa dunha actividade extraescolar. Revísaa en Aprobacións.', 'anpa-socios' ) );
+		return $ok;
 	}
 
 	/**
@@ -596,7 +625,11 @@ class ANPA_Socios_Email {
 	 * @return bool
 	 */
 	public static function enviar_inicio_curso( string $to ): bool {
-		return self::send_template( $to, 'inicio_curso', self::links_context() );
+		$ok = self::send_template( $to, 'inicio_curso', self::links_context() );
+		if ( strtolower( trim( $to ) ) === self::junta_email() ) {
+			self::telegram( ANPA_Socios_Telegram::TIPO_OUTRO, __( 'Correo de inicio de curso', 'anpa-socios' ), __( 'Chegou á conta da xunta o correo de inicio de curso para reenvialo ás familias desde Gmail.', 'anpa-socios' ), class_exists( 'ANPA_Socios_Telegram_Xunta' ) ? ANPA_Socios_Telegram_Xunta::xestion_url( 'lista-gmail' ) : '' );
+		}
+		return $ok;
 	}
 
 	/**
@@ -666,7 +699,10 @@ class ANPA_Socios_Email {
 			}
 			$resultados[] = array( 'ok' => (bool) $ok, 'n' => count( $lote ) );
 		}
-		return ANPA_Socios_Envio_Masivo::resumo( $resultados ) + array( 'destinatarios' => $destinatarios );
+		$resumo = ANPA_Socios_Envio_Masivo::resumo( $resultados );
+		// 1.90.0: one summary line for the whole send, not one per batch.
+		self::telegram( ANPA_Socios_Telegram::TIPO_OUTRO, __( 'Correo masivo', 'anpa-socios' ), ANPA_Socios_Telegram::resumo_masivo( $template_id, $resumo ), class_exists( 'ANPA_Socios_Telegram_Xunta' ) ? ANPA_Socios_Telegram_Xunta::xestion_url( 'correos' ) : '' );
+		return $resumo + array( 'destinatarios' => $destinatarios );
 	}
 
 	/**
@@ -810,7 +846,7 @@ class ANPA_Socios_Email {
 	 */
 	public static function enviar_aprobacions_pendentes( array $contas, array $conflitos = array() ): bool {
 		$url = function_exists( 'admin_url' ) ? admin_url( 'admin.php?page=' . ANPA_Socios_Admin_Management_Page::MANAGEMENT_SLUG . '&section=aprobacions' ) : '';
-		return self::send_template( self::junta_email(), 'aprobacions_pendentes_semanal', array(
+		$ok = self::send_template( self::junta_email(), 'aprobacions_pendentes_semanal', array(
 			'total'       => (string) (int) ( $contas['total'] ?? 0 ),
 			'socios'      => (string) (int) ( $contas['socios'] ?? 0 ),
 			'matriculas'  => (string) (int) ( $contas['matriculas'] ?? 0 ),
@@ -818,6 +854,14 @@ class ANPA_Socios_Email {
 			'xestion_url' => $url,
 			'revision_correos' => ANPA_Socios_Aviso_Semanal::revision_correos( $conflitos ),
 		) );
+		self::telegram(
+			ANPA_Socios_Telegram::TIPO_AVISO,
+			__( 'Revisión semanal de Xestión', 'anpa-socios' ),
+			/* translators: 1: total, 2: member signups, 3: enrolments, 4: member baixas */
+			sprintf( __( 'Hai %1$d cousas pendentes en Aprobacións: %2$d altas de socios/as, %3$d matrículas e %4$d baixas.', 'anpa-socios' ), (int) ( $contas['total'] ?? 0 ), (int) ( $contas['socios'] ?? 0 ), (int) ( $contas['matriculas'] ?? 0 ), (int) ( $contas['baixas'] ?? 0 ) ),
+			$url
+		);
+		return $ok;
 	}
 
 	/**
@@ -908,7 +952,9 @@ class ANPA_Socios_Email {
 			}
 		);
 
-		return self::send_from_master( ANPA_Socios_Config::master_email(), $content['subject'], $content['html'] );
+		$ok = self::send_from_master( ANPA_Socios_Config::master_email(), $content['subject'], $content['html'] );
+		self::telegram( ANPA_Socios_Telegram::TIPO_AVISO, __( 'Novo socio/a pendente de aprobación', 'anpa-socios' ), __( 'Unha persoa nova pediu a alta e espera a vosa aprobación en Aprobacións.', 'anpa-socios' ) );
+		return $ok;
 	}
 
 	/**
