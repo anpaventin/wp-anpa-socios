@@ -875,66 +875,17 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function confirm_baixa( WP_REST_Request $request ) {
-		global $wpdb;
-
-		$id    = (int) $request->get_param( 'id' );
-		$mat_t = ANPA_Socios_DB::tabela_matriculas();
-		$mat   = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT id, grupo_id, trimestre, estado FROM {$mat_t} WHERE id = %d",
-				$id
-			),
-			ARRAY_A
+		// 1.91.0: shared with the cron that makes a baixa reported by the company effective.
+		$r = ANPA_Socios_Baixa_Programada_Service::efectivar(
+			(int) $request->get_param( 'id' ),
+			(string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_EMAIL ),
+			(string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_ROL ),
+			'baixa_confirm'
 		);
-		if ( ! is_array( $mat ) ) {
-			return new WP_Error( 'anpa_admin_matricula_not_found', __( 'Matrícula non atopada', 'anpa-socios' ), array( 'status' => 404 ) );
+		if ( is_wp_error( $r ) ) {
+			return $r;
 		}
-		if ( 'baixa_solicitada' !== $mat['estado'] ) {
-			return new WP_Error( 'anpa_admin_no_baixa_request', __( 'Esta matrícula non ten unha solicitude de baixa pendente', 'anpa-socios' ), array( 'status' => 409 ) );
-		}
-
-		$updated = $wpdb->update(
-			$mat_t,
-			array( 'estado' => 'baixa', 'baixa_en' => current_time( 'mysql' ), 'actualizado_en' => current_time( 'mysql' ) ),
-			array( 'id' => $id, 'estado' => 'baixa_solicitada' ),
-			array( '%s', '%s', '%s' ),
-			array( '%d', '%s' )
-		);
-		if ( 1 !== (int) $updated ) {
-			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
-		}
-
-		ANPA_Socios_Admin_Shared::write_audit( $request, 'matricula', (string) $id, 'baixa_confirm' );
-
-		// Free slot → offer to the next in the waitlist.
-		ANPA_Socios_Extraescolar_Offers::offer_next( (int) $mat['grupo_id'], (int) $mat['trimestre'] );
-
-		// 1.62.0: tell the family when the baixa takes effect (end of the running
-		// trimester, or immediately and free of charge during pre-enrolment).
-		$correo_enviado = false;
-		$efectos        = '';
-		$detalle        = ANPA_Socios_Admin_Baixas_Handler::detalle_matricula( $id );
-		if ( is_array( $detalle ) ) {
-			$curso = (string) ( $detalle['curso_escolar'] ?? '' );
-			$row   = ANPA_Socios_Curso_Escolar::is_valid( $curso )
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only course calendar for the email.
-				? $wpdb->get_row( $wpdb->prepare( 'SELECT ' . ANPA_Socios_Matricula_Gate_Repo::CURSO_COLUMNS . ' FROM ' . ANPA_Socios_DB::tabela_cursos() . ' WHERE curso_escolar = %s', $curso ), ARRAY_A )
-				: null;
-			$gate  = is_array( $row ) ? ANPA_Socios_Matricula_Gate_Repo::avaliar_fila( $row ) : ANPA_Socios_Matricula_Gate::avaliar( null, array() );
-			$tris  = ANPA_Socios_Curso_Escolar::is_valid( $curso ) ? ANPA_Socios_Trimestre_Repo::for_curso( $curso ) : array();
-			$datas = is_array( $row ) ? ANPA_Socios_Matricula_Gate::datas_de_fila( $row ) : null;
-			$efectos        = ANPA_Socios_Baixa_Extraescolar_Efectos::texto( $gate, $tris, $datas );
-			$correo_enviado = ANPA_Socios_Email::enviar_baixa_extraescolar_confirmada(
-				(string) $detalle['socio_email'],
-				trim( (string) $detalle['fillo_nome'] . ' ' . (string) $detalle['fillo_apelidos'] ),
-				(string) $detalle['actividade'],
-				$efectos
-			);
-		}
-		// 1.71.0: mid-course baixa → company + canteen (Bcc).
-		ANPA_Socios_Email::avisar_empresa_comedor( $id, ANPA_Socios_Aviso_Matricula::PLANTILLA_BAIXA, array( 'efectos' => $efectos ) );
-
-		return new WP_REST_Response( array( 'id' => $id, 'estado' => 'baixa', 'correo_enviado' => $correo_enviado, 'efectos' => $efectos ), 200 );
+		return new WP_REST_Response( array( 'id' => $r['id'], 'estado' => 'baixa', 'correo_enviado' => $r['correo_enviado'], 'efectos' => $r['efectos'] ), 200 );
 	}
 
 	// ──────────────────────────────────────────────

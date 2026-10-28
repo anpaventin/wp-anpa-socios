@@ -241,7 +241,8 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 			$this->assertSame( 1, preg_match( '/^[\x00-\x7F]*$/', $sql ), 'SQL must stay ASCII' );
 		}
 
-		$grupos = $this->src( 'includes/class-anpa-socios-admin-grupos-handler.php' );
+		// 1.91.0: the confirmation lives in the service shared with the cron.
+		$grupos = $this->src( 'includes/class-anpa-socios-baixa-programada-service.php' );
 		$this->assertStringContainsString( 'ANPA_Socios_Admin_Baixas_Handler::detalle_matricula( $id )', $grupos );
 		$this->assertStringContainsString( 'ANPA_Socios_Baixa_Extraescolar_Efectos::texto( $gate, $tris, $datas )', $grupos );
 		$this->assertStringContainsString( 'ANPA_Socios_Email::enviar_baixa_extraescolar_confirmada(', $grupos );

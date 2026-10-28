@@ -166,18 +166,20 @@ final class ANPA_Socios_Telegram {
 	 */
 	public static function titulo_masivo( string $template_id ): string {
 		$t = array(
-			'inicio_curso'                 => __( 'Comezo do curso', 'anpa-socios' ),
-			'prazo_matriculas'             => __( 'Prazo de matrículas', 'anpa-socios' ),
-			'matriculas_abertas'           => __( 'Matrículas abertas', 'anpa-socios' ),
-			'matriculas_pechadas'          => __( 'Matrículas pechadas', 'anpa-socios' ),
-			'fin_curso'                    => __( 'Fin de curso', 'anpa-socios' ),
-			'grupo_comezo_trimestre'       => __( 'Grupo creado: inscritos/as', 'anpa-socios' ),
-			'grupo_comezo_espera'          => __( 'Grupo creado: lista de espera', 'anpa-socios' ),
-			'grupo_pechado_minimo'         => __( 'Grupo pechado por non acadar o mínimo', 'anpa-socios' ),
-			'grupo_sen_minimo'             => __( 'Grupo sen mínimo', 'anpa-socios' ),
-			'matricula_alta_aviso'         => __( 'Aviso á empresa/comedor: alta nun grupo', 'anpa-socios' ),
-			'matricula_baixa_aviso'        => __( 'Aviso á empresa/comedor: baixa nun grupo', 'anpa-socios' ),
-			'matricula_cambio_grupo_aviso' => __( 'Aviso á empresa/comedor: cambio de grupo', 'anpa-socios' ),
+			'inicio_curso'                     => __( 'Comezo do curso', 'anpa-socios' ),
+			'prazo_matriculas'                 => __( 'Prazo de matrículas', 'anpa-socios' ),
+			'matriculas_abertas'               => __( 'Matrículas abertas', 'anpa-socios' ),
+			'matriculas_pechadas'              => __( 'Matrículas pechadas', 'anpa-socios' ),
+			'fin_curso'                        => __( 'Fin de curso', 'anpa-socios' ),
+			'grupo_comezo_trimestre'           => __( 'Grupo creado: inscritos/as', 'anpa-socios' ),
+			'grupo_comezo_espera'              => __( 'Grupo creado: lista de espera', 'anpa-socios' ),
+			'grupo_pechado_minimo'             => __( 'Grupo pechado por non acadar o mínimo', 'anpa-socios' ),
+			'grupo_sen_minimo'                 => __( 'Grupo sen mínimo', 'anpa-socios' ),
+			'matricula_alta_aviso'             => __( 'Aviso á empresa/comedor: alta nun grupo', 'anpa-socios' ),
+			'matricula_baixa_aviso'            => __( 'Aviso á empresa/comedor: baixa nun grupo', 'anpa-socios' ),
+			'matricula_cambio_grupo_aviso'     => __( 'Aviso á empresa/comedor: cambio de grupo', 'anpa-socios' ),
+			'matricula_baixa_programada_aviso' => __( 'Aviso á empresa: baixa rexistrada', 'anpa-socios' ),
+			'matricula_baixa_anulada_aviso'    => __( 'Aviso á empresa: baixa anulada', 'anpa-socios' ),
 		);
 		return $t[ $template_id ] ?? $template_id;
 	}

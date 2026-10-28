@@ -159,6 +159,7 @@
       <file>tests/Test_ANPA_Socios_Contenido_Variantes.php</file>
       <file>tests/Test_ANPA_Socios_Contenido_Uninstall.php</file>
       <file>tests/Test_ANPA_Socios_Telegram_Xunta.php</file>
+      <file>tests/Test_ANPA_Socios_Baixa_Programada.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

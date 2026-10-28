@@ -70,11 +70,13 @@ final class ANPA_Socios_Extraescolar_Offers {
 	 * + an expiry, and emails the pupil's socio.
 	 *
 	 * @since  1.9.0
-	 * @param  int $grupo_id  Group id.
-	 * @param  int $trimestre Trimester.
-	 * @return void
+	 * @param  int  $grupo_id    Group id.
+	 * @param  int  $trimestre   Trimester.
+	 * @param  int  $excluir     Matrícula never offered the place straight away.
+	 * @param  bool $copia_xunta 1.91.0: Bcc the junta on the offer email (baixa reported by the company).
+	 * @return bool 1.91.0: whether an offer went out.
 	 */
-	public static function offer_next( int $grupo_id, int $trimestre, int $excluir = 0 ): void {
+	public static function offer_next( int $grupo_id, int $trimestre, int $excluir = 0, bool $copia_xunta = false ): bool {
 		global $wpdb;
 
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
@@ -83,10 +85,10 @@ final class ANPA_Socios_Extraescolar_Offers {
 		// its offer go: it is never offered the same place again straight away.
 		$grupo = $wpdb->get_row( $wpdb->prepare( 'SELECT estado, max_pupilos FROM ' . ANPA_Socios_DB::tabela_grupos() . ' WHERE id = %d', $grupo_id ), ARRAY_A );
 		if ( ! is_array( $grupo ) || ! in_array( (string) $grupo['estado'], array( ANPA_Socios_Grupo_Serie::ESTADO_ABERTO, ANPA_Socios_Grupo_Serie::ESTADO_SEN_MINIMO ), true ) ) {
-			return;
+			return false;
 		}
 		if ( (int) $grupo['max_pupilos'] > 0 && ANPA_Socios_Lista_Espera::ocupadas( $grupo_id ) >= (int) $grupo['max_pupilos'] ) {
-			return;
+			return false;
 		}
 		// The group's whole waiting list (a place freed by a row of another trimester is still
 		// this group's place), earliest trimester first, then position. A family that let an
@@ -104,7 +106,7 @@ final class ANPA_Socios_Extraescolar_Offers {
 			ARRAY_A
 		);
 		if ( ! is_array( $next ) ) {
-			return;
+			return false;
 		}
 
 		try {
@@ -127,12 +129,13 @@ final class ANPA_Socios_Extraescolar_Offers {
 			array( '%d', '%s' )
 		);
 		if ( 1 !== $n ) {
-			return; // it changed meanwhile (baixa, another offer…).
+			return false; // it changed meanwhile (baixa, another offer…).
 		}
 
 		ANPA_Socios_Lista_Espera::renumerar( $grupo_id );
 		ANPA_Socios_Admin_Shared::write_audit_actor( 'system', 'system', 'matricula', (string) $next['id'], 'oferta_enviada' );
-		self::notify_offer( (int) $next['id'] );
+		self::notify_offer( (int) $next['id'], $copia_xunta );
+		return true;
 	}
 
 	/**
@@ -267,7 +270,7 @@ final class ANPA_Socios_Extraescolar_Offers {
 		}
 	}
 
-	private static function notify_offer( int $matricula_id ): void {
+	private static function notify_offer( int $matricula_id, bool $copia_xunta = false ): void {
 		global $wpdb;
 
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
@@ -292,7 +295,8 @@ final class ANPA_Socios_Extraescolar_Offers {
 		ANPA_Socios_Email::enviar_oferta_extraescolar(
 			(string) $row['socio_email'],
 			(string) ( $row['actividade'] ?? '' ),
-			self::OFFER_TTL_DAYS
+			self::OFFER_TTL_DAYS,
+			$copia_xunta
 		);
 	}
 }

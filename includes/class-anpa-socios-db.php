@@ -105,7 +105,7 @@ class ANPA_Socios_DB {
 	 * @since 1.1.0
 	 * @var string
 	 */
-	const DB_VERSION = '1.50.0';
+	const DB_VERSION = '1.51.0';
 
 	/**
 	 * Cron hook used to remove expired member-area sessions.
@@ -405,6 +405,12 @@ class ANPA_Socios_DB {
 		if ( version_compare( $installed_version, '1.50.0', '<' ) && ! self::migrate_to_1_50_0() ) {
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 			error_log( '[anpa-socios] Migration halted at step 1.50.0 (migrate_to_1_50_0): ' . $wpdb->last_error );
+			return;
+		}
+		// 1.51.0 (1.91.0): matriculas.baixa_efectiva_en — baixa reported by the company, effective on its own.
+		if ( version_compare( $installed_version, '1.51.0', '<' ) && ! self::migrate_to_1_51_0() ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( '[anpa-socios] Migration halted at step 1.51.0 (migrate_to_1_51_0): ' . $wpdb->last_error );
 			return;
 		}
 
@@ -4435,5 +4441,23 @@ class ANPA_Socios_DB {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Migration 1.50.0 → 1.51.0 (1.91.0): a baixa the company reported to the junta
+	 * is registered as «baixa_solicitada» with the moment it becomes effective on
+	 * its own (matriculas.baixa_efectiva_en, UTC). NULL = the usual manual flow.
+	 *
+	 * @since  1.91.0
+	 * @return bool
+	 */
+	private static function migrate_to_1_51_0(): bool {
+		global $wpdb;
+		$mat = self::tabela_matriculas();
+		if ( ! self::tem_columna( $mat, 'estado' ) || self::tem_columna( $mat, 'baixa_efectiva_en' ) ) {
+			return true;
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- guarded schema migration.
+		return false !== $wpdb->query( "ALTER TABLE {$mat} ADD COLUMN baixa_efectiva_en datetime NULL DEFAULT NULL AFTER baixa_en" );
 	}
 }

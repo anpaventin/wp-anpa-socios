@@ -31,7 +31,9 @@ final class Test_ANPA_Socios_Admin_Baixas_Panel extends TestCase {
 		foreach ( array( "'/baixas-pendentes'", "'/socio/(?P<email>[^/]+)/baixa/reject'", "'/matricula/(?P<id>\d+)/baixa/reject'" ) as $route ) {
 			$this->assertStringContainsString( $route, $h );
 		}
-		$this->assertSame( 3, substr_count( $h, "'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' )" ) );
+		// 1.91.0: + «Baixa comunicada pola empresa».
+		$this->assertStringContainsString( "'/matricula/(?P<id>\d+)/baixa/programar'", $h );
+		$this->assertSame( 4, substr_count( $h, "'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' )" ) );
 		// Confirmation stays where the side effects live.
 		$this->assertStringContainsString( "'/socio/(?P<email>[^/]+)/baixa/confirm'", $this->src( 'includes/class-anpa-socios-admin-socios-handler.php' ) );
 		$this->assertStringContainsString( "'/matricula/(?P<id>\d+)/baixa/confirm'", $this->src( 'includes/class-anpa-socios-admin-grupos-handler.php' ) );

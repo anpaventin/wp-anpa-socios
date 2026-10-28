@@ -108,7 +108,9 @@ final class Test_ANPA_Socios_Avisos_Metade_Curso extends TestCase {
 	}
 
 	public function test_confirmed_activity_baixa_notifies_company_and_canteen(): void {
-		$body = $this->method_body( $this->src( 'includes/class-anpa-socios-admin-grupos-handler.php' ), 'public static function confirm_baixa(' );
+		// 1.91.0: confirm_baixa delegates to the service shared with the cron (baixa reported by the company).
+		$this->assertStringContainsString( 'ANPA_Socios_Baixa_Programada_Service::efectivar(', $this->method_body( $this->src( 'includes/class-anpa-socios-admin-grupos-handler.php' ), 'public static function confirm_baixa(' ) );
+		$body = $this->method_body( $this->src( 'includes/class-anpa-socios-baixa-programada-service.php' ), 'public static function efectivar(' );
 		$this->assertStringContainsString( "ANPA_Socios_Email::avisar_empresa_comedor( \$id, ANPA_Socios_Aviso_Matricula::PLANTILLA_BAIXA, array( 'efectos' => \$efectos ) );", $body );
 	}
 
@@ -152,8 +154,8 @@ final class Test_ANPA_Socios_Avisos_Metade_Curso extends TestCase {
 	public function test_audit_columns_are_widened(): void {
 		$db = $this->src( 'includes/class-anpa-socios-db.php' );
 		// 1.83.0: schema moved on to 1.47.0 (socios.baixa_en); the 1.46.0 step stays registered.
-		$this->assertStringContainsString( "const DB_VERSION = '1.50.0';", $db );
-		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.50.0' )", $this->src( 'anpa-socios.php' ) );
+		$this->assertStringContainsString( "const DB_VERSION = '1.51.0';", $db );
+		$this->assertStringContainsString( "define( 'ANPA_SOCIOS_DB_VERSION', '1.51.0' )", $this->src( 'anpa-socios.php' ) );
 		$this->assertStringContainsString( "version_compare( \$installed_version, '1.46.0', '<' ) && ! self::migrate_to_1_46_0()", $db );
 		$this->assertStringContainsString( 'MODIFY COLUMN accion varchar(40) NOT NULL, MODIFY COLUMN target_id varchar(190)', $db );
 		$this->assertStringContainsString( "target_id varchar(190) not null default '',\n\t\t\taccion varchar(40) not null,", $db );

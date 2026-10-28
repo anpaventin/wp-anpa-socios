@@ -49,6 +49,12 @@ final class ANPA_Socios_Admin_Baixas_Handler {
 			'callback'            => array( __CLASS__, 'reject_matricula' ),
 			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
 		) );
+		// 1.91.0: «Baixa comunicada pola empresa» — effective in 24 h on its own.
+		register_rest_route( ANPA_Socios_Admin_REST::REST_NAMESPACE, '/matricula/(?P<id>\d+)/baixa/programar', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( __CLASS__, 'programar_matricula' ),
+			'permission_callback' => array( 'ANPA_Socios_Admin_Shared', 'permission_master' ),
+		) );
 	}
 
 	/**
@@ -95,7 +101,7 @@ final class ANPA_Socios_Admin_Baixas_Handler {
 		);
 
 		$matriculas = $wpdb->get_results(
-			"SELECT m.id, m.trimestre, m.actualizado_en AS solicitada_en,
+			"SELECT m.id, m.trimestre, m.actualizado_en AS solicitada_en, m.baixa_efectiva_en,
 			        f.id AS fillo_id, f.nome AS fillo_nome, f.apelidos AS fillo_apelidos, f.socio_email,
 			        COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula) AS aula,
 			        a.nome AS actividade, g.id AS grupo_id, g.nome AS grupo, g.franxa, g.dias, g.horario, g.curso_escolar
@@ -111,6 +117,9 @@ final class ANPA_Socios_Admin_Baixas_Handler {
 		$matriculas = is_array( $matriculas ) ? $matriculas : array();
 		foreach ( $matriculas as &$row ) {
 			$row['curso_completo'] = ANPA_Socios_Admin_Shared::curso_completo( $row['curso'] ?? null, $row['aula'] ?? null );
+			// 1.91.0: a baixa reported by the company, with the moment it becomes effective.
+			$row['programada']    = ANPA_Socios_Baixa_Programada::e_programada( 'baixa_solicitada', isset( $row['baixa_efectiva_en'] ) ? (string) $row['baixa_efectiva_en'] : null );
+			$row['data_efectiva'] = $row['programada'] ? ANPA_Socios_Baixa_Programada::texto_data( (string) $row['baixa_efectiva_en'], wp_timezone() ) : '';
 		}
 		unset( $row );
 
@@ -223,6 +232,7 @@ final class ANPA_Socios_Admin_Baixas_Handler {
 
 		$id    = (int) $request->get_param( 'id' );
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		$programada = ANPA_Socios_Baixa_Programada_Service::e_programada( $id );
 
 		$updated = $wpdb->update(
 			$mat_t,
@@ -239,6 +249,9 @@ final class ANPA_Socios_Admin_Baixas_Handler {
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'matricula', (string) $id, 'baixa_reject' );
+		// 1.91.0: a baixa reported by the company that was a mistake → the company is told.
+		ANPA_Socios_Baixa_Programada_Service::limpar( $id );
+		ANPA_Socios_Baixa_Programada_Service::anulada( $id, $programada, (string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_EMAIL ), (string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_ROL ) );
 
 		// 1.62.0: the family is told the request was not accepted (and whom to contact).
 		$correo_enviado = false;
@@ -252,6 +265,24 @@ final class ANPA_Socios_Admin_Baixas_Handler {
 		}
 
 		return new WP_REST_Response( array( 'id' => $id, 'estado' => 'activo', 'correo_enviado' => $correo_enviado ), 200 );
+	}
+
+	/**
+	 * POST /admin/matricula/<id>/baixa/programar — 1.91.0: the company reported
+	 * that the family asked it for the baixa. Effective in 24 h on its own unless
+	 * the family says it is a mistake (see ANPA_Socios_Baixa_Programada_Service).
+	 *
+	 * @since  1.91.0
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function programar_matricula( WP_REST_Request $request ) {
+		$r = ANPA_Socios_Baixa_Programada_Service::programar(
+			(int) $request->get_param( 'id' ),
+			(string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_EMAIL ),
+			(string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_ROL )
+		);
+		return is_wp_error( $r ) ? $r : new WP_REST_Response( $r, 200 );
 	}
 
 	/**

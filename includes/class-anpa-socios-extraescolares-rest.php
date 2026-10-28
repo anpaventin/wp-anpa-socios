@@ -690,6 +690,8 @@ final class ANPA_Socios_Extraescolares_REST {
 				$wpdb->query( 'ROLLBACK' );
 				return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
 			}
+			// 1.91.0: a family request is never a company-reported (self-effective) baixa.
+			ANPA_Socios_Baixa_Programada_Service::limpar( $id );
 			$alumno_nome     = self::pupil_name( (int) $mat['fillo_id'] );
 			$actividade_nome = self::activity_name( (int) $mat['activitad_id'] );
 			ANPA_Socios_Email::enviar_aviso_baixa_extraescolar( $email, $alumno_nome, $actividade_nome );
@@ -753,14 +755,17 @@ final class ANPA_Socios_Extraescolares_REST {
 		if ( null === $mat || 'baixa_solicitada' !== $mat['estado'] ) {
 			return self::err( 'anpa_extra_not_found', 'Non atopado', 404 );
 		}
-		if ( ! self::course_is_open( (string) ( $mat['curso_escolar'] ?? '' ) ) ) {
+		// 1.91.0: a baixa the company reported (the family says it is a mistake) can be
+		// cancelled while the course is active, window open or not: the place was kept.
+		$programada = ANPA_Socios_Baixa_Programada_Service::e_programada( (int) $mat['id'] );
+		if ( ! ( $programada ? self::course_is_active( (string) ( $mat['curso_escolar'] ?? '' ) ) : self::course_is_open( (string) ( $mat['curso_escolar'] ?? '' ) ) ) ) {
 			return self::err( 'anpa_extra_curso_pechado', 'Este curso está pechado para novas matrículas ou baixas.', 409 );
 		}
 		$curso = (string) ( $mat['curso_escolar'] ?? '' );
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
 		}
-		$course_error = self::lock_open_course( $curso );
+		$course_error = $programada ? self::lock_open_course_mode( $curso ) : self::lock_open_course( $curso );
 		if ( is_wp_error( $course_error ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return $course_error;
@@ -802,6 +807,8 @@ final class ANPA_Socios_Extraescolares_REST {
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit_actor( self::current_email( $request ), 'socio', 'matricula', (string) $mat['id'], 'matricula_baixa_cancelada' );
+		ANPA_Socios_Baixa_Programada_Service::limpar( (int) $mat['id'] );
+		ANPA_Socios_Baixa_Programada_Service::anulada( (int) $mat['id'], $programada, self::current_email( $request ), 'socio' );
 		return new WP_REST_Response( array( 'id' => (int) $mat['id'], 'estado' => 'activo' ), 200 );
 	}
 

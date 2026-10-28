@@ -80,7 +80,7 @@ final class Test_ANPA_Socios_Telegram_Xunta extends TestCase {
 
 	public function test_every_junta_email_is_copied_to_telegram(): void {
 		$email = self::src( 'includes/class-anpa-socios-email.php' );
-		$this->assertSame( 4, substr_count( $email, 'self::telegram( ANPA_Socios_Telegram::TIPO_AVISO,' ), 'baixa socio, reactivación, baixa extraescolar e alta pendente' );
+		$this->assertSame( 7, substr_count( $email, 'self::telegram( ANPA_Socios_Telegram::TIPO_AVISO,' ), 'baixa socio, reactivación, baixa extraescolar, alta pendente e (1.91.0) baixa comunicada pola empresa: rexistrada, efectiva, anulada' );
 		$this->assertStringContainsString( "__( 'Revisión semanal de Xestión', 'anpa-socios' )", $email );
 		$this->assertStringContainsString( "self::telegram( ANPA_Socios_Telegram::TIPO_OUTRO, __( 'Correo de inicio de curso', 'anpa-socios' )", $email );
 		$this->assertStringContainsString( 'ANPA_Socios_Telegram::resumo_masivo( $template_id, $resumo )', $email );

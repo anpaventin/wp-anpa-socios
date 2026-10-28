@@ -412,9 +412,10 @@ class ANPA_Socios_Email {
 	 * @param  string $email_socio Socio email.
 	 * @param  string $actividade  Activity name.
 	 * @param  int    $dias_prazo  Days to respond.
+	 * @param  bool   $copia_xunta 1.91.0: Bcc the junta (place freed by a baixa the company reported).
 	 * @return bool
 	 */
-	public static function enviar_oferta_extraescolar( string $email_socio, string $actividade, int $dias_prazo ): bool {
+	public static function enviar_oferta_extraescolar( string $email_socio, string $actividade, int $dias_prazo, bool $copia_xunta = false ): bool {
 		$content = self::render_with_template(
 			'oferta_extraescolar',
 			array(
@@ -441,7 +442,7 @@ class ANPA_Socios_Email {
 		);
 
 		// 1.65.1: through send_from_master() so the family gets the signature too.
-		return self::send_from_master( $email_socio, (string) $content['subject'], (string) $content['html'] );
+		return self::send_from_master( $email_socio, (string) $content['subject'], (string) $content['html'], $copia_xunta ? array( 'Bcc: ' . self::junta_email() ) : array() );
 	}
 
 	/**
@@ -513,7 +514,7 @@ class ANPA_Socios_Email {
 	 * @param  array<string,string> $context     Variables.
 	 * @return bool
 	 */
-	private static function send_template( string $to, string $template_id, array $context ): bool {
+	private static function send_template( string $to, string $template_id, array $context, array $extra_headers = array() ): bool {
 		$to = trim( $to );
 		if ( '' === $to ) {
 			return false;
@@ -523,7 +524,28 @@ class ANPA_Socios_Email {
 			return false;
 		}
 
-		return self::send_from_master( $to, (string) $content['subject'], (string) $content['html'] );
+		return self::send_from_master( $to, (string) $content['subject'], (string) $content['html'], $extra_headers );
+	}
+
+	/**
+	 * 1.91.0: one message to every parent of the pupil, with a copy (Bcc) to the
+	 * junta's inbox. Best-effort: never throws.
+	 *
+	 * @param  array<int,string>    $emails      Family addresses.
+	 * @param  string               $template_id Template id.
+	 * @param  array<string,string> $context     Variables.
+	 * @return bool
+	 */
+	private static function send_template_familia_xunta( array $emails, string $template_id, array $context ): bool {
+		$emails = array_values( array_unique( array_filter( array_map( static function ( $e ): string { return strtolower( trim( (string) $e ) ); }, $emails ), static function ( string $e ): bool { return '' !== $e && false !== filter_var( $e, FILTER_VALIDATE_EMAIL ); } ) ) );
+		if ( array() === $emails ) {
+			return false;
+		}
+		try {
+			return self::send_template( implode( ', ', $emails ), $template_id, $context, array( 'Bcc: ' . self::junta_email() ) );
+		} catch ( \Throwable $e ) {
+			return false;
+		}
 	}
 
 	/**
@@ -614,6 +636,88 @@ class ANPA_Socios_Email {
 	 */
 	public static function enviar_baixa_extraescolar_solicitada( string $email_socio, string $alumno, string $actividade ): bool {
 		return self::send_template( $email_socio, 'baixa_extraescolar_solicitada', array( 'alumno' => $alumno, 'actividade' => $actividade ) );
+	}
+
+	// ──────────────────────────────────────────────
+	// 1.91.0: baixa reported by the company (effective in 24 h on its own)
+	// ──────────────────────────────────────────────
+
+	/**
+	 * To the family (both parents, Bcc the junta): the company reported the
+	 * baixa; it becomes effective at $data_efectiva unless they say it is a mistake.
+	 *
+	 * @since  1.91.0
+	 * @param  array<int,string> $emails        Family addresses.
+	 * @param  string            $alumno        Pupil full name.
+	 * @param  string            $actividade    Activity name.
+	 * @param  string            $empresa       Company name.
+	 * @param  string            $data_efectiva «29/10/2026 ás 10:30».
+	 * @return bool
+	 */
+	public static function enviar_baixa_extraescolar_programada( array $emails, string $alumno, string $actividade, string $empresa, string $data_efectiva ): bool {
+		return self::send_template_familia_xunta( $emails, 'baixa_extraescolar_programada', array( 'alumno' => $alumno, 'actividade' => $actividade, 'empresa' => '' !== trim( $empresa ) ? $empresa : __( 'da actividade', 'anpa-socios' ), 'data_efectiva' => $data_efectiva ) + self::links_context() );
+	}
+
+	/**
+	 * To the family (both parents, Bcc the junta): the reported baixa is now
+	 * effective (same template as «Confirmar baixa»).
+	 *
+	 * @since  1.91.0
+	 * @param  array<int,string> $emails     Family addresses.
+	 * @param  string            $alumno     Pupil full name.
+	 * @param  string            $actividade Activity name.
+	 * @param  string            $efectos    ANPA_Socios_Baixa_Extraescolar_Efectos sentence.
+	 * @return bool
+	 */
+	public static function enviar_baixa_programada_efectiva( array $emails, string $alumno, string $actividade, string $efectos ): bool {
+		return self::send_template_familia_xunta( $emails, 'baixa_extraescolar_confirmada', array( 'alumno' => $alumno, 'actividade' => $actividade, 'efectos' => $efectos ) );
+	}
+
+	/**
+	 * To the company only (Para: xunta, CCO: empresa): the reported baixa was
+	 * registered, or cancelled. Sent whether the group was «created» or not: the
+	 * company itself raised it. Best-effort, never throws.
+	 *
+	 * @since  1.91.0
+	 * @param  int                  $matricula_id Enrolment id.
+	 * @param  string               $template_id  matricula_baixa_programada_aviso | matricula_baixa_anulada_aviso.
+	 * @param  array<string,string> $extra        Extra variables (data_efectiva).
+	 * @return array<string,int>|null
+	 */
+	public static function avisar_empresa( int $matricula_id, string $template_id, array $extra = array() ): ?array {
+		try {
+			$row = ANPA_Socios_Alumnos_Export::row_panel_matricula( $matricula_id );
+			if ( null === $row ) {
+				return null;
+			}
+			$dest = ANPA_Socios_Aviso_Matricula::destinatarios( (string) $row['empresa_email'], '' );
+			if ( array() === $dest ) {
+				return null;
+			}
+			return self::enviar_masivo( $dest, $template_id, $extra + ANPA_Socios_Aviso_Matricula::contexto( $row ) );
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+	}
+
+	/**
+	 * Telegram notice of each step of a reported baixa (fixed text, no family data).
+	 *
+	 * @since  1.91.0
+	 * @param  string $fase   programada | efectiva | anulada.
+	 * @param  bool   $oferta Effective: whether the place was offered to the waiting list.
+	 * @return void
+	 */
+	public static function telegram_baixa_programada( string $fase, bool $oferta = false ): void {
+		$url = class_exists( 'ANPA_Socios_Telegram_Xunta' ) ? ANPA_Socios_Telegram_Xunta::xestion_url( 'matriculas' ) : '';
+		if ( 'programada' === $fase ) {
+			/* translators: %d: hours */
+			self::telegram( ANPA_Socios_Telegram::TIPO_AVISO, __( 'Baixa comunicada pola empresa', 'anpa-socios' ), sprintf( __( 'Rexistrouse a baixa dunha extraescolar que comunicou a empresa. Será efectiva en %d horas salvo que a familia indique que é un erro.', 'anpa-socios' ), ANPA_Socios_Baixa_Programada::PRAZO_HORAS ), $url );
+		} elseif ( 'efectiva' === $fase ) {
+			self::telegram( ANPA_Socios_Telegram::TIPO_AVISO, __( 'Baixa definitiva dunha extraescolar', 'anpa-socios' ), $oferta ? __( 'A baixa comunicada pola empresa xa é efectiva. A praza ofreceuse ao seguinte da lista de espera.', 'anpa-socios' ) : __( 'A baixa comunicada pola empresa xa é efectiva. Non había ninguén na lista de espera para ofrecerlle a praza.', 'anpa-socios' ), $url );
+		} elseif ( 'anulada' === $fase ) {
+			self::telegram( ANPA_Socios_Telegram::TIPO_AVISO, __( 'Baixa anulada', 'anpa-socios' ), __( 'Anulouse unha baixa comunicada pola empresa: a matrícula segue activa e avisouse á empresa.', 'anpa-socios' ), $url );
+		}
 	}
 
 	/**

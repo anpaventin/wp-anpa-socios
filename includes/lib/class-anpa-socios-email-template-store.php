@@ -263,6 +263,28 @@ final class ANPA_Socios_Email_Template_Store {
 					array( 'association_name', 'alumno', 'actividade', 'contact_email' ),
 				),
 			),
+			// 1.91.0: the company told the junta the family asked it for the baixa; the
+			// family has PRAZO_HORAS to say it is a mistake before it becomes effective.
+			'baixa_extraescolar_programada' => array(
+				'subject' => array(
+					__( 'Baixa da actividade %s comunicada pola empresa — %s', 'anpa-socios' ),
+					array( 'actividade', 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Ola,', 'anpa-socios' ) . '</p>' .
+					'<p>' . sprintf( __( 'A empresa %s comunicou á directiva de %%s que solicitastes a baixa de %s na actividade %s.', 'anpa-socios' ), '<strong>%s</strong>', '<strong>%s</strong>', '<strong>%s</strong>' ) . '</p>' .
+					'<p>' . __( 'Rexistramos a baixa: será efectiva o <strong>%s</strong>. Nese momento a praza ofrécese á lista de espera e recibiredes outro correo coa confirmación.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( '<strong>Se credes que é un erro</strong>, confirmádeo coa directiva en %s antes desa hora, ou anulade a baixa desde a vosa área de socios (<a href="%s">%s</a>, botón «Anular baixa»): a matrícula segue entón como ata agora.', 'anpa-socios' ) . '</p>',
+					array( 'empresa', 'association_name', 'alumno', 'actividade', 'data_efectiva', 'contact_email', 'login_url', 'login_url' ),
+				),
+				'text' => array(
+					__( 'Ola,', 'anpa-socios' ) . "\n\n" .
+					__( 'A empresa %s comunicou á directiva de %s que solicitastes a baixa de %s na actividade %s.', 'anpa-socios' ) . "\n\n" .
+					__( 'Rexistramos a baixa: será efectiva o %s. Nese momento a praza ofrécese á lista de espera e recibiredes outro correo coa confirmación.', 'anpa-socios' ) . "\n\n" .
+					__( 'Se credes que é un erro, confirmádeo coa directiva en %s antes desa hora, ou anulade a baixa desde a vosa área de socios (%s, botón «Anular baixa»): a matrícula segue entón como ata agora.', 'anpa-socios' ),
+					array( 'empresa', 'association_name', 'alumno', 'actividade', 'data_efectiva', 'contact_email', 'login_url' ),
+				),
+			),
 			// 1.62.0: acknowledgement to the family when it REQUESTS a baixa from the
 			// area: the process is manual, an administrator confirms it within days,
 			// and the ANPA is run by parents in their free time.
@@ -604,6 +626,43 @@ final class ANPA_Socios_Email_Template_Store {
 					__( '2º proxenitor: %s', 'anpa-socios' ) . "\n\n" .
 					__( 'O listado actualizado está sempre no panel de empresa e do comedor da web. Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
 					array( 'grupo', 'actividade', 'efectos', 'alumno', 'curso', 'empresa', 'proxenitor1', 'proxenitor2', 'contact_email' ),
+				),
+			),
+			// 1.91.0: baixa reported by the company — registered, effective in PRAZO_HORAS
+			// unless the family says it is a mistake (Para: xunta, CCO: empresa).
+			'matricula_baixa_programada_aviso' => array(
+				'subject' => array(
+					__( 'Baixa rexistrada: %s — %s (%s) — %s', 'anpa-socios' ),
+					array( 'alumno', 'actividade', 'grupo', 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Grazas polo aviso. A directiva rexistrou a baixa de <strong>%s</strong> (%s) no grupo <strong>%s</strong> da actividade <strong>%s</strong>.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Avisamos á familia: se é un erro ten ata o <strong>%s</strong> para confirmalo coa directiva. Se non, a baixa será efectiva nese momento e recibiredes o aviso definitivo.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
+					array( 'alumno', 'curso', 'grupo', 'actividade', 'data_efectiva', 'contact_email' ),
+				),
+				'text' => array(
+					__( 'Grazas polo aviso. A directiva rexistrou a baixa de %s (%s) no grupo %s da actividade %s.', 'anpa-socios' ) . "\n\n" .
+					__( 'Avisamos á familia: se é un erro ten ata o %s para confirmalo coa directiva. Se non, a baixa será efectiva nese momento e recibiredes o aviso definitivo.', 'anpa-socios' ) . "\n\n" .
+					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
+					array( 'alumno', 'curso', 'grupo', 'actividade', 'data_efectiva', 'contact_email' ),
+				),
+			),
+			// 1.91.0: the reported baixa was cancelled (the family said it was a mistake).
+			'matricula_baixa_anulada_aviso' => array(
+				'subject' => array(
+					__( 'Baixa anulada: %s — %s (%s) — %s', 'anpa-socios' ),
+					array( 'alumno', 'actividade', 'grupo', 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'A baixa de <strong>%s</strong> (%s) no grupo <strong>%s</strong> da actividade <strong>%s</strong> quedou <strong>anulada</strong>: a familia indicou que era un erro e a matrícula segue activa.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'O listado actualizado está sempre no panel de empresa e do comedor da web. Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
+					array( 'alumno', 'curso', 'grupo', 'actividade', 'contact_email' ),
+				),
+				'text' => array(
+					__( 'A baixa de %s (%s) no grupo %s da actividade %s quedou anulada: a familia indicou que era un erro e a matrícula segue activa.', 'anpa-socios' ) . "\n\n" .
+					__( 'O listado actualizado está sempre no panel de empresa e do comedor da web. Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
+					array( 'alumno', 'curso', 'grupo', 'actividade', 'contact_email' ),
 				),
 			),
 			'matricula_cambio_grupo_aviso' => array(

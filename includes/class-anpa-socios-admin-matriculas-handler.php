@@ -298,6 +298,7 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 		}
 
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'matricula', (string) $id, 'delete' );
+		ANPA_Socios_Baixa_Programada_Service::limpar( $id );
 
 		// Freeing a place (1.85.0: also an offer, a requested baixa or an accepted offer): next one.
 		$libera = in_array( (string) $row['estado'], array( 'activo', 'oferta', 'baixa_solicitada' ), true ) || ( 'pendente_aprobacion' === (string) $row['estado'] && ! empty( $row['oferta_aceptada_en'] ) );

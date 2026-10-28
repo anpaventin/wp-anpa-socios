@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ANPA Socios
  * Description: Xestión de socios para asociacións de nais e pais (ANPA/AMPA): área de socios sen contrasinal, fillos e actividades extraescolares, domiciliación SEPA cifrada, ciclo de curso, panel de administración e actualizacións self-hosted. Configurable para calquera asociación.
- * Version: 1.90.0
+ * Version: 1.91.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: ANPA Socios
@@ -21,8 +21,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ANPA_SOCIOS_VERSION', '1.90.0' );
-define( 'ANPA_SOCIOS_DB_VERSION', '1.50.0' );
+define( 'ANPA_SOCIOS_VERSION', '1.91.0' );
+define( 'ANPA_SOCIOS_DB_VERSION', '1.51.0' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 
@@ -92,6 +92,7 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-curso-activo.p
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-trimestre-repo.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-matricula-gate-repo.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-baixa-extraescolar-efectos.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-baixa-programada.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-ownership.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-nivel-promotion-service.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email.php';
@@ -130,6 +131,7 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-fillos-rest.ph
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-fillo-cursos-rest.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-extraescolares-rest.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-extraescolar-offers.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-baixa-programada-service.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-season-service.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-templates-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-email-template-actions.php';
@@ -215,6 +217,10 @@ add_action( 'rest_api_init', array( 'ANPA_Socios_Empresa_REST', 'register_routes
 add_action( 'rest_api_init', array( 'ANPA_Socios_Admin_Estrutura_Handler', 'register_routes' ) );
 
 add_action( ANPA_Socios_DB::CLEANUP_HOOK, array( 'ANPA_Socios_DB', 'borrar_sesions_expiradas' ) );
+// 1.91.0: baixas reported by the company — a single event at the due time, and the hourly
+// offers cron as safety net (priority 5: the freed place is offered in the same run).
+add_action( ANPA_Socios_Baixa_Programada_Service::CRON_HOOK, array( 'ANPA_Socios_Baixa_Programada_Service', 'executar_vencidas' ) );
+add_action( ANPA_Socios_Extraescolar_Offers::CRON_HOOK, array( 'ANPA_Socios_Baixa_Programada_Service', 'executar_vencidas' ), 5 );
 add_action( ANPA_Socios_Extraescolar_Offers::CRON_HOOK, array( 'ANPA_Socios_Extraescolar_Offers', 'expire_stale' ) );
 add_action( ANPA_Socios_Season_Service::CRON_HOOK, array( 'ANPA_Socios_Season_Service', 'run_check' ) );
 add_action( ANPA_Socios_Aprobacions_Semanal::CRON_HOOK, array( 'ANPA_Socios_Aprobacions_Semanal', 'executar' ) );

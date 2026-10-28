@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.91.0] - 2026-10-28
+
+### Added
+
+- **Baixa comunicada pola empresa** (Xestión → Extraescolares → Matrículas, e na táboa de alumnado de cada grupo en
+  Grupos e horarios). Para as familias que piden a baixa directamente á empresa e a empresa avisa á xunta por correo:
+  - Botón «Baixa comunicada pola empresa» nas matrículas activas. A matrícula pasa a «baixa solicitada» (segue
+    ocupando a praza) e a baixa faise efectiva soa **24 horas despois**.
+  - No momento: correo á familia (os dous proxenitores, con copia oculta á xunta) que di que a empresa comunicou a
+    baixa, cando será efectiva e que, se é un erro, o confirmen coa directiva ou anulen a baixa desde a área de socios
+    («Anular baixa», que agora funciona tamén co prazo de inscrición pechado para estas baixas); aviso á empresa
+    (destinatario visible a xunta, empresa en copia oculta) e aviso por Telegram.
+  - Ás 24 horas (evento puntual, co cron horario de reserva): baixa definitiva co mesmo código que «Confirmar
+    baixa». A praza ofrécese ao seguinte da lista de espera (o correo da oferta leva copia á xunta), a familia
+    recibe a confirmación coa regra de efectos e cobro de sempre (prazo de inscrición aberto: inmediata e sen cobro;
+    pechado: ao remate do trimestre), con copia á xunta, e avísase á empresa e ao comedor. Telegram indica se a praza
+    se ofreceu á lista de espera.
+  - Anulación: «Anular baixa» (familia) ou «Rexeitar» (xunta, en Baixas de actividades pendentes) devolven a
+    matrícula a activa e avisan á empresa e por Telegram. «Confirmar baixa» faina efectiva no momento.
+  - En Baixas de actividades pendentes estas baixas levan a marca «Comunicada pola empresa · efectiva o …».
+  - Modelos de correo novos: `baixa_extraescolar_programada`, `matricula_baixa_programada_aviso` e
+    `matricula_baixa_anulada_aviso` (editables en Axustes → Plantillas).
+- Migración de esquema 1.51.0: columna `matriculas.baixa_efectiva_en` (só se engade; as baixas pedidas pola familia
+  seguen o fluxo manual de sempre).
+
 ## [1.90.0] - 2026-10-27
 
 ### Added
