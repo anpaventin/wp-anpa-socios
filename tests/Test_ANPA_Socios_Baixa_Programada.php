@@ -149,7 +149,7 @@ final class Test_ANPA_Socios_Baixa_Programada extends TestCase {
 
 	public function test_telegram_lines_carry_no_family_data(): void {
 		$body = self::method_body( self::src( 'includes/class-anpa-socios-email.php' ), 'public static function telegram_baixa_programada(' );
-		$this->assertSame( 3, substr_count( $body, 'self::telegram( ANPA_Socios_Telegram::TIPO_AVISO,' ) );
+		$this->assertSame( 3, substr_count( $body, 'self::telegram( ANPA_Socios_Avisos_Xunta::BAIXA_EMPRESA,' ) );
 		$this->assertStringNotContainsString( '$alumno', $body );
 		$this->assertStringNotContainsString( '$actividade', $body );
 	}

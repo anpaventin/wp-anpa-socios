@@ -1,6 +1,7 @@
 <?php
 /**
  * 1.90.0: sends the Telegram copy of the emails to the junta's inbox.
+ * 1.92.0: per notice (ANPA_Socios_Avisos_Xunta), at the end of the request.
  *
  * Best-effort like the emails themselves: a missing configuration or a
  * failing Telegram never breaks the request that raised the notice. Only a
@@ -33,21 +34,106 @@ final class ANPA_Socios_Telegram_Xunta {
 	}
 
 	/**
-	 * Copies one junta email to Telegram when the configured mode includes it.
+	 * 1.92.0: messages waiting for the end of the request.
 	 *
-	 * @param  string $tipo   ANPA_Socios_Telegram::TIPO_AVISO or TIPO_OUTRO.
-	 * @param  string $titulo Fixed title (never family data).
-	 * @param  string $aviso  Short line (never family data).
-	 * @param  string $url    Xestión link ('' = the Aprobacións section).
-	 * @return bool           True when the message was handed to Telegram.
+	 * @var array<int,array{texto:string,aviso:string}>
 	 */
-	public static function avisar( string $tipo, string $titulo, string $aviso = '', string $url = '' ): bool {
-		if ( ! self::configurado() || ! ANPA_Socios_Telegram::debe_notificar( ANPA_Socios_Config::telegram_modo(), $tipo ) ) {
+	private static $cola = array();
+
+	/**
+	 * Copies one junta notice to Telegram when Axustes → Xeral → Avisos á
+	 * xunta has its Telegram box ticked.
+	 *
+	 * 1.92.0: the message waits for the end of the request (shutdown) and is
+	 * sent there waiting for Telegram's answer, so the family's request is
+	 * not held and the outcome is recorded (OPTION_TELEGRAM_ESTADO). Before,
+	 * a fire-and-forget request could be dropped without a trace.
+	 *
+	 * @param  string $aviso_id ANPA_Socios_Avisos_Xunta notice id.
+	 * @param  string $titulo   Fixed title (never family data).
+	 * @param  string $aviso    Short line (never family data).
+	 * @param  string $url      Xestión link ('' = the Aprobacións section).
+	 * @return bool             True when the message was queued.
+	 */
+	public static function avisar( string $aviso_id, string $titulo, string $aviso = '', string $url = '' ): bool {
+		if ( ! self::configurado() || ! ANPA_Socios_Config::aviso_xunta( $aviso_id, ANPA_Socios_Avisos_Xunta::TELEGRAM ) ) {
 			return false;
 		}
 		$texto = ANPA_Socios_Telegram::texto( ANPA_Socios_Config::association_name(), $titulo, $aviso, '' !== $url ? $url : self::xestion_url() );
-		// Families wait on some of these requests (a baixa, an alta): do not hold them.
-		return true === self::enviar( $texto, false );
+		self::$cola[] = array( 'texto' => $texto, 'aviso' => $titulo );
+		if ( function_exists( 'did_action' ) && function_exists( 'add_action' ) && ! did_action( 'shutdown' ) ) {
+			if ( 1 === count( self::$cola ) ) {
+				add_action( 'shutdown', array( __CLASS__, 'baleirar_cola' ), 100 );
+			}
+			return true;
+		}
+		self::baleirar_cola();
+		return true;
+	}
+
+	/**
+	 * shutdown: sends the queued messages. With PHP-FPM the response is
+	 * handed to the browser first, so nobody waits for Telegram.
+	 *
+	 * @return void
+	 */
+	public static function baleirar_cola(): void {
+		$cola       = self::$cola;
+		self::$cola = array();
+		if ( array() === $cola ) {
+			return;
+		}
+		if ( function_exists( 'fastcgi_finish_request' ) && function_exists( 'doing_action' ) && doing_action( 'shutdown' ) ) {
+			try {
+				fastcgi_finish_request();
+			} catch ( \Throwable $e ) {
+				unset( $e );
+			}
+		}
+		foreach ( $cola as $msg ) {
+			$resultado = self::enviar( $msg['texto'], 5 );
+			self::rexistrar( $msg['aviso'], $resultado );
+		}
+	}
+
+	/**
+	 * Records the outcome of a notice for Axustes (never the token).
+	 *
+	 * @param  string      $aviso     Notice title.
+	 * @param  true|string $resultado enviar() result.
+	 * @return void
+	 */
+	private static function rexistrar( string $aviso, $resultado ): void {
+		if ( ! function_exists( 'get_option' ) || ! function_exists( 'update_option' ) ) {
+			return;
+		}
+		$estado = get_option( ANPA_Socios_Config::OPTION_TELEGRAM_ESTADO, array() );
+		$estado = is_array( $estado ) ? $estado : array();
+		$agora  = function_exists( 'current_time' ) ? (string) current_time( 'mysql' ) : gmdate( 'Y-m-d H:i:s' );
+		if ( true === $resultado ) {
+			$estado['ok'] = $agora;
+		} else {
+			$estado['erro']    = $agora;
+			$estado['aviso']   = $aviso;
+			$estado['mensaxe'] = (string) $resultado;
+		}
+		update_option( ANPA_Socios_Config::OPTION_TELEGRAM_ESTADO, $estado, false );
+	}
+
+	/**
+	 * Outcome of the last notices for Axustes.
+	 *
+	 * @return array{ok:string,erro:string,aviso:string,mensaxe:string}
+	 */
+	public static function estado(): array {
+		$estado = function_exists( 'get_option' ) ? get_option( ANPA_Socios_Config::OPTION_TELEGRAM_ESTADO, array() ) : array();
+		$estado = is_array( $estado ) ? $estado : array();
+		return array(
+			'ok'      => (string) ( $estado['ok'] ?? '' ),
+			'erro'    => (string) ( $estado['erro'] ?? '' ),
+			'aviso'   => (string) ( $estado['aviso'] ?? '' ),
+			'mensaxe' => (string) ( $estado['mensaxe'] ?? '' ),
+		);
 	}
 
 	/**
@@ -65,7 +151,9 @@ final class ANPA_Socios_Telegram_Xunta {
 			__( 'Se ves isto, os avisos da web á xunta chegarán tamén aquí.', 'anpa-socios' ),
 			self::xestion_url()
 		);
-		return self::enviar( $texto, true );
+		$resultado = self::enviar( $texto, 10 );
+		self::rexistrar( __( 'Mensaxe de proba', 'anpa-socios' ), $resultado );
+		return $resultado;
 	}
 
 	/**
@@ -82,13 +170,14 @@ final class ANPA_Socios_Telegram_Xunta {
 	}
 
 	/**
-	 * sendMessage to the configured chat. Never throws.
+	 * sendMessage to the configured chat, waiting for Telegram's answer.
+	 * Never throws.
 	 *
-	 * @param  string $texto    Plain text.
-	 * @param  bool   $esperar  Wait for the answer (test) or fire and forget (notices).
-	 * @return true|string      True, or an error message.
+	 * @param  string $texto   Plain text.
+	 * @param  int    $timeout Seconds.
+	 * @return true|string     True, or an error message.
 	 */
-	private static function enviar( string $texto, bool $esperar ) {
+	private static function enviar( string $texto, int $timeout ) {
 		if ( ! function_exists( 'wp_remote_post' ) ) {
 			return 'wp_remote_post';
 		}
@@ -97,8 +186,7 @@ final class ANPA_Socios_Telegram_Xunta {
 			$resposta = wp_remote_post(
 				ANPA_Socios_Telegram::api_url( $bot['token'], 'sendMessage' ),
 				array(
-					'timeout'  => $esperar ? 10 : 3,
-					'blocking' => $esperar,
+					'timeout'  => $timeout,
 					'body'     => array(
 						'chat_id'                  => ANPA_Socios_Config::telegram_chat_id(),
 						'text'                     => $texto,
@@ -112,9 +200,6 @@ final class ANPA_Socios_Telegram_Xunta {
 		if ( is_wp_error( $resposta ) ) {
 			// The token is in the URL: never echo the transport error, it may quote it.
 			return __( 'Non se puido conectar con Telegram.', 'anpa-socios' );
-		}
-		if ( ! $esperar ) {
-			return true;
 		}
 		$corpo = json_decode( (string) wp_remote_retrieve_body( $resposta ), true );
 		if ( is_array( $corpo ) && ! empty( $corpo['ok'] ) ) {

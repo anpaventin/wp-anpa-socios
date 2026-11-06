@@ -719,6 +719,73 @@ final class ANPA_Socios_Email_Template_Store {
 					array( 'socios', 'matriculas', 'baixas', 'xestion_url', 'contact_email', 'revision_correos' ),
 				),
 			),
+			// 1.92.0: avisos á xunta das inscricións en extraescolares que agardan aprobación.
+			'matricula_pendente_xunta' => array(
+				'subject' => array(
+					__( 'Nova inscrición pendente de aprobación: %s en %s — %s', 'anpa-socios' ),
+					array( 'alumno', 'actividade', 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Unha familia inscribiu a un alumno/a nunha actividade extraescolar e a solicitude agarda a vosa aprobación:', 'anpa-socios' ) . '</p>' .
+					'<ul>' .
+					'<li><strong>' . __( 'Alumno/a:', 'anpa-socios' ) . '</strong> %s</li>' .
+					'<li><strong>' . __( 'Actividade:', 'anpa-socios' ) . '</strong> %s</li>' .
+					'<li><strong>' . __( 'Grupo:', 'anpa-socios' ) . '</strong> %s</li>' .
+					'<li><strong>' . __( 'Solicitado por:', 'anpa-socios' ) . '</strong> %s</li>' .
+					'</ul>' .
+					'<p><a href="%s">' . __( 'Revisar en Aprobacións', 'anpa-socios' ) . '</a></p>',
+					array( 'alumno', 'actividade', 'grupo', 'email_socio', 'xestion_url' ),
+				),
+				'text' => array(
+					__( 'Unha familia inscribiu a un alumno/a nunha actividade extraescolar e a solicitude agarda a vosa aprobación:', 'anpa-socios' ) . "
+
+" .
+					__( 'Alumno/a:', 'anpa-socios' ) . ' %s' . "
+" .
+					__( 'Actividade:', 'anpa-socios' ) . ' %s' . "
+" .
+					__( 'Grupo:', 'anpa-socios' ) . ' %s' . "
+" .
+					__( 'Solicitado por:', 'anpa-socios' ) . ' %s' . "
+
+" .
+					__( 'Revisar en Aprobacións:', 'anpa-socios' ) . ' %s',
+					array( 'alumno', 'actividade', 'grupo', 'email_socio', 'xestion_url' ),
+				),
+			),
+			'oferta_aceptada_xunta' => array(
+				'subject' => array(
+					__( 'Oferta de praza aceptada, pendente de confirmar: %s en %s — %s', 'anpa-socios' ),
+					array( 'alumno', 'actividade', 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Unha familia aceptou a praza que se lle ofreceu dende a lista de espera. A praza queda reservada ata que a confirmedes en Aprobacións (ao aprobala avísase á empresa e ao comedor):', 'anpa-socios' ) . '</p>' .
+					'<ul>' .
+					'<li><strong>' . __( 'Alumno/a:', 'anpa-socios' ) . '</strong> %s</li>' .
+					'<li><strong>' . __( 'Actividade:', 'anpa-socios' ) . '</strong> %s</li>' .
+					'<li><strong>' . __( 'Grupo:', 'anpa-socios' ) . '</strong> %s</li>' .
+					'<li><strong>' . __( 'Aceptada por:', 'anpa-socios' ) . '</strong> %s</li>' .
+					'</ul>' .
+					'<p><a href="%s">' . __( 'Revisar en Aprobacións', 'anpa-socios' ) . '</a></p>',
+					array( 'alumno', 'actividade', 'grupo', 'email_socio', 'xestion_url' ),
+				),
+				'text' => array(
+					__( 'Unha familia aceptou a praza que se lle ofreceu dende a lista de espera. A praza queda reservada ata que a confirmedes en Aprobacións (ao aprobala avísase á empresa e ao comedor):', 'anpa-socios' ) . "
+
+" .
+					__( 'Alumno/a:', 'anpa-socios' ) . ' %s' . "
+" .
+					__( 'Actividade:', 'anpa-socios' ) . ' %s' . "
+" .
+					__( 'Grupo:', 'anpa-socios' ) . ' %s' . "
+" .
+					__( 'Aceptada por:', 'anpa-socios' ) . ' %s' . "
+
+" .
+					__( 'Revisar en Aprobacións:', 'anpa-socios' ) . ' %s',
+					array( 'alumno', 'actividade', 'grupo', 'email_socio', 'xestion_url' ),
+				),
+			),
 			'oferta_aceptada' => array(
 				'subject' => array(
 					__( 'Praza confirmada: %s en %s — %s', 'anpa-socios' ),

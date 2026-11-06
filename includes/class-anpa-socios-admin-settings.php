@@ -694,6 +694,28 @@ final class ANPA_Socios_Admin_Settings {
 		wp_nonce_field( 'anpa_socios_save_settings' );
 		echo '<table class="form-table" role="presentation"><tbody>';
 
+		// 1.92.0: which junta notices go by email and which by Telegram, plus the bot.
+		if ( 'avisos' === $section ) {
+			echo '</tbody></table>';
+			self::render_avisos_xunta();
+			echo '<table class="form-table" role="presentation"><tbody>';
+			self::render_telegram_rows();
+			echo '</tbody></table>';
+			submit_button( __( 'Gardar avisos', 'anpa-socios' ) );
+			echo '</form>';
+			// 1.90.0: own form (forms cannot nest) for the Telegram test message.
+			if ( ANPA_Socios_Telegram_Xunta::configurado() ) {
+				echo '<form method="post" action="' . $post_url . '">';
+				echo '<input type="hidden" name="action" value="anpa_socios_telegram_proba">';
+				echo '<input type="hidden" name="tab" value="xeral">';
+				echo '<input type="hidden" name="section" value="' . esc_attr( $section ) . '">';
+				wp_nonce_field( 'anpa_socios_telegram_proba' );
+				submit_button( __( 'Enviar mensaxe de proba a Telegram', 'anpa-socios' ), 'secondary', 'submit', false );
+				echo '</form>';
+			}
+			return;
+		}
+
 		if ( 'paxinas' === $section ) {
 			echo '<h2>' . esc_html__( 'Páxinas e shortcodes', 'anpa-socios' ) . '</h2>';
 			echo '<tr><th scope="row"><label for="cfg-landing">' . esc_html__( 'Páxina de socios', 'anpa-socios' ) . '</label></th><td>';
@@ -792,26 +814,68 @@ final class ANPA_Socios_Admin_Settings {
 			esc_html__( 'Último día das actividades (por exemplo, o 15 de xuño). Aparece na páxina pública de extraescolares. Se queda baleira non se amosa.', 'anpa-socios' )
 		);
 
-		self::render_telegram_rows();
-
 		echo '</tbody></table>';
 		submit_button( __( 'Gardar configuración', 'anpa-socios' ) );
 		echo '</form>';
-
-		// 1.90.0: own form (forms cannot nest) for the Telegram test message.
-		if ( ANPA_Socios_Telegram_Xunta::configurado() ) {
-			echo '<form method="post" action="' . $post_url . '">';
-			echo '<input type="hidden" name="action" value="anpa_socios_telegram_proba">';
-			echo '<input type="hidden" name="tab" value="xeral">';
-			echo '<input type="hidden" name="section" value="' . esc_attr( $section ) . '">';
-			wp_nonce_field( 'anpa_socios_telegram_proba' );
-			submit_button( __( 'Enviar mensaxe de proba a Telegram', 'anpa-socios' ), 'secondary', 'submit', false );
-			echo '</form>';
-		}
 	}
 
 	/**
-	 * 1.90.0: «Avisos por Telegram» rows of Axustes → Xeral → Configuración.
+	 * 1.92.0: Axustes → Xeral → Avisos á xunta — every notice the web raises
+	 * for the junta with its two channels (email to the junta's inbox,
+	 * Telegram). Printed inside the save_settings form.
+	 *
+	 * @return void
+	 */
+	private static function render_avisos_xunta(): void {
+		$canles     = ANPA_Socios_Config::avisos_xunta_canles();
+		$telegram   = ANPA_Socios_Telegram_Xunta::configurado();
+		$xunta      = ANPA_Socios_Config::master_email();
+		$catalogo   = ANPA_Socios_Avisos_Xunta::catalogo();
+
+		echo '<h2>' . esc_html__( 'Avisos á xunta', 'anpa-socios' ) . '</h2>';
+		echo '<p>' . esc_html(
+			sprintf(
+				/* translators: %s: junta email address */
+				__( 'Escolle por onde chega á xunta cada aviso da web: por correo á conta da xunta (%s), por Telegram ou polos dous. Se desmarcas as dúas caixas dun aviso, a xunta só o verá en Xestión (e no resumo dos luns, se segue pendente).', 'anpa-socios' ),
+				$xunta
+			)
+		) . '</p>';
+		if ( ! $telegram ) {
+			echo '<div class="notice notice-warning inline"><p>' . esc_html__( 'Telegram aínda non está configurado (token do bot e ID do chat, máis abaixo): ata entón as caixas de Telegram gárdanse pero non se envía nada.', 'anpa-socios' ) . '</p></div>';
+		}
+		echo '<input type="hidden" name="avisos_xunta_form" value="1">';
+		echo '<table class="widefat striped" style="max-width:960px;margin-top:12px"><thead><tr>';
+		echo '<th>' . esc_html__( 'Aviso', 'anpa-socios' ) . '</th>';
+		echo '<th style="width:90px;text-align:center">' . esc_html__( 'Correo', 'anpa-socios' ) . '</th>';
+		echo '<th style="width:90px;text-align:center">' . esc_html__( 'Telegram', 'anpa-socios' ) . '</th>';
+		echo '</tr></thead><tbody>';
+		foreach ( ANPA_Socios_Avisos_Xunta::grupos() as $grupo => $etiqueta ) {
+			echo '<tr><th colspan="3" style="background:#f0f0f1"><strong>' . esc_html( $etiqueta ) . '</strong></th></tr>';
+			foreach ( $catalogo as $id => $def ) {
+				if ( $grupo !== $def['grupo'] ) {
+					continue;
+				}
+				$correo = ANPA_Socios_Avisos_Xunta::activo( $canles, $id, ANPA_Socios_Avisos_Xunta::CORREO );
+				$tg     = ANPA_Socios_Avisos_Xunta::activo( $canles, $id, ANPA_Socios_Avisos_Xunta::TELEGRAM );
+				$caixa_correo = $def['correo_fixo']
+					? '<input type="checkbox" checked disabled title="' . esc_attr__( 'Sempre: o correo é o propio envío', 'anpa-socios' ) . '">'
+					: sprintf( '<input type="checkbox" name="avisos_xunta[%1$s][correo]" value="1" aria-label="%2$s" %3$s>', esc_attr( $id ), esc_attr( sprintf( __( 'Correo: %s', 'anpa-socios' ), $def['titulo'] ) ), checked( $correo, true, false ) );
+				$caixa_tg = sprintf( '<input type="checkbox" name="avisos_xunta[%1$s][telegram]" value="1" aria-label="%2$s" %3$s>', esc_attr( $id ), esc_attr( sprintf( __( 'Telegram: %s', 'anpa-socios' ), $def['titulo'] ) ), checked( $tg, true, false ) );
+				printf(
+					'<tr><td><strong>%1$s</strong><br><span class="description">%2$s</span></td><td style="text-align:center;vertical-align:middle">%3$s</td><td style="text-align:center;vertical-align:middle">%4$s</td></tr>',
+					esc_html( $def['titulo'] ),
+					esc_html( $def['descricion'] ),
+					$caixa_correo, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
+					$caixa_tg // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
+				);
+			}
+		}
+		echo '</tbody></table>';
+		echo '<p class="description" style="max-width:960px">' . esc_html__( 'En Telegram só vai o tipo de aviso e unha liña curta coa ligazón a Xestión, nunca nomes nin correos das familias. O correo á xunta leva os datos para resolver o aviso.', 'anpa-socios' ) . '</p>';
+	}
+
+	/**
+	 * 1.90.0: «Avisos por Telegram» rows; 1.92.0: «Bot de Telegram» in Axustes → Xeral → Avisos á xunta.
 	 *
 	 * The saved token is never printed back: the field stays empty and the
 	 * description shows its masked form or the wp-config constant / mu-plugin
@@ -838,7 +902,7 @@ final class ANPA_Socios_Admin_Settings {
 			$estado .= ' ' . __( '⚠️ O token non ten o formato «número:código» de BotFather.', 'anpa-socios' );
 		}
 
-		echo '<tr><th scope="row" colspan="2"><h3 style="margin:0">' . esc_html__( 'Avisos por Telegram', 'anpa-socios' ) . '</h3><p class="description" style="font-weight:normal">' . esc_html__( 'Opcional. Copia en Telegram os correos que a web envía á conta da xunta. Só vai o tipo de aviso e unha liña curta coa ligazón a Xestión, nunca nomes nin correos das familias: Telegram non é un provedor contratado pola ANPA.', 'anpa-socios' ) . '</p></th></tr>';
+		echo '<tr><th scope="row" colspan="2"><h3 style="margin:0">' . esc_html__( 'Bot de Telegram', 'anpa-socios' ) . '</h3><p class="description" style="font-weight:normal">' . esc_html__( 'Opcional. Os avisos marcados na columna «Telegram» da táboa de arriba envíanse a este chat. Só vai o tipo de aviso e unha liña curta coa ligazón a Xestión, nunca nomes nin correos das familias: Telegram non é un provedor contratado pola ANPA.', 'anpa-socios' ) . '</p></th></tr>';
 		printf(
 			'<tr><th scope="row"><label for="cfg-telegram-token">%s</label></th><td><input name="telegram_bot_token" id="cfg-telegram-token" type="password" class="regular-text" value="" autocomplete="off" spellcheck="false">%s<p class="description">%s</p>%s</td></tr>',
 			esc_html__( 'Token do bot', 'anpa-socios' ),
@@ -852,21 +916,24 @@ final class ANPA_Socios_Admin_Settings {
 			esc_attr( ANPA_Socios_Config::telegram_chat_id() ),
 			esc_html__( 'Grupo, canle ou persoa que recibe os avisos. Engade o bot ao grupo (ou como administrador da canle) e escribe aquí o seu ID numérico (os grupos e canles empezan por -100) ou o @nome dunha canle pública. Se o deixas baleiro, non se envía nada a Telegram.', 'anpa-socios' )
 		);
-		$modo   = ANPA_Socios_Config::telegram_modo();
-		$radios = '';
-		foreach ( ANPA_Socios_Telegram::modos() as $valor => $etiqueta ) {
-			$radios .= sprintf(
-				'<label style="display:block;margin-bottom:4px"><input type="radio" name="telegram_modo" value="%s" %s> %s</label>',
-				esc_attr( $valor ),
-				checked( $modo, $valor, false ),
-				esc_html( $etiqueta )
-			);
+		// 1.92.0: last outcome, so a message that did not arrive leaves a trace.
+		$estado = ANPA_Socios_Telegram_Xunta::estado();
+		$linas  = array();
+		if ( '' !== $estado['ok'] ) {
+			/* translators: %s: date and time */
+			$linas[] = '✅ ' . esc_html( sprintf( __( 'Última mensaxe entregada: %s.', 'anpa-socios' ), $estado['ok'] ) );
+		}
+		if ( '' !== $estado['erro'] && ( '' === $estado['ok'] || strcmp( $estado['erro'], $estado['ok'] ) >= 0 ) ) {
+			/* translators: 1: date and time, 2: notice, 3: error */
+			$linas[] = '❌ ' . esc_html( sprintf( __( 'Último erro (%1$s, «%2$s»): %3$s', 'anpa-socios' ), $estado['erro'], $estado['aviso'], $estado['mensaxe'] ) );
+		}
+		if ( array() === $linas ) {
+			$linas[] = esc_html__( 'Aínda non se enviou ningún aviso.', 'anpa-socios' );
 		}
 		printf(
-			'<tr><th scope="row">%s</th><td><fieldset>%s</fieldset><p class="description">%s</p></td></tr>',
-			esc_html__( 'Que correos á xunta van a Telegram', 'anpa-socios' ),
-			$radios, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
-			esc_html__( 'Os correos masivos van á conta da xunta coas familias en copia oculta; en Telegram aparecen como unha liña de resumo co número de enderezos.', 'anpa-socios' )
+			'<tr><th scope="row">%s</th><td><p>%s</p></td></tr>',
+			esc_html__( 'Estado dos envíos', 'anpa-socios' ),
+			implode( '<br>', $linas ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
 		);
 	}
 
@@ -2035,8 +2102,11 @@ final class ANPA_Socios_Admin_Settings {
 				update_option( ANPA_Socios_Config::OPTION_TELEGRAM_CHAT, $chat );
 			}
 		}
-		if ( array_key_exists( 'telegram_modo', $_POST ) ) {
-			update_option( ANPA_Socios_Config::OPTION_TELEGRAM_MODO, ANPA_Socios_Telegram::modo( sanitize_key( (string) wp_unslash( $_POST['telegram_modo'] ) ) ) );
+		// 1.92.0: channels of every junta notice. Unticked boxes are not posted:
+		// the form marker says the table was on the page.
+		if ( array_key_exists( 'avisos_xunta_form', $_POST ) ) {
+			$raw = isset( $_POST['avisos_xunta'] ) && is_array( $_POST['avisos_xunta'] ) ? wp_unslash( $_POST['avisos_xunta'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- reduced to booleans of known ids.
+			update_option( ANPA_Socios_Config::OPTION_AVISOS_XUNTA, ANPA_Socios_Avisos_Xunta::desde_formulario( $raw ) );
 		}
 
 		if ( array_key_exists( 'landing_page_id', $_POST ) ) {

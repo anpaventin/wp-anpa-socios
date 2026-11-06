@@ -201,7 +201,8 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 			$this->assertNotFalse( $start, $fn );
 			$body = substr( $email, $start, strpos( $email, "\n\t}\n", $start ) - $start );
 			// 1.90.0: the junta notices keep the result in $ok to copy it to Telegram first.
-			$this->assertMatchesRegularExpression( '/(return|\$ok =) self::send_from_master\(/', $body, "$fn must send through send_from_master()" );
+			// 1.92.0: and send only when the notice has its email box ticked.
+			$this->assertMatchesRegularExpression( '/(return|\$ok =) (self::correo_xunta\( ANPA_Socios_Avisos_Xunta::[A-Z_]+ \) && )?self::send_from_master\(/', $body, "$fn must send through send_from_master()" );
 		}
 	}
 

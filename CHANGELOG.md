@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.92.0] - 2026-11-06
+
+### Fixed
+
+- **As inscricións en extraescolares pendentes de aprobación non avisaban á xunta.** Dúas aprobacións quedaban sen
+  correo nin Telegram ata o resumo dos luns:
+  - a inscrición que fai a familia fóra do prazo libre ou nun grupo xa en marcha (só se lle avisaba á familia);
+  - a oferta da lista de espera que a familia acepta (a praza queda reservada á espera da xunta).
+
+  Agora as dúas envían un correo á conta da xunta (plantillas novas `matricula_pendente_xunta` e
+  `oferta_aceptada_xunta`, co alumno/a, a actividade, o grupo, quen o pediu e a ligazón a Aprobacións) e unha liña
+  por Telegram sen datos das familias.
+
+### Added
+
+- **Axustes → Xeral → Avisos á xunta.** Táboa con todos os avisos que a web lle manda á xunta, en dous bloques
+  («Aprobacións» e «Información»), e dúas caixas por aviso: **Correo** e **Telegram**. Cada aviso pode ir por
+  correo, por Telegram, polos dous ou por ningún:
+  - Aprobacións: novo socio/a pendente, reactivación, baixa de socio/a, nova inscrición nunha extraescolar, oferta
+    de praza aceptada e baixa nunha extraescolar (por defecto, correo e Telegram).
+  - Información: baixa comunicada pola empresa (o correo é a copia oculta á xunta), revisión semanal dos luns,
+    correo de inicio de curso, avisos á empresa e ao comedor e correos masivos. Nos tres últimos o correo é o
+    propio envío e non se pode desmarcar; só se escolle se van tamén a Telegram.
+- A configuración do bot de Telegram (token, chat e mensaxe de proba) pasa a esta sección, cunha fila
+  **«Estado dos envíos»** coa última mensaxe entregada e o último erro.
+
+### Changed
+
+- Desaparece a opción «Que correos á xunta van a Telegram» (só avisos / todo). Quen tiña «todo» conserva Telegram
+  no inicio de curso, nos avisos á empresa e nos correos masivos ata que garde a táboa.
+- Telegram xa non envía «dispara e esquece»: as mensaxes agárdanse ao final da petición (a familia non espera) e
+  envíanse esperando a resposta de Telegram, para que un fallo quede rexistrado.
+
 ## [1.91.0] - 2026-10-28
 
 ### Added

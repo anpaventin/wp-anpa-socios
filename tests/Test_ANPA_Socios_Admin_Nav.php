@@ -104,7 +104,7 @@ class Test_ANPA_Socios_Admin_Nav extends TestCase {
 
 	public function test_settings_sections_are_ordered_by_tab(): void {
 		$this->assertSame(
-			array( 'estado', 'mantemento', 'configuracion', 'paxinas' ),
+			array( 'estado', 'mantemento', 'configuracion', 'avisos', 'paxinas' ),
 			array_keys( ANPA_Socios_Admin_Nav::settings_sections( 'xeral' ) )
 		);
 		$this->assertSame(

@@ -54,26 +54,56 @@ class ANPA_Socios_Email {
 	}
 
 	/**
-	 * 1.90.0: Telegram copy of an email to the junta (Axustes → Xeral →
-	 * Configuración). Only a fixed title and a short line, never family data.
-	 * Best-effort: never throws, never changes what the email call returns.
+	 * 1.90.0: Telegram copy of a junta notice. 1.92.0: sent when the notice
+	 * has its Telegram box ticked in Axustes → Xeral → Avisos á xunta. Only a
+	 * fixed title and a short line, never family data. Best-effort: never
+	 * throws, never changes what the email call returns.
 	 *
 	 * @since  1.90.0
-	 * @param  string $tipo   ANPA_Socios_Telegram::TIPO_AVISO or TIPO_OUTRO.
-	 * @param  string $titulo Title (the subject without data).
-	 * @param  string $aviso  Short line.
-	 * @param  string $url    Xestión link ('' = Aprobacións).
+	 * @param  string $aviso_id ANPA_Socios_Avisos_Xunta notice id.
+	 * @param  string $titulo   Title (the subject without data).
+	 * @param  string $aviso    Short line.
+	 * @param  string $url      Xestión link ('' = Aprobacións).
 	 * @return void
 	 */
-	private static function telegram( string $tipo, string $titulo, string $aviso, string $url = '' ): void {
+	private static function telegram( string $aviso_id, string $titulo, string $aviso, string $url = '' ): void {
 		if ( ! class_exists( 'ANPA_Socios_Telegram_Xunta' ) ) {
 			return;
 		}
 		try {
-			ANPA_Socios_Telegram_Xunta::avisar( $tipo, $titulo, $aviso, $url );
+			ANPA_Socios_Telegram_Xunta::avisar( $aviso_id, $titulo, $aviso, $url );
 		} catch ( \Throwable $e ) {
 			return;
 		}
+	}
+
+	/**
+	 * 1.92.0: whether a junta notice goes by email to the junta's inbox
+	 * (Axustes → Xeral → Avisos á xunta). Defaults to true on any error.
+	 *
+	 * @since  1.92.0
+	 * @param  string $aviso_id ANPA_Socios_Avisos_Xunta notice id.
+	 * @return bool
+	 */
+	private static function correo_xunta( string $aviso_id ): bool {
+		if ( ! class_exists( 'ANPA_Socios_Avisos_Xunta' ) ) {
+			return true;
+		}
+		try {
+			return ANPA_Socios_Config::aviso_xunta( $aviso_id, ANPA_Socios_Avisos_Xunta::CORREO );
+		} catch ( \Throwable $e ) {
+			return true;
+		}
+	}
+
+	/**
+	 * Xestión link for the junta notices ('' outside WordPress).
+	 *
+	 * @param  string $section Xestión section slug.
+	 * @return string
+	 */
+	private static function xestion_url( string $section = 'aprobacions' ): string {
+		return class_exists( 'ANPA_Socios_Telegram_Xunta' ) ? ANPA_Socios_Telegram_Xunta::xestion_url( $section ) : '';
 	}
 
 	/**
@@ -306,8 +336,8 @@ class ANPA_Socios_Email {
 		);
 
 		// 1.65.1: junta notices go through send_from_master() too (full HTML + signature).
-		$ok = self::send_from_master( self::junta_email(), (string) $content['subject'], (string) $content['html'] );
-		self::telegram( ANPA_Socios_Telegram::TIPO_AVISO, __( 'Solicitude de baixa de socio/a', 'anpa-socios' ), __( 'Unha familia pediu a baixa como socia. Revísaa en Aprobacións.', 'anpa-socios' ) );
+		$ok = self::correo_xunta( ANPA_Socios_Avisos_Xunta::BAIXA_SOCIO ) && self::send_from_master( self::junta_email(), (string) $content['subject'], (string) $content['html'] );
+		self::telegram( ANPA_Socios_Avisos_Xunta::BAIXA_SOCIO, __( 'Solicitude de baixa de socio/a', 'anpa-socios' ), __( 'Unha familia pediu a baixa como socia. Revísaa en Aprobacións.', 'anpa-socios' ) );
 		return $ok;
 	}
 
@@ -349,8 +379,8 @@ class ANPA_Socios_Email {
 		);
 
 		// 1.65.1: junta notices go through send_from_master() too (full HTML + signature).
-		$ok = self::send_from_master( self::junta_email(), (string) $content['subject'], (string) $content['html'] );
-		self::telegram( ANPA_Socios_Telegram::TIPO_AVISO, __( 'Solicitude de reactivación de socio/a', 'anpa-socios' ), __( 'Unha antiga familia socia pediu reactivar a conta. Actívaa en Aprobacións.', 'anpa-socios' ) );
+		$ok = self::correo_xunta( ANPA_Socios_Avisos_Xunta::REACTIVACION_SOCIO ) && self::send_from_master( self::junta_email(), (string) $content['subject'], (string) $content['html'] );
+		self::telegram( ANPA_Socios_Avisos_Xunta::REACTIVACION_SOCIO, __( 'Solicitude de reactivación de socio/a', 'anpa-socios' ), __( 'Unha antiga familia socia pediu reactivar a conta. Actívaa en Aprobacións.', 'anpa-socios' ) );
 		return $ok;
 	}
 
@@ -397,8 +427,8 @@ class ANPA_Socios_Email {
 		);
 
 		// 1.65.1: junta notices go through send_from_master() too (full HTML + signature).
-		$ok = self::send_from_master( self::junta_email(), (string) $content['subject'], (string) $content['html'] );
-		self::telegram( ANPA_Socios_Telegram::TIPO_AVISO, __( 'Solicitude de baixa nunha extraescolar', 'anpa-socios' ), __( 'Unha familia pediu a baixa dunha actividade extraescolar. Revísaa en Aprobacións.', 'anpa-socios' ) );
+		$ok = self::correo_xunta( ANPA_Socios_Avisos_Xunta::BAIXA_EXTRAESCOLAR ) && self::send_from_master( self::junta_email(), (string) $content['subject'], (string) $content['html'] );
+		self::telegram( ANPA_Socios_Avisos_Xunta::BAIXA_EXTRAESCOLAR, __( 'Solicitude de baixa nunha extraescolar', 'anpa-socios' ), __( 'Unha familia pediu a baixa dunha actividade extraescolar. Revísaa en Aprobacións.', 'anpa-socios' ) );
 		return $ok;
 	}
 
@@ -536,13 +566,13 @@ class ANPA_Socios_Email {
 	 * @param  array<string,string> $context     Variables.
 	 * @return bool
 	 */
-	private static function send_template_familia_xunta( array $emails, string $template_id, array $context ): bool {
+	private static function send_template_familia_xunta( array $emails, string $template_id, array $context, bool $copia_xunta = true ): bool {
 		$emails = array_values( array_unique( array_filter( array_map( static function ( $e ): string { return strtolower( trim( (string) $e ) ); }, $emails ), static function ( string $e ): bool { return '' !== $e && false !== filter_var( $e, FILTER_VALIDATE_EMAIL ); } ) ) );
 		if ( array() === $emails ) {
 			return false;
 		}
 		try {
-			return self::send_template( implode( ', ', $emails ), $template_id, $context, array( 'Bcc: ' . self::junta_email() ) );
+			return self::send_template( implode( ', ', $emails ), $template_id, $context, $copia_xunta ? array( 'Bcc: ' . self::junta_email() ) : array() );
 		} catch ( \Throwable $e ) {
 			return false;
 		}
@@ -655,7 +685,7 @@ class ANPA_Socios_Email {
 	 * @return bool
 	 */
 	public static function enviar_baixa_extraescolar_programada( array $emails, string $alumno, string $actividade, string $empresa, string $data_efectiva ): bool {
-		return self::send_template_familia_xunta( $emails, 'baixa_extraescolar_programada', array( 'alumno' => $alumno, 'actividade' => $actividade, 'empresa' => '' !== trim( $empresa ) ? $empresa : __( 'da actividade', 'anpa-socios' ), 'data_efectiva' => $data_efectiva ) + self::links_context() );
+		return self::send_template_familia_xunta( $emails, 'baixa_extraescolar_programada', array( 'alumno' => $alumno, 'actividade' => $actividade, 'empresa' => '' !== trim( $empresa ) ? $empresa : __( 'da actividade', 'anpa-socios' ), 'data_efectiva' => $data_efectiva ) + self::links_context(), self::correo_xunta( ANPA_Socios_Avisos_Xunta::BAIXA_EMPRESA ) );
 	}
 
 	/**
@@ -670,7 +700,7 @@ class ANPA_Socios_Email {
 	 * @return bool
 	 */
 	public static function enviar_baixa_programada_efectiva( array $emails, string $alumno, string $actividade, string $efectos ): bool {
-		return self::send_template_familia_xunta( $emails, 'baixa_extraescolar_confirmada', array( 'alumno' => $alumno, 'actividade' => $actividade, 'efectos' => $efectos ) );
+		return self::send_template_familia_xunta( $emails, 'baixa_extraescolar_confirmada', array( 'alumno' => $alumno, 'actividade' => $actividade, 'efectos' => $efectos ), self::correo_xunta( ANPA_Socios_Avisos_Xunta::BAIXA_EMPRESA ) );
 	}
 
 	/**
@@ -709,14 +739,14 @@ class ANPA_Socios_Email {
 	 * @return void
 	 */
 	public static function telegram_baixa_programada( string $fase, bool $oferta = false ): void {
-		$url = class_exists( 'ANPA_Socios_Telegram_Xunta' ) ? ANPA_Socios_Telegram_Xunta::xestion_url( 'matriculas' ) : '';
+		$url = self::xestion_url( 'matriculas' );
 		if ( 'programada' === $fase ) {
 			/* translators: %d: hours */
-			self::telegram( ANPA_Socios_Telegram::TIPO_AVISO, __( 'Baixa comunicada pola empresa', 'anpa-socios' ), sprintf( __( 'Rexistrouse a baixa dunha extraescolar que comunicou a empresa. Será efectiva en %d horas salvo que a familia indique que é un erro.', 'anpa-socios' ), ANPA_Socios_Baixa_Programada::PRAZO_HORAS ), $url );
+			self::telegram( ANPA_Socios_Avisos_Xunta::BAIXA_EMPRESA, __( 'Baixa comunicada pola empresa', 'anpa-socios' ), sprintf( __( 'Rexistrouse a baixa dunha extraescolar que comunicou a empresa. Será efectiva en %d horas salvo que a familia indique que é un erro.', 'anpa-socios' ), ANPA_Socios_Baixa_Programada::PRAZO_HORAS ), $url );
 		} elseif ( 'efectiva' === $fase ) {
-			self::telegram( ANPA_Socios_Telegram::TIPO_AVISO, __( 'Baixa definitiva dunha extraescolar', 'anpa-socios' ), $oferta ? __( 'A baixa comunicada pola empresa xa é efectiva. A praza ofreceuse ao seguinte da lista de espera.', 'anpa-socios' ) : __( 'A baixa comunicada pola empresa xa é efectiva. Non había ninguén na lista de espera para ofrecerlle a praza.', 'anpa-socios' ), $url );
+			self::telegram( ANPA_Socios_Avisos_Xunta::BAIXA_EMPRESA, __( 'Baixa definitiva dunha extraescolar', 'anpa-socios' ), $oferta ? __( 'A baixa comunicada pola empresa xa é efectiva. A praza ofreceuse ao seguinte da lista de espera.', 'anpa-socios' ) : __( 'A baixa comunicada pola empresa xa é efectiva. Non había ninguén na lista de espera para ofrecerlle a praza.', 'anpa-socios' ), $url );
 		} elseif ( 'anulada' === $fase ) {
-			self::telegram( ANPA_Socios_Telegram::TIPO_AVISO, __( 'Baixa anulada', 'anpa-socios' ), __( 'Anulouse unha baixa comunicada pola empresa: a matrícula segue activa e avisouse á empresa.', 'anpa-socios' ), $url );
+			self::telegram( ANPA_Socios_Avisos_Xunta::BAIXA_EMPRESA, __( 'Baixa anulada', 'anpa-socios' ), __( 'Anulouse unha baixa comunicada pola empresa: a matrícula segue activa e avisouse á empresa.', 'anpa-socios' ), $url );
 		}
 	}
 
@@ -731,7 +761,7 @@ class ANPA_Socios_Email {
 	public static function enviar_inicio_curso( string $to ): bool {
 		$ok = self::send_template( $to, 'inicio_curso', self::links_context() );
 		if ( strtolower( trim( $to ) ) === self::junta_email() ) {
-			self::telegram( ANPA_Socios_Telegram::TIPO_OUTRO, __( 'Correo de inicio de curso', 'anpa-socios' ), __( 'Chegou á conta da xunta o correo de inicio de curso para reenvialo ás familias desde Gmail.', 'anpa-socios' ), class_exists( 'ANPA_Socios_Telegram_Xunta' ) ? ANPA_Socios_Telegram_Xunta::xestion_url( 'lista-gmail' ) : '' );
+			self::telegram( ANPA_Socios_Avisos_Xunta::INICIO_CURSO, __( 'Correo de inicio de curso', 'anpa-socios' ), __( 'Chegou á conta da xunta o correo de inicio de curso para reenvialo ás familias desde Gmail.', 'anpa-socios' ), self::xestion_url( 'lista-gmail' ) );
 		}
 		return $ok;
 	}
@@ -805,7 +835,7 @@ class ANPA_Socios_Email {
 		}
 		$resumo = ANPA_Socios_Envio_Masivo::resumo( $resultados );
 		// 1.90.0: one summary line for the whole send, not one per batch.
-		self::telegram( ANPA_Socios_Telegram::TIPO_OUTRO, __( 'Correo masivo', 'anpa-socios' ), ANPA_Socios_Telegram::resumo_masivo( $template_id, $resumo ), class_exists( 'ANPA_Socios_Telegram_Xunta' ) ? ANPA_Socios_Telegram_Xunta::xestion_url( 'correos' ) : '' );
+		self::telegram( ANPA_Socios_Avisos_Xunta::id_masivo( $template_id ), __( 'Correo masivo', 'anpa-socios' ), ANPA_Socios_Telegram::resumo_masivo( $template_id, $resumo ), self::xestion_url( 'correos' ) );
 		return $resumo + array( 'destinatarios' => $destinatarios );
 	}
 
@@ -822,6 +852,43 @@ class ANPA_Socios_Email {
 	 */
 	public static function enviar_matricula_pendente( string $email_socio, string $alumno, string $actividade, string $grupo ): bool {
 		return self::send_template( $email_socio, 'matricula_pendente', array( 'alumno' => $alumno, 'actividade' => $actividade, 'grupo' => $grupo ) );
+	}
+
+	/**
+	 * 1.92.0: tells the junta that an enrolment waits in Operacións →
+	 * Aprobacións: a new request (outside the free enrolment window or in a
+	 * group already running) or a waiting-list offer the family accepted.
+	 * Email and/or Telegram as chosen in Axustes → Xeral → Avisos á xunta.
+	 * Before 1.92.0 neither reached the junta until the Monday summary.
+	 *
+	 * @since  1.92.0
+	 * @param  string $email_socio Address of the parent who asked.
+	 * @param  string $alumno      Pupil name.
+	 * @param  string $actividade  Activity name.
+	 * @param  string $grupo       Group label.
+	 * @param  bool   $de_oferta   True when the family accepted an offer.
+	 * @return bool                True if the email was accepted.
+	 */
+	public static function enviar_aviso_matricula_pendente_xunta( string $email_socio, string $alumno, string $actividade, string $grupo, bool $de_oferta = false ): bool {
+		$aviso_id = $de_oferta ? ANPA_Socios_Avisos_Xunta::OFERTA_ACEPTADA : ANPA_Socios_Avisos_Xunta::MATRICULA_PENDENTE;
+		$ok       = false;
+		try {
+			if ( self::correo_xunta( $aviso_id ) ) {
+				$ok = self::send_template(
+					self::junta_email(),
+					$de_oferta ? 'oferta_aceptada_xunta' : 'matricula_pendente_xunta',
+					array( 'alumno' => $alumno, 'actividade' => $actividade, 'grupo' => $grupo, 'email_socio' => $email_socio, 'xestion_url' => self::xestion_url() )
+				);
+			}
+		} catch ( \Throwable $e ) {
+			$ok = false;
+		}
+		if ( $de_oferta ) {
+			self::telegram( $aviso_id, __( 'Oferta de praza aceptada', 'anpa-socios' ), __( 'Unha familia aceptou a praza ofrecida dende a lista de espera. Confírmaa en Aprobacións.', 'anpa-socios' ) );
+		} else {
+			self::telegram( $aviso_id, __( 'Nova inscrición nunha extraescolar', 'anpa-socios' ), __( 'Unha familia inscribiu a un alumno/a nunha actividade e a solicitude espera a vosa aprobación en Aprobacións.', 'anpa-socios' ) );
+		}
+		return $ok;
 	}
 
 	/**
@@ -950,7 +1017,7 @@ class ANPA_Socios_Email {
 	 */
 	public static function enviar_aprobacions_pendentes( array $contas, array $conflitos = array() ): bool {
 		$url = function_exists( 'admin_url' ) ? admin_url( 'admin.php?page=' . ANPA_Socios_Admin_Management_Page::MANAGEMENT_SLUG . '&section=aprobacions' ) : '';
-		$ok = self::send_template( self::junta_email(), 'aprobacions_pendentes_semanal', array(
+		$ok = self::correo_xunta( ANPA_Socios_Avisos_Xunta::RESUMO_SEMANAL ) && self::send_template( self::junta_email(), 'aprobacions_pendentes_semanal', array(
 			'total'       => (string) (int) ( $contas['total'] ?? 0 ),
 			'socios'      => (string) (int) ( $contas['socios'] ?? 0 ),
 			'matriculas'  => (string) (int) ( $contas['matriculas'] ?? 0 ),
@@ -959,7 +1026,7 @@ class ANPA_Socios_Email {
 			'revision_correos' => ANPA_Socios_Aviso_Semanal::revision_correos( $conflitos ),
 		) );
 		self::telegram(
-			ANPA_Socios_Telegram::TIPO_AVISO,
+			ANPA_Socios_Avisos_Xunta::RESUMO_SEMANAL,
 			__( 'Revisión semanal de Xestión', 'anpa-socios' ),
 			/* translators: 1: total, 2: member signups, 3: enrolments, 4: member baixas */
 			sprintf( __( 'Hai %1$d cousas pendentes en Aprobacións: %2$d altas de socios/as, %3$d matrículas e %4$d baixas.', 'anpa-socios' ), (int) ( $contas['total'] ?? 0 ), (int) ( $contas['socios'] ?? 0 ), (int) ( $contas['matriculas'] ?? 0 ), (int) ( $contas['baixas'] ?? 0 ) ),
@@ -1056,8 +1123,8 @@ class ANPA_Socios_Email {
 			}
 		);
 
-		$ok = self::send_from_master( ANPA_Socios_Config::master_email(), $content['subject'], $content['html'] );
-		self::telegram( ANPA_Socios_Telegram::TIPO_AVISO, __( 'Novo socio/a pendente de aprobación', 'anpa-socios' ), __( 'Unha persoa nova pediu a alta e espera a vosa aprobación en Aprobacións.', 'anpa-socios' ) );
+		$ok = self::correo_xunta( ANPA_Socios_Avisos_Xunta::ALTA_SOCIO ) && self::send_from_master( ANPA_Socios_Config::master_email(), $content['subject'], $content['html'] );
+		self::telegram( ANPA_Socios_Avisos_Xunta::ALTA_SOCIO, __( 'Novo socio/a pendente de aprobación', 'anpa-socios' ), __( 'Unha persoa nova pediu a alta e espera a vosa aprobación en Aprobacións.', 'anpa-socios' ) );
 		return $ok;
 	}
 

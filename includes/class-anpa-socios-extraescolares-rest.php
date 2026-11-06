@@ -519,6 +519,8 @@ final class ANPA_Socios_Extraescolares_REST {
 			foreach ( array() === $emails ? array( $email ) : $emails as $to ) {
 				ANPA_Socios_Email::enviar_matricula_pendente( $to, $alumno, $actividade, $grupo_lbl );
 			}
+			// 1.92.0: and the junta (email and/or Telegram, Axustes → Xeral → Avisos á xunta).
+			ANPA_Socios_Email::enviar_aviso_matricula_pendente_xunta( $email, $alumno, $actividade, $grupo_lbl );
 		}
 
 		return new WP_REST_Response( array(
@@ -929,6 +931,14 @@ final class ANPA_Socios_Extraescolares_REST {
 
 		// 1.85.0: the place is kept and the junta approves it (Operacións → Aprobacións);
 		// the approval tells the family, the company and the canteen.
+		// 1.92.0: the junta is told now (email and/or Telegram, Axustes → Xeral → Avisos á xunta).
+		ANPA_Socios_Email::enviar_aviso_matricula_pendente_xunta(
+			self::current_email( $request ),
+			self::pupil_name( (int) $mat['fillo_id'] ),
+			self::activity_name( (int) $mat['activitad_id'] ),
+			self::grupo_label_por_id( $grupo_id ),
+			true
+		);
 		return new WP_REST_Response( array( 'id' => (int) $mat['id'], 'estado' => ANPA_Socios_Matricula_Estado::PENDENTE_APROBACION ), 200 );
 	}
 
@@ -965,6 +975,27 @@ final class ANPA_Socios_Extraescolares_REST {
 		);
 
 		return is_array( $row ) ? $row : null;
+	}
+
+	/**
+	 * 1.92.0: group label (name, schedule) by id, for the junta notice.
+	 *
+	 * @param  int $grupo_id Group id.
+	 * @return string
+	 */
+	private static function grupo_label_por_id( int $grupo_id ): string {
+		global $wpdb;
+		if ( $grupo_id <= 0 ) {
+			return '';
+		}
+		$g = $wpdb->get_row(
+			$wpdb->prepare( 'SELECT nome, horario, franxa, dias FROM ' . ANPA_Socios_DB::tabela_grupos() . ' WHERE id = %d', $grupo_id ),
+			ARRAY_A
+		);
+		if ( ! is_array( $g ) ) {
+			return '';
+		}
+		return ANPA_Socios_Admin_Matriculas_Handler::grupo_label( (string) $g['nome'], (string) $g['horario'], (string) $g['franxa'], (string) $g['dias'] );
 	}
 
 	/**

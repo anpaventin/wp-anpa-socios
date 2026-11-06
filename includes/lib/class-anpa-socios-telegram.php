@@ -2,8 +2,9 @@
 /**
  * 1.90.0: Telegram copy of the emails the web sends to the junta's inbox.
  *
- * Pure helpers (no WordPress): which notices go out for each mode, the
- * validation of the bot token and the chat id, and the text of the message.
+ * Pure helpers (no WordPress): the validation of the bot token and the chat
+ * id, and the text of the message. 1.92.0: which notices go to Telegram is
+ * chosen per notice in ANPA_Socios_Avisos_Xunta.
  * Telegram is not a provider contracted by the ANPA, so the message never
  * carries family data: a fixed title, a short line and the Xestión link.
  * The sending lives in ANPA_Socios_Telegram_Xunta.
@@ -23,57 +24,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class ANPA_Socios_Telegram {
 
-	/** Only the web's own notices to the junta (baixas, altas pendentes, resumo semanal). */
-	const MODO_AVISOS = 'avisos';
-
-	/** Everything the web sends to the junta's inbox, mass emails included (one summary line each). */
-	const MODO_TODO = 'todo';
-
-	/** Notice the web raises for the junta (a request, a pending approval, the weekly summary). */
-	const TIPO_AVISO = 'aviso';
-
-	/** Any other email to the junta's inbox: the start-of-year email to forward, mass emails in Bcc. */
-	const TIPO_OUTRO = 'outro';
-
 	/** Longest text Telegram accepts in one sendMessage. */
 	const MAX_TEXTO = 4096;
-
-	/**
-	 * Valid modes with their Axustes labels.
-	 *
-	 * @return array<string,string>
-	 */
-	public static function modos(): array {
-		return array(
-			self::MODO_AVISOS => __( 'Só os avisos da web (baixas, altas pendentes de aprobación, resumo semanal)', 'anpa-socios' ),
-			self::MODO_TODO   => __( 'Todo o que a web envía á xunta (tamén o correo de inicio de curso e os correos masivos ás familias, cunha liña de resumo)', 'anpa-socios' ),
-		);
-	}
-
-	/**
-	 * Normalised mode (unknown values fall back to «só avisos»).
-	 *
-	 * @param  mixed $modo Raw value.
-	 * @return string
-	 */
-	public static function modo( $modo ): string {
-		$modo = is_string( $modo ) ? trim( $modo ) : '';
-		return array_key_exists( $modo, self::modos() ) ? $modo : self::MODO_AVISOS;
-	}
-
-	/**
-	 * Whether a notice of this type goes to Telegram in this mode.
-	 *
-	 * @param  string $modo Configured mode.
-	 * @param  string $tipo TIPO_AVISO or TIPO_OUTRO.
-	 * @return bool
-	 */
-	public static function debe_notificar( string $modo, string $tipo ): bool {
-		if ( self::TIPO_AVISO === $tipo ) {
-			return true;
-		}
-		return self::MODO_TODO === self::modo( $modo ) && self::TIPO_OUTRO === $tipo;
-	}
 
 	/**
 	 * Whether the string looks like a BotFather token («123456:ABC…»).

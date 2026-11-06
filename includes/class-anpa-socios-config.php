@@ -228,12 +228,13 @@ final class ANPA_Socios_Config {
 	}
 
 	/**
-	 * 1.90.0: Telegram copy of the emails to the junta (Axustes → Xeral → Configuración).
+	 * 1.90.0: Telegram copy of the emails to the junta (1.92.0: Axustes → Xeral → Avisos á xunta).
 	 *
 	 * @var string
 	 */
 	const OPTION_TELEGRAM_TOKEN = 'anpa_socios_telegram_bot_token';
 	const OPTION_TELEGRAM_CHAT  = 'anpa_socios_telegram_chat_id';
+	/** 1.90.0 mode; since 1.92.0 only the default of the start-of-year and mass emails. */
 	const OPTION_TELEGRAM_MODO  = 'anpa_socios_telegram_modo';
 
 	/**
@@ -283,13 +284,46 @@ final class ANPA_Socios_Config {
 	}
 
 	/**
-	 * Which emails to the junta are copied to Telegram (ANPA_Socios_Telegram::MODO_*).
+	 * 1.92.0: channels of each junta notice (Axustes → Xeral → Avisos á xunta).
+	 * id => array( 'correo' => bool, 'telegram' => bool ).
 	 *
-	 * @since  1.90.0
-	 * @return string
+	 * @var string
 	 */
-	public static function telegram_modo(): string {
-		return ANPA_Socios_Telegram::modo( get_option( self::OPTION_TELEGRAM_MODO, ANPA_Socios_Telegram::MODO_AVISOS ) );
+	const OPTION_AVISOS_XUNTA = 'anpa_socios_avisos_xunta_canles';
+
+	/**
+	 * 1.92.0: outcome of the last Telegram notices, shown in Axustes so a lost
+	 * message leaves a trace: array{ok?:string, erro?:string, aviso?:string, mensaxe?:string}
+	 * (ok / erro = local date and time).
+	 *
+	 * @var string
+	 */
+	const OPTION_TELEGRAM_ESTADO = 'anpa_socios_telegram_estado';
+
+	/**
+	 * Channels of every junta notice. Until the table is saved, the 1.90.0
+	 * Telegram mode («todo») still decides the start-of-year and mass emails.
+	 *
+	 * @since  1.92.0
+	 * @return array<string,array{correo:bool,telegram:bool}>
+	 */
+	public static function avisos_xunta_canles(): array {
+		return ANPA_Socios_Avisos_Xunta::canles(
+			get_option( self::OPTION_AVISOS_XUNTA, array() ),
+			(string) get_option( self::OPTION_TELEGRAM_MODO, '' )
+		);
+	}
+
+	/**
+	 * Whether a junta notice goes through a channel.
+	 *
+	 * @since  1.92.0
+	 * @param  string $id    ANPA_Socios_Avisos_Xunta notice id.
+	 * @param  string $canle ANPA_Socios_Avisos_Xunta::CORREO or TELEGRAM.
+	 * @return bool
+	 */
+	public static function aviso_xunta( string $id, string $canle ): bool {
+		return ANPA_Socios_Avisos_Xunta::activo( self::avisos_xunta_canles(), $id, $canle );
 	}
 
 	/**

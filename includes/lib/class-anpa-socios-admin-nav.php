@@ -44,6 +44,7 @@ final class ANPA_Socios_Admin_Nav {
 			'estado'        => 'Estado',
 			'mantemento'    => 'Mantemento',
 			'configuracion' => 'Configuración',
+			'avisos'        => 'Avisos á xunta',
 			'paxinas'       => 'Páxinas e shortcodes',
 		),
 		'cursos'       => array(

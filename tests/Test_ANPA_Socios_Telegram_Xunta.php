@@ -19,22 +19,6 @@ final class Test_ANPA_Socios_Telegram_Xunta extends TestCase {
 		return (string) file_get_contents( __DIR__ . '/../' . $rel );
 	}
 
-	public function test_mode_defaults_to_only_the_web_notices(): void {
-		$this->assertSame( ANPA_Socios_Telegram::MODO_AVISOS, ANPA_Socios_Telegram::modo( '' ) );
-		$this->assertSame( ANPA_Socios_Telegram::MODO_AVISOS, ANPA_Socios_Telegram::modo( 'calquera' ) );
-		$this->assertSame( ANPA_Socios_Telegram::MODO_AVISOS, ANPA_Socios_Telegram::modo( null ) );
-		$this->assertSame( ANPA_Socios_Telegram::MODO_TODO, ANPA_Socios_Telegram::modo( ' todo ' ) );
-		$this->assertSame( array( 'avisos', 'todo' ), array_keys( ANPA_Socios_Telegram::modos() ) );
-	}
-
-	public function test_notices_always_go_and_the_rest_only_in_mode_todo(): void {
-		$this->assertTrue( ANPA_Socios_Telegram::debe_notificar( 'avisos', ANPA_Socios_Telegram::TIPO_AVISO ) );
-		$this->assertTrue( ANPA_Socios_Telegram::debe_notificar( 'todo', ANPA_Socios_Telegram::TIPO_AVISO ) );
-		$this->assertFalse( ANPA_Socios_Telegram::debe_notificar( 'avisos', ANPA_Socios_Telegram::TIPO_OUTRO ) );
-		$this->assertTrue( ANPA_Socios_Telegram::debe_notificar( 'todo', ANPA_Socios_Telegram::TIPO_OUTRO ) );
-		$this->assertFalse( ANPA_Socios_Telegram::debe_notificar( 'todo', 'descoñecido' ) );
-	}
-
 	public function test_token_validation_and_mask(): void {
 		$token = '123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw';
 		$this->assertTrue( ANPA_Socios_Telegram::token_valido( $token ) );
@@ -78,16 +62,36 @@ final class Test_ANPA_Socios_Telegram_Xunta extends TestCase {
 		$this->assertSame( 'plantilla_nova', ANPA_Socios_Telegram::titulo_masivo( 'plantilla_nova' ) );
 	}
 
-	public function test_every_junta_email_is_copied_to_telegram(): void {
+	public function test_every_junta_notice_is_routed_by_its_catalogue_id(): void {
 		$email = self::src( 'includes/class-anpa-socios-email.php' );
-		$this->assertSame( 7, substr_count( $email, 'self::telegram( ANPA_Socios_Telegram::TIPO_AVISO,' ), 'baixa socio, reactivación, baixa extraescolar, alta pendente e (1.91.0) baixa comunicada pola empresa: rexistrada, efectiva, anulada' );
-		$this->assertStringContainsString( "__( 'Revisión semanal de Xestión', 'anpa-socios' )", $email );
-		$this->assertStringContainsString( "self::telegram( ANPA_Socios_Telegram::TIPO_OUTRO, __( 'Correo de inicio de curso', 'anpa-socios' )", $email );
+		$this->assertStringNotContainsString( 'TIPO_AVISO', $email );
+		$this->assertStringNotContainsString( 'TIPO_OUTRO', $email );
+		$ids = array( 'ALTA_SOCIO', 'REACTIVACION_SOCIO', 'BAIXA_SOCIO', 'BAIXA_EXTRAESCOLAR', 'RESUMO_SEMANAL', 'INICIO_CURSO' );
+		foreach ( $ids as $id ) {
+			$this->assertMatchesRegularExpression( '/self::telegram\(\s*ANPA_Socios_Avisos_Xunta::' . $id . ',/', $email, $id );
+		}
+		$this->assertSame( 3, substr_count( $email, 'self::telegram( ANPA_Socios_Avisos_Xunta::BAIXA_EMPRESA,' ), 'baixa comunicada pola empresa: rexistrada, efectiva, anulada' );
+		$this->assertSame( 2, substr_count( $email, 'self::telegram( $aviso_id,' ), 'nova inscrición e oferta aceptada' );
+		// Every email to the junta inbox asks its notice first (the fixed ones excepted).
+		foreach ( array( 'ALTA_SOCIO', 'REACTIVACION_SOCIO', 'BAIXA_SOCIO', 'BAIXA_EXTRAESCOLAR', 'RESUMO_SEMANAL' ) as $id ) {
+			$this->assertStringContainsString( '$ok = self::correo_xunta( ANPA_Socios_Avisos_Xunta::' . $id . ' ) && self::send_', $email, $id );
+		}
+		$this->assertSame( 2, substr_count( $email, 'self::correo_xunta( ANPA_Socios_Avisos_Xunta::BAIXA_EMPRESA )' ), 'copia oculta á xunta da baixa programada e efectiva' );
 		$this->assertStringContainsString( 'ANPA_Socios_Telegram::resumo_masivo( $template_id, $resumo )', $email );
+		$this->assertStringContainsString( 'self::telegram( ANPA_Socios_Avisos_Xunta::id_masivo( $template_id ),', $email );
 		// The mass summary goes once per send, after the batch loop.
 		$this->assertMatchesRegularExpression( '/foreach \( \$lotes as \$lote \) \{.*?\n\t\t\}\n\t\t\$resumo = ANPA_Socios_Envio_Masivo::resumo\( \$resultados \);\n.*?self::telegram\(/s', $email );
 		// The Telegram helper swallows every error.
 		$this->assertMatchesRegularExpression( '/private static function telegram\(.*?try \{\s*ANPA_Socios_Telegram_Xunta::avisar\(.*?catch \( \\\\Throwable \$e \)/s', $email );
+	}
+
+	public function test_pending_enrolments_reach_the_junta(): void {
+		// 1.92.0 bug: a request pending approval and an accepted offer never told the junta.
+		$rest = self::src( 'includes/class-anpa-socios-extraescolares-rest.php' );
+		$this->assertMatchesRegularExpression( '/enviar_matricula_pendente\( \$to, \$alumno, \$actividade, \$grupo_lbl \);\n\t\t\t\}\n.*?ANPA_Socios_Email::enviar_aviso_matricula_pendente_xunta\( \$email, \$alumno, \$actividade, \$grupo_lbl \);/s', $rest );
+		$this->assertMatchesRegularExpression( '/\'oferta_aceptada\' \);.*?ANPA_Socios_Email::enviar_aviso_matricula_pendente_xunta\(\s*self::current_email\( \$request \),.*?true\s*\);\s*return new WP_REST_Response/s', $rest );
+		$email = self::src( 'includes/class-anpa-socios-email.php' );
+		$this->assertStringContainsString( '$de_oferta ? \'oferta_aceptada_xunta\' : \'matricula_pendente_xunta\'', $email );
 	}
 
 	public function test_telegram_never_gets_family_data(): void {
@@ -105,7 +109,10 @@ final class Test_ANPA_Socios_Telegram_Xunta extends TestCase {
 		$s = self::src( 'includes/class-anpa-socios-admin-settings.php' );
 		$this->assertStringContainsString( 'name="telegram_bot_token" id="cfg-telegram-token" type="password" class="regular-text" value=""', $s );
 		$this->assertStringContainsString( 'name="telegram_chat_id"', $s );
-		$this->assertStringContainsString( 'name="telegram_modo"', $s );
+		$this->assertStringNotContainsString( 'name="telegram_modo"', $s, '1.92.0: replaced by the notices table' );
+		$this->assertStringContainsString( 'name="avisos_xunta[%1$s][telegram]"', $s );
+		$this->assertStringContainsString( 'name="avisos_xunta[%1$s][correo]"', $s );
+		$this->assertStringContainsString( 'ANPA_Socios_Avisos_Xunta::desde_formulario( $raw )', $s );
 		$this->assertStringContainsString( "add_action( 'admin_post_anpa_socios_telegram_proba', array( __CLASS__, 'handle_telegram_proba' ) );", $s );
 		$this->assertStringContainsString( "self::guard( 'anpa_socios_telegram_proba' );", $s );
 		$this->assertStringContainsString( 'ANPA_Socios_Telegram::token_valido( $token )', $s );
@@ -119,10 +126,13 @@ final class Test_ANPA_Socios_Telegram_Xunta extends TestCase {
 		$this->assertStringContainsString( "const TELEGRAM_TOKEN_CONSTANTS = array( 'ANPA_SOCIOS_TELEGRAM_BOT_TOKEN', 'TELEGRAM_BOT_TOKEN' );", $cfg );
 		$this->assertStringContainsString( "apply_filters( 'anpa_socios_telegram_bot_token', '' )", $cfg );
 		$sender = self::src( 'includes/class-anpa-socios-telegram-xunta.php' );
-		$this->assertStringContainsString( "'blocking' => \$esperar,", $sender, 'notices are fire-and-forget' );
+		$this->assertStringNotContainsString( "'blocking'", $sender, '1.92.0: wait for the answer (at shutdown) so a failure is recorded' );
+		$this->assertStringContainsString( "add_action( 'shutdown', array( __CLASS__, 'baleirar_cola' ), 100 );", $sender );
+		$this->assertStringContainsString( 'ANPA_Socios_Config::aviso_xunta( $aviso_id, ANPA_Socios_Avisos_Xunta::TELEGRAM )', $sender );
 		$this->assertStringNotContainsString( 'get_error_message', $sender, 'the transport error may quote the token URL' );
 		$main = self::src( 'anpa-socios.php' );
 		$this->assertStringContainsString( "includes/lib/class-anpa-socios-telegram.php'", $main );
+		$this->assertStringContainsString( "includes/lib/class-anpa-socios-avisos-xunta.php'", $main );
 		$this->assertStringContainsString( "includes/class-anpa-socios-telegram-xunta.php'", $main );
 	}
 }
