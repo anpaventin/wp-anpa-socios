@@ -575,7 +575,12 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 		}
 		if ( $de_oferta ) {
 			$destino   = ANPA_Socios_Matricula_Estado::ACTIVO;
-			$trimestre = (int) $mat['trimestre'];
+			// 1.93.1: an offer for a later trimester keeps it (the place starts then); any other offer
+			// starts now, in the current trimester (the waiting row may come from an earlier one).
+			$trimestre = max( (int) $mat['trimestre'], ANPA_Socios_Matricula_Gate_Repo::trimestre_vixente( (string) $grupo['curso_escolar'] ) );
+			if ( $trimestre !== (int) $mat['trimestre'] && (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(1) FROM {$mat_t} WHERE fillo_id = %d AND activitad_id = %d AND trimestre = %d AND id <> %d", (int) $mat['fillo_id'], (int) $mat['activitad_id'], $trimestre, $id ) ) > 0 ) {
+				$trimestre = (int) $mat['trimestre'];
+			}
 		} else {
 			// The rows that hold a place (this one does not yet).
 			$ocupadas  = ANPA_Socios_Lista_Espera::ocupadas( (int) $grupo['id'] );
@@ -647,6 +652,15 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 		}
 		$praza = ANPA_Socios_Matricula_Estado::ACTIVO === $estado;
 		$frase = ANPA_Socios_Email::estado_grupo_familia( $grupo_id, $praza ? ANPA_Socios_Estado_Grupo_Texto::PRAZA : ANPA_Socios_Estado_Grupo_Texto::ESPERA );
+		// 1.93.1: a place offered for the next trimester (a baixa at the end of this one) starts then.
+		if ( $praza ) {
+			global $wpdb;
+			$tri  = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT trimestre FROM ' . ANPA_Socios_DB::tabela_matriculas() . ' WHERE id = %d', $id ) );
+			$para = ANPA_Socios_Extraescolar_Offers::para_trimestre( $grupo_id, $tri );
+			if ( $para > 0 ) {
+				$frase = ANPA_Socios_Estado_Grupo_Texto::comezo_praza( $para, ANPA_Socios_Extraescolar_Offers::inicio_trimestre( $grupo_id, $para ) );
+			}
+		}
 		foreach ( $detalle['emails'] as $email ) {
 			$ok = $praza
 				? ANPA_Socios_Email::enviar_matricula_aprobada_praza( $email, $detalle['alumno'], $detalle['actividade'], $detalle['grupo'], $frase )

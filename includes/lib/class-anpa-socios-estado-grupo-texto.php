@@ -98,4 +98,42 @@ final class ANPA_Socios_Estado_Grupo_Texto {
 			$espera
 		);
 	}
+
+	/**
+	 * 1.93.1: when an offered place starts (sentence for the offer email).
+	 *
+	 * @param  int    $para_trimestre 0 = the place is free now; N = it frees at the end of the
+	 *                                current trimester and starts with trimester N.
+	 * @param  string $inicio         Y-m-d start of trimester N ('' when unknown).
+	 * @return string
+	 */
+	public static function comezo_oferta( int $para_trimestre, string $inicio = '' ): string {
+		if ( $para_trimestre < 1 ) {
+			return __( 'Se a aceptades, a praza é desde agora: comeza inmediatamente.', 'anpa-socios' );
+		}
+		$data = preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $inicio, $m ) ? $m[3] . '/' . $m[2] . '/' . $m[1] : '';
+		return sprintf(
+			/* translators: 1: trimester number, 2: " (o DD/MM/AAAA)" or empty */
+			__( 'A praza queda libre ao remate deste trimestre: se a aceptades, comezará a principios do %1$dº trimestre%2$s.', 'anpa-socios' ),
+			$para_trimestre,
+			'' !== $data ? sprintf( __( ' (o %s)', 'anpa-socios' ), $data ) : ''
+		);
+	}
+
+	/**
+	 * 1.93.1: confirmation of a place that starts with a later trimester.
+	 *
+	 * @param  int    $trimestre Trimester the place starts with.
+	 * @param  string $inicio    Y-m-d first day of that trimester ('' when unknown).
+	 * @return string
+	 */
+	public static function comezo_praza( int $trimestre, string $inicio = '' ): string {
+		$data = preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $inicio, $m ) ? $m[3] . '/' . $m[2] . '/' . $m[1] : '';
+		return sprintf(
+			/* translators: 1: trimester number, 2: " (o DD/MM/AAAA)" or empty */
+			__( 'A praza é desde o %1$dº trimestre: comezaredes a principios dese trimestre%2$s. Avisamos tamén á empresa que imparte a actividade e ao persoal de comedor.', 'anpa-socios' ),
+			$trimestre,
+			'' !== $data ? sprintf( __( ' (o %s)', 'anpa-socios' ), $data ) : ''
+		);
+	}
 }

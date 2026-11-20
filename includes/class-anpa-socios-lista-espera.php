@@ -37,16 +37,19 @@ final class ANPA_Socios_Lista_Espera {
 	 * Places taken in a group (every trimester, like the public offer).
 	 *
 	 * @param  int $grupo_id Group id.
-	 * @param  int $excluir  Matrícula not to count (e.g. the one being moved).
+	 * @param  int  $excluir        Matrícula not to count (e.g. the one being moved).
+	 * @param  bool $baixas_futuras 1.93.1: false = places of the next trimester (see below).
 	 * @return int
 	 */
-	public static function ocupadas( int $grupo_id, int $excluir = 0 ): int {
+	public static function ocupadas( int $grupo_id, int $excluir = 0, bool $baixas_futuras = true ): int {
 		global $wpdb;
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
 		// 1.93.0: the %s of SQL_OCUPAN is «now» in WordPress local time (baixa_en is written with
 		// current_time('mysql'); MySQL NOW() follows the DB time zone).
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- constant condition.
-		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(1) FROM {$mat_t} WHERE grupo_id = %d AND id <> %d AND " . self::SQL_OCUPAN, $grupo_id, $excluir, current_time( 'mysql' ) ) );
+		// 1.93.1: $baixas_futuras = false counts the places of the NEXT trimester: a baixa dated at the
+		// end of this one no longer holds its place (a date nobody reaches never matches).
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(1) FROM {$mat_t} WHERE grupo_id = %d AND id <> %d AND " . self::SQL_OCUPAN, $grupo_id, $excluir, $baixas_futuras ? current_time( 'mysql' ) : '9999-12-31 23:59:59' ) );
 	}
 
 	/**

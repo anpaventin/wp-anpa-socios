@@ -80,7 +80,7 @@ final class Test_ANPA_Socios_Sen_Minimo_Lista_Espera extends TestCase {
 		// A requested baixa still attends until it is confirmed: it holds its place too.
 		// 1.93.0: and a baixa dated at the end of the trimester keeps its place until that day.
 		$this->assertSame( "( estado IN ('activo','oferta','baixa_solicitada') OR ( estado = 'pendente_aprobacion' AND oferta_aceptada_en IS NOT NULL ) OR ( estado = 'baixa' AND baixa_en > %s ) )", ANPA_Socios_Lista_Espera::SQL_OCUPAN );
-		$this->assertStringContainsString( "self::SQL_OCUPAN, \$grupo_id, \$excluir, current_time( 'mysql' ) )", $this->src( 'includes/class-anpa-socios-lista-espera.php' ) );
+		$this->assertStringContainsString( "self::SQL_OCUPAN, \$grupo_id, \$excluir, \$baixas_futuras ? current_time( 'mysql' ) : '9999-12-31 23:59:59' )", $this->src( 'includes/class-anpa-socios-lista-espera.php' ) );
 		$e = $this->src( 'includes/class-anpa-socios-extraescolares-rest.php' );
 		$this->assertStringContainsString( '$activos          = ANPA_Socios_Lista_Espera::ocupadas( $grupo_id );', $e, 'enrolment counts held places' );
 		$a = $this->src( 'includes/class-anpa-socios-admin-matriculas-handler.php' );
@@ -90,7 +90,7 @@ final class Test_ANPA_Socios_Sen_Minimo_Lista_Espera extends TestCase {
 		$this->assertStringContainsString( "'oferta_aceptada_en' => null", $ap );
 		$o = $this->src( 'includes/class-anpa-socios-extraescolar-offers.php' );
 		$on = $this->body( $o, 'offer_next' );
-		$this->assertStringContainsString( 'ANPA_Socios_Lista_Espera::ocupadas( $grupo_id ) >= (int) $grupo[\'max_pupilos\']', $on, 'no offer without a free place' );
+		$this->assertStringContainsString( 'ANPA_Socios_Lista_Espera::ocupadas( $grupo_id, 0, $para_trimestre < 1 ) >= (int) $grupo[\'max_pupilos\']', $on, 'no offer without a free place' );
 		$this->assertStringContainsString( "AND estado = 'lista_espera' AND id <> %d", $on, 'never the same family again straight away' );
 		$this->assertStringContainsString( 'ORDER BY posicion ASC, id ASC LIMIT 1', $on, 'the whole group list, not only the freed row trimester' );
 		$this->assertStringContainsString( 'AND ( oferta_expira IS NULL OR oferta_expira < %s )', $on, 'cooling-off after letting an offer go' );

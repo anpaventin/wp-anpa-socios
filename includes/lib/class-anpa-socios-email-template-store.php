@@ -103,18 +103,20 @@ final class ANPA_Socios_Email_Template_Store {
 				'html' => array(
 					'<p>' . __( 'Ola,', 'anpa-socios' ) . '</p>' .
 					'<p>' . __( 'Quedou libre unha praza para <strong>%3$s</strong> na actividade <strong>%1$s</strong> (%4$s) e correspóndevos por ser os seguintes na lista de espera.', 'anpa-socios' ) . '</p>' .
+					'<p><strong>%7$s</strong></p>' .
 					'<p>' . __( 'Tedes <strong>%2$s días</strong> para aceptala ou rexeitala dende a área de socios/as, no apartado «Extraescolares». Se a aceptades, confirmarase a matrícula e recibiredes un correo de confirmación. Se a rexeitades ou non respondedes a tempo, segue na lista de espera, pero ao final.', 'anpa-socios' ) . '</p>' .
 					'<p>%5$s</p>' .
 					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %6$s.', 'anpa-socios' ) . '</p>',
-					array( 'actividade', 'dias_prazo', 'alumno', 'grupo', 'estado_grupo', 'contact_email' ),
+					array( 'actividade', 'dias_prazo', 'alumno', 'grupo', 'estado_grupo', 'contact_email', 'comezo' ),
 				),
 				'text' => array(
 					__( 'Ola,', 'anpa-socios' ) . "\n\n" .
 					__( 'Quedou libre unha praza para %3$s na actividade %1$s (%4$s) e correspóndevos por ser os seguintes na lista de espera.', 'anpa-socios' ) . "\n\n" .
+					'%7$s' . "\n\n" .
 					__( 'Tedes %2$s días para aceptala ou rexeitala dende a área de socios/as, no apartado «Extraescolares». Se a aceptades, confirmarase a matrícula e recibiredes un correo de confirmación. Se a rexeitades ou non respondedes a tempo, segue na lista de espera, pero ao final.', 'anpa-socios' ) . "\n\n" .
 					'%5$s' . "\n\n" .
 					__( 'Para calquera dúbida, escribide á directiva en %6$s.', 'anpa-socios' ),
-					array( 'actividade', 'dias_prazo', 'alumno', 'grupo', 'estado_grupo', 'contact_email' ),
+					array( 'actividade', 'dias_prazo', 'alumno', 'grupo', 'estado_grupo', 'contact_email', 'comezo' ),
 				),
 			),
 			'pendente_aprobacion' => array(
@@ -278,16 +280,17 @@ final class ANPA_Socios_Email_Template_Store {
 				'html' => array(
 					'<p>' . __( 'Ola,', 'anpa-socios' ) . '</p>' .
 					'<p>' . sprintf( __( 'A empresa %s comunicou á directiva de %%s que solicitastes a baixa de %s na actividade %s.', 'anpa-socios' ), '<strong>%s</strong>', '<strong>%s</strong>', '<strong>%s</strong>' ) . '</p>' .
-					'<p>' . __( 'Rexistramos a baixa: será efectiva o <strong>%s</strong>. Nese momento a praza ofrécese á lista de espera e recibiredes outro correo coa confirmación.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( '<strong>Se credes que é un erro</strong>, confirmádeo coa directiva en %s antes desa hora, ou anulade a baixa desde a vosa área de socios (<a href="%s">%s</a>, botón «Anular baixa»): a matrícula segue entón como ata agora.', 'anpa-socios' ) . '</p>',
-					array( 'empresa', 'association_name', 'alumno', 'actividade', 'data_efectiva', 'contact_email', 'login_url', 'login_url' ),
+					// 1.93.1: confirmed at that hour; it takes effect then or at the end of the trimester (%9$s).
+					'<p>' . __( 'Rexistramos a baixa e confírmase o <strong>%5$s</strong>, salvo que nos digades antes que é un erro. %9$s Nese momento recibiredes outro correo coa confirmación.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( '<strong>Se credes que é un erro</strong>, confirmádeo coa directiva en %6$s antes desa hora, ou anulade a baixa desde a vosa área de socios (<a href="%7$s">%8$s</a>, botón «Anular baixa»): a matrícula segue entón como ata agora.', 'anpa-socios' ) . '</p>',
+					array( 'empresa', 'association_name', 'alumno', 'actividade', 'data_efectiva', 'contact_email', 'login_url', 'login_url', 'efecto_texto' ),
 				),
 				'text' => array(
 					__( 'Ola,', 'anpa-socios' ) . "\n\n" .
 					__( 'A empresa %s comunicou á directiva de %s que solicitastes a baixa de %s na actividade %s.', 'anpa-socios' ) . "\n\n" .
-					__( 'Rexistramos a baixa: será efectiva o %s. Nese momento a praza ofrécese á lista de espera e recibiredes outro correo coa confirmación.', 'anpa-socios' ) . "\n\n" .
-					__( 'Se credes que é un erro, confirmádeo coa directiva en %s antes desa hora, ou anulade a baixa desde a vosa área de socios (%s, botón «Anular baixa»): a matrícula segue entón como ata agora.', 'anpa-socios' ),
-					array( 'empresa', 'association_name', 'alumno', 'actividade', 'data_efectiva', 'contact_email', 'login_url' ),
+					__( 'Rexistramos a baixa e confírmase o %5$s, salvo que nos digades antes que é un erro. %8$s Nese momento recibiredes outro correo coa confirmación.', 'anpa-socios' ) . "\n\n" .
+					__( 'Se credes que é un erro, confirmádeo coa directiva en %6$s antes desa hora, ou anulade a baixa desde a vosa área de socios (%7$s, botón «Anular baixa»): a matrícula segue entón como ata agora.', 'anpa-socios' ),
+					array( 'empresa', 'association_name', 'alumno', 'actividade', 'data_efectiva', 'contact_email', 'login_url', 'efecto_texto' ),
 				),
 			),
 			// 1.62.0: acknowledgement to the family when it REQUESTS a baixa from the
@@ -618,15 +621,15 @@ final class ANPA_Socios_Email_Template_Store {
 				),
 				'html' => array(
 					'<p>' . __( 'Grazas polo aviso. A directiva rexistrou a baixa de <strong>%s</strong> (%s) no grupo <strong>%s</strong> da actividade <strong>%s</strong>.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Avisamos á familia: se é un erro ten ata o <strong>%s</strong> para confirmalo coa directiva. Se non, a baixa será efectiva nese momento e recibiredes o aviso definitivo.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
-					array( 'alumno', 'curso', 'grupo', 'actividade', 'data_efectiva', 'contact_email' ),
+					'<p>' . __( 'Avisamos á familia: se é un erro ten ata o <strong>%5$s</strong> para confirmalo coa directiva. %7$s', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %6$s.', 'anpa-socios' ) . '</p>',
+					array( 'alumno', 'curso', 'grupo', 'actividade', 'data_efectiva', 'contact_email', 'efecto_texto' ),
 				),
 				'text' => array(
 					__( 'Grazas polo aviso. A directiva rexistrou a baixa de %s (%s) no grupo %s da actividade %s.', 'anpa-socios' ) . "\n\n" .
-					__( 'Avisamos á familia: se é un erro ten ata o %s para confirmalo coa directiva. Se non, a baixa será efectiva nese momento e recibiredes o aviso definitivo.', 'anpa-socios' ) . "\n\n" .
-					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
-					array( 'alumno', 'curso', 'grupo', 'actividade', 'data_efectiva', 'contact_email' ),
+					__( 'Avisamos á familia: se é un erro ten ata o %5$s para confirmalo coa directiva. %7$s', 'anpa-socios' ) . "\n\n" .
+					__( 'Para calquera dúbida, escribide á directiva en %6$s.', 'anpa-socios' ),
+					array( 'alumno', 'curso', 'grupo', 'actividade', 'data_efectiva', 'contact_email', 'efecto_texto' ),
 				),
 			),
 			// 1.91.0: the reported baixa was cancelled (the family said it was a mistake).

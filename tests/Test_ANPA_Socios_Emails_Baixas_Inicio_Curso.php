@@ -250,7 +250,7 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 		// 1.91.0: the confirmation lives in the service shared with the cron.
 		$grupos = $this->src( 'includes/class-anpa-socios-baixa-programada-service.php' );
 		$this->assertStringContainsString( 'ANPA_Socios_Admin_Baixas_Handler::detalle_matricula( $id )', $grupos );
-		$this->assertStringContainsString( 'ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $tris, $datas, ANPA_Socios_Email::contexto_grupo( (int) $mat[\'grupo_id\'] )[\'clave\'] )', $grupos );
+		$this->assertStringContainsString( '$av    = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $tris, $datas, $clave );', $grupos );
 		$this->assertStringContainsString( 'ANPA_Socios_Email::enviar_baixa_extraescolar_confirmada(', $grupos );
 		$this->assertStringContainsString( "'correo_enviado' => \$correo_enviado, 'efectos' => \$efectos", $grupos );
 

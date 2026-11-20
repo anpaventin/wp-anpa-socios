@@ -445,7 +445,7 @@ class ANPA_Socios_Email {
 	 * @param  bool   $copia_xunta 1.91.0: Bcc the junta (place freed by a baixa the company reported).
 	 * @return bool
 	 */
-	public static function enviar_oferta_extraescolar( array $emails, string $alumno, string $actividade, string $grupo, int $dias_prazo, string $estado_grupo = '', bool $copia_xunta = false ): bool {
+	public static function enviar_oferta_extraescolar( array $emails, string $alumno, string $actividade, string $grupo, int $dias_prazo, string $estado_grupo = '', bool $copia_xunta = false, string $comezo = '' ): bool {
 		// 1.93.0: to every parent (it used to reach only the pupil's socio_email), with the
 		// pupil, the group and the group's real state; through the template store like the rest.
 		return self::send_template_familia_xunta(
@@ -457,6 +457,7 @@ class ANPA_Socios_Email {
 				'alumno'       => $alumno,
 				'grupo'        => $grupo,
 				'estado_grupo' => $estado_grupo,
+				'comezo'       => '' !== $comezo ? $comezo : ANPA_Socios_Estado_Grupo_Texto::comezo_oferta( 0 ),
 			) + self::links_context(),
 			$copia_xunta
 		);
@@ -713,8 +714,8 @@ class ANPA_Socios_Email {
 	 * @param  string            $data_efectiva «29/10/2026 ás 10:30».
 	 * @return bool
 	 */
-	public static function enviar_baixa_extraescolar_programada( array $emails, string $alumno, string $actividade, string $empresa, string $data_efectiva ): bool {
-		return self::send_template_familia_xunta( $emails, 'baixa_extraescolar_programada', array( 'alumno' => $alumno, 'actividade' => $actividade, 'empresa' => '' !== trim( $empresa ) ? $empresa : __( 'da actividade', 'anpa-socios' ), 'data_efectiva' => $data_efectiva ) + self::links_context(), self::correo_xunta( ANPA_Socios_Avisos_Xunta::BAIXA_EMPRESA ) );
+	public static function enviar_baixa_extraescolar_programada( array $emails, string $alumno, string $actividade, string $empresa, string $data_efectiva, string $efecto_texto = '' ): bool {
+		return self::send_template_familia_xunta( $emails, 'baixa_extraescolar_programada', array( 'alumno' => $alumno, 'actividade' => $actividade, 'empresa' => '' !== trim( $empresa ) ? $empresa : __( 'da actividade', 'anpa-socios' ), 'data_efectiva' => $data_efectiva, 'efecto_texto' => $efecto_texto ) + self::links_context(), self::correo_xunta( ANPA_Socios_Avisos_Xunta::BAIXA_EMPRESA ) );
 	}
 
 	/**

@@ -113,7 +113,8 @@ final class Test_ANPA_Socios_Inscricions_Todo_Curso extends TestCase {
 	public function test_a_baixa_at_the_end_of_the_trimester_keeps_its_place_until_then(): void {
 		$s = $this->src( 'includes/class-anpa-socios-baixa-programada-service.php' );
 		$this->assertStringContainsString( "\$baixa_en = \$avaliacion['data_fin'] . ' 23:59:59';", $s );
-		$this->assertStringContainsString( '$oferta = $ao_final ? false : ANPA_Socios_Extraescolar_Offers::offer_next(', $s );
+		// 1.93.1: the place is offered now for the start of the next trimester; none in the 3rd.
+		$this->assertStringContainsString( '$oferta = $tri > 0 && $tri < 3 && ANPA_Socios_Extraescolar_Offers::offer_next( (int) $mat[\'grupo_id\'], (int) $mat[\'trimestre\'], 0, $programada, $tri + 1 );', $s );
 		$this->assertStringContainsString( "( estado = 'baixa' AND baixa_en > %s )", ANPA_Socios_Lista_Espera::SQL_OCUPAN );
 	}
 
@@ -245,5 +246,38 @@ final class Test_ANPA_Socios_Inscricions_Todo_Curso extends TestCase {
 		$this->assertStringNotContainsString( "WHERE m.estado = 'activo' ", $lib );
 		$this->assertStringContainsString( "FIELD(m.estado, 'activo', 'baixa_solicitada', 'oferta', 'lista_espera', 'pendente_aprobacion', 'baixa')", $lib );
 		$this->assertStringContainsString( "'baixa_efectiva' => (string) ( \$r['baixa_efectiva'] ?? '' ),", $this->src( 'includes/class-anpa-socios-empresa-rest.php' ) );
+	}
+
+	// ── 1.93.1: company-reported baixa, now or at the end of the trimester ──
+
+	public function test_the_junta_chooses_when_a_reported_baixa_takes_effect(): void {
+		$s = $this->src( 'includes/class-anpa-socios-baixa-programada-service.php' );
+		$this->assertStringContainsString( "'anpa_admin_baixa_efecto'", $s );
+		$this->assertStringContainsString( 'self::gardar_efecto( $id, $efecto );', $s );
+		$this->assertStringContainsString( '$avaliacion     = self::avaliacion( $id, $programada ? self::efecto( $id ) : \'\' );', $s );
+		$this->assertStringContainsString( "(string) ( \$body['efecto'] ?? '' )", $this->src( 'includes/class-anpa-socios-admin-baixas-handler.php' ) );
+		$js = $this->src( 'assets/js/admin-management.js' );
+		$this->assertStringContainsString( "[['xa', 'Efectiva xa'], ['fin', 'Ao remate do trimestre']]", $js );
+		// A row from before 1.93.1 (no choice stored) is effective at once, as it was.
+		$this->assertStringContainsString( 'return ANPA_Socios_Baixa_Programada::EFECTO_FIN === $v ? $v : ANPA_Socios_Baixa_Programada::EFECTO_XA;', $s );
+		// Last trimester: no offer.
+		$this->assertStringContainsString( '$tri > 0 && $tri < 3 &&', $s );
+	}
+
+	public function test_offer_says_when_the_place_starts(): void {
+		$this->assertStringContainsString( 'comeza inmediatamente', ANPA_Socios_Estado_Grupo_Texto::comezo_oferta( 0 ) );
+		$t = ANPA_Socios_Estado_Grupo_Texto::comezo_oferta( 2, '2026-12-23' );
+		$this->assertStringContainsString( 'a principios do 2º trimestre (o 23/12/2026)', $t );
+		$this->assertStringContainsString( 'desde o 3º trimestre', ANPA_Socios_Estado_Grupo_Texto::comezo_praza( 3, '' ) );
+		$tpl = ANPA_Socios_Email_Template_Renderer::render( 'oferta_extraescolar', array( 'association_name' => 'ANPA', 'actividade' => 'Xadrez', 'alumno' => 'Uxía', 'grupo' => 'A', 'dias_prazo' => '3', 'estado_grupo' => '', 'contact_email' => 'x@example.org', 'comezo' => $t ) );
+		$this->assertStringContainsString( '<strong>' . $t . '</strong>', $tpl['html'] );
+		$o = $this->src( 'includes/class-anpa-socios-extraescolar-offers.php' );
+		// The next-trimester offer counts the places of that trimester and belongs to it.
+		$this->assertStringContainsString( 'ANPA_Socios_Lista_Espera::ocupadas( $grupo_id, 0, $para_trimestre < 1 )', $o );
+		$this->assertStringContainsString( "\$campos['trimestre'] = \$para_trimestre;", $o );
+		// An immediate offer starts in the current trimester; one for a later trimester keeps it.
+		$this->assertStringContainsString( "\$trimestre = max( (int) \$mat['trimestre'], ANPA_Socios_Matricula_Gate_Repo::trimestre_vixente( (string) \$grupo['curso_escolar'] ) );", $this->src( 'includes/class-anpa-socios-admin-matriculas-handler.php' ) );
+		// Nothing is offered once the last trimester is over.
+		$this->assertStringContainsString( '$fin_curso = self::fin_trimestre( $grupo_id, 3 );', $o );
 	}
 }

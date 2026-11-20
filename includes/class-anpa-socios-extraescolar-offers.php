@@ -74,9 +74,11 @@ final class ANPA_Socios_Extraescolar_Offers {
 	 * @param  int  $trimestre   Trimester.
 	 * @param  int  $excluir     Matrícula never offered the place straight away.
 	 * @param  bool $copia_xunta 1.91.0: Bcc the junta on the offer email (baixa reported by the company).
+	 * @param  int  $para_trimestre 1.93.1: 0 = a place free now; N = the place frees at the end of the
+	 *                              current trimester (a baixa dated then) and starts with trimester N.
 	 * @return bool 1.91.0: whether an offer went out.
 	 */
-	public static function offer_next( int $grupo_id, int $trimestre, int $excluir = 0, bool $copia_xunta = false ): bool {
+	public static function offer_next( int $grupo_id, int $trimestre, int $excluir = 0, bool $copia_xunta = false, int $para_trimestre = 0 ): bool {
 		global $wpdb;
 
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
@@ -91,7 +93,12 @@ final class ANPA_Socios_Extraescolar_Offers {
 		if ( ANPA_Socios_Curso_Activo::get() !== (string) $grupo['curso_escolar'] ) {
 			return false;
 		}
-		if ( (int) $grupo['max_pupilos'] > 0 && ANPA_Socios_Lista_Espera::ocupadas( $grupo_id ) >= (int) $grupo['max_pupilos'] ) {
+		// 1.93.1: once the last trimester is over nothing is offered (the course is closing).
+		$fin_curso = self::fin_trimestre( $grupo_id, 3 );
+		if ( '' !== $fin_curso && current_time( 'Y-m-d' ) > $fin_curso ) {
+			return false;
+		}
+		if ( (int) $grupo['max_pupilos'] > 0 && ANPA_Socios_Lista_Espera::ocupadas( $grupo_id, 0, $para_trimestre < 1 ) >= (int) $grupo['max_pupilos'] ) {
 			return false;
 		}
 		// The group's whole waiting list (a place freed by a row of another trimester is still
@@ -120,16 +127,25 @@ final class ANPA_Socios_Extraescolar_Offers {
 		}
 		$expira = gmdate( 'Y-m-d H:i:s', time() + self::OFFER_TTL_DAYS * DAY_IN_SECONDS );
 
+		$campos = array(
+			'estado'         => 'oferta',
+			'oferta_token'   => $token,
+			'oferta_expira'  => $expira,
+			'actualizado_en' => current_time( 'mysql' ),
+		);
+		// 1.93.1: a place for the next trimester: the enrolment belongs to it (approved there),
+		// unless another row of the pupil already holds that trimester (unique key).
+		if ( $para_trimestre > 0 ) {
+			$f = $wpdb->get_row( $wpdb->prepare( "SELECT fillo_id, activitad_id FROM {$mat_t} WHERE id = %d", (int) $next['id'] ), ARRAY_A );
+			if ( is_array( $f ) && 0 === (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(1) FROM {$mat_t} WHERE fillo_id = %d AND activitad_id = %d AND trimestre = %d AND id <> %d", (int) $f['fillo_id'], (int) $f['activitad_id'], $para_trimestre, (int) $next['id'] ) ) ) {
+				$campos['trimestre'] = $para_trimestre;
+			}
+		}
 		$n = $wpdb->update(
 			$mat_t,
-			array(
-				'estado'         => 'oferta',
-				'oferta_token'   => $token,
-				'oferta_expira'  => $expira,
-				'actualizado_en' => current_time( 'mysql' ),
-			),
+			$campos,
 			array( 'id' => (int) $next['id'], 'estado' => 'lista_espera' ),
-			array( '%s', '%s', '%s', '%s' ),
+			null,
 			array( '%d', '%s' )
 		);
 		if ( 1 !== $n ) {
@@ -138,7 +154,7 @@ final class ANPA_Socios_Extraescolar_Offers {
 
 		ANPA_Socios_Lista_Espera::renumerar( $grupo_id );
 		ANPA_Socios_Admin_Shared::write_audit_actor( 'system', 'system', 'matricula', (string) $next['id'], 'oferta_enviada' );
-		self::notify_offer( (int) $next['id'], $copia_xunta );
+		self::notify_offer( (int) $next['id'], $copia_xunta, $para_trimestre );
 		return true;
 	}
 
@@ -160,7 +176,8 @@ final class ANPA_Socios_Extraescolar_Offers {
 			return false;
 		}
 		ANPA_Socios_Admin_Shared::write_audit_actor( $actor, $actor_tipo, 'matricula', (string) $matricula_id, 'rexeitada' === $motivo ? 'oferta_rexeitada' : 'oferta_caducada' );
-		self::offer_next( $r['grupo_id'], $r['trimestre'], $matricula_id );
+		// 1.93.1: an offer for the next trimester that was let go passes on as such.
+		self::offer_next( $r['grupo_id'], $r['trimestre'], $matricula_id, false, self::para_trimestre( $r['grupo_id'], (int) $r['trimestre'] ) );
 		// After the next offer, so the email gives the family's final position.
 		self::notify_final_lista( $matricula_id, $motivo );
 		return true;
@@ -274,7 +291,56 @@ final class ANPA_Socios_Extraescolar_Offers {
 		}
 	}
 
-	private static function notify_offer( int $matricula_id, bool $copia_xunta = false ): void {
+	/**
+	 * 1.93.1: first day of a trimester of the group's course (operative dates), Y-m-d.
+	 *
+	 * @param  int $grupo_id  Group id.
+	 * @param  int $trimestre Trimester.
+	 * @return string '' when the course has no operative dates.
+	 */
+	public static function inicio_trimestre( int $grupo_id, int $trimestre ): string {
+		return self::limite_trimestre( $grupo_id, $trimestre, 'inicio' );
+	}
+
+	/**
+	 * 1.93.1: last day of a trimester of the group's course (operative dates), Y-m-d.
+	 *
+	 * @param  int $grupo_id  Group id.
+	 * @param  int $trimestre Trimester.
+	 * @return string '' when the course has no operative dates.
+	 */
+	public static function fin_trimestre( int $grupo_id, int $trimestre ): string {
+		return self::limite_trimestre( $grupo_id, $trimestre, 'fin' );
+	}
+
+	private static function limite_trimestre( int $grupo_id, int $trimestre, string $cal ): string {
+		global $wpdb;
+		$curso = (string) $wpdb->get_var( $wpdb->prepare( 'SELECT curso_escolar FROM ' . ANPA_Socios_DB::tabela_grupos() . ' WHERE id = %d', $grupo_id ) );
+		if ( '' === $curso ) {
+			return '';
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only course calendar.
+		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT ' . ANPA_Socios_Matricula_Gate_Repo::CURSO_COLUMNS . ' FROM ' . ANPA_Socios_DB::tabela_cursos() . ' WHERE curso_escolar = %s', $curso ), ARRAY_A );
+		$datas = is_array( $row ) ? ANPA_Socios_Matricula_Gate::datas_de_fila( $row ) : null;
+		if ( ! is_array( $datas ) || ! ANPA_Socios_Calendario::ten_datas_operativas( $datas ) ) {
+			return '';
+		}
+		return (string) ( ANPA_Socios_Calendario::limites( $datas )[ $trimestre ][ $cal ] ?? '' );
+	}
+
+	/**
+	 * @param  int $grupo_id  Group id.
+	 * @param  int $trimestre Trimester of the enrolment row.
+	 * @return int The trimester the offer is for, when later than the current one (0 otherwise).
+	 */
+	public static function para_trimestre( int $grupo_id, int $trimestre ): int {
+		global $wpdb;
+		$curso = (string) $wpdb->get_var( $wpdb->prepare( 'SELECT curso_escolar FROM ' . ANPA_Socios_DB::tabela_grupos() . ' WHERE id = %d', $grupo_id ) );
+		$actual = '' !== $curso ? ANPA_Socios_Matricula_Gate_Repo::trimestre_vixente( $curso ) : 0;
+		return ( $actual > 0 && $trimestre > $actual ) ? $trimestre : 0;
+	}
+
+	private static function notify_offer( int $matricula_id, bool $copia_xunta = false, int $para_trimestre = 0 ): void {
 		// 1.93.0: every parent of the pupil (familia_emails_por_fillo), with the pupil, the
 		// group and the group's real state (it used to reach only fillos.socio_email).
 		global $wpdb;
@@ -290,7 +356,9 @@ final class ANPA_Socios_Extraescolar_Offers {
 			$detalle['grupo'],
 			self::OFFER_TTL_DAYS,
 			ANPA_Socios_Email::estado_grupo_familia( $grupo_id, ANPA_Socios_Estado_Grupo_Texto::OFERTA ),
-			$copia_xunta
+			$copia_xunta,
+			// 1.93.1: when the place starts (now, or at the start of the next trimester).
+			ANPA_Socios_Estado_Grupo_Texto::comezo_oferta( $para_trimestre, $para_trimestre > 0 ? self::inicio_trimestre( $grupo_id, $para_trimestre ) : '' )
 		);
 	}
 }

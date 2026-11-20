@@ -3324,30 +3324,56 @@
 
 	// ── 1.91.0: Baixa comunicada pola empresa ──
 	// The company emailed the junta that the family asked IT for the baixa. The
-	// enrolment becomes «baixa solicitada» and is effective on its own in 24 h
+	// enrolment becomes «baixa solicitada» and is confirmed on its own in 24 h
 	// unless the family says it is a mistake (ANPA_Socios_Baixa_Programada_Service).
+	// 1.93.1: the junta says whether it is effective at once or at the end of the trimester.
 	function baixaEmpresaBtn(m, actividade, onDone) {
+		var wrap = document.createElement('span');
+		wrap.className = 'anpa-baixa-empresa';
 		var btn = document.createElement('button');
 		btn.type = 'button';
 		btn.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary';
 		btn.textContent = 'Baixa comunicada pola empresa';
-		btn.title = 'A empresa avisou de que a familia lle pediu a baixa: efectiva en 24 horas salvo que a familia diga que é un erro';
-		btn.addEventListener('click', function () {
+		btn.title = 'A empresa avisou de que a familia lle pediu a baixa: confírmase en 24 horas salvo que a familia diga que é un erro';
+		wrap.appendChild(btn);
+		var chooser = document.createElement('span');
+		chooser.className = 'anpa-baixa-empresa-escolla';
+		chooser.hidden = true;
+		var nome = 'anpa-baixa-efecto-' + m.id;
+		[['xa', 'Efectiva xa'], ['fin', 'Ao remate do trimestre']].forEach(function (o) {
+			var l = document.createElement('label');
+			var r = document.createElement('input'); r.type = 'radio'; r.name = nome; r.value = o[0];
+			l.appendChild(r); l.appendChild(document.createTextNode(' ' + o[1]));
+			chooser.appendChild(l);
+		});
+		var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'anpa-mgmt-btn'; ok.textContent = 'Rexistrar';
+		var cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'anpa-mgmt-btn anpa-mgmt-btn-secondary'; cancel.textContent = 'Cancelar';
+		chooser.appendChild(ok); chooser.appendChild(cancel);
+		wrap.appendChild(chooser);
+		btn.addEventListener('click', function () { btn.hidden = true; chooser.hidden = false; });
+		cancel.addEventListener('click', function () { chooser.hidden = true; btn.hidden = false; });
+		ok.addEventListener('click', function () {
+			var sel = chooser.querySelector('input[name="' + nome + '"]:checked');
+			if (!sel) { showMessage('Escolle se a baixa é efectiva xa ou ao remate do trimestre.', 'error'); return; }
+			var fin = sel.value === 'fin';
 			var alumno = ((m.fillo_nome || '') + ' ' + (m.fillo_apelidos || '')).trim();
-			if (!window.confirm('Rexistrar a baixa de ' + alumno + (actividade ? ' en ' + actividade : '') + ' comunicada pola empresa?\n\n'
-				+ 'A matrícula pasa a «baixa solicitada» e a baixa será efectiva soa en 24 horas. Envíase un correo á familia (copia á xunta) para que, se é un erro, o confirme coa directiva ou anule a baixa desde a súa área, e outro á empresa. Tamén se avisa por Telegram se está activado.\n\n'
-				+ 'Ás 24 horas a praza ofrécese ao seguinte da lista de espera e envíanse os avisos definitivos á familia, á empresa e ao comedor. Ata entón podes anulala con «Rexeitar» en Baixas de actividades pendentes.')) { return; }
-			btn.disabled = true;
-			anpaAdminFetch('matricula/' + m.id + '/baixa/programar', { method: 'POST' }).then(function (r) {
-				var msg = 'Baixa rexistrada: será efectiva o ' + ((r && r.data_efectiva) || 'en 24 horas') + '.';
+			if (!window.confirm('Rexistrar a baixa de ' + alumno + (actividade ? ' en ' + actividade : '') + ' comunicada pola empresa, ' + (fin ? 'efectiva AO REMATE DO TRIMESTRE' : 'efectiva XA') + '?\n\n'
+				+ 'A matrícula pasa a «baixa solicitada» e confírmase soa en 24 horas. Envíase un correo á familia (copia á xunta) para que, se é un erro, o confirme coa directiva ou anule a baixa desde a súa área, e outro á empresa. Tamén se avisa por Telegram se está activado.\n\n'
+				+ (fin
+					? 'Ás 24 horas confírmase: o alumno/a segue na actividade ata o último día do trimestre e a praza ofrécese xa ao seguinte da lista de espera para comezar a principios do seguinte trimestre (no 3º trimestre non se ofrece). Se o grupo aínda non comezou, a baixa é inmediata e sen cobro.'
+					: 'Ás 24 horas a baixa é efectiva e a praza ofrécese ao seguinte da lista de espera para comezar inmediatamente.')
+				+ ' Envíanse os avisos definitivos á familia, á empresa e ao comedor. Ata entón podes anulala con «Rexeitar» en Baixas de actividades pendentes.')) { return; }
+			ok.disabled = true;
+			anpaAdminFetch('matricula/' + m.id + '/baixa/programar', { method: 'POST', body: { efecto: sel.value } }).then(function (r) {
+				var msg = 'Baixa rexistrada (' + (fin ? 'ao remate do trimestre' : 'efectiva xa') + '): confírmase ' + (r && r.data_efectiva ? 'o ' + r.data_efectiva : 'en 24 horas') + '.';
 				var aviso = false;
 				if (r && r.correo_familia === false) { msg += ' ATENCIÓN: non se puido enviar o correo á familia; avísaa por outro medio.'; aviso = true; }
 				if (r && r.correo_empresa === false) { msg += ' Non se enviou o aviso á empresa (sen correo da empresa ou fallou o envío).'; aviso = true; }
 				showMessage(msg, aviso ? 'warning' : 'success');
 				if (onDone) { onDone(); }
-			}).catch(function (e) { btn.disabled = false; showMessage(e.message, 'error'); });
+			}).catch(function (e) { ok.disabled = false; showMessage(e.message, 'error'); });
 		});
-		return btn;
+		return wrap;
 	}
 
 	// ── 1.68.1: Baixas de actividades pendentes (moved here from Socios → Baixas) ──
@@ -3366,7 +3392,7 @@
 			card.appendChild(h3m);
 			var intro = document.createElement('p');
 			intro.className = 'description';
-			intro.textContent = 'Baixas de actividades solicitadas polas familias desde a área. Confirmar fai efectiva a baixa; rexeitar devolve a matrícula a activa. Nos dous casos a familia recibe un correo («baixa_extraescolar_confirmada» / «baixa_extraescolar_rexeitada»): co prazo de inscrición aberto, ou nun grupo que aínda non comezou (sen confirmar ou «sen mínimo»), a baixa é inmediata e sen cobro e a praza ofrécese á lista de espera; nun grupo en marcha é efectiva ao remate do trimestre e a praza segue ocupada ata ese día. As baixas «comunicadas pola empresa» fanse efectivas soas ás 24 horas; «Rexeitar» anúlaas (a familia dixo que era un erro) e avísase á empresa.';
+			intro.textContent = 'Baixas de actividades solicitadas polas familias desde a área. Confirmar fai efectiva a baixa; rexeitar devolve a matrícula a activa. Nos dous casos a familia recibe un correo («baixa_extraescolar_confirmada» / «baixa_extraescolar_rexeitada»): co prazo de inscrición aberto, ou nun grupo que aínda non comezou (sen confirmar ou «sen mínimo»), a baixa é inmediata e sen cobro e a praza ofrécese á lista de espera; nun grupo en marcha é efectiva ao remate do trimestre e a praza segue ocupada ata ese día. As baixas «comunicadas pola empresa» confírmanse soas ás 24 horas, efectivas xa ou ao remate do trimestre segundo se indicou; «Rexeitar» anúlaas (a familia dixo que era un erro) e avísase á empresa. Cando a baixa é a fin de trimestre, a praza ofrécese xa ao seguinte da lista para comezar a principios do trimestre seguinte (no 3º trimestre non se ofrece).';
 			card.appendChild(intro);
 			if (!mats.length) { card.appendChild(emptyEl('Non hai solicitudes de baixa de actividades.')); return; }
 			function cell(text) { var td = document.createElement('td'); td.textContent = text == null ? '' : String(text); return td; }

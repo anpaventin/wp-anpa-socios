@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.93.1] - 2026-11-20
+
+### Changed
+
+- **Baixa comunicada pola empresa: a xunta indica se é efectiva xa ou ao remate do trimestre.** Ao premer o botón
+  escóllese «Efectiva xa» ou «Ao remate do trimestre». En ambos casos a familia segue tendo 24 horas para dicir que é
+  un erro. Os correos á familia e á empresa din cando terá efecto.
+- **A praza ofrécese ao seguinte da lista en canto se confirma a baixa:**
+  - Baixa efectiva xa: a oferta di que a praza comeza inmediatamente.
+  - Baixa ao remate do trimestre: o alumno/a segue ata o último día do trimestre e a praza ofrécese xa. A oferta di
+    que comeza a principios do trimestre seguinte, coa data; ao aceptala, a matrícula é dese trimestre e o correo
+    de confirmación dio.
+  - Unha praza ofrecida para comezar inmediatamente queda no trimestre actual ao aceptala, e así llo din á
+    familia, á empresa e ao comedor (antes podía conservar o trimestre antigo da lista de espera).
+  - No 3º trimestre, a baixa ao remate do trimestre non ofrece a praza.
+
+  A mesma regra vale para as baixas que pide a familia e confirma a xunta.
+- Rematado o 3º trimestre xa non se ofrecen prazas.
+
 ## [1.93.0] - 2026-11-20
 
 ### Added

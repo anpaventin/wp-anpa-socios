@@ -1189,3 +1189,7 @@
 
 /* 1.86.0: «Enviar correo» for the group state actions. */
 .anpa-grupos-horarios-correo { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.85em; margin-right: 0.5rem; }
+
+/* 1.93.1: «Baixa comunicada pola empresa» — now or at the end of the trimester. */
+.anpa-baixa-empresa-escolla { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.6rem; }
+.anpa-baixa-empresa-escolla label { display: inline-flex; align-items: center; gap: 0.25rem; }

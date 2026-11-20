@@ -277,10 +277,13 @@ final class ANPA_Socios_Admin_Baixas_Handler {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function programar_matricula( WP_REST_Request $request ) {
-		$r = ANPA_Socios_Baixa_Programada_Service::programar(
+		$body = ANPA_Socios_Admin_Shared::json_body( $request );
+		$r    = ANPA_Socios_Baixa_Programada_Service::programar(
 			(int) $request->get_param( 'id' ),
 			(string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_EMAIL ),
-			(string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_ROL )
+			(string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_ROL ),
+			// 1.93.1: «xa» or «fin» (end of the trimester), chosen by the junta.
+			(string) ( $body['efecto'] ?? '' )
 		);
 		return is_wp_error( $r ) ? $r : new WP_REST_Response( $r, 200 );
 	}

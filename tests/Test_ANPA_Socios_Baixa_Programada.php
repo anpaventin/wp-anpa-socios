@@ -64,7 +64,7 @@ final class Test_ANPA_Socios_Baixa_Programada extends TestCase {
 			$this->assertContains( 'association_name', $vars['subject'], "$id subject names the association" );
 			$this->assertContains( 'contact_email', $vars['html'], "$id html gives a contact" );
 			foreach ( array( 'subject', 'html', 'text' ) as $field ) {
-				$this->assertSame( count( $vars[ $field ] ), substr_count( $defaults[ $id ][ $field ], '%s' ), "$id $field placeholders" );
+				$this->assertSame( count( $vars[ $field ] ), preg_match_all( '/%(?:\d+\$)?s/', $defaults[ $id ][ $field ] ), "$id $field placeholders" );
 			}
 		}
 		// The family is told when, and how to say it is a mistake.
@@ -108,7 +108,7 @@ final class Test_ANPA_Socios_Baixa_Programada extends TestCase {
 		$this->assertStringNotContainsString( 'e_grupo_creado', $empresa, 'the company raised it: always told' );
 		// The offer to the next on the waiting list is copied to the junta too.
 		$this->assertStringContainsString( "\$copia_xunta ? array( 'Bcc: ' . self::junta_email() ) : array()", $email );
-		$this->assertStringContainsString( 'self::notify_offer( (int) $next[\'id\'], $copia_xunta );', self::src( 'includes/class-anpa-socios-extraescolar-offers.php' ) );
+		$this->assertStringContainsString( 'self::notify_offer( (int) $next[\'id\'], $copia_xunta, $para_trimestre );', self::src( 'includes/class-anpa-socios-extraescolar-offers.php' ) );
 	}
 
 	public function test_cron_makes_it_effective_like_the_confirm_button(): void {
@@ -156,7 +156,7 @@ final class Test_ANPA_Socios_Baixa_Programada extends TestCase {
 
 	public function test_xestion_has_the_button_and_the_pending_mark(): void {
 		$js = self::src( 'assets/js/admin-management.js' );
-		$this->assertStringContainsString( "anpaAdminFetch('matricula/' + m.id + '/baixa/programar', { method: 'POST' })", $js );
+		$this->assertStringContainsString( "anpaAdminFetch('matricula/' + m.id + '/baixa/programar', { method: 'POST', body: { efecto: sel.value } })", $js );
 		$this->assertSame( 3, substr_count( $js, 'baixaEmpresaBtn(' ), 'helper + Matrículas listing + group pupils' );
 		$this->assertStringContainsString( "if (m.programada) {", $js );
 		$this->assertStringContainsString( "'baixa_programada_empresa'", self::src( 'includes/lib/class-anpa-socios-auditoria.php' ) );

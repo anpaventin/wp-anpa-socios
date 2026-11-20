@@ -28,6 +28,12 @@ final class ANPA_Socios_Baixa_Programada {
 	/** Hours the family has to say it is a mistake. */
 	const PRAZO_HORAS = 24;
 
+	/** 1.93.1: the junta says when the reported baixa takes effect (after the PRAZO_HORAS). */
+	const EFECTO_XA  = 'xa';
+	const EFECTO_FIN = 'fin';
+	/** Option id => efecto of the reported baixas still pending (cleared when they resolve). */
+	const OPTION_EFECTO = 'anpa_socios_baixa_programada_efecto';
+
 	/** Audit action when the junta registers it. */
 	const AUDIT_PROGRAMADA = 'baixa_programada_empresa';
 
