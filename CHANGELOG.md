@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.94.0] - 2026-11-20
+
+### Changed
+
+- **Datas das actividades só con día e mes.** En *Axustes → Xeral*, «Comezo das actividades extraescolares» e
+  «Remate das actividades extraescolares» pídense con día e mes. O ano tómase do curso activo: de xullo a decembro
+  é o primeiro ano do curso e de xaneiro a xuño o segundo. Xa non hai que cambialas cada ano. As datas gardadas
+  antes conservan o día e o mes.
+- **Documentación da xunta actualizada coa 1.93.** Inclúe as inscricións abertas todo o curso, a aprobación
+  automática, o correo único de comezo de curso e a baixa comunicada pola empresa. Tamén explica a oferta da praza
+  co seu comezo e os listados coas baixas e a data en que teñen efecto.
+
 ## [1.93.1] - 2026-11-20
 
 ### Changed

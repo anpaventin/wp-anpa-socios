@@ -812,23 +812,62 @@ final class ANPA_Socios_Admin_Settings {
 			esc_html__( 'URL da páxina coa oferta de actividades e o horario. Vai no correo de inicio de curso. Se queda baleira, búscase a páxina que leva o shortcode [anpa_extraescolares_ofertadas].', 'anpa-socios' )
 		);
 
-		// 1.71.0: activity dates shown on the public page and used to prefill the «prazo de matrículas» notice.
+		// 1.71.0: activity dates shown on the public page and used to prefill the start-of-course notice.
+		// 1.94.0: day and month only; the year comes from the active course.
+		$curso_datas = ANPA_Socios_Curso_Activo::get();
+		$curso_datas = null !== $curso_datas ? $curso_datas : ANPA_Socios_Curso_Escolar::current();
 		printf(
-			'<tr><th scope="row"><label for="cfg-inicio-actividades">%s</label></th><td><input name="data_inicio_actividades" id="cfg-inicio-actividades" type="date" value="%s"><p class="description">%s</p></td></tr>',
+			'<tr><th scope="row"><label for="cfg-inicio-actividades">%s</label></th><td>%s<p class="description">%s</p></td></tr>',
 			esc_html__( 'Comezo das actividades extraescolares', 'anpa-socios' ),
-			esc_attr( ANPA_Socios_Config::data_inicio_actividades() ),
-			esc_html__( 'Primeiro día das actividades. Aparece na páxina pública de extraescolares (arriba e en cada actividade) e énchese no aviso de «prazo de matrículas». Se queda baleira non se amosa.', 'anpa-socios' )
+			self::dia_mes_html( 'data_inicio_actividades', 'cfg-inicio-actividades', ANPA_Socios_Config::dia_mes_actividades( ANPA_Socios_Config::OPTION_DATA_INICIO_ACTIVIDADES ), ANPA_Socios_Config::data_inicio_actividades() ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in dia_mes_html().
+			esc_html(
+				sprintf(
+					/* translators: %s: school year like "2026/2027" */
+					__( 'Primeiro día das actividades. Só se indica o día e o mes: o ano é o do curso activo (agora %s), así que non hai que cambialo cada ano. Aparece na páxina pública de extraescolares (arriba e en cada actividade) e énchese no aviso de comezo do curso. Se queda baleira non se amosa.', 'anpa-socios' ),
+					$curso_datas
+				)
+			)
 		);
 		printf(
-			'<tr><th scope="row"><label for="cfg-remate-actividades">%s</label></th><td><input name="data_remate_actividades" id="cfg-remate-actividades" type="date" value="%s"><p class="description">%s</p></td></tr>',
+			'<tr><th scope="row"><label for="cfg-remate-actividades">%s</label></th><td>%s<p class="description">%s</p></td></tr>',
 			esc_html__( 'Remate das actividades extraescolares', 'anpa-socios' ),
-			esc_attr( ANPA_Socios_Config::data_remate_actividades() ),
-			esc_html__( 'Último día das actividades (por exemplo, o 15 de xuño). Aparece na páxina pública de extraescolares. Se queda baleira non se amosa.', 'anpa-socios' )
+			self::dia_mes_html( 'data_remate_actividades', 'cfg-remate-actividades', ANPA_Socios_Config::dia_mes_actividades( ANPA_Socios_Config::OPTION_DATA_REMATE_ACTIVIDADES ), ANPA_Socios_Config::data_remate_actividades() ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in dia_mes_html().
+			esc_html__( 'Último día das actividades (por exemplo, o 15 de xuño). Só día e mes: o ano é o do curso activo. Aparece na páxina pública de extraescolares. Se queda baleira non se amosa.', 'anpa-socios' )
 		);
 
 		echo '</tbody></table>';
 		submit_button( __( 'Gardar configuración', 'anpa-socios' ) );
 		echo '</form>';
+	}
+
+	/**
+	 * 1.94.0: day and month selectors of an activity date (no year), with the
+	 * date it gives in the active course.
+	 *
+	 * @param  string $name    Base field name (posted as <name>_dia and <name>_mes).
+	 * @param  string $id      Id of the day selector (the row's label points to it).
+	 * @param  string $dia_mes Stored «MM-DD» or ''.
+	 * @param  string $data    Resulting Y-m-d in the course, or ''.
+	 * @return string Escaped HTML.
+	 */
+	private static function dia_mes_html( string $name, string $id, string $dia_mes, string $data ): string {
+		$mes_sel = '' === $dia_mes ? 0 : (int) substr( $dia_mes, 0, 2 );
+		$dia_sel = '' === $dia_mes ? 0 : (int) substr( $dia_mes, 3, 2 );
+		$dias    = '<option value="">' . esc_html__( 'Día', 'anpa-socios' ) . '</option>';
+		for ( $d = 1; $d <= 31; $d++ ) {
+			$dias .= '<option value="' . $d . '"' . selected( $dia_sel, $d, false ) . '>' . $d . '</option>';
+		}
+		$meses = '<option value="">' . esc_html__( 'Mes', 'anpa-socios' ) . '</option>';
+		foreach ( ANPA_Socios_Oferta_Publica::MESES as $m => $nome ) {
+			$meses .= '<option value="' . $m . '"' . selected( $mes_sel, $m, false ) . '>' . esc_html( $nome ) . '</option>';
+		}
+		$html = '<select name="' . esc_attr( $name . '_dia' ) . '" id="' . esc_attr( $id ) . '" aria-label="' . esc_attr__( 'Día', 'anpa-socios' ) . '">' . $dias . '</select> '
+			. '<select name="' . esc_attr( $name . '_mes' ) . '" aria-label="' . esc_attr__( 'Mes', 'anpa-socios' ) . '">' . $meses . '</select>';
+		if ( '' !== $data ) {
+			/* translators: %s: date like "1 de outubro de 2026" */
+			$html .= ' <span class="description">' . esc_html( sprintf( __( 'Este curso: %s', 'anpa-socios' ), ANPA_Socios_Oferta_Publica::data_longa( $data ) ) ) . '</span>';
+		}
+		return $html;
 	}
 
 	/**
@@ -2069,18 +2108,20 @@ final class ANPA_Socios_Admin_Settings {
 		}
 
 		// 1.71.0: activity dates (optional; empty deletes the option).
+		// 1.94.0: day and month only («MM-DD»); the year is the active course's.
 		foreach ( array( 'data_inicio_actividades' => ANPA_Socios_Config::OPTION_DATA_INICIO_ACTIVIDADES, 'data_remate_actividades' => ANPA_Socios_Config::OPTION_DATA_REMATE_ACTIVIDADES ) as $field => $option ) {
-			if ( ! array_key_exists( $field, $_POST ) ) {
+			if ( ! array_key_exists( $field . '_dia', $_POST ) && ! array_key_exists( $field . '_mes', $_POST ) ) {
 				continue;
 			}
-			$raw  = trim( sanitize_text_field( (string) wp_unslash( $_POST[ $field ] ) ) );
-			$data = ANPA_Socios_Oferta_Publica::data_valida( $raw );
-			if ( '' === $raw ) {
+			$dia = absint( wp_unslash( $_POST[ $field . '_dia' ] ?? 0 ) );
+			$mes = absint( wp_unslash( $_POST[ $field . '_mes' ] ?? 0 ) );
+			$md  = ANPA_Socios_Oferta_Publica::dia_mes_valido( sprintf( '%02d-%02d', $mes, $dia ) );
+			if ( 0 === $dia && 0 === $mes ) {
 				delete_option( $option );
-			} elseif ( '' === $data ) {
+			} elseif ( '' === $md ) {
 				$msg = 'data_invalida';
 			} else {
-				update_option( $option, $data );
+				update_option( $option, $md );
 			}
 		}
 		$ini = ANPA_Socios_Config::data_inicio_actividades();
@@ -2920,12 +2961,12 @@ final class ANPA_Socios_Admin_Settings {
 
 		// 1. Posta en marcha.
 		echo '<section id="posta-en-marcha" class="card"><h2>' . esc_html( $sections['posta-en-marcha'] ) . '</h2><ol>';
-		$li( __( 'Axustes → Xeral: nome do menú, correo do equipo administrador (recibe os avisos de altas, baixas e reactivacións), aprobación de altas, e páxinas públicas creadas automaticamente (área de socios, asociarse, extraescolares).', 'anpa-socios' ) );
+		$li( __( 'Axustes → Xeral: nome do menú, correo do equipo administrador (recibe os avisos de altas, baixas e reactivacións), aprobación de altas, aprobación automática das inscricións en extraescolares (e as horas de espera), avisos á xunta por correo e Telegram, datas de comezo e remate das actividades (só día e mes: o ano tómase do curso activo, así que non hai que cambialas cada ano) e páxinas públicas creadas automaticamente (área de socios, asociarse, extraescolares).', 'anpa-socios' ) );
 		$li( __( 'Axustes → Localización e idioma: país, provincia, poboación e código postal por defecto que se prefillan nos formularios das familias.', 'anpa-socios' ) );
 		$li( __( 'Clave bancaria: xérase unha soa vez desde Axustes. A frase gárdase fóra da web, accesible só á xunta; sen ela non se poden ler nin exportar os IBAN. Non a envíes por correo nin a pegues en chats.', 'anpa-socios' ) );
 		$li( __( 'Axustes → Cursos → Curso escolar: crea o curso (formato AAAA/AAAA+1) e pon as datas de inicio e peche e os peches operativos do 1º e 2º trimestre. O trimestre activo, a apertura das matrículas e os avisos ás familias lévanse dende Xestión → Extraescolares → Matrículas (ver «Ciclo anual»).', 'anpa-socios' ) );
 		$li( __( 'Axustes → Cursos → Estrutura escolar: niveis (1º a 6º, con «Idade alumnado» 7 a 12) e aulas (A, B…). Ao crear un curso novo pódese copiar a estrutura do anterior.', 'anpa-socios' ) );
-		$li( __( 'Plantillas de Email: revisa os dez textos automáticos (por defecto en galego). «Restaurar» devolve o texto orixinal dunha plantilla.', 'anpa-socios' ) );
+		$li( __( 'Plantillas de Email: revisa os textos automáticos (40, por defecto en galego). «Restaurar» devolve o texto orixinal dunha plantilla; as que nunca se editaron actualízanse soas co plugin, as editadas a man hai que restauralas para recibir os textos novos.', 'anpa-socios' ) );
 		$li( __( 'Axustes → Contido: textos, documentos e ligazóns de transporte, libros, bos días, comedor e tardes divertidas. Amósanse nas páxinas públicas co shortcode [anpa_contenido categoria="comedor"] (unha categoría por shortcode).', 'anpa-socios' ) );
 		$li( __( 'Proba final: entra na área de socios cun correo teu, comproba que chega o código de seis díxitos e que a acción queda rexistrada en Xestión → Auditoría.', 'anpa-socios' ) );
 		echo '</ol>';
@@ -2948,11 +2989,11 @@ final class ANPA_Socios_Admin_Settings {
 		$h3( __( 'Checklist de setembro', 'anpa-socios' ) );
 		echo '<ol>';
 		$li( __( 'Copia de seguridade con UpdraftPlus antes de empezar.', 'anpa-socios' ) );
-		$li( __( 'Axustes → Cursos: comproba as datas do curso novo. Despois, en Xestión → Extraescolares → Matrículas, «Notificar comezo do curso» activa o curso, abre as matrículas do 1º trimestre e avisa ás familias por correo.', 'anpa-socios' ) );
+		$li( __( 'Axustes → Cursos: comproba as datas do curso novo, e en Axustes → Xeral o día e mes de comezo e remate das actividades. Despois, en Xestión → Extraescolares → Matrículas, «Notificar comezo do curso» activa o curso, abre o prazo inicial e envía ás familias un só correo coa data de peche dese prazo e a de comezo das actividades.', 'anpa-socios' ) );
 		$li( __( 'Estrutura escolar: copia niveis e aulas do curso anterior e revisa a «Idade alumnado» de cada nivel.', 'anpa-socios' ) );
 		$li( __( 'Axustes → Mantemento → «Actualizar niveis dos fillos»: o botón simula primeiro; revisa a lista e pulsa «Aplicar». Copia a lista CCO das familias de 6º que rematan e pregúntalles se seguen no centro ou queren a baixa. Os fillos que cambian de nivel quedan sen letra de aula: a área pídelle á familia que a indique antes de matricular.', 'anpa-socios' ) );
 		$li( __( 'Extraescolares: revisa empresas, actividades e grupos do curso novo (niveis, horarios, prazas, comedor) e pon en «aberto» os que se ofertan.', 'anpa-socios' ) );
-		$li( __( 'Comproba na páxina pública que aparecen a oferta e o horario. Uns días antes do peche usa «Notificar prazo de matrículas»; ao pechar o prazo, avisa ás familias inscritas de cada grupo con «Notificar comezo do trimestre» en Grupos e horarios, e pecha con «Pechar por non acadar o mínimo» os grupos que non saian.', 'anpa-socios' ) );
+		$li( __( 'Comproba na páxina pública que aparecen a oferta e o horario. Durante o prazo inicial aproba as inscricións en Operacións → Aprobacións (ou déixaas aprobarse soas se está activado). Ao pechar o prazo, avisa ás familias de cada grupo con «Notificar grupo creado (comezo do trimestre)» en Grupos e horarios, e pecha con «Pechar por non acadar o mínimo» os grupos que non saian. As inscricións seguen abertas o resto do curso.', 'anpa-socios' ) );
 		$li( __( 'Plantillas de Email: le os textos de benvida e oferta de praza e fai un envío de proba.', 'anpa-socios' ) );
 		$li( __( 'Anuncia ás familias (blog e WhatsApp) que revisen curso, aula e data de nacemento dos fillos/as antes de matricular.', 'anpa-socios' ) );
 		echo '</ol>';
@@ -2994,6 +3035,7 @@ final class ANPA_Socios_Admin_Settings {
 		$li( __( 'Ao confirmar ou rexeitar unha solicitude en Xestión → Operacións → Aprobacións ou en Xestión → Extraescolares → Matrículas (baixas de actividades), a familia recibe un correo coa plantilla correspondente: «baixa_socio_confirmada», «baixa_socio_rexeitada», «baixa_extraescolar_confirmada» ou «baixa_extraescolar_rexeitada» (Axustes → Plantillas de email, coa sinatura de Axustes → Xeral).', 'anpa-socios' ) );
 		$li( __( 'A baixa de socio/a confirmada aplícase a toda a unidade familiar (proxenitor/a principal e secundario/a): todos pasan a «baixa», perden o acceso á área e cada un recibe o correo coa lista dos enderezos dados de baixa. Se a familia ten dous correos, saen dous correos.', 'anpa-socios' ) );
 		$li( __( 'Baixa dunha actividade: se o prazo de inscrición está ABERTO, ou o grupo aínda non comezou (sen confirmar ou «sen mínimo»), a baixa é efectiva desde ese momento e sen ningún cobro. Se o grupo está en marcha, é efectiva ao remate do trimestre, coa data de peche operativo: a cota mantense ata entón e a praza segue ocupada ata ese día, pero xa se lle ofrece ao seguinte da lista de espera para comezar a principios do trimestre seguinte (no 3º trimestre non se ofrece). Nas baixas comunicadas pola empresa, a xunta indica se son efectivas xa ou ao remate do trimestre.', 'anpa-socios' ) );
+		$li( __( 'Baixa comunicada pola empresa (botón na lista de matrículas de Xestión → Extraescolares → Matrículas): escóllese «Efectiva xa» ou «Ao remate do trimestre». A familia recibe un correo e ten 24 horas para dicir que é un erro; pasado ese tempo confírmase soa. Ao confirmarse, a praza ofrécese ao seguinte da lista de espera: con baixa efectiva xa, comeza inmediatamente (e así se lle comunica á familia, á empresa e ao comedor); con baixa ao remate do trimestre, comeza a principios do trimestre seguinte; no 3º trimestre non se ofrece.', 'anpa-socios' ) );
 		$li( __( 'Os correos de rexeitamento indican á familia que, se cre que houbo un erro, escriba á directiva ao correo de contacto de Axustes → Xeral.', 'anpa-socios' ) );
 		echo '</ul>';
 		$h3( __( 'Auditoría', 'anpa-socios' ) );
@@ -3010,7 +3052,7 @@ final class ANPA_Socios_Admin_Settings {
 		$p( __( 'Cadea de configuración: Empresas → Actividades → Grupos (por curso escolar) → Matrículas. A páxina pública e o horario amosan só actividades activas con grupos abertos do curso activo.', 'anpa-socios' ) );
 		$h3( __( 'Estados dos grupos (cores en Xestión)', 'anpa-socios' ) );
 		echo '<ul>';
-		$li( __( 'Aberto (verde): visible na páxina pública e no horario, ofertado na área; matrícula activa mentres haxa praza.', 'anpa-socios' ) );
+		$li( __( 'Aberto (verde): visible na páxina pública e no horario, ofertado na área; admite inscricións, que ao aprobarse teñen praza mentres a haxa e se non van á lista de espera.', 'anpa-socios' ) );
 		$li( __( 'Pechado (vermello): oculto da oferta pública e da área; as matrículas existentes seguen e unha nova iría a lista de espera.', 'anpa-socios' ) );
 		$li( __( 'Deshabilitado (amarelo): oculto e sen matrículas; só se pode escoller cando o grupo non ten ningunha matrícula vixente. Consérvase para o histórico.', 'anpa-socios' ) );
 		$li( __( '«Eliminar» só aparece nos grupos do curso activo sen ningunha matrícula nin histórico. Se un grupo xa non se usa pero ten historial, deshabilítao.', 'anpa-socios' ) );
@@ -3019,22 +3061,22 @@ final class ANPA_Socios_Admin_Settings {
 		$h3( __( 'Matrículas, lista de espera e ofertas', 'anpa-socios' ) );
 		echo '<ul>';
 		$li( __( 'Só matriculan socios/as activos con datos bancarios completos e co curso activo. Toda inscrición queda pendente de aprobación (Operacións → Aprobacións) e a familia recibe a confirmación por correo, co estado real do grupo; só no modo por trimestres, co prazo aberto, a inscrición é directa. A área amosa só os grupos do nivel de cada fillo/a: se o curso do fillo/a está mal, non verán as actividades correctas.', 'anpa-socios' ) );
-		$li( __( 'Grupos e horarios amosa a ocupación de cada grupo (inscritos, lista de espera, pendentes e mínimo) e, coas matrículas pechadas, botóns por grupo aberto (coas matrículas abertas non aparecen): «Notificar grupo creado (comezo do trimestre)» (correo ás familias inscritas e á empresa, e outro ás de lista de espera; a empresa pode formar o grupo aínda sen o mínimo; ao enviarse, o grupo queda en verde co trimestre da notificación e o botón non volve aparecer ata que se abran e pechen de novo as matrículas), e «Pechar por non acadar o mínimo», só cando non se acada (o grupo queda deshabilitado e desaparece da oferta e da área; as súas matrículas pasan a baixa e avísase por correo). Os grupos pechados ou deshabilitados vense sombreados na grella, só con «Editar». A marca de «notificado» de cada grupo pódese poñer ou quitar a man dende a ficha da actividade (columna «Aviso», sen enviar correo). O botón «Resumo» de cada actividade despliega debaixo o resumo do curso por grupo e trimestre (activos, en espera, baixas, prazas libres, pendentes e aviso).', 'anpa-socios' ) );
-		$li( __( 'Con praza a matrícula queda activa; sen praza (ou grupo pechado) vai a lista de espera por orde de solicitude. Cando queda unha praza, o sistema ofrécella á primeira persoa por correo e na área; ten tres días para aceptala, se non pasa á seguinte.', 'anpa-socios' ) );
-		$li( __( 'A baixa dunha matrícula sólicitaa a familia e confírmaa a xunta en Xestión → Matrículas. Desde a ficha do grupo pódese mover un alumno/a a outro grupo aberto da mesma actividade.', 'anpa-socios' ) );
-		$li( __( 'O trimestre dunha matrícula derívase da data en que se fai, segundo as datas operativas do curso.', 'anpa-socios' ) );
+		$li( __( 'Grupos e horarios amosa a ocupación de cada grupo (inscritos, lista de espera, pendentes e mínimo) e, co prazo inicial (ou o do trimestre) pechado, botóns por grupo aberto (co prazo aberto non aparecen): «Notificar grupo creado (comezo do trimestre)» (correo ás familias inscritas e á empresa, e outro ás de lista de espera; a empresa pode formar o grupo aínda sen o mínimo; ao enviarse, o grupo queda en verde co trimestre da notificación e o botón non volve aparecer ata que se abran e pechen de novo as matrículas), e «Pechar por non acadar o mínimo», só cando non se acada (o grupo queda deshabilitado e desaparece da oferta e da área; as súas matrículas pasan a baixa e avísase por correo). Os grupos pechados ou deshabilitados vense sombreados na grella, só con «Editar». A marca de «notificado» de cada grupo pódese poñer ou quitar a man dende a ficha da actividade (columna «Aviso», sen enviar correo). O botón «Resumo» de cada actividade despliega debaixo o resumo do curso por grupo e trimestre (activos, en espera, baixas, prazas libres, pendentes e aviso).', 'anpa-socios' ) );
+		$li( __( 'Ao aprobarse, con praza a matrícula queda activa; sen praza (ou grupo pechado) vai a lista de espera por orde de solicitude. O correo de confirmación di se ten praza ou lista de espera e o estado do grupo (en marcha, sen crear ou sen o mínimo), sen números; os avisos á xunta levan as cifras e, se está activada, a hora da aprobación automática. Cando queda unha praza, o sistema ofrécella á primeira persoa por correo e na área, dicindo cando comeza; ten tres días para aceptala, se non pasa á seguinte. Unha oferta aceptada apróbase ao momento se a aprobación automática está activada; se non, decídea a xunta.', 'anpa-socios' ) );
+		$li( __( 'A baixa dunha matrícula sólicitaa a familia e confírmaa a xunta en Xestión → Matrículas; se a comunica a empresa, usa «Baixa comunicada pola empresa» (ver «Correos automáticos ás familias nas baixas»). Desde a ficha do grupo pódese mover un alumno/a a outro grupo aberto da mesma actividade.', 'anpa-socios' ) );
+		$li( __( 'O trimestre dunha matrícula derívase da data en que se fai, segundo as datas operativas do curso. Unha praza ofrecida para o trimestre seguinte queda nese trimestre.', 'anpa-socios' ) );
 		echo '</ul></section>';
 
 		// 5. Comunicacións.
 		echo '<section id="comunicacions" class="card"><h2>' . esc_html( $sections['comunicacions'] ) . '</h2><ul>';
-		$li( __( 'Plantillas de Email: dez correos automáticos (código de verificación, benvida, alta pendente, aprobación, rexeitamento, baixa, oferta de praza, aviso á xunta…). Admiten variables, teñen vista previa e envíanse ao momento. «Restaurar» volve ao texto por defecto en galego.', 'anpa-socios' ) );
+		$li( __( 'Plantillas de Email: corenta correos automáticos (código de verificación, benvida, alta pendente, inscrición pendente e aprobada con praza ou en lista de espera, oferta de praza, baixas, comezo e fin de curso, avisos á xunta…). Admiten variables, teñen vista previa e envíanse ao momento. «Restaurar» volve ao texto por defecto en galego.', 'anpa-socios' ) );
 		$li( __( 'Envíos masivos ás familias: NON se fan desde a web. A cola de campañas da fase 35 («Rexistro de envíos») retirouse na 1.64.0 porque nunca chegou a ter unha pantalla para lanzar campañas e quedaba sempre baleira. O camiño é Xestión → Operacións → Lista Gmail: exportar os socios/as á etiqueta de Google Contactos e enviar dende a conta da xunta (en CCO), onde ademais chegan as respostas das familias.', 'anpa-socios' ) );
 		$li( __( 'O envío real dos correos automáticos depende de WP Mail SMTP: se algún non chega, revisa alí a autorización da conta.', 'anpa-socios' ) );
 		echo '</ul></section>';
 
 		// 6. Exportacións e copias.
 		echo '<section id="exportacions-copias" class="card"><h2>' . esc_html( $sections['exportacions-copias'] ) . '</h2><ul>';
-		$li( __( 'Cada táboa de Xestión ANPA ten a súa exportación CSV filtrada pola busca visible.', 'anpa-socios' ) );
+		$li( __( 'Cada táboa de Xestión ANPA ten a súa exportación CSV filtrada pola busca visible. Os listados de matrículas (o da xunta, o das empresas e o do comedor) inclúen todo o alumnado inscrito no curso, coas baixas ben marcadas e a columna «Baixa efectiva» coa data en que teñen efecto; o CSV «alumnado que asiste agora» deixa fóra as baixas xa efectivas.', 'anpa-socios' ) );
 		$li( __( 'A exportación sensible «Descargar Socios IBAN» vive en Socios/as e require a frase da clave bancaria; queda rexistrada na Auditoría. Descárgaa só cando a tesourería a necesite e bórraa despois.', 'anpa-socios' ) );
 		$li( __( 'Fai copia con UpdraftPlus antes de importacións, actualizacións do plugin ou cambios de estrutura.', 'anpa-socios' ) );
 		$li_html( __( 'O ficheiro cifrado <code>.anpabak</code> (Axustes → Copias) é o único transporte completo da estrutura escolar e dos horarios de comedor; tamén conserva o nome do menú. Os CSV operativos non transportan a configuración de comedor.', 'anpa-socios' ) );
@@ -3073,7 +3115,7 @@ final class ANPA_Socios_Admin_Settings {
 		echo '<ol>';
 		$li( __( 'A oferta e o horario semanal están na páxina pública de extraescolares, sen identificarse.', 'anpa-socios' ) );
 		$li( __( 'Na área persoal → Extraescolares → Nova matrícula escolle fillo/a, actividade e grupo (só aparecen os do seu curso) e indica as autorizacións que se piden.', 'anpa-socios' ) );
-		$li( __( 'Estados: «Activa» hai praza; «En lista de espera» o grupo está completo: se queda praza, recibirás unha oferta e terás tres días para pulsar «Aceptar praza».', 'anpa-socios' ) );
+		$li( __( 'Estados: «Pendente de aprobación» ata que a xunta a revise (recibirás un correo); despois «Activa» se hai praza ou «En lista de espera» se o grupo está completo: se queda praza, recibirás unha oferta e terás tres días para pulsar «Aceptar praza». As inscricións están abertas todo o curso.', 'anpa-socios' ) );
 		$li( __( 'Para deixar unha actividade pulsa «Baixa»: queda «Baixa solicitada» ata que a xunta a tramite; podes anulala mentres tanto.', 'anpa-socios' ) );
 		echo '</ol>';
 		$p( __( 'Se ao entrar non recoñece o teu correo, escribe ao correo de contacto da asociación.', 'anpa-socios' ) );

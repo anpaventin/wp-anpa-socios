@@ -20,6 +20,21 @@ final class Test_ANPA_Socios_Oferta_Publica extends TestCase {
 		$this->assertSame( '', ANPA_Socios_Oferta_Publica::data_valida( '' ) );
 	}
 
+	public function test_day_and_month_take_the_year_of_the_course(): void {
+		$this->assertSame( '10-01', ANPA_Socios_Oferta_Publica::dia_mes_valido( '10-01' ) );
+		$this->assertSame( '06-11', ANPA_Socios_Oferta_Publica::dia_mes_valido( '2027-06-11' ), 'dates stored before 1.94.0 keep day and month' );
+		$this->assertSame( '02-29', ANPA_Socios_Oferta_Publica::dia_mes_valido( '02-29' ) );
+		$this->assertSame( '', ANPA_Socios_Oferta_Publica::dia_mes_valido( '02-30' ) );
+		$this->assertSame( '', ANPA_Socios_Oferta_Publica::dia_mes_valido( '00-00' ) );
+		$this->assertSame( '', ANPA_Socios_Oferta_Publica::dia_mes_valido( '' ) );
+		$this->assertSame( '2026-10-01', ANPA_Socios_Oferta_Publica::data_no_curso( '10-01', '2026/2027' ) );
+		$this->assertSame( '2027-06-11', ANPA_Socios_Oferta_Publica::data_no_curso( '06-11', '2026/2027' ) );
+		$this->assertSame( '2027-10-01', ANPA_Socios_Oferta_Publica::data_no_curso( '2026-10-01', '2027/2028' ) );
+		$this->assertSame( '2027-02-28', ANPA_Socios_Oferta_Publica::data_no_curso( '02-29', '2026/2027' ) );
+		$this->assertSame( '2028-02-29', ANPA_Socios_Oferta_Publica::data_no_curso( '02-29', '2027/2028' ) );
+		$this->assertSame( '', ANPA_Socios_Oferta_Publica::data_no_curso( '10-01', 'x' ) );
+	}
+
 	public function test_long_date_in_galician(): void {
 		$this->assertSame( '1 de outubro de 2026', ANPA_Socios_Oferta_Publica::data_longa( '2026-10-01' ) );
 		$this->assertSame( '15 de xuño', ANPA_Socios_Oferta_Publica::data_longa( '2027-06-15', false ) );

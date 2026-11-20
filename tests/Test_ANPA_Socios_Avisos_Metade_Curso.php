@@ -174,10 +174,14 @@ final class Test_ANPA_Socios_Avisos_Metade_Curso extends TestCase {
 		$this->assertStringContainsString( "const OPTION_DATA_INICIO_ACTIVIDADES = 'anpa_socios_data_inicio_actividades';", $cfg );
 		$this->assertStringContainsString( "const OPTION_DATA_REMATE_ACTIVIDADES = 'anpa_socios_data_remate_actividades';", $cfg );
 		$set = $this->src( 'includes/class-anpa-socios-admin-settings.php' );
-		$this->assertStringContainsString( 'name="data_inicio_actividades" id="cfg-inicio-actividades" type="date"', $set );
-		$this->assertStringContainsString( 'name="data_remate_actividades" id="cfg-remate-actividades" type="date"', $set );
+		// 1.94.0: day and month only; the year is the active course's.
+		$this->assertStringContainsString( "self::dia_mes_html( 'data_inicio_actividades', 'cfg-inicio-actividades',", $set );
+		$this->assertStringContainsString( "self::dia_mes_html( 'data_remate_actividades', 'cfg-remate-actividades',", $set );
+		$this->assertStringContainsString( "'<select name=\"' . esc_attr( \$name . '_dia' ) . '\" id=\"' . esc_attr( \$id ) . '\"", $set );
+		$this->assertStringContainsString( 'ANPA_Socios_Oferta_Publica::data_no_curso( self::dia_mes_actividades( $option ),', $cfg );
 		// Isolated handler: only the posted fields are touched, empty deletes.
-		$this->assertStringContainsString( "if ( ! array_key_exists( \$field, \$_POST ) ) {", $set );
+		$this->assertStringContainsString( "if ( ! array_key_exists( \$field . '_dia', \$_POST ) && ! array_key_exists( \$field . '_mes', \$_POST ) ) {", $set );
+		$this->assertStringContainsString( 'update_option( $option, $md );', $set );
 		$this->assertStringContainsString( "'data_invalida'", $set );
 		$this->assertStringContainsString( "'datainicioactividades' => ANPA_Socios_Config::data_inicio_actividades()", $this->src( 'includes/class-anpa-socios-admin-management-page.php' ) );
 		$this->assertStringContainsString( "inInicio.value = cfg.datainicioactividades || (anoInicio + '-10-01');", $this->src( 'assets/js/admin-management.js' ) );

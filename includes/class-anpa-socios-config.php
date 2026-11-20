@@ -348,22 +348,45 @@ final class ANPA_Socios_Config {
 
 	/**
 	 * First day of the extracurricular activities (Y-m-d, '' when not set).
+	 * 1.94.0: only the day and month are stored; the year is the active course's.
 	 *
 	 * @since  1.71.0
 	 * @return string
 	 */
 	public static function data_inicio_actividades(): string {
-		return ANPA_Socios_Oferta_Publica::data_valida( (string) get_option( self::OPTION_DATA_INICIO_ACTIVIDADES, '' ) );
+		return self::data_actividades_no_curso( self::OPTION_DATA_INICIO_ACTIVIDADES );
 	}
 
 	/**
 	 * Last day of the extracurricular activities (Y-m-d, '' when not set).
+	 * 1.94.0: only the day and month are stored; the year is the active course's.
 	 *
 	 * @since  1.71.0
 	 * @return string
 	 */
 	public static function data_remate_actividades(): string {
-		return ANPA_Socios_Oferta_Publica::data_valida( (string) get_option( self::OPTION_DATA_REMATE_ACTIVIDADES, '' ) );
+		return self::data_actividades_no_curso( self::OPTION_DATA_REMATE_ACTIVIDADES );
+	}
+
+	/**
+	 * 1.94.0: stored day and month of an activity date («MM-DD», '' when not set).
+	 *
+	 * @param  string $option OPTION_DATA_INICIO_ACTIVIDADES or OPTION_DATA_REMATE_ACTIVIDADES.
+	 * @return string
+	 */
+	public static function dia_mes_actividades( string $option ): string {
+		return ANPA_Socios_Oferta_Publica::dia_mes_valido( (string) get_option( $option, '' ) );
+	}
+
+	/**
+	 * 1.94.0: the stored day and month in the active course (or the current one).
+	 *
+	 * @param  string $option Option name.
+	 * @return string Y-m-d or ''.
+	 */
+	private static function data_actividades_no_curso( string $option ): string {
+		$curso = class_exists( 'ANPA_Socios_Curso_Activo' ) ? ANPA_Socios_Curso_Activo::get() : null;
+		return ANPA_Socios_Oferta_Publica::data_no_curso( self::dia_mes_actividades( $option ), null !== $curso ? $curso : ANPA_Socios_Curso_Escolar::current() );
 	}
 
 	/**

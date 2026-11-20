@@ -44,6 +44,44 @@ final class ANPA_Socios_Oferta_Publica {
 	}
 
 	/**
+	 * 1.94.0: day and month of an activity date, kept without the year so it
+	 * does not have to be changed every course. A full Y-m-d (stored before
+	 * 1.94.0) keeps its day and month.
+	 *
+	 * @param  string $value «MM-DD» or «Y-m-d».
+	 * @return string «MM-DD», or '' when it is not a real day of the year.
+	 */
+	public static function dia_mes_valido( string $value ): string {
+		$value = trim( $value );
+		if ( ! preg_match( '/^(?:\d{4}-)?(\d{2})-(\d{2})$/', $value, $m ) || ! checkdate( (int) $m[1], (int) $m[2], 2000 ) ) {
+			return '';
+		}
+		return $m[1] . '-' . $m[2];
+	}
+
+	/**
+	 * 1.94.0: the day and month placed in the given course: July to December in
+	 * its first year, January to June in its second one (as ANPA_Socios_Curso_Escolar).
+	 * 29 February becomes the 28th in a non-leap year.
+	 *
+	 * @param  string $dia_mes «MM-DD».
+	 * @param  string $curso   «2026/2027».
+	 * @return string Y-m-d, or '' when either value is not valid.
+	 */
+	public static function data_no_curso( string $dia_mes, string $curso ): string {
+		$dia_mes = self::dia_mes_valido( $dia_mes );
+		if ( '' === $dia_mes || ! preg_match( '/^(\d{4})\/(\d{4})$/', $curso, $c ) ) {
+			return '';
+		}
+		list( $mes, $dia ) = array_map( 'intval', explode( '-', $dia_mes ) );
+		$ano = $mes >= 7 ? (int) $c[1] : (int) $c[2];
+		if ( ! checkdate( $mes, $dia, $ano ) ) {
+			$dia = 28;
+		}
+		return sprintf( '%04d-%02d-%02d', $ano, $mes, $dia );
+	}
+
+	/**
 	 * «1 de outubro de 2026» (or without the year).
 	 *
 	 * @param  string $data    Y-m-d.
