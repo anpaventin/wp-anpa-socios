@@ -25,7 +25,7 @@ final class ANPA_Socios_Lista_Espera {
 	 * SQL condition (ASCII) for the rows that hold a place in the group: active,
 	 * an outstanding offer, and an accepted offer waiting for the junta.
 	 */
-	const SQL_OCUPAN = "( estado IN ('activo','oferta','baixa_solicitada') OR ( estado = 'pendente_aprobacion' AND oferta_aceptada_en IS NOT NULL ) )";
+	const SQL_OCUPAN = "( estado IN ('activo','oferta','baixa_solicitada') OR ( estado = 'pendente_aprobacion' AND oferta_aceptada_en IS NOT NULL ) OR ( estado = 'baixa' AND baixa_en > %s ) )";
 
 	/**
 	 * A family that let an offer go is not offered a place again for this long
@@ -43,8 +43,10 @@ final class ANPA_Socios_Lista_Espera {
 	public static function ocupadas( int $grupo_id, int $excluir = 0 ): int {
 		global $wpdb;
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		// 1.93.0: the %s of SQL_OCUPAN is «now» in WordPress local time (baixa_en is written with
+		// current_time('mysql'); MySQL NOW() follows the DB time zone).
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- constant condition.
-		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(1) FROM {$mat_t} WHERE grupo_id = %d AND id <> %d AND " . self::SQL_OCUPAN, $grupo_id, $excluir ) );
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(1) FROM {$mat_t} WHERE grupo_id = %d AND id <> %d AND " . self::SQL_OCUPAN, $grupo_id, $excluir, current_time( 'mysql' ) ) );
 	}
 
 	/**

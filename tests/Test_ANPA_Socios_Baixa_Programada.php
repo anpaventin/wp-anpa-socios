@@ -117,7 +117,7 @@ final class Test_ANPA_Socios_Baixa_Programada extends TestCase {
 		$this->assertStringContainsString( "estado = 'baixa_solicitada' AND baixa_efectiva_en IS NOT NULL AND baixa_efectiva_en <= %s", $cron );
 		$this->assertStringContainsString( 'self::efectivar( (int) $id, \'system\', \'system\', ANPA_Socios_Baixa_Programada::AUDIT_EFECTIVA )', $cron );
 		$ef = self::method_body( $s, 'public static function efectivar(' );
-		$this->assertStringContainsString( "baixa_efectiva_en = NULL, actualizado_en = %s WHERE id = %d AND estado = 'baixa_solicitada'", $ef );
+		$this->assertStringContainsString( "baixa_efectiva_en = NULL, oferta_aceptada_en = NULL, actualizado_en = %s WHERE id = %d AND estado = 'baixa_solicitada'", $ef );
 		$this->assertStringContainsString( 'ANPA_Socios_Extraescolar_Offers::offer_next( (int) $mat[\'grupo_id\'], (int) $mat[\'trimestre\'], 0, $programada );', $ef );
 		$this->assertStringContainsString( "ANPA_Socios_Email::telegram_baixa_programada( 'efectiva', \$oferta );", $ef );
 		$this->assertStringContainsString( 'ANPA_Socios_Baixa_Programada_Service::efectivar(', self::src( 'includes/class-anpa-socios-admin-grupos-handler.php' ) );
@@ -132,8 +132,8 @@ final class Test_ANPA_Socios_Baixa_Programada extends TestCase {
 		$rest   = self::src( 'includes/class-anpa-socios-extraescolares-rest.php' );
 		$cancel = self::method_body( $rest, 'public static function cancel_baixa(' );
 		// Mid-course the enrolment window is closed: a reported baixa can still be called a mistake.
-		$this->assertStringContainsString( "\$programada ? self::course_is_active( (string) ( \$mat['curso_escolar'] ?? '' ) ) : self::course_is_open(", $cancel );
-		$this->assertStringContainsString( '$programada ? self::lock_open_course_mode( $curso ) : self::lock_open_course( $curso );', $cancel );
+		$this->assertStringContainsString( "if ( ! self::course_is_active( (string) ( \$mat['curso_escolar'] ?? '' ) ) ) {", $cancel );
+		$this->assertStringContainsString( '$course_error = self::lock_open_course_mode( $curso );', $cancel );
 		$this->assertStringContainsString( "ANPA_Socios_Baixa_Programada_Service::anulada( (int) \$mat['id'], \$programada,", $cancel );
 		$this->assertStringContainsString( 'ANPA_Socios_Baixa_Programada_Service::limpar( $id );', self::method_body( $rest, 'public static function request_baixa(' ) );
 

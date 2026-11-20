@@ -445,34 +445,61 @@ class ANPA_Socios_Email {
 	 * @param  bool   $copia_xunta 1.91.0: Bcc the junta (place freed by a baixa the company reported).
 	 * @return bool
 	 */
-	public static function enviar_oferta_extraescolar( string $email_socio, string $actividade, int $dias_prazo, bool $copia_xunta = false ): bool {
-		$content = self::render_with_template(
+	public static function enviar_oferta_extraescolar( array $emails, string $alumno, string $actividade, string $grupo, int $dias_prazo, string $estado_grupo = '', bool $copia_xunta = false ): bool {
+		// 1.93.0: to every parent (it used to reach only the pupil's socio_email), with the
+		// pupil, the group and the group's real state; through the template store like the rest.
+		return self::send_template_familia_xunta(
+			$emails,
 			'oferta_extraescolar',
 			array(
-				'association_name' => ANPA_Socios_Config::association_name(),
-				'actividade'       => $actividade,
-				'dias_prazo'       => $dias_prazo,
-			),
-			function () use ( $actividade, $dias_prazo ) {
-				$subj = wp_specialchars_decode( sprintf( __( 'Hai unha praza dispoñible nunha extraescolar — %s', 'anpa-socios' ), ANPA_Socios_Config::association_name() ), ENT_QUOTES );
-				$html = '<!DOCTYPE html>'
-					. '<html><head><meta charset="UTF-8"></head>'
-					. '<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">'
-					. '<h2>' . esc_html__( 'Quedou unha praza libre', 'anpa-socios' ) . '</h2>'
-					. '<p>' . sprintf( esc_html__( 'Liberouse unha praza na actividade %s e o teu fillo/a é o/a seguinte na lista de espera.', 'anpa-socios' ), '<strong>' . esc_html( $actividade ) . '</strong>' ) . '</p>'
-					. '<p>' . sprintf( esc_html__( 'Entra na túa Área persoal da web da ANPA e acepta a praza no apartado «Actividades extraescolares» antes de %d días. Se non respondes a tempo, a praza ofrecerase á seguinte familia.', 'anpa-socios' ), (int) $dias_prazo ) . '</p>'
-					. '<p style="color: #666; font-size: 12px; margin-top: 30px;">' . esc_html__( 'Aviso automático do sistema de socios.', 'anpa-socios' ) . '</p>'
-					. '</body></html>';
-				return array(
-					'subject' => $subj,
-					'html'    => $html,
-					'text'    => wp_strip_all_tags( $html ),
-				);
-			}
+				'actividade'   => $actividade,
+				'dias_prazo'   => (string) $dias_prazo,
+				'alumno'       => $alumno,
+				'grupo'        => $grupo,
+				'estado_grupo' => $estado_grupo,
+			) + self::links_context(),
+			$copia_xunta
 		);
+	}
 
-		// 1.65.1: through send_from_master() so the family gets the signature too.
-		return self::send_from_master( $email_socio, (string) $content['subject'], (string) $content['html'], $copia_xunta ? array( 'Bcc: ' . self::junta_email() ) : array() );
+	/**
+	 * 1.93.0: the group's real state for the enrolment emails.
+	 *
+	 * @since  1.93.0
+	 * @param  int $grupo_id Group id.
+	 * @return array{clave:string,xunta:string}
+	 */
+	public static function contexto_grupo( int $grupo_id ): array {
+		global $wpdb;
+		$out = array( 'clave' => ANPA_Socios_Estado_Grupo_Texto::SEN_CREAR, 'xunta' => '' );
+		try {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only lookup for the email.
+			$g = $wpdb->get_row( $wpdb->prepare( 'SELECT curso_escolar, estado, min_pupilos, max_pupilos, aviso_comezo_en FROM ' . ANPA_Socios_DB::tabela_grupos() . ' WHERE id = %d', $grupo_id ), ARRAY_A );
+			if ( ! is_array( $g ) ) {
+				return $out;
+			}
+			$gate   = ANPA_Socios_Matricula_Gate_Repo::para_curso( (string) $g['curso_escolar'] );
+			$creado = ANPA_Socios_Aviso_Matricula::grupo_creado( (string) ( $gate['estado_curso'] ?? '' ), null === $g['aviso_comezo_en'] ? null : (string) $g['aviso_comezo_en'] );
+			$clave  = ANPA_Socios_Estado_Grupo_Texto::clave( (string) $g['estado'], $creado );
+			return array(
+				'clave' => $clave,
+				'xunta' => ANPA_Socios_Estado_Grupo_Texto::xunta( $clave, ANPA_Socios_Lista_Espera::ocupadas( $grupo_id ), (int) $g['min_pupilos'], (int) $g['max_pupilos'], ANPA_Socios_Lista_Espera::en_espera( $grupo_id ) ),
+			);
+		} catch ( \Throwable $e ) {
+			return $out;
+		}
+	}
+
+	/**
+	 * 1.93.0: the family sentence about the group of an enrolment.
+	 *
+	 * @since  1.93.0
+	 * @param  int    $grupo_id Group id.
+	 * @param  string $momento  ANPA_Socios_Estado_Grupo_Texto::PRAZA|ESPERA|PENDENTE|OFERTA.
+	 * @return string
+	 */
+	public static function estado_grupo_familia( int $grupo_id, string $momento ): string {
+		return ANPA_Socios_Estado_Grupo_Texto::familia( self::contexto_grupo( $grupo_id )['clave'], $momento );
 	}
 
 	/**
@@ -553,6 +580,8 @@ class ANPA_Socios_Email {
 		if ( '' === trim( (string) $content['subject'] ) || '' === trim( (string) $content['html'] ) ) {
 			return false;
 		}
+		// 1.93.0: an optional sentence (e.g. the group's state) left empty leaves no blank paragraph.
+		$content['html'] = (string) preg_replace( '#<p>\s*</p>#', '', (string) $content['html'] );
 
 		return self::send_from_master( $to, (string) $content['subject'], (string) $content['html'], $extra_headers );
 	}
@@ -758,8 +787,13 @@ class ANPA_Socios_Email {
 	 * @param  string $to Recipient (the junta's account).
 	 * @return bool
 	 */
-	public static function enviar_inicio_curso( string $to ): bool {
-		$ok = self::send_template( $to, 'inicio_curso', self::links_context() );
+	public static function enviar_inicio_curso( string $to, array $datas = array() ): bool {
+		// 1.93.0: the email also gives the end of the initial enrolment period and the first day
+		// of the activities (the separate «prazo_matriculas» reminder is gone).
+		$ok = self::send_template( $to, 'inicio_curso', array(
+			'data_peche'              => (string) ( $datas['peche'] ?? '' ),
+			'data_inicio_actividades' => (string) ( $datas['inicio_actividades'] ?? '' ),
+		) + self::links_context() );
 		if ( strtolower( trim( $to ) ) === self::junta_email() ) {
 			self::telegram( ANPA_Socios_Avisos_Xunta::INICIO_CURSO, __( 'Correo de inicio de curso', 'anpa-socios' ), __( 'Chegou á conta da xunta o correo de inicio de curso para reenvialo ás familias desde Gmail.', 'anpa-socios' ), self::xestion_url( 'lista-gmail' ) );
 		}
@@ -850,8 +884,8 @@ class ANPA_Socios_Email {
 	 * @param  string $grupo       Group label (name, schedule).
 	 * @return bool
 	 */
-	public static function enviar_matricula_pendente( string $email_socio, string $alumno, string $actividade, string $grupo ): bool {
-		return self::send_template( $email_socio, 'matricula_pendente', array( 'alumno' => $alumno, 'actividade' => $actividade, 'grupo' => $grupo ) );
+	public static function enviar_matricula_pendente( string $email_socio, string $alumno, string $actividade, string $grupo, string $estado_grupo = '' ): bool {
+		return self::send_template( $email_socio, 'matricula_pendente', array( 'alumno' => $alumno, 'actividade' => $actividade, 'grupo' => $grupo, 'estado_grupo' => $estado_grupo ) );
 	}
 
 	/**
@@ -869,15 +903,25 @@ class ANPA_Socios_Email {
 	 * @param  bool   $de_oferta   True when the family accepted an offer.
 	 * @return bool                True if the email was accepted.
 	 */
-	public static function enviar_aviso_matricula_pendente_xunta( string $email_socio, string $alumno, string $actividade, string $grupo, bool $de_oferta = false ): bool {
+	public static function enviar_aviso_matricula_pendente_xunta( string $email_socio, string $alumno, string $actividade, string $grupo, bool $de_oferta = false, int $grupo_id = 0 ): bool {
 		$aviso_id = $de_oferta ? ANPA_Socios_Avisos_Xunta::OFERTA_ACEPTADA : ANPA_Socios_Avisos_Xunta::MATRICULA_PENDENTE;
 		$ok       = false;
 		try {
 			if ( self::correo_xunta( $aviso_id ) ) {
+				// 1.93.0: the group's state with the numbers, and when the automatic approval happens.
+				$ctx_grupo = $grupo_id > 0 ? self::contexto_grupo( $grupo_id ) : array( 'xunta' => '' );
 				$ok = self::send_template(
 					self::junta_email(),
 					$de_oferta ? 'oferta_aceptada_xunta' : 'matricula_pendente_xunta',
-					array( 'alumno' => $alumno, 'actividade' => $actividade, 'grupo' => $grupo, 'email_socio' => $email_socio, 'xestion_url' => self::xestion_url() )
+					array(
+						'alumno'                => $alumno,
+						'actividade'            => $actividade,
+						'grupo'                 => $grupo,
+						'email_socio'           => $email_socio,
+						'xestion_url'           => self::xestion_url(),
+						'estado_grupo'          => '' !== $ctx_grupo['xunta'] ? $ctx_grupo['xunta'] : '—',
+						'aprobacion_automatica' => self::texto_aprobacion_automatica(),
+					)
 				);
 			}
 		} catch ( \Throwable $e ) {
@@ -892,13 +936,33 @@ class ANPA_Socios_Email {
 	}
 
 	/**
+	 * 1.93.0: the line about the automatic approval in the junta notice.
+	 *
+	 * @since  1.93.0
+	 * @return string
+	 */
+	public static function texto_aprobacion_automatica(): string {
+		if ( ! ANPA_Socios_Config::matricula_aprobacion_automatica() ) {
+			return __( 'Non: só se aproba en Aprobacións.', 'anpa-socios' );
+		}
+		$horas = ANPA_Socios_Config::matricula_aprobacion_horas();
+		$cando = function_exists( 'wp_date' ) ? (string) wp_date( 'd/m/Y H:i', time() + $horas * HOUR_IN_SECONDS ) : '';
+		return sprintf(
+			/* translators: 1: date and time, 2: hours */
+			__( 'Si: aprobarase soa arredor do %1$s (%2$d horas) se non a revisades antes.', 'anpa-socios' ),
+			$cando,
+			$horas
+		);
+	}
+
+	/**
 	 * The junta approved the pending request and there was a place.
 	 *
 	 * @since  1.68.0
 	 * @return bool
 	 */
-	public static function enviar_matricula_aprobada_praza( string $email_socio, string $alumno, string $actividade, string $grupo ): bool {
-		return self::send_template( $email_socio, 'matricula_aprobada_praza', array( 'alumno' => $alumno, 'actividade' => $actividade, 'grupo' => $grupo ) + self::links_context() );
+	public static function enviar_matricula_aprobada_praza( string $email_socio, string $alumno, string $actividade, string $grupo, string $estado_grupo = '' ): bool {
+		return self::send_template( $email_socio, 'matricula_aprobada_praza', array( 'alumno' => $alumno, 'actividade' => $actividade, 'grupo' => $grupo, 'estado_grupo' => $estado_grupo ) + self::links_context() );
 	}
 
 	/**
@@ -1036,16 +1100,6 @@ class ANPA_Socios_Email {
 	}
 
 	/**
-	 * 1.71.0: the family accepted a waitlist offer and the pupil is in the group.
-	 *
-	 * @since  1.71.0
-	 * @return bool
-	 */
-	public static function enviar_oferta_aceptada( string $email_socio, string $alumno, string $actividade, string $grupo ): bool {
-		return self::send_template( $email_socio, ANPA_Socios_Aviso_Matricula::PLANTILLA_OFERTA_ACEPTADA, array( 'alumno' => $alumno, 'actividade' => $actividade, 'grupo' => $grupo ) + self::links_context() );
-	}
-
-	/**
 	 * The junta approved the pending request but the group is full: waiting list.
 	 *
 	 * @since  1.68.0
@@ -1062,8 +1116,8 @@ class ANPA_Socios_Email {
 		return self::send_template( $email_socio, 'oferta_final_lista', array( 'motivo' => $motivo, 'alumno' => $alumno, 'actividade' => $actividade, 'grupo' => $grupo, 'posicion' => (string) $posicion ) );
 	}
 
-	public static function enviar_matricula_aprobada_espera( string $email_socio, string $alumno, string $actividade, string $grupo, int $posicion ): bool {
-		return self::send_template( $email_socio, 'matricula_aprobada_espera', array( 'alumno' => $alumno, 'actividade' => $actividade, 'grupo' => $grupo, 'posicion' => (string) $posicion ) );
+	public static function enviar_matricula_aprobada_espera( string $email_socio, string $alumno, string $actividade, string $grupo, int $posicion, string $estado_grupo = '' ): bool {
+		return self::send_template( $email_socio, 'matricula_aprobada_espera', array( 'alumno' => $alumno, 'actividade' => $actividade, 'grupo' => $grupo, 'posicion' => (string) $posicion, 'estado_grupo' => $estado_grupo ) );
 	}
 
 	/**

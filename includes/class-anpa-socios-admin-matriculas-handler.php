@@ -198,38 +198,145 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 		return new WP_REST_Response( $rows, 200 );
 	}
 
+	/**
+	 * POST /admin/matriculas — the junta enrols a pupil in a group.
+	 *
+	 * 1.93.0: the same checks as a family enrolment. The group must belong to the
+	 * activity and to the active course and must not be disabled, and the pupil's
+	 * level for that course must fit it. One live enrolment per pupil and activity.
+	 * The capacity decides the result: a place, or the waiting list when the group
+	 * is full or somebody is already waiting. Nothing is pending: the junta itself
+	 * enrols.
+	 *
+	 * The admin must say whether emails go out: `notificar` is required
+	 * (true = confirmation to the family and, for a running group, the notice to
+	 * the company and the canteen; false = no email). Before 1.93.0 the row was
+	 * inserted without a group, without a trimester and without any check.
+	 *
+	 * Body: { fillo_id, activitad_id, grupo_id, notificar, observaciones? }.
+	 *
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
 	public static function create_matricula( WP_REST_Request $request ) {
 		global $wpdb;
 
-		$payload = ANPA_Socios_Admin_Payload::validar_matricula( ANPA_Socios_Admin_Shared::json_body( $request ) );
+		$body    = ANPA_Socios_Admin_Shared::json_body( $request );
+		$payload = ANPA_Socios_Admin_Payload::validar_matricula( $body );
 		if ( null === $payload ) {
 			return new WP_Error( 'anpa_admin_invalid', __( 'Datos inválidos', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
+		$grupo_id = isset( $body['grupo_id'] ) ? (int) $body['grupo_id'] : 0;
+		if ( $grupo_id <= 0 ) {
+			return new WP_Error( 'anpa_admin_grupo_requirido', __( 'Indica o grupo (grupo_id) no que se matricula.', 'anpa-socios' ), array( 'status' => 400 ) );
+		}
+		if ( ! array_key_exists( 'notificar', $body ) || ! is_bool( $body['notificar'] ) ) {
+			return new WP_Error( 'anpa_admin_notificar_requirido', __( 'Indica se se avisa por correo (notificar: true ou false): á familia e, se o grupo xa está en marcha, á empresa e ao comedor.', 'anpa-socios' ), array( 'status' => 400 ) );
+		}
+		$notificar = (bool) $body['notificar'];
+		$fillo_id  = (int) $payload['fillo_id'];
+		$act_id    = (int) $payload['activitad_id'];
+		$mat_t     = ANPA_Socios_DB::tabela_matriculas();
+		$gru_t     = ANPA_Socios_DB::tabela_grupos();
 
-		// 1.70.0: the data-sharing consent is mandatory to enrol, so it is always recorded as given.
-		$payload  = $payload + array( 'cesion_datos_empresa' => 1 );
-		$inserted = $wpdb->insert(
-			$wpdb->prefix . 'anpa_matriculas',
-			$payload,
-			// fillo_id, activitad_id, comedor, tarde, observaciones, estado, cesion_datos_empresa.
-			array( '%d', '%d', '%d', '%d', '%s', '%s', '%d' )
-		);
-		if ( false === $inserted ) {
-			$code = (string) $wpdb->last_error;
-			if ( false !== strpos( $code, '1062' ) ) {
-				return new WP_Error( 'anpa_admin_already_enrolled', __( 'Xa matriculado nesta actividade', 'anpa-socios' ), array( 'status' => 409 ) );
-			}
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
-
-		$new_id = (int) $wpdb->insert_id;
-		ANPA_Socios_Admin_Shared::write_audit( $request, 'matricula', (string) $new_id, 'create' );
-		// 1.72.0: a pupil added to a created group → company + canteen.
-		if ( 'activo' === (string) $payload['estado'] ) {
-			ANPA_Socios_Email::avisar_empresa_comedor( $new_id, ANPA_Socios_Aviso_Matricula::PLANTILLA_ALTA );
+		$fail = static function ( string $code, string $msg, int $status ) use ( $wpdb ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( $code, $msg, array( 'status' => $status ) );
+		};
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- locked group row (capacity check).
+		$grupo = $wpdb->get_row( $wpdb->prepare( "SELECT id, actividad_id, curso_escolar, estado, max_pupilos FROM {$gru_t} WHERE id = %d FOR UPDATE", $grupo_id ), ARRAY_A );
+		if ( ! is_array( $grupo ) || (int) $grupo['actividad_id'] !== $act_id ) {
+			return $fail( 'anpa_admin_grupo', __( 'O grupo non é desa actividade.', 'anpa-socios' ), 400 );
+		}
+		$curso = (string) $grupo['curso_escolar'];
+		if ( ANPA_Socios_Curso_Activo::get() !== $curso ) {
+			return $fail( 'anpa_admin_curso_pechado', __( 'O grupo non é do curso activo.', 'anpa-socios' ), 409 );
+		}
+		if ( ANPA_Socios_Grupo_Serie::ESTADO_DESHABILITADO === (string) $grupo['estado'] ) {
+			return $fail( 'anpa_admin_grupo_deshabilitado', __( 'Este grupo está deshabilitado e non admite matrículas.', 'anpa-socios' ), 409 );
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only level of the pupil for that course.
+		$nivel_id = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT nivel_id FROM ' . ANPA_Socios_DB::tabela_fillos_cursos() . ' WHERE fillo_id = %d AND curso_escolar = %s LIMIT 1', $fillo_id, $curso ) );
+		if ( $nivel_id <= 0 ) {
+			return $fail( 'anpa_fillo_sen_curso', __( 'Este alumno/a non ten curso asignado para o curso escolar actual.', 'anpa-socios' ), 409 );
+		}
+		if ( ! in_array( $nivel_id, ANPA_Socios_DB::get_niveis_for_grupo( $grupo_id ), true ) ) {
+			return $fail( 'anpa_admin_curso', __( 'O curso do alumno/a non encaixa neste grupo.', 'anpa-socios' ), 409 );
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- one live enrolment per pupil and activity.
+		if ( (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(1) FROM {$mat_t} WHERE fillo_id = %d AND activitad_id = %d AND estado <> 'baixa'", $fillo_id, $act_id ) ) > 0 ) {
+			return $fail( 'anpa_admin_already_enrolled', __( 'Xa matriculado nesta actividade', 'anpa-socios' ), 409 );
 		}
 
-		return new WP_REST_Response( $payload + array( 'id' => $new_id ), 201 );
+		// Capacity: the same rule as a family enrolment and as aprobar().
+		$destino = ANPA_Socios_Matricula_Estado::destino_aprobacion( (string) $grupo['estado'], ANPA_Socios_Lista_Espera::ocupadas( $grupo_id ), (int) $grupo['max_pupilos'] );
+		if ( ANPA_Socios_Matricula_Estado::ACTIVO === $destino && ANPA_Socios_Lista_Espera::en_espera( $grupo_id ) > 0 ) {
+			$destino = ANPA_Socios_Matricula_Estado::LISTA_ESPERA;
+		}
+		$posicion  = ANPA_Socios_Matricula_Estado::LISTA_ESPERA === $destino ? ANPA_Socios_Lista_Espera::seguinte_posicion( $grupo_id ) : null;
+		$trimestre = ANPA_Socios_Matricula_Gate_Repo::trimestre_vixente( $curso );
+		if ( $trimestre < 1 ) {
+			return $fail( 'anpa_admin_trimestres', __( 'O curso non ten os trimestres inicializados (Xestión → Extraescolares → Matrículas).', 'anpa-socios' ), 409 );
+		}
+		$fields    = array(
+			'grupo_id'             => $grupo_id,
+			'estado'               => $destino,
+			'posicion'             => $posicion,
+			'baixa_en'             => null,
+			'observaciones'        => (string) $payload['observaciones'],
+			// 1.70.0: the data-sharing consent is mandatory to enrol, so it is always recorded as given.
+			'cesion_datos_empresa' => 1,
+			'oferta_token'         => null,
+			'oferta_expira'        => null,
+			'oferta_aceptada_en'   => null,
+			'baixa_efectiva_en'    => null,
+			'actualizado_en'       => current_time( 'mysql' ),
+		);
+		// A baixa row of the same pupil, activity and trimester (unique key) is reused.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- read-only.
+		$reuso = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$mat_t} WHERE fillo_id = %d AND activitad_id = %d AND trimestre = %d AND estado = 'baixa' LIMIT 1", $fillo_id, $act_id, $trimestre ) );
+		if ( $reuso > 0 ) {
+			$ok     = $wpdb->update( $mat_t, $fields, array( 'id' => $reuso ) );
+			$new_id = $reuso;
+			if ( false !== $ok ) {
+				$ok = $wpdb->query( $wpdb->prepare( "UPDATE {$mat_t} SET creado_en = NOW() WHERE id = %d", $reuso ) );
+			}
+		} else {
+			$ok     = $wpdb->insert( $mat_t, array( 'fillo_id' => $fillo_id, 'activitad_id' => $act_id, 'trimestre' => $trimestre ) + $fields );
+			$new_id = (int) $wpdb->insert_id;
+		}
+		if ( false === $ok || false === $wpdb->query( 'COMMIT' ) ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		if ( ANPA_Socios_Matricula_Estado::LISTA_ESPERA === $destino ) {
+			ANPA_Socios_Lista_Espera::renumerar( $grupo_id );
+		}
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'matricula', (string) $new_id, 'create_' . $destino . ( $notificar ? '' : '_sen_correo' ) );
+
+		$correos = 0;
+		if ( $notificar ) {
+			$correos = self::enviar_confirmacion( $new_id, $grupo_id, $destino, (int) $posicion );
+			// 1.72.0: a pupil added to a running group → company + canteen.
+			if ( ANPA_Socios_Matricula_Estado::ACTIVO === $destino ) {
+				ANPA_Socios_Email::avisar_empresa_comedor( $new_id, ANPA_Socios_Aviso_Matricula::PLANTILLA_ALTA );
+			}
+		}
+
+		return new WP_REST_Response( array(
+			'id'        => $new_id,
+			'fillo_id'  => $fillo_id,
+			'activitad_id' => $act_id,
+			'grupo_id'  => $grupo_id,
+			'estado'    => $destino,
+			'posicion'  => (int) $posicion,
+			'trimestre' => $trimestre,
+			'notificar' => $notificar,
+			'correos'   => $correos,
+		), 201 );
 	}
 
 	/**
@@ -285,12 +392,16 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 		$updated = $wpdb->update(
 			$mat_t,
 			array(
-				'estado'         => 'baixa',
-				'baixa_en'       => current_time( 'mysql' ),
-				'actualizado_en' => current_time( 'mysql' ),
+				'estado'             => 'baixa',
+				'baixa_en'           => current_time( 'mysql' ),
+				'actualizado_en'     => current_time( 'mysql' ),
+				// 1.93.0: no stale offer data left on the row (it may be reused by a new request).
+				'oferta_token'       => null,
+				'oferta_expira'      => null,
+				'oferta_aceptada_en' => null,
 			),
 			array( 'id' => $id ),
-			array( '%s', '%s', '%s' ),
+			array( '%s', '%s', '%s', '%s', '%s', '%s' ),
 			array( '%d' )
 		);
 		if ( false === $updated ) {
@@ -356,12 +467,28 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 			),
 			ARRAY_A
 		);
-		$rows = is_array( $rows ) ? $rows : array();
+		$rows   = is_array( $rows ) ? $rows : array();
+		$grupos = array();
 		foreach ( $rows as &$row ) {
 			$row['curso_completo'] = ANPA_Socios_Admin_Shared::curso_completo( $row['curso'] ?? null, $row['aula'] ?? null );
 			// 1.85.0: an accepted offer from the waiting list already holds its place.
 			$row['de_oferta']      = ! empty( $row['oferta_aceptada_en'] );
-			$row['destino']        = $row['de_oferta'] ? ANPA_Socios_Matricula_Estado::ACTIVO : ANPA_Socios_Matricula_Estado::destino_aprobacion( (string) $row['grupo_estado'], ANPA_Socios_Lista_Espera::ocupadas( (int) $row['grupo_id'] ), (int) $row['max_pupilos'] );
+			// 1.93.0: one lookup per group (every request is pending now: many rows per group).
+			$gid = (int) $row['grupo_id'];
+			if ( ! isset( $grupos[ $gid ] ) ) {
+				$grupos[ $gid ] = array(
+					'ocupadas' => ANPA_Socios_Lista_Espera::ocupadas( $gid ),
+					'espera'   => ANPA_Socios_Lista_Espera::en_espera( $gid ),
+					'xunta'    => ANPA_Socios_Email::contexto_grupo( $gid )['xunta'],
+				);
+			}
+			$row['destino']        = $row['de_oferta'] ? ANPA_Socios_Matricula_Estado::ACTIVO : ANPA_Socios_Matricula_Estado::destino_aprobacion( (string) $row['grupo_estado'], $grupos[ $gid ]['ocupadas'], (int) $row['max_pupilos'] );
+			// 1.93.0: same rule as aprobar(): behind whoever is already on the waiting list.
+			if ( ! $row['de_oferta'] && ANPA_Socios_Matricula_Estado::ACTIVO === $row['destino'] && $grupos[ $gid ]['espera'] > 0 ) {
+				$row['destino'] = ANPA_Socios_Matricula_Estado::LISTA_ESPERA;
+			}
+			// 1.93.0: the group's state with the numbers (Sen mínimo, aínda non creado, en marcha).
+			$row['estado_grupo']   = $grupos[ $gid ]['xunta'];
 		}
 		unset( $row );
 
@@ -430,6 +557,16 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_grupo_not_found', __( 'O grupo desta matrícula xa non existe', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
+		// 1.93.0: a disabled group takes no enrolment (not even into its waiting list).
+		if ( ANPA_Socios_Grupo_Serie::ESTADO_DESHABILITADO === (string) $grupo['estado'] ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_grupo_deshabilitado', __( 'O grupo está deshabilitado: rexeita a solicitude ou move o alumno/a a outro grupo.', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+		// 1.93.0: never approve into a course that is no longer active.
+		if ( ANPA_Socios_Curso_Activo::get() !== (string) $grupo['curso_escolar'] ) {
+			$wpdb->query( 'ROLLBACK' );
+			return new WP_Error( 'anpa_admin_curso_pechado', __( 'O curso desta solicitude xa non está activo: rexéitaa.', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
 		// 1.85.0: an offer the family accepted kept its place: it becomes a place, in its trimester.
 		$de_oferta = ! empty( $mat['oferta_aceptada_en'] );
 		if ( $de_oferta && ! in_array( (string) $grupo['estado'], array( ANPA_Socios_Grupo_Serie::ESTADO_ABERTO, ANPA_Socios_Grupo_Serie::ESTADO_SEN_MINIMO ), true ) ) {
@@ -443,8 +580,19 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 			// The rows that hold a place (this one does not yet).
 			$ocupadas  = ANPA_Socios_Lista_Espera::ocupadas( (int) $grupo['id'] );
 			$destino   = ANPA_Socios_Matricula_Estado::destino_aprobacion( (string) $grupo['estado'], $ocupadas, (int) $grupo['max_pupilos'] );
+			// 1.93.0: while somebody waits for this group a newcomer queues behind them (same rule as enrol()).
+			if ( ANPA_Socios_Matricula_Estado::ACTIVO === $destino && ANPA_Socios_Lista_Espera::en_espera( (int) $grupo['id'] ) > 0 ) {
+				$destino = ANPA_Socios_Matricula_Estado::LISTA_ESPERA;
+			}
 			// Trimester = the active one (same rule as the gate).
 			$trimestre = ANPA_Socios_Matricula_Gate_Repo::trimestre_vixente( (string) $grupo['curso_escolar'] );
+			// 1.93.0: the unique key is (fillo, activity, trimester) across courses: another row of the
+			// same pupil and activity in that trimester (e.g. last year's baixa) would make the update
+			// fail. Keep the request's own trimester then.
+			$colide = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(1) FROM {$mat_t} WHERE fillo_id = %d AND activitad_id = %d AND trimestre = %d AND id <> %d", (int) $mat['fillo_id'], (int) $mat['activitad_id'], $trimestre, $id ) );
+			if ( $colide > 0 ) {
+				$trimestre = (int) $mat['trimestre'];
+			}
 		}
 		// «posición» = place in this group's waiting list (only waiting rows have one).
 		$posicion = ANPA_Socios_Matricula_Estado::LISTA_ESPERA === $destino ? ANPA_Socios_Lista_Espera::seguinte_posicion( (int) $grupo['id'] ) : null;
@@ -469,18 +617,7 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 			ANPA_Socios_Lista_Espera::renumerar( (int) $grupo['id'] );
 		}
 
-		$correos = 0;
-		$detalle = self::detalle_para_correo( $id );
-		if ( is_array( $detalle ) ) {
-			foreach ( $detalle['emails'] as $email ) {
-				$ok = ANPA_Socios_Matricula_Estado::ACTIVO === $destino
-					? ANPA_Socios_Email::enviar_matricula_aprobada_praza( $email, $detalle['alumno'], $detalle['actividade'], $detalle['grupo'] )
-					: ANPA_Socios_Email::enviar_matricula_aprobada_espera( $email, $detalle['alumno'], $detalle['actividade'], $detalle['grupo'], (int) $posicion );
-				if ( $ok ) {
-					++$correos;
-				}
-			}
-		}
+		$correos = self::enviar_confirmacion( $id, (int) $grupo['id'], $destino, (int) $posicion );
 		// 1.71.0: a place granted mid-course → company + canteen (Bcc), with the family's contact.
 		// 1.85.0: an accepted offer from the waiting list always tells them (once the group exists).
 		if ( ( $avisar_empresa || $de_oferta ) && ANPA_Socios_Matricula_Estado::ACTIVO === $destino ) {
@@ -488,6 +625,37 @@ final class ANPA_Socios_Admin_Matriculas_Handler {
 		}
 
 		return array( 'id' => $id, 'estado' => $destino, 'posicion' => (int) $posicion, 'correos' => $correos );
+	}
+
+	/**
+	 * 1.93.0: the confirmation to every parent once the enrolment has a place or a
+	 * waiting-list position (approval by the junta, automatic approval, or a direct
+	 * enrolment during a free period), with the group's real state.
+	 *
+	 * @since  1.93.0
+	 * @param  int    $id       Matrícula id.
+	 * @param  int    $grupo_id Group id.
+	 * @param  string $estado   activo | lista_espera.
+	 * @param  int    $posicion Waiting-list position.
+	 * @return int Emails accepted.
+	 */
+	public static function enviar_confirmacion( int $id, int $grupo_id, string $estado, int $posicion ): int {
+		$correos = 0;
+		$detalle = self::detalle_para_correo( $id );
+		if ( ! is_array( $detalle ) ) {
+			return 0;
+		}
+		$praza = ANPA_Socios_Matricula_Estado::ACTIVO === $estado;
+		$frase = ANPA_Socios_Email::estado_grupo_familia( $grupo_id, $praza ? ANPA_Socios_Estado_Grupo_Texto::PRAZA : ANPA_Socios_Estado_Grupo_Texto::ESPERA );
+		foreach ( $detalle['emails'] as $email ) {
+			$ok = $praza
+				? ANPA_Socios_Email::enviar_matricula_aprobada_praza( $email, $detalle['alumno'], $detalle['actividade'], $detalle['grupo'], $frase )
+				: ANPA_Socios_Email::enviar_matricula_aprobada_espera( $email, $detalle['alumno'], $detalle['actividade'], $detalle['grupo'], $posicion, $frase );
+			if ( $ok ) {
+				++$correos;
+			}
+		}
+		return $correos;
 	}
 
 	/**

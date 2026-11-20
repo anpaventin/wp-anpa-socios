@@ -49,11 +49,18 @@ final class Test_ANPA_Socios_Aviso_Listado_Matriculas extends TestCase {
 	}
 
 	public function test_closed_window_says_the_list_is_stable(): void {
+		// 1.93.0: in the per-trimester mode (in the default «todo o curso» mode, see below).
+		update_option( ANPA_Socios_Config::OPTION_MODO_INSCRICION, ANPA_Socios_Config::MODO_TRIMESTRAL );
 		$aviso = ANPA_Socios_Matricula_Gate::aviso_listado( ANPA_Socios_Matricula_Gate::avaliar( $this->curso(), $this->trimestres( 'pechada', 'pechada', 'pechada', true, 2 ), '2027-02-01' ) );
 		$this->assertSame( 'pechadas', $aviso['estado'] );
 		$this->assertSame( 2, $aviso['trimestre'] );
 		$this->assertSame( '2º trimestre · Matrículas PECHADAS', $aviso['titulo'] );
 		$this->assertStringContainsString( 'estable', $aviso['texto'] );
+		update_option( ANPA_Socios_Config::OPTION_MODO_INSCRICION, ANPA_Socios_Config::MODO_TODO_CURSO );
+		$aviso = ANPA_Socios_Matricula_Gate::aviso_listado( ANPA_Socios_Matricula_Gate::avaliar( $this->curso(), $this->trimestres( 'pechada', 'pechada', 'pechada', true, 2 ), '2027-02-01' ) );
+		$this->assertSame( 'pechadas', $aviso['estado'] );
+		$this->assertSame( '2º trimestre · Prazo inicial pechado', $aviso['titulo'] );
+		$this->assertStringContainsString( 'seguen abertas todo o curso', $aviso['texto'] );
 	}
 
 	public function test_other_closed_reasons_explain_why(): void {

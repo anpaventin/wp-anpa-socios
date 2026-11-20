@@ -1182,7 +1182,7 @@
 			if (ofertaPechada) {
 				const aviso = document.createElement('p');
 				aviso.className = 'anpa-area-muted anpa-area-warning';
-				aviso.textContent = __( 'O prazo de matrícula está pechado. Podes deixar igualmente a solicitude: quedará pendente de aprobación pola directiva e recibirás un correo cando a revise (praza ou lista de espera).', 'anpa-socios' );
+				aviso.textContent = __( 'As inscricións quedan pendentes de aprobación pola directiva. Cando se aprobe recibirás un correo de confirmación: praza se hai sitio no grupo ou, se está completo, lista de espera.', 'anpa-socios' );
 				host.appendChild(aviso);
 			}
 
@@ -1415,7 +1415,7 @@
 				const result = await tokenRequest('POST', url, areaToken, payload, root);
 				if (result) {
 					const msg = (result.estado === 'pendente_aprobacion')
-						? __( 'Solicitude rexistrada: queda pendente de aprobación pola directiva. Recibirás un correo cando a revise.', 'anpa-socios' )
+						? __( 'Solicitude rexistrada: queda pendente de aprobación. Recibirás un correo coa confirmación.', 'anpa-socios' )
 						: (result.estado === 'lista_espera')
 							? 'Matrícula en lista de espera (posición ' + (result.posicion || '?') + ').'
 							: __( 'Matrícula confirmada.', 'anpa-socios' );
@@ -1865,7 +1865,8 @@
 				grupo: (r.grupo || '') + (r.horario ? ' · ' + r.horario + ' ' + (r.franxa || '') : ''),
 				alumno: ((r.nome || '') + ' ' + (r.apelidos || '')).trim(),
 				curso: (r.curso || '') + (r.aula ? ' ' + r.aula : ''),
-				estado: EMPRESA_ESTADO_LABELS[r.estado] || r.estado || '',
+				// 1.93.0: a baixa says when it took (or takes) effect.
+				estado: (r.estado_label || EMPRESA_ESTADO_LABELS[r.estado] || r.estado || '') + (r.baixa_efectiva && r.estado === 'baixa' && (r.estado_label || '').indexOf(r.baixa_efectiva) === -1 ? ' (' + __( 'efectiva o', 'anpa-socios' ) + ' ' + r.baixa_efectiva + ')' : ''),
 				opcions: opcionsLabel(r),
 				// 1.70.0: both parents; flat text for search/sort, raw parts for the links.
 				proxenitor1: [nomeCompleto(r.proxenitor1_nome, r.proxenitor1_apelidos), r.proxenitor1_telefono, r.proxenitor1_email].filter(Boolean).join(' · '),

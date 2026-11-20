@@ -46,7 +46,8 @@ final class Test_ANPA_Socios_Correos_Masivos extends TestCase {
 			$this->assertNotEmpty( $c['plantillas'] );
 		}
 		$this->assertSame( 'aqui', $onde['inicio_curso_xunta'] );
-		$this->assertSame( 'aqui', $onde['prazo_matriculas'] );
+		// 1.93.0: the deadline goes in the start-of-course email; no separate reminder.
+		$this->assertArrayNotHasKey( 'prazo_matriculas', $onde );
 		foreach ( array( 'comezo_curso', 'ventas', 'fin_curso' ) as $id ) {
 			$this->assertSame( 'matriculas', $onde[ $id ], $id . ' changes the course: sent from Matrículas' );
 		}
@@ -65,8 +66,8 @@ final class Test_ANPA_Socios_Correos_Masivos extends TestCase {
 		$js = $this->src( 'assets/js/admin-management.js' );
 		$this->assertStringContainsString( "'correos': loadCorreos,", $js );
 		$c = $this->body( $js, 'renderCorreos' );
-		$this->assertStringContainsString( "anpaAdminFetch('contactos-google/inicio-curso', { method: 'POST' })", $c );
-		$this->assertStringContainsString( "anpaAdminFetch('avisos/prazo-matriculas', { method: 'POST'", $c );
+		$this->assertStringContainsString( "anpaAdminFetch('contactos-google/inicio-curso', { method: 'POST', body: { data_peche: icPeche.value, data_inicio_actividades: icInicio.value } })", $c );
+		$this->assertStringNotContainsString( 'avisos/prazo-matriculas', $js );
 		$this->assertStringContainsString( 'Rexistro de envíos', $c );
 	}
 

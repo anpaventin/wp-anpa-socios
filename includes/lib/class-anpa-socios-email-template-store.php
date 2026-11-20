@@ -93,23 +93,28 @@ final class ANPA_Socios_Email_Template_Store {
 					array( 'alumno', 'actividade', 'email_socio' ),
 				),
 			),
+			// 1.93.0: to both parents, with the pupil, the group and its real state. New variables
+			// are appended so a template edited before keeps its placeholders in place.
 			'oferta_extraescolar' => array(
 				'subject' => array(
-					__( 'Oferta de praza — %s', 'anpa-socios' ),
-					array( 'actividade' ),
+					__( 'Oferta de praza: %2$s en %1$s — %3$s', 'anpa-socios' ),
+					array( 'actividade', 'alumno', 'association_name' ),
 				),
 				'html' => array(
-					'<p>' . sprintf( __( 'Ola, hai unha praza dispoñible para %%s.', 'anpa-socios' ), '<strong>%s</strong>' ) . '</p>' .
-					'<p>' . sprintf( __( 'Tes %%d días para aceptar esta oferta.', 'anpa-socios' ), '%s' ) . '</p>' .
-					// 1.85.0: what happens next.
-					'<p>' . __( 'Acéptaa ou rexéitaa na área de socios/as (Extraescolares). Se a aceptas, a directiva confirmará a praza e avisarémoste. Se a rexeitas ou non respondes a tempo, segues na lista de espera, pero ao final.', 'anpa-socios' ) . '</p>',
-					array( 'actividade', 'dias_prazo' ),
+					'<p>' . __( 'Ola,', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Quedou libre unha praza para <strong>%3$s</strong> na actividade <strong>%1$s</strong> (%4$s) e correspóndevos por ser os seguintes na lista de espera.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Tedes <strong>%2$s días</strong> para aceptala ou rexeitala dende a área de socios/as, no apartado «Extraescolares». Se a aceptades, confirmarase a matrícula e recibiredes un correo de confirmación. Se a rexeitades ou non respondedes a tempo, segue na lista de espera, pero ao final.', 'anpa-socios' ) . '</p>' .
+					'<p>%5$s</p>' .
+					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %6$s.', 'anpa-socios' ) . '</p>',
+					array( 'actividade', 'dias_prazo', 'alumno', 'grupo', 'estado_grupo', 'contact_email' ),
 				),
 				'text' => array(
-					__( 'Ola, hai unha praza dispoñible para %s.', 'anpa-socios' ) . "\n\n" .
-					__( 'Tes %d días para aceptar esta oferta.', 'anpa-socios' ) . "\n\n" .
-					__( 'Acéptaa ou rexéitaa na área de socios/as (Extraescolares). Se a aceptas, a directiva confirmará a praza e avisarémoste. Se a rexeitas ou non respondes a tempo, segues na lista de espera, pero ao final.', 'anpa-socios' ),
-					array( 'actividade', 'dias_prazo' ),
+					__( 'Ola,', 'anpa-socios' ) . "\n\n" .
+					__( 'Quedou libre unha praza para %3$s na actividade %1$s (%4$s) e correspóndevos por ser os seguintes na lista de espera.', 'anpa-socios' ) . "\n\n" .
+					__( 'Tedes %2$s días para aceptala ou rexeitala dende a área de socios/as, no apartado «Extraescolares». Se a aceptades, confirmarase a matrícula e recibiredes un correo de confirmación. Se a rexeitades ou non respondedes a tempo, segue na lista de espera, pero ao final.', 'anpa-socios' ) . "\n\n" .
+					'%5$s' . "\n\n" .
+					__( 'Para calquera dúbida, escribide á directiva en %6$s.', 'anpa-socios' ),
+					array( 'actividade', 'dias_prazo', 'alumno', 'grupo', 'estado_grupo', 'contact_email' ),
 				),
 			),
 			'pendente_aprobacion' => array(
@@ -365,74 +370,41 @@ final class ANPA_Socios_Email_Template_Store {
 					__( 'Comeza o curso: socios/as e actividades extraescolares — %s', 'anpa-socios' ),
 					array( 'association_name' ),
 				),
-				// 1.68.1: modelled on the junta's own start-of-year mail (2026-09): short, links first,
-				// relative calendar (the only date is the start of the activities).
+				// 1.68.1: modelled on the junta's own start-of-year mail (2026-09).
+				// 1.93.0: one email for the start of the course — it also carries the end of the
+				// initial enrolment period (used to form the groups) and the first day of the
+				// activities, which the separate «prazo_matriculas» reminder used to give.
 				'html' => array(
 					'<p>' . __( 'Prezadas familias,', 'anpa-socios' ) . '</p>' .
-					'<p><strong>' . __( 'Xa está aberta a inscrición nas actividades extraescolares!', 'anpa-socios' ) . '</strong> ' . __( 'E con ela o prazo para facerse socio/a de %s.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Toda a información sobre como darse de alta como socios/as e o proceso paso a paso para a inscrición nas actividades está neste enlace:', 'anpa-socios' ) . ' <a href="%s">%s</a></p>' .
+					'<p><strong>' . __( 'Xa está aberta a inscrición nas actividades extraescolares!', 'anpa-socios' ) . '</strong> ' . __( 'E con ela o prazo para facerse socio/a de %1$s.', 'anpa-socios' ) . '</p>' .
+					'<p><strong>' . __( 'Prazo inicial de inscrición: ata o %9$s.', 'anpa-socios' ) . '</strong> ' . __( 'Con estas inscricións formamos os grupos: cada actividade precisa o mínimo de participantes que esixe a empresa, e os grupos que non o acaden non se poderán formar. Despois desa data enviamos os listados ás empresas e avisaremos a cada familia de se o seu grupo se forma.', 'anpa-socios' ) . '</p>' .
+					'<p><strong>' . __( 'As actividades comezan o %10$s.', 'anpa-socios' ) . '</strong></p>' .
+					'<p>' . __( 'Antes de que remate o prazo, revisade que a actividade e o horario escollidos son os correctos: un erro pode facer que un grupo non se forme ou que outra familia quede sen praza. Se quedades en lista de espera, podedes manter o posto ou inscribirvos noutra actividade con prazas libres.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Despois do prazo inicial podedes seguir inscribíndovos durante todo o curso: as novas inscricións quedan pendentes de aprobación e confirmarémosvolas por correo (praza ou lista de espera).', 'anpa-socios' ) . '</p>' .
 					'<ul>' .
-					'<li><strong>' . __( 'Oferta de actividades e horarios semanais:', 'anpa-socios' ) . '</strong> <a href="%s">%s</a></li>' .
-					'<li><strong>' . __( 'Área de socios/as', 'anpa-socios' ) . '</strong> ' . __( '(entrar co teu correo, darse de alta, revisar os datos e matricular):', 'anpa-socios' ) . ' <a href="%s">%s</a></li>' .
+					'<li><strong>' . __( 'Información e proceso paso a paso (alta como socios/as e inscrición):', 'anpa-socios' ) . '</strong> <a href="%2$s">%3$s</a></li>' .
+					'<li><strong>' . __( 'Oferta de actividades e horarios semanais:', 'anpa-socios' ) . '</strong> <a href="%4$s">%5$s</a></li>' .
+					'<li><strong>' . __( 'Área de socios/as', 'anpa-socios' ) . '</strong> ' . __( '(entrar co teu correo, darse de alta, revisar os datos e matricular):', 'anpa-socios' ) . ' <a href="%6$s">%7$s</a></li>' .
 					'</ul>' .
-					'<p><strong>' . __( 'Calendario:', 'anpa-socios' ) . '</strong> ' . __( 'as actividades comezan o 1 de outubro. Uns días antes péchase o prazo de inscrición na web e envíase o listado ás empresas que imparten as actividades; avisaremos por correo da data exacta de peche, con marxe para revisar as inscricións.', 'anpa-socios' ) . '</p>' .
 					'<p><strong>' . __( 'Aviso importante sobre os pagos:', 'anpa-socios' ) . '</strong> ' . __( 'a ANPA encárgase unicamente de xestionar as inscricións e a organización. O cobro das actividades faino directamente cada empresa coas familias inscritas.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %8$s.', 'anpa-socios' ) . '</p>' .
 					'<p>' . __( 'Grazas pola vosa colaboración. Un saúdo.', 'anpa-socios' ) . '</p>',
-					array( 'association_name', 'instrucions_url', 'instrucions_url', 'extraescolares_url', 'extraescolares_url', 'login_url', 'login_url', 'contact_email' ),
+					array( 'association_name', 'instrucions_url', 'instrucions_url', 'extraescolares_url', 'extraescolares_url', 'login_url', 'login_url', 'contact_email', 'data_peche', 'data_inicio_actividades' ),
 				),
 				'text' => array(
 					__( 'Prezadas familias,', 'anpa-socios' ) . "\n\n" .
-					__( 'Xa está aberta a inscrición nas actividades extraescolares!', 'anpa-socios' ) . ' ' . __( 'E con ela o prazo para facerse socio/a de %s.', 'anpa-socios' ) . "\n\n" .
-					__( 'Toda a información sobre como darse de alta como socios/as e o proceso paso a paso para a inscrición nas actividades está neste enlace:', 'anpa-socios' ) . ' %s' . "\n\n" .
-					'- ' . __( 'Oferta de actividades e horarios semanais:', 'anpa-socios' ) . ' %s' . "\n" .
-					'- ' . __( 'Área de socios/as', 'anpa-socios' ) . ' ' . __( '(entrar co teu correo, darse de alta, revisar os datos e matricular):', 'anpa-socios' ) . ' %s' . "\n\n" .
-					__( 'Calendario:', 'anpa-socios' ) . ' ' . __( 'as actividades comezan o 1 de outubro. Uns días antes péchase o prazo de inscrición na web e envíase o listado ás empresas que imparten as actividades; avisaremos por correo da data exacta de peche, con marxe para revisar as inscricións.', 'anpa-socios' ) . "\n\n" .
+					__( 'Xa está aberta a inscrición nas actividades extraescolares!', 'anpa-socios' ) . ' ' . __( 'E con ela o prazo para facerse socio/a de %1$s.', 'anpa-socios' ) . "\n\n" .
+					__( 'Prazo inicial de inscrición: ata o %6$s.', 'anpa-socios' ) . ' ' . __( 'Con estas inscricións formamos os grupos: cada actividade precisa o mínimo de participantes que esixe a empresa, e os grupos que non o acaden non se poderán formar. Despois desa data enviamos os listados ás empresas e avisaremos a cada familia de se o seu grupo se forma.', 'anpa-socios' ) . "\n\n" .
+					__( 'As actividades comezan o %7$s.', 'anpa-socios' ) . "\n\n" .
+					__( 'Antes de que remate o prazo, revisade que a actividade e o horario escollidos son os correctos: un erro pode facer que un grupo non se forme ou que outra familia quede sen praza. Se quedades en lista de espera, podedes manter o posto ou inscribirvos noutra actividade con prazas libres.', 'anpa-socios' ) . "\n\n" .
+					__( 'Despois do prazo inicial podedes seguir inscribíndovos durante todo o curso: as novas inscricións quedan pendentes de aprobación e confirmarémosvolas por correo (praza ou lista de espera).', 'anpa-socios' ) . "\n\n" .
+					'- ' . __( 'Información e proceso paso a paso (alta como socios/as e inscrición):', 'anpa-socios' ) . ' %2$s' . "\n" .
+					'- ' . __( 'Oferta de actividades e horarios semanais:', 'anpa-socios' ) . ' %3$s' . "\n" .
+					'- ' . __( 'Área de socios/as', 'anpa-socios' ) . ' ' . __( '(entrar co teu correo, darse de alta, revisar os datos e matricular):', 'anpa-socios' ) . ' %4$s' . "\n\n" .
 					__( 'Aviso importante sobre os pagos:', 'anpa-socios' ) . ' ' . __( 'a ANPA encárgase unicamente de xestionar as inscricións e a organización. O cobro das actividades faino directamente cada empresa coas familias inscritas.', 'anpa-socios' ) . "\n\n" .
-					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . "\n\n" .
+					__( 'Para calquera dúbida, escribide á directiva en %5$s.', 'anpa-socios' ) . "\n\n" .
 					__( 'Grazas pola vosa colaboración. Un saúdo.', 'anpa-socios' ),
-					array( 'association_name', 'instrucions_url', 'extraescolares_url', 'login_url', 'contact_email' ),
-				),
-			),
-			// ── 1.68.0: ciclo do curso e control das extraescolares dende Xestión → Matrículas ──
-			// Correos masivos ás familias (destinatario visible: a xunta; familias en CCO por lotes).
-			'prazo_matriculas' => array(
-				// 1.68.1: modelled on the junta's «últimos días de revisión» mail (2026-09).
-				'subject' => array(
-					__( 'Últimos días para revisar as inscricións nas extraescolares: o prazo remata o %s — %s', 'anpa-socios' ),
-					array( 'data_peche', 'association_name' ),
-				),
-				'html' => array(
-					'<p>' . __( 'Prezadas familias,', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Estamos na fase final do proceso de inscrición e revisión das actividades extraescolares. O prazo de revisión e axustes remata o <strong>%s</strong>: ese día péchanse as inscricións na web e envíase a lista definitiva ás empresas que imparten as actividades, para que organicen os grupos e a xestión dos pagos antes do comezo das clases, que comezan o <strong>%s</strong>.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Neste momento estamos a avaliar a viabilidade de cada grupo: para que unha actividade saia adiante debe acadar o número mínimo de participantes que esixe a empresa organizadora, e as que non o acaden terán que descartarse. Por iso pedímosvos que teñades en conta estes puntos:', 'anpa-socios' ) . '</p>' .
-					'<ul>' .
-					'<li><strong>' . __( 'Inscricións en grupos activos:', 'anpa-socios' ) . '</strong> ' . __( 'animámosvos a inscribir aos vosos fillos e fillas nas actividades que aínda precisan duns poucos alumnos/as para chegar ao mínimo, ou nas que xa teñen grupo creado e prazas dispoñibles.', 'anpa-socios' ) . '</li>' .
-					'<li><strong>' . __( 'Listas de espera:', 'anpa-socios' ) . '</strong> ' . __( 'se o voso fillo ou filla quedou en lista de espera polo límite de prazas, podedes mantervos nesa lista ou inscribilo/a noutra actividade que si teña prazas libres.', 'anpa-socios' ) . '</li>' .
-					'<li><strong>' . __( 'Revisión dos datos:', 'anpa-socios' ) . '</strong> ' . __( 'comprobade con atención que a actividade e o horario escollidos son os correctos. Un erro na selección pode facer que un grupo non se forme ou que outra familia quede sen praza.', 'anpa-socios' ) . '</li>' .
-					'</ul>' .
-					'<p>' . __( 'Consultade a oferta e xestionade as inscricións na web:', 'anpa-socios' ) . '</p>' .
-					'<ul>' .
-					'<li><strong>' . __( 'Oferta de actividades e horarios:', 'anpa-socios' ) . '</strong> <a href="%s">%s</a></li>' .
-					'<li><strong>' . __( 'Área de socios/as (matricular, cambiar ou dar de baixa):', 'anpa-socios' ) . '</strong> <a href="%s">%s</a></li>' .
-					'</ul>' .
-					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Moitas grazas pola vosa axuda e colaboración para que todo saia o mellor posible. Un saúdo.', 'anpa-socios' ) . '</p>',
-					array( 'data_peche', 'data_inicio_actividades', 'extraescolares_url', 'extraescolares_url', 'login_url', 'login_url', 'contact_email' ),
-				),
-				'text' => array(
-					__( 'Prezadas familias,', 'anpa-socios' ) . "\n\n" .
-					__( 'Estamos na fase final do proceso de inscrición e revisión das actividades extraescolares. O prazo de revisión e axustes remata o %s: ese día péchanse as inscricións na web e envíase a lista definitiva ás empresas que imparten as actividades, para que organicen os grupos e a xestión dos pagos antes do comezo das clases, que comezan o %s.', 'anpa-socios' ) . "\n\n" .
-					__( 'Neste momento estamos a avaliar a viabilidade de cada grupo: para que unha actividade saia adiante debe acadar o número mínimo de participantes que esixe a empresa organizadora, e as que non o acaden terán que descartarse. Por iso pedímosvos que teñades en conta estes puntos:', 'anpa-socios' ) . "\n\n" .
-					'- ' . __( 'Inscricións en grupos activos:', 'anpa-socios' ) . ' ' . __( 'animámosvos a inscribir aos vosos fillos e fillas nas actividades que aínda precisan duns poucos alumnos/as para chegar ao mínimo, ou nas que xa teñen grupo creado e prazas dispoñibles.', 'anpa-socios' ) . "\n" .
-					'- ' . __( 'Listas de espera:', 'anpa-socios' ) . ' ' . __( 'se o voso fillo ou filla quedou en lista de espera polo límite de prazas, podedes mantervos nesa lista ou inscribilo/a noutra actividade que si teña prazas libres.', 'anpa-socios' ) . "\n" .
-					'- ' . __( 'Revisión dos datos:', 'anpa-socios' ) . ' ' . __( 'comprobade con atención que a actividade e o horario escollidos son os correctos. Un erro na selección pode facer que un grupo non se forme ou que outra familia quede sen praza.', 'anpa-socios' ) . "\n\n" .
-					__( 'Consultade a oferta e xestionade as inscricións na web:', 'anpa-socios' ) . "\n" .
-					'- ' . __( 'Oferta de actividades e horarios:', 'anpa-socios' ) . ' %s' . "\n" .
-					'- ' . __( 'Área de socios/as (matricular, cambiar ou dar de baixa):', 'anpa-socios' ) . ' %s' . "\n\n" .
-					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . "\n\n" .
-					__( 'Moitas grazas pola vosa axuda e colaboración para que todo saia o mellor posible. Un saúdo.', 'anpa-socios' ),
-					array( 'data_peche', 'data_inicio_actividades', 'extraescolares_url', 'login_url', 'contact_email' ),
+					array( 'association_name', 'instrucions_url', 'extraescolares_url', 'login_url', 'contact_email', 'data_peche', 'data_inicio_actividades' ),
 				),
 			),
 			'fin_curso' => array(
@@ -462,6 +434,7 @@ final class ANPA_Socios_Email_Template_Store {
 					__( 'Abertas as matrículas das extraescolares para o %s trimestre — %s', 'anpa-socios' ),
 					array( 'trimestre', 'association_name' ),
 				),
+				// 1.93.0: only used in the per-trimester mode; no «we will remind you» line any more.
 				'html' => array(
 					'<p>' . __( 'Prezadas familias,', 'anpa-socios' ) . '</p>' .
 					'<p>' . __( 'Xa están abertas as matrículas (altas e baixas) nas actividades extraescolares para o <strong>%s trimestre</strong>.', 'anpa-socios' ) . '</p>' .
@@ -469,7 +442,6 @@ final class ANPA_Socios_Email_Template_Store {
 					'<li><strong>' . __( 'Oferta de actividades e horarios:', 'anpa-socios' ) . '</strong> <a href="%s">%s</a></li>' .
 					'<li><strong>' . __( 'Área de socios/as (matricular ou dar de baixa):', 'anpa-socios' ) . '</strong> <a href="%s">%s</a></li>' .
 					'</ul>' .
-					'<p>' . __( 'Avisaremos por correo cando o prazo estea a punto de rematar.', 'anpa-socios' ) . '</p>' .
 					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
 					array( 'trimestre', 'extraescolares_url', 'extraescolares_url', 'login_url', 'login_url', 'contact_email' ),
 				),
@@ -478,27 +450,27 @@ final class ANPA_Socios_Email_Template_Store {
 					__( 'Xa están abertas as matrículas (altas e baixas) nas actividades extraescolares para o %s trimestre.', 'anpa-socios' ) . "\n\n" .
 					'- ' . __( 'Oferta de actividades e horarios:', 'anpa-socios' ) . ' %s' . "\n" .
 					'- ' . __( 'Área de socios/as (matricular ou dar de baixa):', 'anpa-socios' ) . ' %s' . "\n\n" .
-					__( 'Avisaremos por correo cando o prazo estea a punto de rematar.', 'anpa-socios' ) . "\n\n" .
 					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
 					array( 'trimestre', 'extraescolares_url', 'login_url', 'contact_email' ),
 				),
 			),
 			'matriculas_pechadas' => array(
 				'subject' => array(
-					__( 'Pechado o prazo de matrícula das extraescolares (%s trimestre) — %s', 'anpa-socios' ),
+					__( 'Pechado o prazo de inscrición das extraescolares (%s trimestre) — %s', 'anpa-socios' ),
 					array( 'trimestre', 'association_name' ),
 				),
+				// 1.93.0: enrolments go on after the free period, pending approval.
 				'html' => array(
 					'<p>' . __( 'Prezadas familias,', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'O prazo de altas e baixas nas actividades extraescolares do <strong>%s trimestre</strong> quedou pechado. Os listados envíanse agora ás empresas que imparten as actividades.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Se precisades matricular fóra de prazo, podedes deixar unha solicitude na área de socios/as: quedará pendente de aprobación pola directiva e atenderase se hai prazas.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Pechou o prazo de inscrición do <strong>%s trimestre</strong>. Enviamos os listados ás empresas que imparten as actividades e estamos a formar os grupos: avisaremos a cada familia de se o seu grupo se forma.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Podedes seguir inscribíndovos durante o curso dende a área de socios/as: as novas inscricións quedan pendentes de aprobación e confirmarémosvolas por correo (praza ou lista de espera).', 'anpa-socios' ) . '</p>' .
 					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
 					array( 'trimestre', 'contact_email' ),
 				),
 				'text' => array(
 					__( 'Prezadas familias,', 'anpa-socios' ) . "\n\n" .
-					__( 'O prazo de altas e baixas nas actividades extraescolares do %s trimestre quedou pechado. Os listados envíanse agora ás empresas que imparten as actividades.', 'anpa-socios' ) . "\n\n" .
-					__( 'Se precisades matricular fóra de prazo, podedes deixar unha solicitude na área de socios/as: quedará pendente de aprobación pola directiva e atenderase se hai prazas.', 'anpa-socios' ) . "\n\n" .
+					__( 'Pechou o prazo de inscrición do %s trimestre. Enviamos os listados ás empresas que imparten as actividades e estamos a formar os grupos: avisaremos a cada familia de se o seu grupo se forma.', 'anpa-socios' ) . "\n\n" .
+					__( 'Podedes seguir inscribíndovos durante o curso dende a área de socios/as: as novas inscricións quedan pendentes de aprobación e confirmarémosvolas por correo (praza ou lista de espera).', 'anpa-socios' ) . "\n\n" .
 					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
 					array( 'trimestre', 'contact_email' ),
 				),
@@ -509,19 +481,23 @@ final class ANPA_Socios_Email_Template_Store {
 					__( 'Solicitude de matrícula recibida: %s en %s — %s', 'anpa-socios' ),
 					array( 'alumno', 'actividade', 'association_name' ),
 				),
+				// 1.93.0: enrolments are open all year: no «prazo pechado» any more; the group's real
+				// state is appended (never a word about the automatic approval).
 				'html' => array(
-					'<p>' . __( 'Recibimos a solicitude de matrícula de <strong>%s</strong> na actividade <strong>%s</strong> (%s).', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'O prazo de matrícula está pechado ou o grupo xa está en marcha, así que a solicitude queda <strong>pendente de aprobación</strong> pola directiva. Cando a revisemos recibiredes outro correo dicindo se hai praza ou se queda en lista de espera.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Se xa non a queredes manter, podedes retirala dende a área de socios/as, no apartado «Extraescolares».', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
-					array( 'alumno', 'actividade', 'grupo', 'contact_email' ),
+					'<p>' . __( 'Recibimos a solicitude de matrícula de <strong>%1$s</strong> na actividade <strong>%2$s</strong> (%3$s).', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'A solicitude queda <strong>pendente de aprobación</strong> pola directiva. Cando se aprobe recibiredes un correo de confirmación: se hai praza libre no grupo, entrará nel; se o grupo está completo, quedará en lista de espera e avisarémosvos cando quede un posto libre.', 'anpa-socios' ) . '</p>' .
+					'<p>%5$s</p>' .
+					'<p>' . __( 'Mentres estea pendente, podedes retirala dende a área de socios/as, no apartado «Extraescolares».', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %4$s.', 'anpa-socios' ) . '</p>',
+					array( 'alumno', 'actividade', 'grupo', 'contact_email', 'estado_grupo' ),
 				),
 				'text' => array(
-					__( 'Recibimos a solicitude de matrícula de %s na actividade %s (%s).', 'anpa-socios' ) . "\n\n" .
-					__( 'O prazo de matrícula está pechado ou o grupo xa está en marcha, así que a solicitude queda pendente de aprobación pola directiva. Cando a revisemos recibiredes outro correo dicindo se hai praza ou se queda en lista de espera.', 'anpa-socios' ) . "\n\n" .
-					__( 'Se xa non a queredes manter, podedes retirala dende a área de socios/as, no apartado «Extraescolares».', 'anpa-socios' ) . "\n\n" .
-					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
-					array( 'alumno', 'actividade', 'grupo', 'contact_email' ),
+					__( 'Recibimos a solicitude de matrícula de %1$s na actividade %2$s (%3$s).', 'anpa-socios' ) . "\n\n" .
+					__( 'A solicitude queda pendente de aprobación pola directiva. Cando se aprobe recibiredes un correo de confirmación: se hai praza libre no grupo, entrará nel; se o grupo está completo, quedará en lista de espera e avisarémosvos cando quede un posto libre.', 'anpa-socios' ) . "\n\n" .
+					'%5$s' . "\n\n" .
+					__( 'Mentres estea pendente, podedes retirala dende a área de socios/as, no apartado «Extraescolares».', 'anpa-socios' ) . "\n\n" .
+					__( 'Para calquera dúbida, escribide á directiva en %4$s.', 'anpa-socios' ),
+					array( 'alumno', 'actividade', 'grupo', 'contact_email', 'estado_grupo' ),
 				),
 			),
 			'matricula_aprobada_praza' => array(
@@ -529,35 +505,40 @@ final class ANPA_Socios_Email_Template_Store {
 					__( 'Matrícula confirmada: %s en %s — %s', 'anpa-socios' ),
 					array( 'alumno', 'actividade', 'association_name' ),
 				),
+				// 1.93.0: also for the automatic approval and a direct enrolment; with the group's state.
 				'html' => array(
-					'<p>' . __( 'A directiva aprobou a solicitude: <strong>%s</strong> ten praza na actividade <strong>%s</strong> (%s).', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Podedes ver a matrícula na área de socios/as: <a href="%s">%s</a>. O cobro da actividade faino directamente a empresa que a imparte.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
-					array( 'alumno', 'actividade', 'grupo', 'login_url', 'login_url', 'contact_email' ),
+					'<p>' . __( 'Confirmamos a matrícula: <strong>%1$s</strong> ten praza na actividade <strong>%2$s</strong> (%3$s).', 'anpa-socios' ) . '</p>' .
+					'<p>%7$s</p>' .
+					'<p>' . __( 'Podedes ver a matrícula na área de socios/as: <a href="%4$s">%5$s</a>. O cobro da actividade faino directamente a empresa que a imparte, e só cando o grupo está en marcha.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %6$s.', 'anpa-socios' ) . '</p>',
+					array( 'alumno', 'actividade', 'grupo', 'login_url', 'login_url', 'contact_email', 'estado_grupo' ),
 				),
 				'text' => array(
-					__( 'A directiva aprobou a solicitude: %s ten praza na actividade %s (%s).', 'anpa-socios' ) . "\n\n" .
-					__( 'Podedes ver a matrícula na área de socios/as: %s. O cobro da actividade faino directamente a empresa que a imparte.', 'anpa-socios' ) . "\n\n" .
-					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
-					array( 'alumno', 'actividade', 'grupo', 'login_url', 'contact_email' ),
+					__( 'Confirmamos a matrícula: %1$s ten praza na actividade %2$s (%3$s).', 'anpa-socios' ) . "\n\n" .
+					'%6$s' . "\n\n" .
+					__( 'Podedes ver a matrícula na área de socios/as: %4$s. O cobro da actividade faino directamente a empresa que a imparte, e só cando o grupo está en marcha.', 'anpa-socios' ) . "\n\n" .
+					__( 'Para calquera dúbida, escribide á directiva en %5$s.', 'anpa-socios' ),
+					array( 'alumno', 'actividade', 'grupo', 'login_url', 'contact_email', 'estado_grupo' ),
 				),
 			),
 			'matricula_aprobada_espera' => array(
 				'subject' => array(
-					__( 'Solicitude aprobada, en lista de espera: %s en %s — %s', 'anpa-socios' ),
+					__( 'En lista de espera: %s en %s — %s', 'anpa-socios' ),
 					array( 'alumno', 'actividade', 'association_name' ),
 				),
 				'html' => array(
-					'<p>' . __( 'A directiva aprobou a solicitude de <strong>%s</strong> na actividade <strong>%s</strong> (%s), pero neste momento non hai praza libre: queda en <strong>lista de espera</strong> (posición %s).', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Confirmamos a solicitude de <strong>%1$s</strong> na actividade <strong>%2$s</strong> (%3$s), pero agora mesmo o grupo está completo: queda en <strong>lista de espera</strong> (posición %4$s).', 'anpa-socios' ) . '</p>' .
 					'<p>' . __( 'Cando quede unha praza libre recibiredes un correo cunha oferta que teredes que aceptar dende a área de socios/as nun prazo de tres días.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
-					array( 'alumno', 'actividade', 'grupo', 'posicion', 'contact_email' ),
+					'<p>%6$s</p>' .
+					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %5$s.', 'anpa-socios' ) . '</p>',
+					array( 'alumno', 'actividade', 'grupo', 'posicion', 'contact_email', 'estado_grupo' ),
 				),
 				'text' => array(
-					__( 'A directiva aprobou a solicitude de %s na actividade %s (%s), pero neste momento non hai praza libre: queda en lista de espera (posición %s).', 'anpa-socios' ) . "\n\n" .
+					__( 'Confirmamos a solicitude de %1$s na actividade %2$s (%3$s), pero agora mesmo o grupo está completo: queda en lista de espera (posición %4$s).', 'anpa-socios' ) . "\n\n" .
 					__( 'Cando quede unha praza libre recibiredes un correo cunha oferta que teredes que aceptar dende a área de socios/as nun prazo de tres días.', 'anpa-socios' ) . "\n\n" .
-					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
-					array( 'alumno', 'actividade', 'grupo', 'posicion', 'contact_email' ),
+					'%6$s' . "\n\n" .
+					__( 'Para calquera dúbida, escribide á directiva en %5$s.', 'anpa-socios' ),
+					array( 'alumno', 'actividade', 'grupo', 'posicion', 'contact_email', 'estado_grupo' ),
 				),
 			),
 			'matricula_rexeitada' => array(
@@ -732,9 +713,11 @@ final class ANPA_Socios_Email_Template_Store {
 					'<li><strong>' . __( 'Actividade:', 'anpa-socios' ) . '</strong> %s</li>' .
 					'<li><strong>' . __( 'Grupo:', 'anpa-socios' ) . '</strong> %s</li>' .
 					'<li><strong>' . __( 'Solicitado por:', 'anpa-socios' ) . '</strong> %s</li>' .
+					'<li><strong>' . __( 'Estado do grupo:', 'anpa-socios' ) . '</strong> %6$s</li>' .
+					'<li><strong>' . __( 'Aprobación automática:', 'anpa-socios' ) . '</strong> %7$s</li>' .
 					'</ul>' .
-					'<p><a href="%s">' . __( 'Revisar en Aprobacións', 'anpa-socios' ) . '</a></p>',
-					array( 'alumno', 'actividade', 'grupo', 'email_socio', 'xestion_url' ),
+					'<p><a href="%5$s">' . __( 'Revisar en Aprobacións', 'anpa-socios' ) . '</a></p>',
+					array( 'alumno', 'actividade', 'grupo', 'email_socio', 'xestion_url', 'estado_grupo', 'aprobacion_automatica' ),
 				),
 				'text' => array(
 					__( 'Unha familia inscribiu a un alumno/a nunha actividade extraescolar e a solicitude agarda a vosa aprobación:', 'anpa-socios' ) . "
@@ -749,8 +732,10 @@ final class ANPA_Socios_Email_Template_Store {
 					__( 'Solicitado por:', 'anpa-socios' ) . ' %s' . "
 
 " .
-					__( 'Revisar en Aprobacións:', 'anpa-socios' ) . ' %s',
-					array( 'alumno', 'actividade', 'grupo', 'email_socio', 'xestion_url' ),
+					__( 'Estado do grupo:', 'anpa-socios' ) . ' %6$s' . "\n" .
+					__( 'Aprobación automática:', 'anpa-socios' ) . ' %7$s' . "\n\n" .
+					__( 'Revisar en Aprobacións:', 'anpa-socios' ) . ' %5$s',
+					array( 'alumno', 'actividade', 'grupo', 'email_socio', 'xestion_url', 'estado_grupo', 'aprobacion_automatica' ),
 				),
 			),
 			'oferta_aceptada_xunta' => array(
@@ -765,9 +750,11 @@ final class ANPA_Socios_Email_Template_Store {
 					'<li><strong>' . __( 'Actividade:', 'anpa-socios' ) . '</strong> %s</li>' .
 					'<li><strong>' . __( 'Grupo:', 'anpa-socios' ) . '</strong> %s</li>' .
 					'<li><strong>' . __( 'Aceptada por:', 'anpa-socios' ) . '</strong> %s</li>' .
+					'<li><strong>' . __( 'Estado do grupo:', 'anpa-socios' ) . '</strong> %6$s</li>' .
+					'<li><strong>' . __( 'Aprobación automática:', 'anpa-socios' ) . '</strong> %7$s</li>' .
 					'</ul>' .
-					'<p><a href="%s">' . __( 'Revisar en Aprobacións', 'anpa-socios' ) . '</a></p>',
-					array( 'alumno', 'actividade', 'grupo', 'email_socio', 'xestion_url' ),
+					'<p><a href="%5$s">' . __( 'Revisar en Aprobacións', 'anpa-socios' ) . '</a></p>',
+					array( 'alumno', 'actividade', 'grupo', 'email_socio', 'xestion_url', 'estado_grupo', 'aprobacion_automatica' ),
 				),
 				'text' => array(
 					__( 'Unha familia aceptou a praza que se lle ofreceu dende a lista de espera. A praza queda reservada ata que a confirmedes en Aprobacións (ao aprobala avísase á empresa e ao comedor):', 'anpa-socios' ) . "
@@ -782,26 +769,10 @@ final class ANPA_Socios_Email_Template_Store {
 					__( 'Aceptada por:', 'anpa-socios' ) . ' %s' . "
 
 " .
-					__( 'Revisar en Aprobacións:', 'anpa-socios' ) . ' %s',
-					array( 'alumno', 'actividade', 'grupo', 'email_socio', 'xestion_url' ),
-				),
-			),
-			'oferta_aceptada' => array(
-				'subject' => array(
-					__( 'Praza confirmada: %s en %s — %s', 'anpa-socios' ),
-					array( 'alumno', 'actividade', 'association_name' ),
-				),
-				'html' => array(
-					'<p>' . __( 'Aceptastes a praza ofrecida: <strong>%s</strong> xa está no grupo da actividade <strong>%s</strong> (%s). A directiva avisa tamén á empresa e ao persoal de comedor.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Podedes ver a matrícula na área de socios/as: <a href="%s">%s</a>. O cobro da actividade faino directamente a empresa que a imparte.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
-					array( 'alumno', 'actividade', 'grupo', 'login_url', 'login_url', 'contact_email' ),
-				),
-				'text' => array(
-					__( 'Aceptastes a praza ofrecida: %s xa está no grupo da actividade %s (%s). A directiva avisa tamén á empresa e ao persoal de comedor.', 'anpa-socios' ) . "\n\n" .
-					__( 'Podedes ver a matrícula na área de socios/as: %s. O cobro da actividade faino directamente a empresa que a imparte.', 'anpa-socios' ) . "\n\n" .
-					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
-					array( 'alumno', 'actividade', 'grupo', 'login_url', 'contact_email' ),
+					__( 'Estado do grupo:', 'anpa-socios' ) . ' %6$s' . "\n" .
+					__( 'Aprobación automática:', 'anpa-socios' ) . ' %7$s' . "\n\n" .
+					__( 'Revisar en Aprobacións:', 'anpa-socios' ) . ' %5$s',
+					array( 'alumno', 'actividade', 'grupo', 'email_socio', 'xestion_url', 'estado_grupo', 'aprobacion_automatica' ),
 				),
 			),
 			// Avisos por grupo (Grupos e horarios), só coas matrículas pechadas.
@@ -872,17 +843,40 @@ final class ANPA_Socios_Email_Template_Store {
 					__( 'O grupo %s de %s aínda non se forma: seguimos admitindo inscricións — %s', 'anpa-socios' ),
 					array( 'grupo', 'actividade', 'association_name' ),
 				),
+				// 1.93.0: to the families with a place and the company only (the waiting list gets
+				// «grupo_sen_minimo_espera»; pending requests hear on approval).
 				'html' => array(
 					'<p>' . __( 'Prezadas familias e empresa,', 'anpa-socios' ) . '</p>' .
 					'<p>' . __( 'O grupo <strong>%s</strong> da actividade <strong>%s</strong> aínda non chega ao mínimo de alumnado, polo que de momento non comeza.', 'anpa-socios' ) . '</p>' .
-					'<p>' . __( 'O grupo segue aberto a novas inscricións durante o curso. Quen xa está inscrito conserva a súa praza e non se cobra nada mentres o grupo non se forme. Se se chega ao mínimo, avisaremos con antelación antes de comezar.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'O grupo segue admitindo inscricións. Quen ten praza consérvaa e non se cobra nada mentres o grupo non se forme. Se se chega ao mínimo, avisaremos antes de comezar.', 'anpa-socios' ) . '</p>' .
 					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
 					array( 'grupo', 'actividade', 'contact_email' ),
 				),
 				'text' => array(
 					__( 'Prezadas familias e empresa,', 'anpa-socios' ) . "\n\n" .
 					__( 'O grupo %s da actividade %s aínda non chega ao mínimo de alumnado, polo que de momento non comeza.', 'anpa-socios' ) . "\n\n" .
-					__( 'O grupo segue aberto a novas inscricións durante o curso. Quen xa está inscrito conserva a súa praza e non se cobra nada mentres o grupo non se forme. Se se chega ao mínimo, avisaremos con antelación antes de comezar.', 'anpa-socios' ) . "\n\n" .
+					__( 'O grupo segue admitindo inscricións. Quen ten praza consérvaa e non se cobra nada mentres o grupo non se forme. Se se chega ao mínimo, avisaremos antes de comezar.', 'anpa-socios' ) . "\n\n" .
+					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
+					array( 'grupo', 'actividade', 'contact_email' ),
+				),
+			),
+			// 1.93.0: the same moment for the families on the group's waiting list.
+			'grupo_sen_minimo_espera' => array(
+				'subject' => array(
+					__( 'Lista de espera: o grupo %s de %s aínda non se forma — %s', 'anpa-socios' ),
+					array( 'grupo', 'actividade', 'association_name' ),
+				),
+				'html' => array(
+					'<p>' . __( 'Prezadas familias,', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'O grupo <strong>%s</strong> da actividade <strong>%s</strong> aínda non chega ao mínimo de alumnado, polo que de momento non comeza.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'O voso posto na lista de espera mantense e avisarémosvos se o grupo se forma e queda praza.', 'anpa-socios' ) . '</p>' .
+					'<p>' . __( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ) . '</p>',
+					array( 'grupo', 'actividade', 'contact_email' ),
+				),
+				'text' => array(
+					__( 'Prezadas familias,', 'anpa-socios' ) . "\n\n" .
+					__( 'O grupo %s da actividade %s aínda non chega ao mínimo de alumnado, polo que de momento non comeza.', 'anpa-socios' ) . "\n\n" .
+					__( 'O voso posto na lista de espera mantense e avisarémosvos se o grupo se forma e queda praza.', 'anpa-socios' ) . "\n\n" .
 					__( 'Para calquera dúbida, escribide á directiva en %s.', 'anpa-socios' ),
 					array( 'grupo', 'actividade', 'contact_email' ),
 				),

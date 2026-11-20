@@ -513,6 +513,9 @@ class ANPA_Socios_Empresa_REST {
 					'aula'       => (string) $r['aula'],
 					'estado'     => $estado,
 					'trimestre'  => (int) $r['trimestre'],
+					// 1.93.0: when a baixa took (or takes) effect, and the state as the export shows it.
+					'baixa_efectiva' => (string) ( $r['baixa_efectiva'] ?? '' ),
+					'estado_label'   => ANPA_Socios_Listado_Empresa::estado_fila( $r ),
 					// 1.70.0: both parents' contact (the 2nd one empty when the family has none).
 					'proxenitor1_nome'     => (string) ( $r['proxenitor1_nome'] ?? '' ),
 					'proxenitor1_apelidos' => (string) ( $r['proxenitor1_apelidos'] ?? '' ),

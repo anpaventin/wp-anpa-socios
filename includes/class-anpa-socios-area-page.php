@@ -320,7 +320,7 @@ class ANPA_Socios_Area_Page {
 				<div class="anpa-area-actions anpa-empresa-toolbar">
 					<?php // 1.74.0: spreadsheet first (canteen); CSV stays as the secondary format. ?>
 					<button type="button" data-action="empresa-export-ods-comedor" hidden><?php esc_html_e( 'Descargar listado completo (.ods)', 'anpa-socios' ); ?></button>
-					<button type="button" class="anpa-area-secondary" data-action="empresa-export" data-ambito="activos"><?php esc_html_e( 'CSV: só activos', 'anpa-socios' ); ?></button>
+					<button type="button" class="anpa-area-secondary" data-action="empresa-export" data-ambito="activos"><?php esc_html_e( 'CSV: alumnado que asiste agora', 'anpa-socios' ); ?></button>
 					<button type="button" class="anpa-area-secondary" data-action="empresa-export" data-ambito="todos"><?php esc_html_e( 'CSV: listado completo', 'anpa-socios' ); ?></button>
 					<button type="button" class="anpa-area-secondary" data-action="empresa-logout"><?php esc_html_e( 'Pechar sesión', 'anpa-socios' ); ?></button>
 				</div>

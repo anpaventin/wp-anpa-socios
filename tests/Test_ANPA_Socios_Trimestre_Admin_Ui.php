@@ -87,15 +87,18 @@ final class Test_ANPA_Socios_Trimestre_Admin_Ui extends TestCase {
 
 	public function test_mass_notices_go_through_the_batched_sender_and_are_audited(): void {
 		$handler = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-admin-trimestres-handler.php' );
-		foreach ( array( "'inicio_curso'", "'prazo_matriculas'", "'fin_curso'", "'matriculas_abertas'", "'matriculas_pechadas'" ) as $tpl ) {
+		foreach ( array( "'inicio_curso'", "'fin_curso'", "'matriculas_abertas'", "'matriculas_pechadas'" ) as $tpl ) {
 			$this->assertStringContainsString( $tpl, $handler );
 		}
 		$this->assertStringContainsString( 'ANPA_Socios_Email::enviar_masivo( self::socios_activos_emails(), $template_id, $context )', $handler );
 		$this->assertStringContainsString( "ANPA_Socios_Envio_Masivo::etiqueta_auditoria( \$template_id, \$resumo ), 'masivo'", $handler );
 		// End of year closes groups and current enrolments of that course only.
-		$this->assertStringContainsString( "WHERE g.curso_escolar = %s AND m.estado IN ({\$in})", $handler );
+		// 1.93.0: in one helper shared by every way of closing a course.
+		$season = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-anpa-socios-season-service.php' );
+		$this->assertStringContainsString( 'ANPA_Socios_Season_Service::pechar_matriculas_curso( $curso, $actor,', $handler );
+		$this->assertStringContainsString( "WHERE g.curso_escolar = %s AND m.estado IN ({\$in})", $season );
 		// 1.85.0: the end of the course closes «sen mínimo» groups too.
-		$this->assertStringContainsString( "WHERE curso_escolar = %s AND estado IN ('aberto','sen_minimo')", $handler );
+		$this->assertStringContainsString( "WHERE curso_escolar = %s AND estado IN ('aberto','sen_minimo')", $season );
 	}
 
 	public function test_repo_delegates_transition_rules_to_value_objects(): void {

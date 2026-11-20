@@ -85,8 +85,8 @@ final class Test_ANPA_Socios_Email_Templates_Galego extends TestCase {
 				continue; // special template
 			}
 
-			$this->assertStringContainsString(
-				'%s',
+			$this->assertMatchesRegularExpression(
+				'/%(?:\d+\$)?s/',
 				$template['subject'],
 				"Template $id subject should have %s placeholder"
 			);
@@ -137,7 +137,7 @@ final class Test_ANPA_Socios_Email_Templates_Galego extends TestCase {
 	public function test_oferta_extraescolar_galego(): void {
 		$tpl = ANPA_Socios_Email_Template_Store::get_default( 'oferta_extraescolar' );
 		$this->assertStringContainsString( 'praza', $tpl['subject'] );
-		$this->assertStringContainsString( 'oferta', $tpl['html'] );
+		$this->assertStringContainsString( 'lista de espera', $tpl['html'] );
 	}
 
 	public function test_pendente_aprobacion_galego(): void {

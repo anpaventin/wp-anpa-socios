@@ -54,14 +54,15 @@ final class ANPA_Socios_Admin_Trimestres_Handler {
 			'callback'            => array( __CLASS__, 'set_ventana' ),
 			'permission_callback' => $perm,
 		) );
+		// 1.93.0: how enrolments work (open all year / per trimester).
+		register_rest_route( $ns, '/trimestres/modo', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( __CLASS__, 'set_modo' ),
+			'permission_callback' => $perm,
+		) );
 		register_rest_route( $ns, '/avisos/comezo-curso', array(
 			'methods'             => WP_REST_Server::CREATABLE,
 			'callback'            => array( __CLASS__, 'aviso_comezo_curso' ),
-			'permission_callback' => $perm,
-		) );
-		register_rest_route( $ns, '/avisos/prazo-matriculas', array(
-			'methods'             => WP_REST_Server::CREATABLE,
-			'callback'            => array( __CLASS__, 'aviso_prazo_matriculas' ),
 			'permission_callback' => $perm,
 		) );
 		register_rest_route( $ns, '/avisos/fin-curso', array(
@@ -131,7 +132,56 @@ final class ANPA_Socios_Admin_Trimestres_Handler {
 			'correo_xunta'         => ANPA_Socios_Config::master_email(),
 			'matriculas_pendentes' => count( self::pendentes_ids( $curso ) ),
 			'datas'                => is_array( $row ) ? ANPA_Socios_Matricula_Gate::datas_de_fila( $row ) : array( 'inicio' => '', 't1' => '', 't2' => '', 'peche' => '' ),
+			// 1.93.0: enrolment mode, automatic approval (edited in Axustes → Xeral) and the
+			// dates given with «Notificar comezo do curso».
+			'modo_inscricion'      => ANPA_Socios_Config::modo_inscricion(),
+			'aprobacion_auto'      => '1' === (string) get_option( ANPA_Socios_Config::OPTION_MATRICULA_AUTO, '0' ),
+			'aprobacion_horas'     => ANPA_Socios_Config::matricula_aprobacion_horas(),
+			'axustes_aprobacion'   => function_exists( 'admin_url' ) ? admin_url( 'admin.php?page=anpa-socios-settings&tab=xeral#anpa-aprobacion-matriculas' ) : '',
+			'prazo_inicial'        => self::prazo_inicial( $curso ),
 		);
+	}
+
+	/** 1.93.0: option with the dates of each course's initial enrolment period. */
+	const OPTION_PRAZO_INICIAL = 'anpa_socios_prazo_inicial';
+
+	/**
+	 * @since  1.93.0
+	 * @param  string $curso Course.
+	 * @return array{peche:string,inicio_actividades:string}
+	 */
+	public static function prazo_inicial( string $curso ): array {
+		$all = get_option( self::OPTION_PRAZO_INICIAL, array() );
+		$v   = is_array( $all ) && isset( $all[ $curso ] ) && is_array( $all[ $curso ] ) ? $all[ $curso ] : array();
+		return array(
+			'peche'              => (string) ( $v['peche'] ?? '' ),
+			'inicio_actividades' => (string) ( $v['inicio_actividades'] ?? '' ),
+		);
+	}
+
+	// ──────────────────────────────────────────────
+	// POST /trimestres/modo  { modo: todo_curso|trimestral }
+	// ──────────────────────────────────────────────
+
+	/**
+	 * 1.93.0: switches how enrolments work. «todo_curso» (default): one initial free
+	 * period at the start of the course to form the groups, then every request waits
+	 * for approval (the junta's or the automatic one). «trimestral»: a free period
+	 * opened and closed each trimester; outside it requests wait for the junta.
+	 *
+	 * @param  WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function set_modo( WP_REST_Request $request ) {
+		$body = ANPA_Socios_Admin_Shared::json_body( $request );
+		$modo = (string) ( $body['modo'] ?? '' );
+		if ( ! in_array( $modo, array( ANPA_Socios_Config::MODO_TODO_CURSO, ANPA_Socios_Config::MODO_TRIMESTRAL ), true ) ) {
+			return new WP_Error( 'anpa_admin_invalid', __( 'Modo de inscrición non válido.', 'anpa-socios' ), array( 'status' => 400 ) );
+		}
+		update_option( ANPA_Socios_Config::OPTION_MODO_INSCRICION, $modo );
+		ANPA_Socios_Admin_Shared::write_audit( $request, 'config', 'modo_inscricion', 'modo_' . $modo );
+		$curso = self::curso_de( (string) ( $body['curso'] ?? '' ) );
+		return new WP_REST_Response( is_wp_error( $curso ) ? array( 'modo_inscricion' => $modo ) : self::payload( $curso ), 200 );
 	}
 
 	// ──────────────────────────────────────────────
@@ -189,7 +239,9 @@ final class ANPA_Socios_Admin_Trimestres_Handler {
 		}
 
 		$pechar_curso = ANPA_Socios_Trimestre_Combo::CURSO_PECHADO === $destino;
-		$pendentes    = $pechar_curso ? array() : self::pendentes_ids( $curso );
+		// 1.93.0: with enrolments open all year the pending requests are handled one by one (or
+		// automatically): activating a trimester leaves them as they are.
+		$pendentes    = ( $pechar_curso || ANPA_Socios_Config::inscricions_todo_curso() ) ? array() : self::pendentes_ids( $curso );
 		$aprobar      = ! empty( $body['aprobar_pendentes'] );
 		if ( ! $pechar_curso && array() !== $pendentes && ! $aprobar ) {
 			return new WP_Error(
@@ -225,13 +277,16 @@ final class ANPA_Socios_Admin_Trimestres_Handler {
 				return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido pechar o curso.', 'anpa-socios' ), array( 'status' => 500 ) );
 			}
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'curso', $curso, 'curso_pechado' );
+			// 1.93.0: the same complete close as «Notificar fin de curso», without the email.
+			ANPA_Socios_Season_Service::pechar_matriculas_curso( $curso, $actor, (string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_ROL ) );
 			// 1.80.0: closing the course confirms every pending member baixa in cascade.
 			$baixas_socios = ANPA_Socios_Baixa_Familia::confirmar_pendentes_fin_curso( $request );
 		} else {
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'curso', $curso, 'trimestre_activo_' . (int) $destino );
 			foreach ( $pendentes as $id ) {
-				// 1.71.0: trimester activation is a mass moment → no per-pupil company/canteen notice.
-				$r = ANPA_Socios_Admin_Matriculas_Handler::aprobar( (int) $id, $actor, (string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_ROL ), false );
+				// 1.93.0: the company and the canteen hear about each pupil who joins a group that is
+				// already running (avisar_empresa_comedor() skips groups not created yet).
+				$r = ANPA_Socios_Admin_Matriculas_Handler::aprobar( (int) $id, $actor, (string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_ROL ), true );
 				if ( is_wp_error( $r ) ) {
 					++$aprobacions['erros'];
 				} elseif ( ANPA_Socios_Matricula_Estado::ACTIVO === (string) ( $r['estado'] ?? '' ) ) {
@@ -273,6 +328,14 @@ final class ANPA_Socios_Admin_Trimestres_Handler {
 		$row = self::curso_row( $curso );
 		if ( $destino > 0 && ( ! is_array( $row ) || ANPA_Socios_Season::ESTADO_ACTIVO !== (string) $row['estado'] ) ) {
 			return new WP_Error( 'anpa_admin_curso_non_activo', __( 'Só se poden abrir as matrículas do curso activo. Usa «Notificar comezo do curso» ou activa o curso primeiro.', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+		// 1.93.0: the gate only reads the ACTIVE trimester's window: opening another one did nothing.
+		if ( $destino > 0 && ANPA_Socios_Trimestre_Estado::ACTIVO !== (string) ( $rows[ $destino ]['estado'] ?? '' ) ) {
+			return new WP_Error( 'anpa_admin_trimestre_non_activo', __( 'Só se pode abrir o prazo do trimestre activo. Activa antes ese trimestre.', 'anpa-socios' ), array( 'status' => 409 ) );
+		}
+		// 1.93.0: with enrolments open all year there is only the initial free period (1st trimester).
+		if ( $destino > 1 && ANPA_Socios_Config::inscricions_todo_curso() ) {
+			return new WP_Error( 'anpa_admin_modo_todo_curso', __( 'Coas inscricións abertas todo o curso só hai o prazo inicial do 1º trimestre. Para abrir un prazo en cada trimestre cambia o modo de inscrición.', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
 
 		$actor     = self::actor( $request );
@@ -316,6 +379,13 @@ final class ANPA_Socios_Admin_Trimestres_Handler {
 		if ( is_wp_error( $curso ) ) {
 			return $curso;
 		}
+		// 1.93.0: one email for the start of the course: it carries the end of the initial
+		// enrolment period (used to form the groups) and the first day of the activities.
+		$peche  = self::data_valida( (string) ( $body['data_peche'] ?? '' ) );
+		$inicio = self::data_valida( (string) ( $body['data_inicio_actividades'] ?? '' ) );
+		if ( null === $peche || null === $inicio ) {
+			return new WP_Error( 'anpa_admin_invalid', __( 'Indica a data de fin do prazo inicial de inscrición e a de comezo das actividades.', 'anpa-socios' ), array( 'status' => 400 ) );
+		}
 		$row = self::curso_row( $curso );
 		if ( ! is_array( $row ) ) {
 			return new WP_Error( 'anpa_admin_curso_invalid', __( 'Curso escolar non atopado.', 'anpa-socios' ), array( 'status' => 404 ) );
@@ -354,34 +424,18 @@ final class ANPA_Socios_Admin_Trimestres_Handler {
 		ANPA_Socios_Matricula_Gate_Repo::sincronizar_flag( $curso );
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'curso', $curso, 'aviso_inicio_curso' );
 
-		$envio = self::masivo( $request, 'inicio_curso', array() );
+		$prazos           = get_option( self::OPTION_PRAZO_INICIAL, array() );
+		$prazos           = is_array( $prazos ) ? $prazos : array();
+		$prazos[ $curso ] = array( 'peche' => $peche, 'inicio_actividades' => $inicio );
+		update_option( self::OPTION_PRAZO_INICIAL, $prazos, false );
 
-		return new WP_REST_Response( self::payload( $curso ) + array( 'aplicadas' => array_merge( $t, $v ), 'envio' => $envio ), 200 );
-	}
-
-	// ──────────────────────────────────────────────
-	// POST /avisos/prazo-matriculas  { data_peche, data_inicio_actividades }
-	// ──────────────────────────────────────────────
-
-	/**
-	 * «Notificar prazo de matrículas»: reminder with the closing date and the
-	 * first day of the activities.
-	 *
-	 * @param  WP_REST_Request $request Incoming request.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public static function aviso_prazo_matriculas( WP_REST_Request $request ) {
-		$body   = ANPA_Socios_Admin_Shared::json_body( $request );
-		$peche  = self::data_valida( (string) ( $body['data_peche'] ?? '' ) );
-		$inicio = self::data_valida( (string) ( $body['data_inicio_actividades'] ?? '' ) );
-		if ( null === $peche || null === $inicio ) {
-			return new WP_Error( 'anpa_admin_invalid', __( 'Indica a data de peche do prazo e a de comezo das actividades (AAAA-MM-DD).', 'anpa-socios' ), array( 'status' => 400 ) );
-		}
-		$envio = self::masivo( $request, 'prazo_matriculas', array(
+		$envio = self::masivo( $request, 'inicio_curso', array(
 			'data_peche'              => $peche,
 			'data_inicio_actividades' => $inicio,
+			'curso_escolar'           => $curso,
 		) );
-		return new WP_REST_Response( array( 'envio' => $envio ), 200 );
+
+		return new WP_REST_Response( self::payload( $curso ) + array( 'aplicadas' => array_merge( $t, $v ), 'envio' => $envio ), 200 );
 	}
 
 	// ──────────────────────────────────────────────
@@ -423,28 +477,11 @@ final class ANPA_Socios_Admin_Trimestres_Handler {
 			return new WP_Error( 'anpa_admin_db_error', __( 'Non se puido pechar o curso.', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 
-		$gru_t = ANPA_Socios_DB::tabela_grupos();
-		$mat_t = ANPA_Socios_DB::tabela_matriculas();
-		$now   = current_time( 'mysql' );
-		$in    = ANPA_Socios_Matricula_Estado::sql_in( ANPA_Socios_Matricula_Estado::VIXENTES );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- end-of-year bulk close, audited below.
-		$mats = $wpdb->query( $wpdb->prepare(
-			"UPDATE {$mat_t} m INNER JOIN {$gru_t} g ON g.id = m.grupo_id
-			 SET m.estado = 'baixa', m.baixa_en = %s, m.oferta_token = NULL, m.oferta_expira = NULL, m.actualizado_en = %s
-			 WHERE g.curso_escolar = %s AND m.estado IN ({$in})",
-			$now,
-			$now,
-			$curso
-		) );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- end-of-year bulk close, audited below.
-		$grupos = $wpdb->query( $wpdb->prepare(
-			"UPDATE {$gru_t} SET estado = 'pechado', actualizado_en = %s WHERE curso_escolar = %s AND estado IN ('aberto','sen_minimo')",
-			$now,
-			$curso
-		) );
+		$peche  = ANPA_Socios_Season_Service::pechar_matriculas_curso( $curso, $actor, (string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_ROL ) );
+		$grupos = $peche['grupos'];
+		$mats   = $peche['matriculas'];
 		ANPA_Socios_Matricula_Gate_Repo::sincronizar_flag( $curso );
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'curso', $curso, 'aviso_fin_curso' );
-		ANPA_Socios_Admin_Shared::write_audit( $request, 'curso', sprintf( '%s:g%d/m%d', $curso, (int) $grupos, (int) $mats ), 'fin_curso_peche' );
 
 		$envio = self::masivo( $request, 'fin_curso', array( 'curso_escolar' => $curso ) );
 		// 1.80.0: after the families' fin_curso email, every pending member baixa is confirmed

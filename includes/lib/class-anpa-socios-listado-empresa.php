@@ -34,7 +34,8 @@ final class ANPA_Socios_Listado_Empresa {
 	 * @return string[]
 	 */
 	public static function cabeceira( bool $comedor ): array {
-		$cols = array( 'Actividade', 'Grupo', 'Alumno/a', 'Curso', 'Estado', 'Opcións e autorizacións', 'Nome 1º proxenitor', 'Apelidos 1º proxenitor', 'Teléfono 1º proxenitor', 'Correo 1º proxenitor', 'Nome 2º proxenitor', 'Apelidos 2º proxenitor', 'Teléfono 2º proxenitor', 'Correo 2º proxenitor' );
+		// 1.93.0: «Baixa efectiva» = the day a baixa took (or takes) effect.
+		$cols = array( 'Actividade', 'Grupo', 'Alumno/a', 'Curso', 'Estado', 'Baixa efectiva', 'Opcións e autorizacións', 'Nome 1º proxenitor', 'Apelidos 1º proxenitor', 'Teléfono 1º proxenitor', 'Correo 1º proxenitor', 'Nome 2º proxenitor', 'Apelidos 2º proxenitor', 'Teléfono 2º proxenitor', 'Correo 2º proxenitor' );
 		if ( $comedor ) {
 			array_splice( $cols, 1, 0, array( 'Empresa' ) );
 		}
@@ -60,7 +61,8 @@ final class ANPA_Socios_Listado_Empresa {
 			$grupo,
 			trim( $v( 'nome' ) . ' ' . $v( 'apelidos' ) ),
 			trim( $v( 'curso' ) . ' ' . $v( 'aula' ) ),
-			self::estado_label( $v( 'estado' ) ),
+			self::estado_fila( $r ),
+			self::baixa_efectiva( $r ),
 			$ctx['opcions'],
 			$v( 'proxenitor1_nome' ),
 			$v( 'proxenitor1_apelidos' ),
@@ -83,6 +85,63 @@ final class ANPA_Socios_Listado_Empresa {
 	 */
 	public static function estado_label( string $estado ): string {
 		return self::ESTADOS[ $estado ] ?? $estado;
+	}
+
+	/**
+	 * 1.93.0: when a baixa takes effect, DD/MM/AAAA. A confirmed baixa: its date
+	 * (in the future for a baixa effective at the end of the trimester: the pupil
+	 * still attends until then). A requested baixa reported by the company: the
+	 * day it becomes effective. Otherwise empty.
+	 *
+	 * @param  array<string,mixed> $r Listing row (estado, baixa_en, baixa_efectiva_en).
+	 * @return string
+	 */
+	public static function baixa_efectiva( array $r ): string {
+		$estado = (string) ( $r['estado'] ?? '' );
+		if ( 'baixa' === $estado ) {
+			return self::data( (string) ( $r['baixa_en'] ?? '' ) );
+		}
+		if ( 'baixa_solicitada' === $estado && '' !== trim( (string) ( $r['baixa_efectiva_en'] ?? '' ) ) ) {
+			return self::data( (string) $r['baixa_efectiva_en'] );
+		}
+		return '';
+	}
+
+	/**
+	 * 1.93.0: the state label of a row; a baixa dated in the future says the pupil still attends.
+	 *
+	 * @param  array<string,mixed> $r     Listing row.
+	 * @param  string|null         $agora 'Y-m-d H:i:s' (default: WordPress local time).
+	 * @return string
+	 */
+	public static function estado_fila( array $r, ?string $agora = null ): string {
+		$estado = (string) ( $r['estado'] ?? '' );
+		if ( 'baixa' === $estado && self::baixa_futura( $r, $agora ) ) {
+			return 'Baixa ao remate do trimestre (segue ata o ' . self::data( (string) $r['baixa_en'] ) . ')';
+		}
+		if ( 'baixa_solicitada' === $estado && '' !== trim( (string) ( $r['baixa_efectiva_en'] ?? '' ) ) ) {
+			return 'Baixa comunicada pola empresa (efectiva o ' . self::data( (string) $r['baixa_efectiva_en'] ) . ')';
+		}
+		return self::estado_label( $estado );
+	}
+
+	/**
+	 * @param  array<string,mixed> $r     Listing row.
+	 * @param  string|null         $agora 'Y-m-d H:i:s' (default: WordPress local time).
+	 * @return bool A baixa whose date has not arrived yet.
+	 */
+	public static function baixa_futura( array $r, ?string $agora = null ): bool {
+		$agora = null !== $agora ? $agora : ( function_exists( 'current_time' ) ? (string) current_time( 'mysql' ) : gmdate( 'Y-m-d H:i:s' ) );
+		$en    = (string) ( $r['baixa_en'] ?? '' );
+		return 'baixa' === (string) ( $r['estado'] ?? '' ) && '' !== $en && $en > $agora;
+	}
+
+	/**
+	 * @param  string $dt 'Y-m-d' or 'Y-m-d H:i:s'.
+	 * @return string DD/MM/AAAA ('' when not a date).
+	 */
+	private static function data( string $dt ): string {
+		return preg_match( '/^(\d{4})-(\d{2})-(\d{2})/', $dt, $m ) ? $m[3] . '/' . $m[2] . '/' . $m[1] : '';
 	}
 
 	/**
@@ -126,8 +185,9 @@ final class ANPA_Socios_Listado_Empresa {
 			'apelidos'                   => 'Apelidos do alumno/a.',
 			'curso'                      => 'Curso do alumno/a (1º…6º).',
 			'aula'                       => 'Letra da aula.',
-			'estado'                     => 'Estado da matrícula: activo = ten praza; lista_espera = en lista de espera; oferta = ofreceuselle unha praza e ten tres días para aceptala; baixa_solicitada = a familia pediu a baixa; pendente_aprobacion = solicitude pendente da directiva; baixa = xa non está.',
+			'estado'                     => 'Estado da matrícula: activo = ten praza; lista_espera = en lista de espera; oferta = ofreceuselle unha praza e ten tres días para aceptala; baixa_solicitada = a familia pediu a baixa (segue na actividade ata que se confirme); pendente_aprobacion = solicitude pendente da directiva; baixa = baixa confirmada (mira «baixa_efectiva»).',
 			'trimestre'                  => 'Trimestre no que se rexistrou a matrícula (1, 2 ou 3).',
+			'baixa_efectiva'             => 'Data na que a baixa é (ou foi) efectiva, DD/MM/AAAA. Se é posterior a hoxe, o alumno/a segue na actividade ata ese día. Baleiro se non hai baixa.',
 			'comedor'                    => 'Campo antigo, sen uso (sempre 0).',
 			'tarde'                      => 'Campo antigo, sen uso (sempre 0).',
 			'autorizacion_comedor'       => 'Actividades no horario de comedor: si = a familia autoriza ao persoal de comedor a facilitar a participación; non = non o autoriza; na = non aplica (actividade de tarde).',

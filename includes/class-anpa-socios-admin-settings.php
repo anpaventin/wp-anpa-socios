@@ -770,6 +770,18 @@ final class ANPA_Socios_Admin_Settings {
 			checked( ANPA_Socios_Config::require_approval(), true, false ),
 			esc_html__( 'Os socios novos precisan aprobación do equipo administrador antes de acceder.', 'anpa-socios' )
 		);
+		// 1.93.0: automatic approval of extraescolar enrolments (Xestión → Extraescolares → Matrículas shows its state).
+		printf(
+			'<tr id="anpa-aprobacion-matriculas"><th scope="row">%s</th><td><label><input type="checkbox" name="matricula_aprobacion_auto" value="1" %s> %s</label><p><label>%s <input name="matricula_aprobacion_horas" type="number" min="1" max="%d" step="1" class="small-text" value="%d"> %s</label></p><p class="description">%s</p></td></tr>',
+			esc_html__( 'Aprobación das inscricións en extraescolares', 'anpa-socios' ),
+			checked( '1' === (string) get_option( ANPA_Socios_Config::OPTION_MATRICULA_AUTO, '0' ), true, false ),
+			esc_html__( 'As inscricións non precisan aprobación da xunta: apróbanse automaticamente', 'anpa-socios' ),
+			esc_html__( 'pasadas', 'anpa-socios' ),
+			(int) ANPA_Socios_Config::MATRICULA_AUTO_HORAS_MAX,
+			(int) ANPA_Socios_Config::matricula_aprobacion_horas(),
+			esc_html__( 'horas (24 = un día, 48 = dous días)', 'anpa-socios' ),
+			esc_html__( 'Toda inscrición nova queda pendente en Operacións → Aprobacións. Con esta casilla marcada, se ninguén da xunta a aproba ou rexeita antes, apróbase soa ao pasar ese tempo: praza se hai sitio, lista de espera se o grupo está completo, e a familia recibe o correo de confirmación. Unha oferta da lista de espera aceptada pola familia apróbase ao momento. Só funciona co modo «Inscricións abertas todo o curso» (Xestión → Extraescolares → Matrículas); co modo por trimestres as solicitudes fóra de prazo sempre as decide a xunta.', 'anpa-socios' )
+		);
 		// 1.56.0: canteen account.
 		printf(
 			'<tr><th scope="row"><label for="cfg-comedor">%s</label></th><td><input name="comedor_email" id="cfg-comedor" type="email" class="regular-text" value="%s"><p class="description">%s</p></td></tr>',
@@ -2137,6 +2149,11 @@ final class ANPA_Socios_Admin_Settings {
 		if ( array_key_exists( 'require_approval', $_POST ) || array_key_exists( 'association_name', $_POST ) ) {
 			update_option( ANPA_Socios_Config::OPTION_APPROVAL, ! empty( $_POST['require_approval'] ) ? '1' : '0' );
 		}
+		// 1.93.0: automatic approval of extraescolar enrolments (same form as the member approval).
+		if ( array_key_exists( 'matricula_aprobacion_horas', $_POST ) ) {
+			update_option( ANPA_Socios_Config::OPTION_MATRICULA_AUTO, ! empty( $_POST['matricula_aprobacion_auto'] ) ? '1' : '0' );
+			update_option( ANPA_Socios_Config::OPTION_MATRICULA_AUTO_HORAS, (string) ANPA_Socios_Config::sanitize_horas( wp_unslash( $_POST['matricula_aprobacion_horas'] ) ) );
+		}
 
 		// Prerelease channel opt-in (isolated form marker so the checkbox is
 		// only processed when its own form was submitted).
@@ -2924,8 +2941,8 @@ final class ANPA_Socios_Admin_Settings {
 		echo '<section id="ciclo-curso" class="card"><h2>' . esc_html( $sections['ciclo-curso'] ) . '</h2><ul>';
 		$li_html( __( 'Cada curso vai do 1 de xullo ao 30 de xuño e usa o formato <code>AAAA/AAAA+1</code>. Só pode haber un curso activo.', 'anpa-socios' ) );
 		$li( __( 'O 20 de xuño o sistema pecha o curso activo e crea o seguinte como pendente. Nunca activa un curso por si só: faino a xunta con «Notificar comezo do curso» en Xestión → Extraescolares → Matrículas.', 'anpa-socios' ) );
-		$li_html( __( '<strong>Regra única de matrículas:</strong> as familias poden matricular, dar de baixa ou solicitar praza só se o curso está activo <strong>e</strong> a ventá do trimestre actual está aberta (Xestión → Extraescolares → Matrículas, combo «Matrículas abertas para»; como moito unha ventá aberta). O trimestre actual derívase das datas operativas. O «estado lectivo» de cada trimestre é informativo; a ventá é o interruptor. Co prazo pechado e o curso activo, a solicitude da familia non se rexeita: queda «pendente de aprobación» e a xunta decide en Operacións → Aprobacións, ou aproba todas dunha vez ao activar o seguinte trimestre.', 'anpa-socios' ) );
-		$li( __( 'Avisos ás familias dende o mesmo panel: «Notificar comezo do curso» (activa o curso, abre o 1º trimestre e envía «inicio_curso»), «Notificar prazo de matrículas» (data de peche e comezo das actividades), apertura e peche das matrículas con aviso opcional, e «Notificar fin de curso» (pecha trimestres, matrículas, grupos e curso). Todos os correos masivos van coa conta da xunta como destinatario visible e as familias en CCO, en lotes de 50, e quedan anotados en Operacións → Auditoría.', 'anpa-socios' ) );
+		$li_html( __( '<strong>Modo de inscrición</strong> (Xestión → Extraescolares → Matrículas, paso 1). <strong>Abertas todo o curso</strong> (por defecto): ao comezo do curso hai un prazo inicial para formar os grupos e, durante todo o curso, toda inscrición queda «pendente de aprobación»; a xunta decide en Operacións → Aprobacións ou, se está activado en Axustes → Xeral, apróbase soa pasadas as horas indicadas. <strong>Prazos por trimestre</strong>: ábrese e péchase un prazo en cada trimestre; co prazo aberto a inscrición é directa (praza ou lista de espera) e fóra del queda pendente e só a decide a xunta. En calquera modo, as familias poden pedir baixas mentres o curso estea activo. O trimestre actual derívase das datas operativas.', 'anpa-socios' ) );
+		$li( __( 'O curso paso a paso, no mesmo panel: «Notificar comezo do curso» (activa o curso, abre o prazo inicial e envía UN correo, «inicio_curso», coa data de fin do prazo inicial e a de comezo das actividades), peche do prazo inicial con aviso opcional e formación dos grupos en Grupos e horarios, activación de cada trimestre e «Notificar fin de curso» (pecha trimestres, matrículas, grupos e curso; se se chega á data de remate sen facelo, a web pecha igual o curso, sen correo). Todos os correos masivos van coa conta da xunta como destinatario visible e as familias en CCO, en lotes de 50, e quedan anotados en Operacións → Auditoría.', 'anpa-socios' ) );
 		$li( __( 'En pretempada (curso pendente) só o equipo administrador pode iniciar sesión na área; as familias quedan protexidas ata a apertura.', 'anpa-socios' ) );
 		echo '</ul>';
 		$h3( __( 'Checklist de setembro', 'anpa-socios' ) );
@@ -2976,7 +2993,7 @@ final class ANPA_Socios_Admin_Settings {
 		$li( __( 'Ao solicitar a baixa desde a área (como socio/a ou dunha actividade), a familia recibe un acuse de recibo («baixa_socio_solicitada», «baixa_extraescolar_solicitada»): a baixa non é automática, confírmaa unha persoa da directiva e pode tardar uns días, e avisarase por correo ao confirmarse.', 'anpa-socios' ) );
 		$li( __( 'Ao confirmar ou rexeitar unha solicitude en Xestión → Operacións → Aprobacións ou en Xestión → Extraescolares → Matrículas (baixas de actividades), a familia recibe un correo coa plantilla correspondente: «baixa_socio_confirmada», «baixa_socio_rexeitada», «baixa_extraescolar_confirmada» ou «baixa_extraescolar_rexeitada» (Axustes → Plantillas de email, coa sinatura de Axustes → Xeral).', 'anpa-socios' ) );
 		$li( __( 'A baixa de socio/a confirmada aplícase a toda a unidade familiar (proxenitor/a principal e secundario/a): todos pasan a «baixa», perden o acceso á área e cada un recibe o correo coa lista dos enderezos dados de baixa. Se a familia ten dous correos, saen dous correos.', 'anpa-socios' ) );
-		$li( __( 'Baixa dunha actividade: mentres a ventá de inscrición do trimestre en curso estea ABERTA (Xestión → Extraescolares → Matrículas), o correo di que a baixa é efectiva desde ese momento e sen ningún cobro, porque as clases aínda non están confirmadas; cando a ventá xa está PECHADA (listado enviado ás empresas, clases en marcha), di que é efectiva ao remate do trimestre, coa data de peche operativo, e que a cota se mantén ata entón. Vale para os tres trimestres.', 'anpa-socios' ) );
+		$li( __( 'Baixa dunha actividade: se o prazo de inscrición está ABERTO, ou o grupo aínda non comezou (sen confirmar ou «sen mínimo»), a baixa é efectiva desde ese momento e sen ningún cobro. Se o grupo está en marcha, é efectiva ao remate do trimestre, coa data de peche operativo: a cota mantense ata entón e a praza segue ocupada ata ese día; despois ofrécese á lista de espera.', 'anpa-socios' ) );
 		$li( __( 'Os correos de rexeitamento indican á familia que, se cre que houbo un erro, escriba á directiva ao correo de contacto de Axustes → Xeral.', 'anpa-socios' ) );
 		echo '</ul>';
 		$h3( __( 'Auditoría', 'anpa-socios' ) );
@@ -3001,7 +3018,7 @@ final class ANPA_Socios_Admin_Settings {
 		echo '</ul>';
 		$h3( __( 'Matrículas, lista de espera e ofertas', 'anpa-socios' ) );
 		echo '<ul>';
-		$li( __( 'Só matriculan socios/as activos con datos bancarios completos e co curso activo. Coa ventá do trimestre aberta a matrícula é inmediata (praza ou lista de espera); coa ventá pechada queda pendente de aprobación pola directiva (Operacións → Aprobacións). A área amosa só os grupos do nivel de cada fillo/a: se o curso do fillo/a está mal, non verán as actividades correctas.', 'anpa-socios' ) );
+		$li( __( 'Só matriculan socios/as activos con datos bancarios completos e co curso activo. Toda inscrición queda pendente de aprobación (Operacións → Aprobacións) e a familia recibe a confirmación por correo, co estado real do grupo; só no modo por trimestres, co prazo aberto, a inscrición é directa. A área amosa só os grupos do nivel de cada fillo/a: se o curso do fillo/a está mal, non verán as actividades correctas.', 'anpa-socios' ) );
 		$li( __( 'Grupos e horarios amosa a ocupación de cada grupo (inscritos, lista de espera, pendentes e mínimo) e, coas matrículas pechadas, botóns por grupo aberto (coas matrículas abertas non aparecen): «Notificar grupo creado (comezo do trimestre)» (correo ás familias inscritas e á empresa, e outro ás de lista de espera; a empresa pode formar o grupo aínda sen o mínimo; ao enviarse, o grupo queda en verde co trimestre da notificación e o botón non volve aparecer ata que se abran e pechen de novo as matrículas), e «Pechar por non acadar o mínimo», só cando non se acada (o grupo queda deshabilitado e desaparece da oferta e da área; as súas matrículas pasan a baixa e avísase por correo). Os grupos pechados ou deshabilitados vense sombreados na grella, só con «Editar». A marca de «notificado» de cada grupo pódese poñer ou quitar a man dende a ficha da actividade (columna «Aviso», sen enviar correo). O botón «Resumo» de cada actividade despliega debaixo o resumo do curso por grupo e trimestre (activos, en espera, baixas, prazas libres, pendentes e aviso).', 'anpa-socios' ) );
 		$li( __( 'Con praza a matrícula queda activa; sen praza (ou grupo pechado) vai a lista de espera por orde de solicitude. Cando queda unha praza, o sistema ofrécella á primeira persoa por correo e na área; ten tres días para aceptala, se non pasa á seguinte.', 'anpa-socios' ) );
 		$li( __( 'A baixa dunha matrícula sólicitaa a familia e confírmaa a xunta en Xestión → Matrículas. Desde a ficha do grupo pódese mover un alumno/a a outro grupo aberto da mesma actividade.', 'anpa-socios' ) );

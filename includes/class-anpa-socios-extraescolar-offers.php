@@ -83,8 +83,12 @@ final class ANPA_Socios_Extraescolar_Offers {
 		// 1.85.0: only a group that runs or is waiting for its minimum, and only with a free place
 		// (an outstanding or accepted offer keeps its place). $excluir = the family that just let
 		// its offer go: it is never offered the same place again straight away.
-		$grupo = $wpdb->get_row( $wpdb->prepare( 'SELECT estado, max_pupilos FROM ' . ANPA_Socios_DB::tabela_grupos() . ' WHERE id = %d', $grupo_id ), ARRAY_A );
+		$grupo = $wpdb->get_row( $wpdb->prepare( 'SELECT estado, max_pupilos, curso_escolar FROM ' . ANPA_Socios_DB::tabela_grupos() . ' WHERE id = %d', $grupo_id ), ARRAY_A );
 		if ( ! is_array( $grupo ) || ! in_array( (string) $grupo['estado'], array( ANPA_Socios_Grupo_Serie::ESTADO_ABERTO, ANPA_Socios_Grupo_Serie::ESTADO_SEN_MINIMO ), true ) ) {
+			return false;
+		}
+		// 1.93.0: never offer a place in a course that is no longer active.
+		if ( ANPA_Socios_Curso_Activo::get() !== (string) $grupo['curso_escolar'] ) {
 			return false;
 		}
 		if ( (int) $grupo['max_pupilos'] > 0 && ANPA_Socios_Lista_Espera::ocupadas( $grupo_id ) >= (int) $grupo['max_pupilos'] ) {
@@ -98,7 +102,7 @@ final class ANPA_Socios_Extraescolar_Offers {
 			$wpdb->prepare(
 				"SELECT id, posicion, trimestre FROM {$mat_t} WHERE grupo_id = %d AND estado = 'lista_espera' AND id <> %d AND posicion IS NOT NULL
 				 AND ( oferta_expira IS NULL OR oferta_expira < %s )
-				 ORDER BY trimestre ASC, posicion ASC, id ASC LIMIT 1",
+				 ORDER BY posicion ASC, id ASC LIMIT 1",
 				$grupo_id,
 				$excluir,
 				$descanso
@@ -226,7 +230,7 @@ final class ANPA_Socios_Extraescolar_Offers {
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
 		$ids   = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT id FROM {$mat_t} WHERE grupo_id = %d AND estado = 'lista_espera' ORDER BY trimestre ASC, posicion ASC, id ASC",
+				"SELECT id FROM {$mat_t} WHERE grupo_id = %d AND estado = 'lista_espera' ORDER BY posicion ASC, id ASC",
 				$grupo_id
 			)
 		);
@@ -271,31 +275,21 @@ final class ANPA_Socios_Extraescolar_Offers {
 	}
 
 	private static function notify_offer( int $matricula_id, bool $copia_xunta = false ): void {
+		// 1.93.0: every parent of the pupil (familia_emails_por_fillo), with the pupil, the
+		// group and the group's real state (it used to reach only fillos.socio_email).
 		global $wpdb;
-
-		$mat_t = ANPA_Socios_DB::tabela_matriculas();
-		$fil_t = ANPA_Socios_DB::tabela_fillos();
-		$act_t = ANPA_Socios_DB::tabela_actividades();
-
-		$row = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT f.socio_email, a.nome AS actividade
-				 FROM {$mat_t} m
-				 INNER JOIN {$fil_t} f ON f.id = m.fillo_id
-				 LEFT JOIN {$act_t} a ON a.id = m.activitad_id
-				 WHERE m.id = %d",
-				$matricula_id
-			),
-			ARRAY_A
-		);
-		if ( ! is_array( $row ) || empty( $row['socio_email'] ) ) {
+		$detalle = ANPA_Socios_Admin_Matriculas_Handler::detalle_para_correo( $matricula_id );
+		if ( ! is_array( $detalle ) || array() === $detalle['emails'] ) {
 			return;
 		}
-
+		$grupo_id = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT grupo_id FROM ' . ANPA_Socios_DB::tabela_matriculas() . ' WHERE id = %d', $matricula_id ) );
 		ANPA_Socios_Email::enviar_oferta_extraescolar(
-			(string) $row['socio_email'],
-			(string) ( $row['actividade'] ?? '' ),
+			$detalle['emails'],
+			$detalle['alumno'],
+			$detalle['actividade'],
+			$detalle['grupo'],
 			self::OFFER_TTL_DAYS,
+			ANPA_Socios_Email::estado_grupo_familia( $grupo_id, ANPA_Socios_Estado_Grupo_Texto::OFERTA ),
 			$copia_xunta
 		);
 	}

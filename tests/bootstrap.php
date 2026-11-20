@@ -198,6 +198,7 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-prazas.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-oferta-seccions.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-oferta-publica.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-aviso-matricula.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-estado-grupo-texto.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-ods.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-listado-empresa.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-aviso-semanal.php';

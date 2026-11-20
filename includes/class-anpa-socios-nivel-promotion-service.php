@@ -212,7 +212,7 @@ final class ANPA_Socios_Nivel_Promotion_Service {
 				 FROM {$matriculas} m
 				 INNER JOIN {$grupos} g ON g.id = m.grupo_id AND g.curso_escolar = %s
 				 LEFT JOIN {$relations} gn ON gn.grupo_id = m.grupo_id
-				 WHERE m.estado IN ('activo', 'lista_espera', 'oferta', 'baixa_solicitada')
+				 WHERE m.estado IN ('activo', 'lista_espera', 'oferta', 'baixa_solicitada', 'pendente_aprobacion')
 				 ORDER BY m.id ASC, gn.nivel_id ASC",
 				$school_year
 			),

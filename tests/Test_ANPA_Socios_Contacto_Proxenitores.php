@@ -95,9 +95,9 @@ final class Test_ANPA_Socios_Contacto_Proxenitores extends TestCase {
 		$import = $this->src( 'includes/class-anpa-socios-admin-import-handler.php' );
 		$this->assertStringContainsString( "'cesion_datos_empresa' => 1,", $import );
 		$admin = $this->src( 'includes/class-anpa-socios-admin-matriculas-handler.php' );
-		$this->assertStringContainsString( "\$payload + array( 'cesion_datos_empresa' => 1 )", $admin );
-		// Formats follow validar_matricula(): observaciones is a string (it was saved as 0 before 1.70.0).
-		$this->assertStringContainsString( "array( '%d', '%d', '%d', '%d', '%s', '%s', '%d' )", $admin );
+		// 1.93.0: create_matricula() goes through the group and capacity checks; consent recorded.
+		$this->assertStringContainsString( "'cesion_datos_empresa' => 1,", $admin );
+		$this->assertStringContainsString( "'observaciones'        => (string) \$payload['observaciones'],", $admin );
 	}
 
 	public function test_migration_1_45_0_marks_every_enrolment_and_defaults_to_consent(): void {

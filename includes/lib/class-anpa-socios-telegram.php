@@ -127,6 +127,7 @@ final class ANPA_Socios_Telegram {
 			'grupo_comezo_espera'              => __( 'Grupo creado: lista de espera', 'anpa-socios' ),
 			'grupo_pechado_minimo'             => __( 'Grupo pechado por non acadar o mínimo', 'anpa-socios' ),
 			'grupo_sen_minimo'                 => __( 'Grupo sen mínimo', 'anpa-socios' ),
+			'grupo_sen_minimo_espera'          => __( 'Grupo sen mínimo: lista de espera', 'anpa-socios' ),
 			'matricula_alta_aviso'             => __( 'Aviso á empresa/comedor: alta nun grupo', 'anpa-socios' ),
 			'matricula_baixa_aviso'            => __( 'Aviso á empresa/comedor: baixa nun grupo', 'anpa-socios' ),
 			'matricula_cambio_grupo_aviso'     => __( 'Aviso á empresa/comedor: cambio de grupo', 'anpa-socios' ),

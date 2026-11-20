@@ -157,6 +157,8 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 		$peche  = ANPA_Socios_Season::default_data_peche( $curso );
 
 		if ( null !== $plan['deactivate'] ) {
+			// 1.93.0: the course(s) being replaced, to close their enrolments and groups too.
+			$substituidos = $wpdb->get_col( $wpdb->prepare( "SELECT curso_escolar FROM {$table} WHERE estado = 'activo' AND curso_escolar <> %s", $curso ) );
 			$closed = $wpdb->query(
 				$wpdb->prepare(
 					"UPDATE {$table} SET estado = 'pechado', matriculas_abertas = 0, actualizado_en = %s WHERE estado = 'activo' AND curso_escolar <> %s",
@@ -199,6 +201,9 @@ final class ANPA_Socios_Admin_Cursos_Handler {
 		if ( false === $wpdb->query( 'COMMIT' ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		foreach ( isset( $substituidos ) && is_array( $substituidos ) ? $substituidos : array() as $vello ) {
+			ANPA_Socios_Season_Service::pechar_matriculas_curso( (string) $vello );
 		}
 
 		// fase34: activating a course is the unambiguous point to seed its

@@ -158,6 +158,17 @@ final class ANPA_Socios_Matricula_Gate {
 		$texto = self::MOTIVO_VENTANA_PECHADA === $motivo
 			? __( 'O listado é estable: o prazo de matriculación está pechado.', 'anpa-socios' )
 			: self::etiqueta( $gate );
+		// 1.93.0: with enrolments open all year a closed window only ends the initial period:
+		// approved requests keep joining the groups (each one is notified to the company).
+		if ( self::MOTIVO_VENTANA_PECHADA === $motivo && class_exists( 'ANPA_Socios_Config' ) && ANPA_Socios_Config::inscricions_todo_curso() ) {
+			return array(
+				'estado'    => 'pechadas',
+				'trimestre' => $tri,
+				/* translators: %s: trimester label ("2º trimestre") */
+				'titulo'    => sprintf( __( '%s · Prazo inicial pechado', 'anpa-socios' ), $tri_label ),
+				'texto'     => __( 'As inscricións seguen abertas todo o curso con aprobación: cada alta aprobada nun grupo en marcha avísase á empresa e ao comedor.', 'anpa-socios' ),
+			);
+		}
 
 		return array(
 			'estado'    => 'pechadas',

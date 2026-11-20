@@ -38,7 +38,7 @@ final class Test_ANPA_Socios_Alumnos_Export_Columns extends TestCase {
 		$admin_cols   = ANPA_Socios_Alumnos_Export::columns( true );
 
 		$this->assertSame(
-			array_merge( array( 'empresa_nome' ), $empresa_cols ),
+			array_merge( array( 'empresa_nome' ), $empresa_cols, array( 'grupo_nome', 'estado', 'baixa_efectiva' ) ),
 			$admin_cols
 		);
 	}
@@ -47,6 +47,8 @@ final class Test_ANPA_Socios_Alumnos_Export_Columns extends TestCase {
 	 * Admin list has 9 columns (empresa_nome + 8 base).
 	 */
 	public function test_admin_columns_count(): void {
-		$this->assertCount( 9, ANPA_Socios_Alumnos_Export::columns( true ) );
+		// 1.93.0: + grupo_nome, estado, baixa_efectiva (every enrolment, baixas marked).
+		$this->assertCount( 12, ANPA_Socios_Alumnos_Export::columns( true ) );
+		$this->assertSame( array( 'grupo_nome', 'estado', 'baixa_efectiva' ), array_slice( ANPA_Socios_Alumnos_Export::columns( true ), -3 ) );
 	}
 }

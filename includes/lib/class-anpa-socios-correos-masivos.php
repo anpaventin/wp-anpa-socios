@@ -39,25 +39,17 @@ final class ANPA_Socios_Correos_Masivos {
 				'plantillas'    => array( 'inicio_curso' ),
 			),
 			array(
-				'id'            => 'prazo_matriculas',
-				'titulo'        => 'Prazo de matrículas',
-				'descricion'    => 'Lembra ás familias ata cando poden matricularse e cando comezan as actividades.',
-				'destinatarios' => 'Todos os socios/as activos (CCO)',
-				'onde'          => 'aqui',
-				'plantillas'    => array( 'prazo_matriculas' ),
-			),
-			array(
 				'id'            => 'comezo_curso',
 				'titulo'        => 'Comezo do curso',
-				'descricion'    => 'Activa o curso, abre as matrículas do 1º trimestre e avisa ás familias. Envíase co botón «Notificar comezo do curso».',
+				'descricion'    => 'Activa o curso, abre o prazo inicial de inscrición e avisa ás familias nun só correo: ata cando dura o prazo inicial (con el fórmanse os grupos) e cando comezan as actividades. Envíase co botón «Notificar comezo do curso».',
 				'destinatarios' => 'Todos os socios/as activos (CCO)',
 				'onde'          => 'matriculas',
 				'plantillas'    => array( 'inicio_curso' ),
 			),
 			array(
 				'id'            => 'ventas',
-				'titulo'        => 'Matrículas abertas / pechadas',
-				'descricion'    => 'Ao cambiar «Matrículas abertas para» coa opción «Avisar por correo a todas as familias».',
+				'titulo'        => 'Prazo de inscrición aberto / pechado',
+				'descricion'    => 'Ao pechar o prazo inicial (e, no modo por trimestres, ao abrir ou pechar o prazo de cada trimestre) coa opción «Avisar por correo a todas as familias».',
 				'destinatarios' => 'Todos os socios/as activos (CCO)',
 				'onde'          => 'matriculas',
 				'plantillas'    => array( 'matriculas_abertas', 'matriculas_pechadas' ),
@@ -81,10 +73,10 @@ final class ANPA_Socios_Correos_Masivos {
 			array(
 				'id'            => 'grupo_sen_minimo',
 				'titulo'        => 'Grupo sen mínimo (segue admitindo inscricións)',
-				'descricion'    => 'O grupo aínda non chega ao mínimo pero segue aberto a novas inscricións durante o curso; quen ten praza consérvaa. Envíase dende cada grupo.',
-				'destinatarios' => 'Familias e empresa do grupo (non o comedor)',
+				'descricion'    => 'O grupo aínda non chega ao mínimo pero segue aberto a novas inscricións durante o curso; quen ten praza consérvaa. Á lista de espera vai un texto propio. Envíase dende cada grupo.',
+				'destinatarios' => 'Familias con praza e empresa; lista de espera aparte (non o comedor nin as solicitudes pendentes)',
 				'onde'          => 'grupos-horarios',
-				'plantillas'    => array( 'grupo_sen_minimo' ),
+				'plantillas'    => array( 'grupo_sen_minimo', 'grupo_sen_minimo_espera' ),
 			),
 			array(
 				'id'            => 'grupo_minimo',
@@ -123,6 +115,7 @@ final class ANPA_Socios_Correos_Masivos {
 			'grupo_espera'         => 'Grupo creado: lista de espera',
 			'grupo_minimo'         => 'Grupo pechado por non acadar o mínimo',
 			'grupo_sen_minimo'     => 'Grupo sen mínimo (segue admitindo inscricións)',
+			'grupo_sen_minimo_espera' => 'Grupo sen mínimo: lista de espera',
 		);
 		return $t[ $tag ] ?? $tag;
 	}

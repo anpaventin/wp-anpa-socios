@@ -495,6 +495,67 @@ final class ANPA_Socios_Config {
 		return '1' === (string) get_option( self::OPTION_APPROVAL, '0' );
 	}
 
+	/** 1.93.0: how extraescolar enrolments work (Xestión → Extraescolares → Matrículas). */
+	const OPTION_MODO_INSCRICION = 'anpa_socios_modo_inscricion';
+	/** Open all year: one initial free period at course start, then every request waits for approval. */
+	const MODO_TODO_CURSO = 'todo_curso';
+	/** Legacy: a free period is opened and closed each trimester. */
+	const MODO_TRIMESTRAL = 'trimestral';
+	/** 1.93.0: '1' = new enrolments need no junta approval: approved automatically after N hours. */
+	const OPTION_MATRICULA_AUTO       = 'anpa_socios_matricula_aprobacion_auto';
+	const OPTION_MATRICULA_AUTO_HORAS = 'anpa_socios_matricula_aprobacion_auto_horas';
+	const MATRICULA_AUTO_HORAS_DEFAULT = 24;
+	const MATRICULA_AUTO_HORAS_MAX     = 720;
+
+	/**
+	 * @since  1.93.0
+	 * @return string MODO_TODO_CURSO (default) or MODO_TRIMESTRAL.
+	 */
+	public static function modo_inscricion(): string {
+		return self::MODO_TRIMESTRAL === (string) get_option( self::OPTION_MODO_INSCRICION, self::MODO_TODO_CURSO ) ? self::MODO_TRIMESTRAL : self::MODO_TODO_CURSO;
+	}
+
+	/**
+	 * @since  1.93.0
+	 * @return bool Enrolments open all year (the default).
+	 */
+	public static function inscricions_todo_curso(): bool {
+		return self::MODO_TODO_CURSO === self::modo_inscricion();
+	}
+
+	/**
+	 * Whether pending enrolments are approved automatically. Only in the
+	 * «todo o curso» mode: in the per-trimester mode a request outside the
+	 * window is always the junta's decision.
+	 *
+	 * @since  1.93.0
+	 * @return bool
+	 */
+	public static function matricula_aprobacion_automatica(): bool {
+		return self::inscricions_todo_curso() && '1' === (string) get_option( self::OPTION_MATRICULA_AUTO, '0' );
+	}
+
+	/**
+	 * @since  1.93.0
+	 * @return int Hours a request waits before the automatic approval (1..720).
+	 */
+	public static function matricula_aprobacion_horas(): int {
+		return self::sanitize_horas( get_option( self::OPTION_MATRICULA_AUTO_HORAS, self::MATRICULA_AUTO_HORAS_DEFAULT ) );
+	}
+
+	/**
+	 * @since  1.93.0
+	 * @param  mixed $v Raw value.
+	 * @return int 1..MATRICULA_AUTO_HORAS_MAX, default when invalid.
+	 */
+	public static function sanitize_horas( $v ): int {
+		$n = is_numeric( $v ) ? (int) $v : 0;
+		if ( $n < 1 ) {
+			return self::MATRICULA_AUTO_HORAS_DEFAULT;
+		}
+		return min( $n, self::MATRICULA_AUTO_HORAS_MAX );
+	}
+
 	/**
 	 * Whether this install opts in to the prerelease (beta) update channel.
 	 *

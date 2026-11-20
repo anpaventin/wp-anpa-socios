@@ -104,7 +104,9 @@ final class ANPA_Socios_Extraescolares_REST {
 		// 1.68.0: with the course active but the trimester window CLOSED the offer
 		// is still listed; enrol() then creates the request as «pendente_aprobacion»
 		// for the junta. The response says so, so the area can warn the family.
-		$abertas = self::course_is_open( $curso );
+		// 1.93.0: «abertas» here = the family enrols directly (no approval). With enrolments open all
+		// year every request waits for approval, so the area shows the pending notice.
+		$abertas = self::course_is_open( $curso ) && ! ANPA_Socios_Config::inscricions_todo_curso();
 
 		$fillo_id    = (int) $request->get_param( 'fillo_id' );
 		$curso_fillo = null;
@@ -343,6 +345,11 @@ final class ANPA_Socios_Extraescolares_REST {
 		}
 		// 1.68.0: course active but window closed → the request waits for the junta.
 		$pendente = ( 'pendente' === $modo );
+		// 1.93.0: enrolments open all year → every new request waits for approval
+		// (the junta's or the automatic one), also during the initial free period.
+		if ( ANPA_Socios_Config::inscricions_todo_curso() ) {
+			$pendente = true;
+		}
 
 		$wpdb->last_error = '';
 		$locked = $wpdb->get_row(
@@ -463,6 +470,12 @@ final class ANPA_Socios_Extraescolares_REST {
 			'recollida_autorizada'       => $autorizacions['recollida_autorizada'],
 			'cesion_datos_empresa'       => $autorizacions['cesion_datos_empresa'],
 			'actualizado_en'             => current_time( 'mysql' ),
+			// 1.93.0: a reused baixa row must not carry an old offer (it would count as a held
+			// place and be approved past the limit) nor an old company-reported baixa date.
+			'oferta_token'               => null,
+			'oferta_expira'              => null,
+			'oferta_aceptada_en'         => null,
+			'baixa_efectiva_en'          => null,
 		);
 
 		// A prior 'baixa' row for the same (fillo, activity, trimester) collides
@@ -485,6 +498,10 @@ final class ANPA_Socios_Extraescolares_REST {
 		if ( $baixa_id > 0 ) {
 			$ok     = $wpdb->update( $mat_t, $fields, array( 'id' => $baixa_id ) );
 			$mat_id = $baixa_id;
+			// 1.93.0: it is a new request: its waiting time (automatic approval, order in Aprobacións) starts now.
+			if ( false !== $ok ) {
+				$ok = $wpdb->query( $wpdb->prepare( "UPDATE {$mat_t} SET creado_en = NOW() WHERE id = %d", $baixa_id ) );
+			}
 		} else {
 			$insert_data = array_merge(
 				array(
@@ -512,15 +529,20 @@ final class ANPA_Socios_Extraescolares_REST {
 
 		if ( $pendente ) {
 			// 1.68.0: tell the family the request waits for the junta (both parents).
+			// 1.93.0: with the group's real state; never a word about the automatic approval.
 			$alumno     = self::pupil_name( $fillo_id );
 			$actividade = self::activity_name( $actividad_id );
 			$grupo_lbl  = ANPA_Socios_Admin_Matriculas_Handler::grupo_label( (string) $grupo['nome'], (string) $locked['horario'], (string) $locked['franxa'], (string) $locked['dias'] );
 			$emails     = ANPA_Socios_Admin_Matriculas_Handler::familia_emails_por_fillo( $fillo_id );
+			$frase      = ANPA_Socios_Email::estado_grupo_familia( $grupo_id, ANPA_Socios_Estado_Grupo_Texto::PENDENTE );
 			foreach ( array() === $emails ? array( $email ) : $emails as $to ) {
-				ANPA_Socios_Email::enviar_matricula_pendente( $to, $alumno, $actividade, $grupo_lbl );
+				ANPA_Socios_Email::enviar_matricula_pendente( $to, $alumno, $actividade, $grupo_lbl, $frase );
 			}
 			// 1.92.0: and the junta (email and/or Telegram, Axustes → Xeral → Avisos á xunta).
-			ANPA_Socios_Email::enviar_aviso_matricula_pendente_xunta( $email, $alumno, $actividade, $grupo_lbl );
+			ANPA_Socios_Email::enviar_aviso_matricula_pendente_xunta( $email, $alumno, $actividade, $grupo_lbl, false, $grupo_id );
+		} else {
+			// 1.93.0: a direct enrolment (free period of the per-trimester mode) is confirmed too.
+			ANPA_Socios_Admin_Matriculas_Handler::enviar_confirmacion( $mat_id, $grupo_id, $estado, (int) $posicion );
 		}
 
 		return new WP_REST_Response( array(
@@ -643,7 +665,9 @@ final class ANPA_Socios_Extraescolares_REST {
 		if ( ANPA_Socios_Matricula_Estado::pode_retirar( (string) $mat['estado'] ) ) {
 			return self::retirar_pendente( $mat, $email );
 		}
-		if ( ! self::course_is_open( (string) ( $mat['curso_escolar'] ?? '' ) ) ) {
+		// 1.93.0: a family may ask for a baixa (or leave the waiting list) whenever the course is
+		// active, free period open or not; the effects depend on the group (Baixa_Extraescolar_Efectos).
+		if ( ! self::course_is_active( (string) ( $mat['curso_escolar'] ?? '' ) ) ) {
 			return self::err( 'anpa_extra_curso_pechado', 'Este curso está pechado para novas matrículas ou baixas.', 409 );
 		}
 
@@ -653,7 +677,7 @@ final class ANPA_Socios_Extraescolares_REST {
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
 		}
-		$course_error = self::lock_open_course( $curso );
+		$course_error = self::lock_open_course_mode( $curso );
 		if ( is_wp_error( $course_error ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return $course_error;
@@ -759,15 +783,16 @@ final class ANPA_Socios_Extraescolares_REST {
 		}
 		// 1.91.0: a baixa the company reported (the family says it is a mistake) can be
 		// cancelled while the course is active, window open or not: the place was kept.
+		// 1.93.0: the same for a baixa the family asked for (it was blocked with the window closed).
 		$programada = ANPA_Socios_Baixa_Programada_Service::e_programada( (int) $mat['id'] );
-		if ( ! ( $programada ? self::course_is_active( (string) ( $mat['curso_escolar'] ?? '' ) ) : self::course_is_open( (string) ( $mat['curso_escolar'] ?? '' ) ) ) ) {
+		if ( ! self::course_is_active( (string) ( $mat['curso_escolar'] ?? '' ) ) ) {
 			return self::err( 'anpa_extra_curso_pechado', 'Este curso está pechado para novas matrículas ou baixas.', 409 );
 		}
 		$curso = (string) ( $mat['curso_escolar'] ?? '' );
 		if ( false === $wpdb->query( 'START TRANSACTION' ) ) {
 			return self::err( 'anpa_extra_db_error', 'Erro interno', 500 );
 		}
-		$course_error = $programada ? self::lock_open_course_mode( $curso ) : self::lock_open_course( $curso );
+		$course_error = self::lock_open_course_mode( $curso );
 		if ( is_wp_error( $course_error ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return $course_error;
@@ -932,12 +957,22 @@ final class ANPA_Socios_Extraescolares_REST {
 		// 1.85.0: the place is kept and the junta approves it (Operacións → Aprobacións);
 		// the approval tells the family, the company and the canteen.
 		// 1.92.0: the junta is told now (email and/or Telegram, Axustes → Xeral → Avisos á xunta).
+		// 1.93.0: with the automatic approval on, an accepted offer needs no wait: approved now
+		// (the family, the company and the canteen are told by aprobar()).
+		if ( ANPA_Socios_Config::matricula_aprobacion_automatica() ) {
+			$auto = ANPA_Socios_Admin_Matriculas_Handler::aprobar( (int) $mat['id'], 'system', 'system', true );
+			if ( ! is_wp_error( $auto ) ) {
+				ANPA_Socios_Admin_Shared::write_audit_actor( 'system', 'system', 'matricula', (string) $mat['id'], 'aprobada_automatica' );
+				return new WP_REST_Response( array( 'id' => (int) $mat['id'], 'estado' => (string) $auto['estado'] ), 200 );
+			}
+		}
 		ANPA_Socios_Email::enviar_aviso_matricula_pendente_xunta(
 			self::current_email( $request ),
 			self::pupil_name( (int) $mat['fillo_id'] ),
 			self::activity_name( (int) $mat['activitad_id'] ),
 			self::grupo_label_por_id( $grupo_id ),
-			true
+			true,
+			$grupo_id
 		);
 		return new WP_REST_Response( array( 'id' => (int) $mat['id'], 'estado' => ANPA_Socios_Matricula_Estado::PENDENTE_APROBACION ), 200 );
 	}
@@ -1286,6 +1321,8 @@ final class ANPA_Socios_Extraescolares_REST {
 
 	/**
 	 * Locks and revalidates the authoritative course row inside a transaction.
+	 * 1.93.0: no endpoint needs the window open any more (family baixas only need an
+	 * active course); kept as the strict variant of lock_open_course_mode().
 	 *
 	 * @param  string $curso Course being mutated.
 	 * @return WP_Error|null Null when the course is active and enrolments are open.

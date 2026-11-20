@@ -255,8 +255,18 @@ final class ANPA_Socios_Admin_Contactos_Google_Handler {
 	 * @return WP_REST_Response
 	 */
 	public static function inicio_curso( WP_REST_Request $request ): WP_REST_Response {
-		$to      = ANPA_Socios_Config::master_email();
-		$enviado = ANPA_Socios_Email::enviar_inicio_curso( $to );
+		$to    = ANPA_Socios_Config::master_email();
+		$curso = (string) ( ANPA_Socios_Curso_Activo::get() ?? '' );
+		$datas = '' !== $curso ? ANPA_Socios_Admin_Trimestres_Handler::prazo_inicial( $curso ) : array();
+		// 1.93.0: dates typed in Correos masivos win over the stored ones.
+		$body = ANPA_Socios_Admin_Shared::json_body( $request );
+		foreach ( array( 'peche' => 'data_peche', 'inicio_actividades' => 'data_inicio_actividades' ) as $k => $campo ) {
+			$v = trim( (string) ( $body[ $campo ] ?? '' ) );
+			if ( preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $v, $m ) && checkdate( (int) $m[2], (int) $m[3], (int) $m[1] ) ) {
+				$datas[ $k ] = $m[3] . '/' . $m[2] . '/' . $m[1];
+			}
+		}
+		$enviado = ANPA_Socios_Email::enviar_inicio_curso( $to, $datas );
 		ANPA_Socios_Admin_Shared::write_audit( $request, 'email', 'inicio_curso', $enviado ? 'inicio_curso_enviado' : 'inicio_curso_erro' );
 
 		return new WP_REST_Response( array( 'enviado' => $enviado, 'destinatario' => $to, 'etiqueta' => self::LABEL ), $enviado ? 200 : 502 );

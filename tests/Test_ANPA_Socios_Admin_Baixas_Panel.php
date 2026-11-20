@@ -91,7 +91,8 @@ final class Test_ANPA_Socios_Admin_Baixas_Panel extends TestCase {
 		// 1.79.0: +1 confirm — the exception prompt when the course is running.
 		// 1.82.0: +1 — «poñer as baixas a 0» in Lista Gmail (same slice).
 		// 1.84.0: +1 — the slice now also holds «Correos masivos» (start-of-year email moved there + prazo de matrículas).
-		$this->assertSame( 6, substr_count( substr( $js, $start, $end - $start ), 'window.confirm(' ) );
+		// 1.93.0: -1 — no separate «prazo de matrículas» send (it is part of the start-of-course email).
+		$this->assertSame( 5, substr_count( substr( $js, $start, $end - $start ), 'window.confirm(' ) );
 		$baixas_end = strpos( $js, '// ── Section: Lista Gmail', $start );
 		$this->assertSame( 3, substr_count( substr( $js, $start, $baixas_end - $start ), 'window.confirm(' ) );
 		$this->assertStringNotContainsString( 'Baixas de actividades pendentes (', substr( $js, $start, $baixas_end - $start ) );

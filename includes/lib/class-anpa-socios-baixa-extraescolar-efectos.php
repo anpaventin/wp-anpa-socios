@@ -13,6 +13,10 @@
  *    activity and its fee stand until then and the next trimester is not
  *    charged.
  *
+ * 1.93.0: and the GROUP must be running. In a group not created yet (no start
+ * notice) or «sen mínimo» nobody is charged, so the baixa is immediate and free
+ * whatever the window says (enrolments are open all year now).
+ *
  * The trimester row's `estado` («activo») only says which trimester is the
  * current one — it never meant "classes started", which is what 1.62.x used.
  *
@@ -36,11 +40,21 @@ final class ANPA_Socios_Baixa_Extraescolar_Efectos {
 	 * @param  array<string,mixed>       $gate       ANPA_Socios_Matricula_Gate::avaliar() result ('trimestre', 'abertas').
 	 * @param  array<int,array>          $trimestres ANPA_Socios_Trimestre_Repo::for_curso() rows (ventana_estado per trimester).
 	 * @param  array<string,string>|null $datas      ANPA_Socios_Matricula_Gate::datas_de_fila() or null.
+	 * @param  string|null               $grupo      1.93.0: ANPA_Socios_Estado_Grupo_Texto::clave() of the enrolment's group (null = unknown, window rule only).
 	 * @return array{efecto:string,trimestre:int,data_fin:string,texto:string}
 	 */
-	public static function avaliar( array $gate, array $trimestres, ?array $datas ): array {
+	public static function avaliar( array $gate, array $trimestres, ?array $datas, ?string $grupo = null ): array {
 		$tri  = (int) ( $gate['trimestre'] ?? 0 );
 		$fila = $trimestres[ $tri ] ?? array();
+
+		if ( null !== $grupo && ANPA_Socios_Estado_Grupo_Texto::EN_MARCHA !== $grupo ) {
+			return array(
+				'efecto'    => self::INMEDIATA,
+				'trimestre' => $tri,
+				'data_fin'  => '',
+				'texto'     => __( 'Como o grupo aínda non comezou (non está confirmado ou non chega ao mínimo de alumnado), a baixa é efectiva desde este momento e non se pasará ningún cobro por esta actividade.', 'anpa-socios' ),
+			);
+		}
 
 		// Open window = the gate says enrolments are open, or the row itself says
 		// «aberta». Anything unknown (no course, no rows) also counts as not
@@ -76,7 +90,7 @@ final class ANPA_Socios_Baixa_Extraescolar_Efectos {
 			'data_fin'  => $fin,
 			'texto'     => sprintf(
 				/* translators: 1: trimester number, 2: " (o DD/MM/YYYY)" or empty */
-				__( 'Como a inscrición do %1$dº trimestre xa está pechada e as clases en marcha, a baixa é efectiva ao remate do trimestre en curso%2$s: a actividade e a cota correspondente mantéñense ata esa data e non se cobrará o trimestre seguinte.', 'anpa-socios' ),
+				__( 'Como o grupo está en marcha no %1$dº trimestre, a baixa é efectiva ao remate do trimestre en curso%2$s: a actividade e a cota correspondente mantéñense ata esa data e non se cobrará o trimestre seguinte.', 'anpa-socios' ),
 				$tri,
 				'' !== $fin_label ? sprintf( __( ' (o %s)', 'anpa-socios' ), $fin_label ) : ''
 			),
@@ -91,8 +105,8 @@ final class ANPA_Socios_Baixa_Extraescolar_Efectos {
 	 * @param  array<string,string>|null $datas      Course dates.
 	 * @return string
 	 */
-	public static function texto( array $gate, array $trimestres, ?array $datas ): string {
-		return self::avaliar( $gate, $trimestres, $datas )['texto'];
+	public static function texto( array $gate, array $trimestres, ?array $datas, ?string $grupo = null ): string {
+		return self::avaliar( $gate, $trimestres, $datas, $grupo )['texto'];
 	}
 
 	/**

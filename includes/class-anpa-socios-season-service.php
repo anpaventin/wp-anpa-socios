@@ -109,6 +109,8 @@ final class ANPA_Socios_Season_Service {
 				array( '%d' )
 			);
 			$summary['closed'][] = $curso;
+			// 1.93.0: the course closes completely (enrolments and groups), without any email.
+			self::pechar_matriculas_curso( $curso );
 
 			$next        = $rollover['next_curso'];
 			$next_inicio = ANPA_Socios_Season::default_data_inicio( $next );
@@ -326,5 +328,47 @@ final class ANPA_Socios_Season_Service {
 		$row = self::current_course_row();
 
 		return ANPA_Socios_Season::ESTADO_PENDENTE === (string) $row['estado'];
+	}
+
+	/**
+	 * 1.93.0: closes what a course leaves behind — every current enrolment of its groups
+	 * becomes «baixa» (today) and every open group «pechado». Before 1.93.0 only «Notificar
+	 * fin de curso» did it; closing the course from the trimester combo, by replacing the
+	 * active course or by this cron left enrolments alive (next year «xa está matriculado»,
+	 * offers emailed in a closed course). Idempotent.
+	 *
+	 * @since  1.93.0
+	 * @param  string $curso      Course.
+	 * @param  string $actor      Audit actor.
+	 * @param  string $actor_tipo Audit actor type.
+	 * @return array{grupos:int,matriculas:int}
+	 */
+	public static function pechar_matriculas_curso( string $curso, string $actor = 'system', string $actor_tipo = 'system' ): array {
+		global $wpdb;
+		if ( ! ANPA_Socios_Curso_Escolar::is_valid( $curso ) ) {
+			return array( 'grupos' => 0, 'matriculas' => 0 );
+		}
+		$gru_t = ANPA_Socios_DB::tabela_grupos();
+		$mat_t = ANPA_Socios_DB::tabela_matriculas();
+		$now   = current_time( 'mysql' );
+		$in    = ANPA_Socios_Matricula_Estado::sql_in( ANPA_Socios_Matricula_Estado::VIXENTES );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- end-of-year bulk close, audited below.
+		$mats = $wpdb->query( $wpdb->prepare(
+			"UPDATE {$mat_t} m INNER JOIN {$gru_t} g ON g.id = m.grupo_id
+			 SET m.estado = 'baixa', m.baixa_en = %s, m.baixa_efectiva_en = NULL, m.oferta_token = NULL, m.oferta_expira = NULL, m.oferta_aceptada_en = NULL, m.actualizado_en = %s
+			 WHERE g.curso_escolar = %s AND m.estado IN ({$in})",
+			$now,
+			$now,
+			$curso
+		) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- end-of-year bulk close, audited below.
+		$grupos = $wpdb->query( $wpdb->prepare(
+			"UPDATE {$gru_t} SET estado = 'pechado', actualizado_en = %s WHERE curso_escolar = %s AND estado IN ('aberto','sen_minimo')",
+			$now,
+			$curso
+		) );
+		$out = array( 'grupos' => false === $grupos ? 0 : (int) $grupos, 'matriculas' => false === $mats ? 0 : (int) $mats );
+		ANPA_Socios_Admin_Shared::write_audit_actor( $actor, $actor_tipo, 'curso', sprintf( '%s:g%d/m%d', $curso, $out['grupos'], $out['matriculas'] ), 'fin_curso_peche' );
+		return $out;
 	}
 }

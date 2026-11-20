@@ -20,14 +20,14 @@ final class Test_ANPA_Socios_Extraescolares_Control_Emails extends TestCase {
 	}
 
 	private const NOVAS = array(
-		'prazo_matriculas', 'fin_curso', 'matriculas_abertas', 'matriculas_pechadas',
+		'fin_curso', 'matriculas_abertas', 'matriculas_pechadas',
 		'matricula_pendente', 'matricula_aprobada_praza', 'matricula_aprobada_espera', 'matricula_rexeitada',
 		'grupo_comezo_trimestre', 'grupo_comezo_espera', 'grupo_pechado_minimo',
 	);
 
 	public function test_eleven_new_templates_exist_in_galician_with_the_association_and_a_contact_email(): void {
 		$defaults = ANPA_Socios_Email_Template_Store::get_all_defaults();
-		$this->assertCount( 41, $defaults, "1.92.0: + matricula_pendente_xunta, oferta_aceptada_xunta" );
+		$this->assertCount( 40, $defaults, "1.93.0: − prazo_matriculas, oferta_aceptada; + grupo_sen_minimo_espera" );
 		foreach ( self::NOVAS as $id ) {
 			$this->assertArrayHasKey( $id, $defaults, $id );
 			$this->assertContains( 'association_name', ANPA_Socios_Email_Template_Store::get_variables( $id )['subject'], "$id subject names the association" );
@@ -35,20 +35,21 @@ final class Test_ANPA_Socios_Extraescolares_Control_Emails extends TestCase {
 			$this->assertContains( 'contact_email', ANPA_Socios_Email_Template_Store::get_variables( $id )['text'], "$id text gives a contact" );
 			// Placeholders match the variable list (sprintf contract of the renderer).
 			foreach ( array( 'subject', 'html', 'text' ) as $field ) {
-				$this->assertSame( count( ANPA_Socios_Email_Template_Store::get_variables( $id )[ $field ] ), substr_count( $defaults[ $id ][ $field ], '%s' ), "$id $field placeholders" );
+				$this->assertSame( count( ANPA_Socios_Email_Template_Store::get_variables( $id )[ $field ] ), preg_match_all( '/%(?:\d+\$)?s/', $defaults[ $id ][ $field ] ), "$id $field placeholders" );
 			}
 		}
 	}
 
 	public function test_variable_order_of_the_mass_templates(): void {
 		$v = static function ( string $id ): array { return ANPA_Socios_Email_Template_Store::get_variables( $id )['html']; };
-		$this->assertSame( array( 'data_peche', 'data_inicio_actividades', 'extraescolares_url', 'extraescolares_url', 'login_url', 'login_url', 'contact_email' ), $v( 'prazo_matriculas' ) );
+		// 1.93.0: new variables appended, so templates edited before keep their placeholders.
+		$this->assertSame( array( 'association_name', 'instrucions_url', 'instrucions_url', 'extraescolares_url', 'extraescolares_url', 'login_url', 'login_url', 'contact_email', 'data_peche', 'data_inicio_actividades' ), $v( 'inicio_curso' ) );
 		$this->assertSame( array( 'curso_escolar', 'association_name', 'contact_email' ), $v( 'fin_curso' ) );
 		$this->assertSame( array( 'trimestre', 'extraescolares_url', 'extraescolares_url', 'login_url', 'login_url', 'contact_email' ), $v( 'matriculas_abertas' ) );
 		$this->assertSame( array( 'trimestre', 'contact_email' ), $v( 'matriculas_pechadas' ) );
-		$this->assertSame( array( 'alumno', 'actividade', 'grupo', 'contact_email' ), $v( 'matricula_pendente' ) );
-		$this->assertSame( array( 'alumno', 'actividade', 'grupo', 'login_url', 'login_url', 'contact_email' ), $v( 'matricula_aprobada_praza' ) );
-		$this->assertSame( array( 'alumno', 'actividade', 'grupo', 'posicion', 'contact_email' ), $v( 'matricula_aprobada_espera' ) );
+		$this->assertSame( array( 'alumno', 'actividade', 'grupo', 'contact_email', 'estado_grupo' ), $v( 'matricula_pendente' ) );
+		$this->assertSame( array( 'alumno', 'actividade', 'grupo', 'login_url', 'login_url', 'contact_email', 'estado_grupo' ), $v( 'matricula_aprobada_praza' ) );
+		$this->assertSame( array( 'alumno', 'actividade', 'grupo', 'posicion', 'contact_email', 'estado_grupo' ), $v( 'matricula_aprobada_espera' ) );
 		$this->assertSame( array( 'alumno', 'actividade', 'contact_email' ), $v( 'matricula_rexeitada' ) );
 		$this->assertSame( array( 'grupo', 'actividade', 'trimestre', 'horario', 'contact_email' ), $v( 'grupo_comezo_trimestre' ) );
 		$this->assertSame( array( 'grupo', 'actividade', 'trimestre', 'contact_email' ), $v( 'grupo_comezo_espera' ) );
@@ -70,16 +71,13 @@ final class Test_ANPA_Socios_Extraescolares_Control_Emails extends TestCase {
 		$out = ANPA_Socios_Email_Template_Renderer::render( 'matricula_aprobada_espera', $ctx + array( 'posicion' => '4' ) );
 		$this->assertStringContainsString( 'lista de espera</strong> (posición 4)', $out['html'] );
 
-		$out = ANPA_Socios_Email_Template_Renderer::render( 'prazo_matriculas', $ctx + array( 'data_peche' => '30/09/2026', 'data_inicio_actividades' => '01/10/2026', 'login_url' => 'https://example.org/area/', 'extraescolares_url' => 'https://example.org/extra/' ) );
-		$this->assertSame( 'Últimos días para revisar as inscricións nas extraescolares: o prazo remata o 30/09/2026 — ANPA Proba', $out['subject'] );
-		$this->assertStringContainsString( 'remata o <strong>30/09/2026</strong>', $out['html'] );
-		$this->assertStringContainsString( 'comezan o <strong>01/10/2026</strong>', $out['html'] );
-		// 1.68.1: the three points of the junta's real reminder (viability, waiting lists, review).
-		foreach ( array( 'número mínimo de participantes', 'Inscricións en grupos activos:', 'Listas de espera:', 'Revisión dos datos:', 'lista definitiva ás empresas' ) as $needle ) {
-			$this->assertStringContainsString( $needle, $out['html'] );
-			$this->assertStringContainsString( $needle, $out['text'] );
-		}
+		$out = ANPA_Socios_Email_Template_Renderer::render( 'inicio_curso', $ctx + array( 'data_peche' => '30/09/2026', 'data_inicio_actividades' => '01/10/2026', 'login_url' => 'https://example.org/area/', 'extraescolares_url' => 'https://example.org/extra/', 'instrucions_url' => 'https://example.org/como/' ) );
+		$this->assertStringContainsString( 'Prazo inicial de inscrición: ata o 30/09/2026.', $out['html'] );
+		$this->assertStringContainsString( 'As actividades comezan o 01/10/2026.', $out['html'] );
+		$this->assertStringContainsString( 'Prazo inicial de inscrición: ata o 30/09/2026.', $out['text'] );
 		$this->assertStringContainsString( '<a href="https://example.org/extra/">https://example.org/extra/</a>', $out['html'] );
+		$this->assertStringContainsString( '<a href="https://example.org/como/">https://example.org/como/</a>', $out['html'] );
+		$this->assertStringContainsString( 'directiva@example.org', $out['html'] );
 
 		$out = ANPA_Socios_Email_Template_Renderer::render( 'grupo_pechado_minimo', $ctx );
 		$this->assertStringContainsString( 'non acadou o mínimo', $out['html'] );
@@ -109,8 +107,9 @@ final class Test_ANPA_Socios_Extraescolares_Control_Emails extends TestCase {
 		foreach ( array( 'enviar_matricula_pendente', 'enviar_matricula_aprobada_praza', 'enviar_matricula_aprobada_espera', 'enviar_matricula_rexeitada', 'links_context' ) as $fn ) {
 			$this->assertStringContainsString( "public static function $fn(", $email, $fn );
 		}
-		// inicio_curso keeps working through the shared links context.
-		$this->assertStringContainsString( "self::send_template( \$to, 'inicio_curso', self::links_context() );", $email );
+		// inicio_curso keeps working through the shared links context (1.93.0: plus the two dates).
+		$this->assertStringContainsString( ") + self::links_context() );", $email );
+		$this->assertStringContainsString( "\$ok = self::send_template( \$to, 'inicio_curso', array(", $email );
 	}
 
 	public function test_new_lib_files_are_wired_in_plugin_and_bootstrap(): void {

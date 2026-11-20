@@ -81,8 +81,8 @@ final class Test_ANPA_Socios_Ods_Listados extends TestCase {
 	}
 
 	public function test_sheet_columns_mirror_the_web_panel(): void {
-		$this->assertSame( array( 'Actividade', 'Grupo', 'Alumno/a', 'Curso', 'Estado', 'Opcións e autorizacións', 'Nome 1º proxenitor', 'Apelidos 1º proxenitor', 'Teléfono 1º proxenitor', 'Correo 1º proxenitor', 'Nome 2º proxenitor', 'Apelidos 2º proxenitor', 'Teléfono 2º proxenitor', 'Correo 2º proxenitor' ), ANPA_Socios_Listado_Empresa::cabeceira( false ) );
-		$this->assertSame( array( 'Actividade', 'Empresa', 'Grupo', 'Alumno/a', 'Curso', 'Estado', 'Opcións e autorizacións', 'Nome 1º proxenitor', 'Apelidos 1º proxenitor', 'Teléfono 1º proxenitor', 'Correo 1º proxenitor', 'Nome 2º proxenitor', 'Apelidos 2º proxenitor', 'Teléfono 2º proxenitor', 'Correo 2º proxenitor' ), ANPA_Socios_Listado_Empresa::cabeceira( true ) );
+		$this->assertSame( array( 'Actividade', 'Grupo', 'Alumno/a', 'Curso', 'Estado', 'Baixa efectiva', 'Opcións e autorizacións', 'Nome 1º proxenitor', 'Apelidos 1º proxenitor', 'Teléfono 1º proxenitor', 'Correo 1º proxenitor', 'Nome 2º proxenitor', 'Apelidos 2º proxenitor', 'Teléfono 2º proxenitor', 'Correo 2º proxenitor' ), ANPA_Socios_Listado_Empresa::cabeceira( false ) );
+		$this->assertSame( array( 'Actividade', 'Empresa', 'Grupo', 'Alumno/a', 'Curso', 'Estado', 'Baixa efectiva', 'Opcións e autorizacións', 'Nome 1º proxenitor', 'Apelidos 1º proxenitor', 'Teléfono 1º proxenitor', 'Correo 1º proxenitor', 'Nome 2º proxenitor', 'Apelidos 2º proxenitor', 'Teléfono 2º proxenitor', 'Correo 2º proxenitor' ), ANPA_Socios_Listado_Empresa::cabeceira( true ) );
 	}
 
 	public function test_sheet_row_is_human_readable(): void {
@@ -92,13 +92,21 @@ final class Test_ANPA_Socios_Ods_Listados extends TestCase {
 		$this->assertSame( 'Uxía Pérez Souto', $f[2] );
 		$this->assertSame( '3º A', $f[3] );
 		$this->assertSame( 'Activa', $f[4] );
-		$this->assertSame( 'Tras o comedor pasa á actividade · Recollida por persoa autorizada', $f[5] );
+		$this->assertSame( '', $f[5], '1.93.0: no baixa date for an active place' );
+		$this->assertSame( 'Tras o comedor pasa á actividade · Recollida por persoa autorizada', $f[6] );
 		// 1.88.0: one column per datum of each parent; the 2nd parent's cells stay empty when the family has none.
-		$this->assertSame( array( 'Ana', 'Souto', '600000001', 'ana@example.com', '', '', '', '' ), array_slice( $f, 6 ) );
-		$this->assertCount( 14, $f );
+		$this->assertSame( array( 'Ana', 'Souto', '600000001', 'ana@example.com', '', '', '', '' ), array_slice( $f, 7 ) );
+		$this->assertCount( 15, $f );
 		$c = ANPA_Socios_Listado_Empresa::fila( $this->fila(), true );
 		$this->assertSame( 'Empresa Exemplo', $c[1] );
-		$this->assertCount( 15, $c );
+		$this->assertCount( 16, $c );
+		// 1.93.0: baixas are listed and marked with the day they take effect.
+		$b = ANPA_Socios_Listado_Empresa::fila( array( 'estado' => 'baixa', 'baixa_en' => '2026-11-03 10:00:00' ) + $this->fila(), false );
+		$this->assertSame( array( 'Baixa', '03/11/2026' ), array( $b[4], $b[5] ) );
+		$this->assertSame( 'Baixa ao remate do trimestre (segue ata o 22/12/2026)', ANPA_Socios_Listado_Empresa::estado_fila( array( 'estado' => 'baixa', 'baixa_en' => '2026-12-22 23:59:59' ), '2026-11-20 12:00:00' ) );
+		$this->assertSame( 'Baixa', ANPA_Socios_Listado_Empresa::estado_fila( array( 'estado' => 'baixa', 'baixa_en' => '2026-11-03 10:00:00' ), '2026-11-20 12:00:00' ) );
+		$this->assertSame( '27/11/2026', ANPA_Socios_Listado_Empresa::baixa_efectiva( array( 'estado' => 'baixa_solicitada', 'baixa_efectiva_en' => '2026-11-27 09:00:00' ) ) );
+		$this->assertSame( '', ANPA_Socios_Listado_Empresa::baixa_efectiva( array( 'estado' => 'baixa_solicitada', 'baixa_efectiva_en' => null ) ) );
 	}
 
 	public function test_every_state_has_a_label(): void {

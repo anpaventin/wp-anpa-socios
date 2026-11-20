@@ -60,12 +60,13 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 
 		// 1.68.1: modelled on the junta's real start-of-year mail — short, links first, relative calendar, only «1 de outubro» as a date.
 		$inicio = $defaults['inicio_curso']['html'];
-		foreach ( array( 'Prezadas familias,', 'Xa está aberta a inscrición nas actividades extraescolares!', 'paso a paso', 'Oferta de actividades e horarios semanais:', 'Área de socios/as', 'Calendario:', 'comezan o 1 de outubro', 'avisaremos por correo da data exacta de peche', 'Aviso importante sobre os pagos:', 'O cobro das actividades faino directamente cada empresa' ) as $needle ) {
+		// 1.93.0: one email — it also carries the end of the initial period and the first day of the activities.
+		foreach ( array( 'Prezadas familias,', 'Xa está aberta a inscrición nas actividades extraescolares!', 'paso a paso', 'Oferta de actividades e horarios semanais:', 'Área de socios/as', 'Prazo inicial de inscrición: ata o', 'As actividades comezan o', 'formamos os grupos', 'seguir inscribíndovos durante todo o curso', 'Aviso importante sobre os pagos:', 'O cobro das actividades faino directamente cada empresa' ) as $needle ) {
 			$this->assertStringContainsString( $needle, $inicio );
 			$this->assertStringContainsString( $needle, $defaults['inicio_curso']['text'] );
 		}
 		$this->assertSame( 0, preg_match( '/\b(luns|martes|mércores|xoves|venres|sábado|domingo)\b/iu', $inicio ), 'no weekdays: the mail must not age' );
-		$this->assertSame( array( 'association_name', 'instrucions_url', 'instrucions_url', 'extraescolares_url', 'extraescolares_url', 'login_url', 'login_url', 'contact_email' ), ANPA_Socios_Email_Template_Store::get_variables( 'inicio_curso' )['html'] );
+		$this->assertSame( array( 'association_name', 'instrucions_url', 'instrucions_url', 'extraescolares_url', 'extraescolares_url', 'login_url', 'login_url', 'contact_email', 'data_peche', 'data_inicio_actividades' ), ANPA_Socios_Email_Template_Store::get_variables( 'inicio_curso' )['html'] );
 	}
 
 	public function test_rendered_activity_baixa_email_carries_the_effects_sentence_and_a_readable_contact_email(): void {
@@ -150,7 +151,7 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 		$r = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $this->ventanas( 'pechada' ), $this->datas() );
 		$this->assertSame( ANPA_Socios_Baixa_Extraescolar_Efectos::FIN_TRIMESTRE, $r['efecto'] );
 		$this->assertSame( '2026-12-22', $r['data_fin'] );
-		$this->assertStringContainsString( 'inscrición do 1º trimestre xa está pechada', $r['texto'] );
+		$this->assertStringContainsString( 'grupo está en marcha no 1º trimestre', $r['texto'] );
 		$this->assertStringContainsString( '(o 22/12/2026)', $r['texto'] );
 		$this->assertStringContainsString( 'non se cobrará o trimestre seguinte', $r['texto'] );
 
@@ -177,7 +178,7 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 		$gate = array( 'trimestre' => 3, 'abertas' => false, 'motivo' => 'ventana_pechada' );
 		$r    = ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $this->ventanas( 'pechada', 'pechada', 'pechada' ), null );
 		$this->assertSame( ANPA_Socios_Baixa_Extraescolar_Efectos::FIN_TRIMESTRE, $r['efecto'] );
-		$this->assertStringContainsString( 'inscrición do 3º trimestre xa está pechada', $r['texto'] );
+		$this->assertStringContainsString( 'grupo está en marcha no 3º trimestre', $r['texto'] );
 		$this->assertStringNotContainsString( '(o ', $r['texto'] );
 	}
 
@@ -196,7 +197,11 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 		$this->assertSame( 1, preg_match_all( '/^\s*return wp_mail\( \$to, /m', $email ) );
 		$this->assertSame( 1, substr_count( $email, "self::signature_html() . '</body>'" ), 'the signature is appended only by wrap_html()' );
 		$this->assertStringNotContainsString( "str_replace( '</body>', self::signature_html()", $email );
-		foreach ( array( 'enviar_codigo', 'enviar_oferta_extraescolar', 'enviar_aviso_baixa_socio', 'enviar_aviso_reactivacion', 'enviar_aviso_baixa_extraescolar' ) as $fn ) {
+		// 1.93.0: the offer goes through the template store (send_template → send_from_master).
+		$this->assertStringContainsString( "return self::send_template_familia_xunta(
+			\$emails,
+			'oferta_extraescolar',", $email );
+		foreach ( array( 'enviar_codigo', 'enviar_aviso_baixa_socio', 'enviar_aviso_reactivacion', 'enviar_aviso_baixa_extraescolar' ) as $fn ) {
 			$start = strpos( $email, "public static function {$fn}(" );
 			$this->assertNotFalse( $start, $fn );
 			$body = substr( $email, $start, strpos( $email, "\n\t}\n", $start ) - $start );
@@ -245,7 +250,7 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 		// 1.91.0: the confirmation lives in the service shared with the cron.
 		$grupos = $this->src( 'includes/class-anpa-socios-baixa-programada-service.php' );
 		$this->assertStringContainsString( 'ANPA_Socios_Admin_Baixas_Handler::detalle_matricula( $id )', $grupos );
-		$this->assertStringContainsString( 'ANPA_Socios_Baixa_Extraescolar_Efectos::texto( $gate, $tris, $datas )', $grupos );
+		$this->assertStringContainsString( 'ANPA_Socios_Baixa_Extraescolar_Efectos::avaliar( $gate, $tris, $datas, ANPA_Socios_Email::contexto_grupo( (int) $mat[\'grupo_id\'] )[\'clave\'] )', $grupos );
 		$this->assertStringContainsString( 'ANPA_Socios_Email::enviar_baixa_extraescolar_confirmada(', $grupos );
 		$this->assertStringContainsString( "'correo_enviado' => \$correo_enviado, 'efectos' => \$efectos", $grupos );
 
@@ -268,12 +273,12 @@ final class Test_ANPA_Socios_Emails_Baixas_Inicio_Curso extends TestCase {
 	public function test_inicio_curso_route_and_button(): void {
 		$h = $this->src( 'includes/class-anpa-socios-admin-contactos-google-handler.php' );
 		$this->assertStringContainsString( "'/contactos-google/inicio-curso'", $h );
-		$this->assertStringContainsString( 'ANPA_Socios_Email::enviar_inicio_curso( $to )', $h );
-		$this->assertStringContainsString( '$to      = ANPA_Socios_Config::master_email();', $h, 'one email to the junta, never to every family' );
+		$this->assertStringContainsString( 'ANPA_Socios_Email::enviar_inicio_curso( $to, $datas )', $h );
+		$this->assertStringContainsString( '$to    = ANPA_Socios_Config::master_email();', $h, 'one email to the junta, never to every family' );
 		$this->assertStringContainsString( "'conta_xunta'       => ANPA_Socios_Config::master_email(),", $h );
 
 		$js = $this->src( 'assets/js/admin-management.js' );
-		$this->assertStringContainsString( "anpaAdminFetch('contactos-google/inicio-curso', { method: 'POST' })", $js );
+		$this->assertStringContainsString( "anpaAdminFetch('contactos-google/inicio-curso', { method: 'POST', body: {", $js );
 		$this->assertStringContainsString( "'Enviar o correo de inicio de curso á conta da xunta'", $js );
 		// 1.84.0: the button moved to «Correos masivos», which links every template of its catalogue.
 		$this->assertStringContainsString( "a.href = 'admin.php?page=anpa-socios-templates&edit=' + encodeURIComponent(t);", $js );

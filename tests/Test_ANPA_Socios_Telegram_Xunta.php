@@ -88,8 +88,8 @@ final class Test_ANPA_Socios_Telegram_Xunta extends TestCase {
 	public function test_pending_enrolments_reach_the_junta(): void {
 		// 1.92.0 bug: a request pending approval and an accepted offer never told the junta.
 		$rest = self::src( 'includes/class-anpa-socios-extraescolares-rest.php' );
-		$this->assertMatchesRegularExpression( '/enviar_matricula_pendente\( \$to, \$alumno, \$actividade, \$grupo_lbl \);\n\t\t\t\}\n.*?ANPA_Socios_Email::enviar_aviso_matricula_pendente_xunta\( \$email, \$alumno, \$actividade, \$grupo_lbl \);/s', $rest );
-		$this->assertMatchesRegularExpression( '/\'oferta_aceptada\' \);.*?ANPA_Socios_Email::enviar_aviso_matricula_pendente_xunta\(\s*self::current_email\( \$request \),.*?true\s*\);\s*return new WP_REST_Response/s', $rest );
+		$this->assertMatchesRegularExpression( '/enviar_matricula_pendente\( \$to, \$alumno, \$actividade, \$grupo_lbl, \$frase \);\n\t\t\t\}\n.*?ANPA_Socios_Email::enviar_aviso_matricula_pendente_xunta\( \$email, \$alumno, \$actividade, \$grupo_lbl, false, \$grupo_id \);/s', $rest );
+		$this->assertMatchesRegularExpression( '/\'oferta_aceptada\' \);.*?ANPA_Socios_Email::enviar_aviso_matricula_pendente_xunta\(\s*self::current_email\( \$request \),.*?true,\s*\$grupo_id\s*\);\s*return new WP_REST_Response/s', $rest );
 		$email = self::src( 'includes/class-anpa-socios-email.php' );
 		$this->assertStringContainsString( '$de_oferta ? \'oferta_aceptada_xunta\' : \'matricula_pendente_xunta\'', $email );
 	}

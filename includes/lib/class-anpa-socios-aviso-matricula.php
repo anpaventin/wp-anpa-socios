@@ -27,7 +27,6 @@ final class ANPA_Socios_Aviso_Matricula {
 	const PLANTILLA_BAIXA = 'matricula_baixa_aviso';
 
 	/** Template: the family accepted a waitlist offer. */
-	const PLANTILLA_OFERTA_ACEPTADA = 'oferta_aceptada';
 
 	/** Template (1.72.0): a pupil moves to another group of the activity. */
 	const PLANTILLA_CAMBIO = 'matricula_cambio_grupo_aviso';

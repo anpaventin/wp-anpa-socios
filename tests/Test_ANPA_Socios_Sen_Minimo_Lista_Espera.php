@@ -55,7 +55,11 @@ final class Test_ANPA_Socios_Sen_Minimo_Lista_Espera extends TestCase {
 		$b = $this->body( $h, 'sen_minimo' );
 		$this->assertStringContainsString( 'self::contexto_aviso_grupo(', $b, 'refused during the free enrolment period' );
 		$this->assertStringContainsString( "array( 'id' => \$ctx['grupo_id'], 'estado' => ANPA_Socios_Grupo_Serie::ESTADO_ABERTO )", $b, 'only an open group' );
-		$this->assertStringContainsString( "array_merge( \$ctx['emails_activos'], \$ctx['emails_espera'], \$ctx['emails_pendentes'], \$ctx['empresa_email'] ), 'grupo_sen_minimo'", $b );
+		// 1.93.0: a place keeps it (families with a place + company); the waiting list gets its own
+		// text; pending requests nothing (their approval email tells the group's state).
+		$this->assertStringContainsString( "array_merge( \$ctx['emails_activos'], \$ctx['empresa_email'] ), 'grupo_sen_minimo', \$vars", $b );
+		$this->assertStringContainsString( "ANPA_Socios_Email::enviar_masivo( \$ctx['emails_espera'], 'grupo_sen_minimo_espera', \$vars );", $b );
+		$this->assertStringNotContainsString( 'emails_pendentes', $b );
 		$this->assertStringNotContainsString( 'comedor', strtolower( $b ) );
 		$this->assertStringNotContainsString( "estado = 'baixa'", $b, 'enrolments are kept' );
 		// «Notificar grupo creado» on a «sen mínimo» group opens it.
@@ -68,12 +72,15 @@ final class Test_ANPA_Socios_Sen_Minimo_Lista_Espera extends TestCase {
 		foreach ( array( 'subject', 'html', 'text' ) as $k ) {
 			$this->assertSame( count( $v[ $k ] ), substr_count( $d['grupo_sen_minimo'][ $k ], '%s' ), $k );
 		}
-		$this->assertStringContainsString( 'conserva a súa praza', $d['grupo_sen_minimo']['html'] );
+		$this->assertStringContainsString( 'Quen ten praza consérvaa', $d['grupo_sen_minimo']['html'] );
+		$this->assertStringContainsString( 'posto na lista de espera mantense', $d['grupo_sen_minimo_espera']['html'] );
 	}
 
 	public function test_an_offer_keeps_its_place_and_an_accepted_one_waits_for_the_junta(): void {
 		// A requested baixa still attends until it is confirmed: it holds its place too.
-		$this->assertSame( "( estado IN ('activo','oferta','baixa_solicitada') OR ( estado = 'pendente_aprobacion' AND oferta_aceptada_en IS NOT NULL ) )", ANPA_Socios_Lista_Espera::SQL_OCUPAN );
+		// 1.93.0: and a baixa dated at the end of the trimester keeps its place until that day.
+		$this->assertSame( "( estado IN ('activo','oferta','baixa_solicitada') OR ( estado = 'pendente_aprobacion' AND oferta_aceptada_en IS NOT NULL ) OR ( estado = 'baixa' AND baixa_en > %s ) )", ANPA_Socios_Lista_Espera::SQL_OCUPAN );
+		$this->assertStringContainsString( "self::SQL_OCUPAN, \$grupo_id, \$excluir, current_time( 'mysql' ) )", $this->src( 'includes/class-anpa-socios-lista-espera.php' ) );
 		$e = $this->src( 'includes/class-anpa-socios-extraescolares-rest.php' );
 		$this->assertStringContainsString( '$activos          = ANPA_Socios_Lista_Espera::ocupadas( $grupo_id );', $e, 'enrolment counts held places' );
 		$a = $this->src( 'includes/class-anpa-socios-admin-matriculas-handler.php' );
@@ -85,7 +92,7 @@ final class Test_ANPA_Socios_Sen_Minimo_Lista_Espera extends TestCase {
 		$on = $this->body( $o, 'offer_next' );
 		$this->assertStringContainsString( 'ANPA_Socios_Lista_Espera::ocupadas( $grupo_id ) >= (int) $grupo[\'max_pupilos\']', $on, 'no offer without a free place' );
 		$this->assertStringContainsString( "AND estado = 'lista_espera' AND id <> %d", $on, 'never the same family again straight away' );
-		$this->assertStringContainsString( 'ORDER BY trimestre ASC, posicion ASC, id ASC LIMIT 1', $on, 'the whole group list, not only the freed row trimester' );
+		$this->assertStringContainsString( 'ORDER BY posicion ASC, id ASC LIMIT 1', $on, 'the whole group list, not only the freed row trimester' );
 		$this->assertStringContainsString( 'AND ( oferta_expira IS NULL OR oferta_expira < %s )', $on, 'cooling-off after letting an offer go' );
 		$this->assertStringContainsString( "array( 'id' => (int) \$next['id'], 'estado' => 'lista_espera' )", $on, 'guarded update' );
 		$this->assertStringContainsString( 'self::encher_prazas_libres();', $this->body( $o, 'expire_stale' ) );
@@ -128,7 +135,9 @@ final class Test_ANPA_Socios_Sen_Minimo_Lista_Espera extends TestCase {
 		$this->assertStringContainsString( "SELECT MAX(posicion) FROM {\$mat_t} WHERE grupo_id = %d AND estado = 'lista_espera'", $l );
 		$this->assertStringNotContainsString( 'AND trimestre = %d', $l );
 		$o = $this->src( 'includes/class-anpa-socios-extraescolar-offers.php' );
-		$this->assertStringContainsString( "WHERE grupo_id = %d AND estado = 'lista_espera' ORDER BY trimestre ASC, posicion ASC, id ASC", $o );
+		// 1.93.0: one queue ordered by position only (an offer let go goes to max + 1, whatever its trimester).
+		$this->assertStringContainsString( "WHERE grupo_id = %d AND estado = 'lista_espera' ORDER BY posicion ASC, id ASC", $o );
+		$this->assertStringNotContainsString( 'ORDER BY trimestre ASC, posicion ASC', $o );
 		$this->assertStringContainsString( 'public static function renumber_group( int $grupo_id ): void', $o );
 		foreach ( array( 'includes/class-anpa-socios-admin-grupos-handler.php', 'includes/class-anpa-socios-admin-matriculas-handler.php', 'includes/class-anpa-socios-extraescolares-rest.php', 'includes/class-anpa-socios-extraescolar-offers.php' ) as $rel ) {
 			$this->assertSame( 0, preg_match( '/ANPA_Socios_Lista_Espera::(renumerar|seguinte_posicion)\\([^;]*,/', $this->src( $rel ) ), $rel . ': no caller passes a trimester any more' );
@@ -157,7 +166,8 @@ final class Test_ANPA_Socios_Sen_Minimo_Lista_Espera extends TestCase {
 		}
 		$js = $this->src( 'assets/js/admin-management.js' );
 		$this->assertStringNotContainsString( "'Matrículas abertas para: '", $js );
-		$this->assertStringContainsString( "'Prazo de inscrición libre (sen aprobación): '", $js );
+		// 1.93.0: one control in step 3 of the course panel (initial period or per trimester).
+		$this->assertStringContainsString( "(todoCurso ? 'Pechar o prazo inicial' : 'Pechar o prazo')", $js );
 		$this->assertStringContainsString( "var destino = abrir ? triActivo : 0;", $js );
 	}
 }

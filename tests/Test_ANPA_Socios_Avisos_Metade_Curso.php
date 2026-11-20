@@ -33,13 +33,15 @@ final class Test_ANPA_Socios_Avisos_Metade_Curso extends TestCase {
 
 	public function test_three_new_templates_follow_the_renderer_contract(): void {
 		$defaults = ANPA_Socios_Email_Template_Store::get_all_defaults();
-		foreach ( array( 'matricula_alta_aviso', 'matricula_baixa_aviso', 'oferta_aceptada' ) as $id ) {
+		// 1.93.0: «oferta_aceptada» was never sent and is gone (an accepted offer gets the approval email).
+		$this->assertArrayNotHasKey( 'oferta_aceptada', $defaults );
+		foreach ( array( 'matricula_alta_aviso', 'matricula_baixa_aviso' ) as $id ) {
 			$this->assertArrayHasKey( $id, $defaults );
 			$vars = ANPA_Socios_Email_Template_Store::get_variables( $id );
 			$this->assertContains( 'association_name', $vars['subject'] );
 			$this->assertContains( 'contact_email', $vars['html'] );
 			foreach ( array( 'subject', 'html', 'text' ) as $field ) {
-				$this->assertSame( count( $vars[ $field ] ), substr_count( $defaults[ $id ][ $field ], '%s' ), "$id $field" );
+				$this->assertSame( count( $vars[ $field ] ), preg_match_all( '/%(?:\d+\$)?s/', $defaults[ $id ][ $field ] ), "$id $field" );
 			}
 		}
 		$alta = ANPA_Socios_Email_Template_Store::get_variables( 'matricula_alta_aviso' )['html'];
@@ -49,7 +51,7 @@ final class Test_ANPA_Socios_Avisos_Metade_Curso extends TestCase {
 		$this->assertContains( 'efectos', ANPA_Socios_Email_Template_Store::get_variables( 'matricula_baixa_aviso' )['html'] );
 		$this->assertSame( 'matricula_alta_aviso', ANPA_Socios_Aviso_Matricula::PLANTILLA_ALTA );
 		$this->assertSame( 'matricula_baixa_aviso', ANPA_Socios_Aviso_Matricula::PLANTILLA_BAIXA );
-		$this->assertSame( 'oferta_aceptada', ANPA_Socios_Aviso_Matricula::PLANTILLA_OFERTA_ACEPTADA );
+		$this->assertFalse( defined( 'ANPA_Socios_Aviso_Matricula::PLANTILLA_OFERTA_ACEPTADA' ) );
 	}
 
 	// ── Sending ──
@@ -95,7 +97,8 @@ final class Test_ANPA_Socios_Avisos_Metade_Curso extends TestCase {
 		$this->assertStringContainsString( 'max_pupilos, estado, aviso_comezo_en FROM {$gru_t} WHERE id = %d FOR UPDATE', $body );
 		$this->assertStringContainsString( "if ( ANPA_Socios_Aviso_Matricula::grupo_creado( ANPA_Socios_Season::ESTADO_ACTIVO,", $body );
 		$this->assertStringContainsString( '$pendente = true;', $body );
-		$this->assertStringContainsString( 'o grupo xa está en marcha', ANPA_Socios_Email_Template_Store::get_all_defaults()['matricula_pendente']['html'] );
+		// 1.93.0: enrolments are open all year: the pending email no longer explains why (closed window…).
+		$this->assertStringNotContainsString( 'prazo de matrícula está pechado', ANPA_Socios_Email_Template_Store::get_all_defaults()['matricula_pendente']['html'] );
 	}
 
 	public function test_approval_with_a_place_notifies_but_not_from_the_trimester_activation(): void {
@@ -104,7 +107,9 @@ final class Test_ANPA_Socios_Avisos_Metade_Curso extends TestCase {
 		// 1.85.0: an accepted offer from the waiting list always tells them once approved.
 		$this->assertStringContainsString( "if ( ( \$avisar_empresa || \$de_oferta ) && ANPA_Socios_Matricula_Estado::ACTIVO === \$destino ) {\n\t\t\tANPA_Socios_Email::avisar_empresa_comedor( \$id, ANPA_Socios_Aviso_Matricula::PLANTILLA_ALTA );", $h );
 		$t = $this->src( 'includes/class-anpa-socios-admin-trimestres-handler.php' );
-		$this->assertStringContainsString( "(string) \$request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_ROL ), false );", $t );
+		// 1.93.0: approving every pending request at the trimester activation tells the company
+		// and the canteen too (avisar_empresa_comedor() skips groups that are not created).
+		$this->assertStringContainsString( "(string) \$request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_ROL ), true );", $t );
 	}
 
 	public function test_confirmed_activity_baixa_notifies_company_and_canteen(): void {

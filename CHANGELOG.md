@@ -5,6 +5,95 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.93.0] - 2026-11-20
+
+### Added
+
+- **Modo de inscrición** (Xestión → Extraescolares → Matrículas, paso 1):
+  - **Abertas todo o curso** (por defecto). Ao comezo do curso hai un prazo inicial para formar os grupos. Toda
+    inscrición nova queda pendente de aprobación, tamén durante ese prazo.
+  - **Prazos por trimestre** (o modelo anterior). Co prazo do trimestre aberto a inscrición é directa; fóra del
+    queda pendente e só a decide a xunta.
+- **Aprobación automática das inscricións** (Axustes → Xeral, xunto á aprobación de socios). Se ninguén da xunta
+  aproba ou rexeita a inscrición antes, apróbase soa pasadas as horas indicadas (por defecto 24). A aprobación fai o
+  mesmo que o botón da xunta: praza ou lista de espera, correo de confirmación á familia e, se o grupo xa está en
+  marcha, aviso á empresa e ao comedor. Unha oferta da lista de espera que acepta a familia apróbase ao momento.
+  Só funciona no modo «todo o curso». Matrículas amosa o estado e unha ligazón para cambialo.
+- **O estado real do grupo nos correos á familia** (inscrición recibida, matrícula confirmada, lista de espera e
+  oferta de praza):
+  - grupo en marcha;
+  - grupo aínda non confirmado;
+  - grupo sen mínimo («non comeza e non se cobra nada, a praza queda reservada»).
+
+  Ás familias vai só o texto; á xunta, co número de prazas ocupadas, o mínimo e o máximo, e a hora da aprobación
+  automática.
+- **Correo de confirmación nas inscricións directas** do prazo libre (modo por trimestres). Antes non se enviaba
+  ningún correo.
+- Novo texto `grupo_sen_minimo_espera` para a lista de espera dun grupo sen mínimo.
+- **Os listados levan todo o alumnado matriculado e marcan as baixas.** Nova columna «Baixa efectiva» co día en que a
+  baixa é (ou foi) efectiva:
+  - panel e exportación das empresas (CSV e folla de cálculo);
+  - exportación de alumnado de Xestión: todas as matrículas do curso activo, co estado e o grupo.
+
+  Unha baixa con efecto a fin de trimestre aparece como «Baixa ao remate do trimestre (segue ata o DD/MM/AAAA)».
+  O botón «CSV: alumnado que asiste agora» (antes «só activos») e o listado do comedor inclúen tamén quen pediu a
+  baixa e aínda asiste.
+
+### Changed
+
+- **Xestión → Extraescolares → Matrículas ordénase como o curso, en cinco pasos:**
+  1. modo e aprobación;
+  2. comezo do curso;
+  3. peche do prazo inicial e formación dos grupos;
+  4. trimestres;
+  5. fin do curso.
+
+  O listado de matrículas mantense.
+- **Un só correo de comezo de curso** (`inicio_curso`). Leva a data de fin do prazo inicial, que serve para formar os
+  grupos, e a de comezo das actividades. Desaparecen o botón e a plantilla `prazo_matriculas`.
+- Os correos á familia xa non falan de «prazo pechado» nin de «fóra de prazo». Afecta a `matricula_pendente`,
+  `matricula_aprobada_praza`, `matricula_aprobada_espera`, `oferta_extraescolar`, `matriculas_pechadas` e
+  `matriculas_abertas`, e á mensaxe da área.
+- **A oferta de praza vai aos dous proxenitores**, co nome do alumno/a e o grupo.
+- O aviso de grupo sen mínimo vai ás familias con praza e á empresa. A lista de espera recibe un texto propio e as
+  solicitudes pendentes xa non o reciben.
+- Ao activar un trimestre no modo «todo o curso», as solicitudes pendentes quedan como están. No modo por
+  trimestres, aprobalas todas avisa tamén á empresa e ao comedor dos grupos en marcha.
+- O curso só se pecha dende o paso 5. O selector do trimestre xa non ten «Curso pechado».
+- Elimínase a plantilla `oferta_aceptada`, que nunca se enviaba.
+
+### Fixed
+
+- **Co prazo pechado, as familias non podían pedir a baixa dunha actividade, saír da lista de espera nin anular
+  unha baixa dende a área.** Agora poden facelo sempre que o curso estea activo.
+- **Pechar o curso co selector, ao substituír o curso activo ou automaticamente na data de remate deixaba vivas as
+  matrículas e os grupos.** O ano seguinte saía «xa está matriculado» e seguían enviándose ofertas do curso
+  pechado. Agora as catro formas de pechar fan o mesmo peche completo. Ademais, nin se ofrecen prazas nin se
+  aproban solicitudes nun curso que non está activo.
+- **Os efectos da baixa dependían só da ventá.**
+  - Nun grupo que aínda non comezou (sen confirmar ou sen mínimo), a baixa é inmediata e sen cobro.
+  - Nun grupo en marcha, a baixa é efectiva ao remate do trimestre e a praza segue ocupada ata ese día. Antes
+    ofrecíase ao momento.
+- **Ao aprobar non se respectaba a lista de espera**: unha inscrición nova podía colarse por diante. A lista de
+  Aprobacións xa mostra o destino correcto e o estado do grupo.
+- **«Erro interno» ao aprobar** cando o alumno/a tiña unha baixa antiga na mesma actividade e no mesmo trimestre.
+- Unha inscrición que reutiliza unha baixa antiga xa non herda datos dunha oferta vella e empeza a contar desde
+  agora.
+- Quen rexeita unha oferta ou a deixa caducar vai realmente ao final da lista.
+- Xa non se pode abrir o prazo dun trimestre que non está activo.
+- A subida de nivel ten en conta as solicitudes pendentes.
+- O aviso do listado deixa de dicir «Matrículas PECHADAS» cando as inscricións seguen abertas todo o curso.
+- **A creación de matrículas desde a API de administración pasa os mesmos controis que a área:**
+  - o grupo ten que ser da actividade e do curso activo, e non estar deshabilitado;
+  - o nivel do alumno/a ten que encaixar no grupo;
+  - só pode haber unha matrícula viva por actividade;
+  - as prazas deciden se vai a praza ou a lista de espera.
+
+  O parámetro `notificar` (true ou false) é obrigatorio: o admin decide se se avisa á familia e, nun grupo en
+  marcha, á empresa e ao comedor. Antes gardábase sen grupo, sen trimestre e sen ningún control.
+- A aprobación non mete solicitudes en grupos deshabilitados. A aprobación automática só colle as que se poden
+  aprobar, para que unha que falla non bloquee as seguintes.
+
 ## [1.92.0] - 2026-11-06
 
 ### Fixed

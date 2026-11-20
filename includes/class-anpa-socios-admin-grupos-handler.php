@@ -979,8 +979,18 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		$correo = self::con_correo( $request );
 		$envio  = array( 'lotes' => 0, 'enviados' => 0, 'fallidos' => 0, 'lotes_fallidos' => 0, 'destinatarios' => 0 );
 		if ( $correo ) {
-			$envio = ANPA_Socios_Email::enviar_masivo( array_merge( $ctx['emails_activos'], $ctx['emails_espera'], $ctx['emails_pendentes'], $ctx['empresa_email'] ), 'grupo_sen_minimo', array( 'actividade' => $ctx['actividade'], 'grupo' => $ctx['grupo_nome'] ) );
+			// 1.93.0: families with a place and the company get «grupo_sen_minimo»; the waiting list its own
+			// text; pending requests nothing (their approval email tells them the group's state).
+			$vars  = array( 'actividade' => $ctx['actividade'], 'grupo' => $ctx['grupo_nome'] );
+			$envio = ANPA_Socios_Email::enviar_masivo( array_merge( $ctx['emails_activos'], $ctx['empresa_email'] ), 'grupo_sen_minimo', $vars );
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'email', ANPA_Socios_Envio_Masivo::etiqueta_auditoria( 'grupo_sen_minimo', $envio ), 'masivo' );
+			if ( array() !== $ctx['emails_espera'] ) {
+				$espera = ANPA_Socios_Email::enviar_masivo( $ctx['emails_espera'], 'grupo_sen_minimo_espera', $vars );
+				ANPA_Socios_Admin_Shared::write_audit( $request, 'email', ANPA_Socios_Envio_Masivo::etiqueta_auditoria( 'grupo_sen_minimo_espera', $espera ), 'masivo' );
+				foreach ( array( 'lotes', 'enviados', 'fallidos', 'lotes_fallidos', 'destinatarios' ) as $k ) {
+					$envio[ $k ] = (int) ( $envio[ $k ] ?? 0 ) + (int) ( $espera[ $k ] ?? 0 );
+				}
+			}
 		} else {
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'grupo', (string) $ctx['grupo_id'], 'sen_correo' );
 		}
@@ -1030,7 +1040,7 @@ final class ANPA_Socios_Admin_Grupos_Handler {
 		// and Grupos e horarios; reusable from the activity's group list). Its enrolments go
 		// to baixa first so the disabled state holds its invariant (no current enrolments).
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- audited bulk close of one group.
-		$m_ok = $wpdb->query( $wpdb->prepare( "UPDATE {$mat_t} SET estado = 'baixa', baixa_en = %s, oferta_token = NULL, oferta_expira = NULL, actualizado_en = %s WHERE grupo_id = %d AND estado IN ({$in})", $now, $now, $ctx['grupo_id'] ) );
+		$m_ok = $wpdb->query( $wpdb->prepare( "UPDATE {$mat_t} SET estado = 'baixa', baixa_en = %s, oferta_token = NULL, oferta_expira = NULL, oferta_aceptada_en = NULL, actualizado_en = %s WHERE grupo_id = %d AND estado IN ({$in})", $now, $now, $ctx['grupo_id'] ) );
 		$g_ok = $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET estado = %s, actualizado_en = %s WHERE id = %d", ANPA_Socios_Grupo_Serie::ESTADO_DESHABILITADO, $now, $ctx['grupo_id'] ) );
 		if ( false === $g_ok || false === $m_ok || false === $wpdb->query( 'COMMIT' ) ) {
 			$wpdb->query( 'ROLLBACK' );

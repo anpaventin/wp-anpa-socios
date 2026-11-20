@@ -38,7 +38,8 @@ final class ANPA_Socios_Alumnos_Export {
 		);
 
 		if ( $with_empresa ) {
-			return array_merge( array( 'empresa_nome' ), $empresa_cols );
+			// 1.93.0: the admin export lists every enrolment, with its state and when a baixa took effect.
+			return array_merge( array( 'empresa_nome' ), $empresa_cols, array( 'grupo_nome', 'estado', 'baixa_efectiva' ) );
 		}
 
 		return $empresa_cols;
@@ -47,9 +48,10 @@ final class ANPA_Socios_Alumnos_Export {
 	/**
 	 * Fetches alumnos rows for export.
 	 *
-	 * When $empresa_id is provided (int), returns only active enrolments
-	 * for that empresa. When null, returns all active enrolments across
-	 * all empresas (admin export).
+	 * When $empresa_id is provided (int), returns the enrolments of that
+	 * empresa; when null, of every empresa (admin export). 1.93.0: every state
+	 * of the active course (before: only «activo»), active ones first, with
+	 * the state and «baixa_efectiva» (when a baixa took or takes effect).
 	 *
 	 * @since  1.5.0
 	 * @param  int|null $empresa_id Empresa ID filter, or null for all.
@@ -69,15 +71,15 @@ final class ANPA_Socios_Alumnos_Export {
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table names from DB helper.
 			$rows = $wpdb->get_results(
 				"SELECT e.nome AS empresa_nome, a.nome AS actividade_nome, "
-				. "f.nome, f.apelidos, COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula) AS aula, m.comedor, m.tarde, f.socio_email "
+				. "f.nome, f.apelidos, COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula) AS aula, m.comedor, m.tarde, f.socio_email, COALESCE(g.nome, '') AS grupo_nome, m.estado, m.baixa_en, m.baixa_efectiva_en "
 				. "FROM {$matriculas} m "
 				. "JOIN {$fillos} f ON f.id = m.fillo_id "
 				. "JOIN {$actividades} a ON a.id = m.activitad_id "
 				. "JOIN {$empresas} e ON e.id = a.empresa_id "
 				. "LEFT JOIN {$wpdb->prefix}anpa_grupos g ON g.id = m.grupo_id "
 				. "LEFT JOIN {$wpdb->prefix}anpa_fillos_cursos fc ON fc.fillo_id = f.id AND fc.curso_escolar = g.curso_escolar "
-				. "WHERE m.estado = 'activo' "
-				. "ORDER BY e.nome, a.nome, f.apelidos, f.nome",
+				. "WHERE m.estado <> '' AND ( g.curso_escolar IS NULL OR g.curso_escolar = COALESCE( (SELECT c.curso_escolar FROM {$wpdb->prefix}anpa_cursos c WHERE c.estado = 'activo' ORDER BY c.actualizado_en DESC LIMIT 1), g.curso_escolar ) ) "
+				. "ORDER BY e.nome, a.nome, FIELD(m.estado, 'activo', 'baixa_solicitada', 'oferta', 'lista_espera', 'pendente_aprobacion', 'baixa'), f.apelidos, f.nome",
 				ARRAY_A
 			);
 		} else {
@@ -87,21 +89,21 @@ final class ANPA_Socios_Alumnos_Export {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT a.nome AS actividade_nome, "
-					. "f.nome, f.apelidos, COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula) AS aula, m.comedor, m.tarde, f.socio_email "
+					. "f.nome, f.apelidos, COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula) AS aula, m.comedor, m.tarde, f.socio_email, COALESCE(g.nome, '') AS grupo_nome, m.estado, m.baixa_en, m.baixa_efectiva_en "
 					. "FROM {$matriculas} m "
 					. "JOIN {$fillos} f ON f.id = m.fillo_id "
 					. "JOIN {$actividades} a ON a.id = m.activitad_id "
 					. "LEFT JOIN {$wpdb->prefix}anpa_grupos g ON g.id = m.grupo_id "
 					. "LEFT JOIN {$wpdb->prefix}anpa_fillos_cursos fc ON fc.fillo_id = f.id AND fc.curso_escolar = g.curso_escolar "
-					. "WHERE a.empresa_id = %d AND m.estado = 'activo' "
-					. "ORDER BY a.nome, f.apelidos, f.nome",
+					. "WHERE a.empresa_id = %d AND ( g.curso_escolar IS NULL OR g.curso_escolar = COALESCE( (SELECT c.curso_escolar FROM {$wpdb->prefix}anpa_cursos c WHERE c.estado = 'activo' ORDER BY c.actualizado_en DESC LIMIT 1), g.curso_escolar ) ) "
+					. "ORDER BY a.nome, FIELD(m.estado, 'activo', 'baixa_solicitada', 'oferta', 'lista_espera', 'pendente_aprobacion', 'baixa'), f.apelidos, f.nome",
 					$empresa_id
 				),
 				ARRAY_A
 			);
 		}
 
-		return is_array( $rows ) ? $rows : null;
+		return is_array( $rows ) ? self::con_baixa_efectiva( $rows ) : null;
 	}
 
 	/**
@@ -112,7 +114,8 @@ final class ANPA_Socios_Alumnos_Export {
 	 * @return string[]
 	 */
 	public static function columns_panel_empresa(): array {
-		return array( 'actividade_nome', 'grupo_nome', 'horario', 'franxa', 'dias', 'nome', 'apelidos', 'curso', 'aula', 'estado', 'trimestre', 'comedor', 'tarde', 'autorizacion_comedor', 'tarde_transicion', 'tardes_divertidas_continua', 'recollida_autorizada', 'cesion_datos_empresa', 'proxenitor1_nome', 'proxenitor1_apelidos', 'proxenitor1_telefono', 'proxenitor1_email', 'proxenitor2_nome', 'proxenitor2_apelidos', 'proxenitor2_telefono', 'proxenitor2_email' );
+		// 1.93.0: + baixa_efectiva (when the baixa took or takes effect).
+		return array( 'actividade_nome', 'grupo_nome', 'horario', 'franxa', 'dias', 'nome', 'apelidos', 'curso', 'aula', 'estado', 'trimestre', 'baixa_efectiva', 'comedor', 'tarde', 'autorizacion_comedor', 'tarde_transicion', 'tardes_divertidas_continua', 'recollida_autorizada', 'cesion_datos_empresa', 'proxenitor1_nome', 'proxenitor1_apelidos', 'proxenitor1_telefono', 'proxenitor1_email', 'proxenitor2_nome', 'proxenitor2_apelidos', 'proxenitor2_telefono', 'proxenitor2_email' );
 	}
 
 	/**
@@ -140,7 +143,15 @@ final class ANPA_Socios_Alumnos_Export {
 			$where   .= ' AND g.curso_escolar = %s';
 			$params[] = $curso_escolar;
 		}
-		$where .= $so_activos ? " AND m.estado = 'activo'" : " AND m.estado IN ('activo','lista_espera','oferta','baixa_solicitada','pendente_aprobacion','baixa')";
+		// 1.93.0: "activos" = who attends now: an active place, a requested baixa (still attends until
+		// it is confirmed) and a baixa dated at the end of the trimester (attends until that day).
+		if ( $so_activos ) {
+			// baixa_en is WordPress local time: compare with current_time(), not MySQL NOW().
+			$where   .= " AND ( m.estado IN ('activo','baixa_solicitada') OR ( m.estado = 'baixa' AND m.baixa_en > %s ) )";
+			$params[] = function_exists( 'current_time' ) ? (string) current_time( 'mysql' ) : gmdate( 'Y-m-d H:i:s' );
+		} else {
+			$where .= " AND m.estado IN ('activo','lista_espera','oferta','baixa_solicitada','pendente_aprobacion','baixa')";
+		}
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table names from DB helper; where built from placeholders.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
@@ -151,7 +162,21 @@ final class ANPA_Socios_Alumnos_Export {
 			),
 			ARRAY_A
 		);
-		return is_array( $rows ) ? $rows : null;
+		return is_array( $rows ) ? self::con_baixa_efectiva( $rows ) : null;
+	}
+
+	/**
+	 * 1.93.0: adds "baixa_efectiva" (DD/MM/AAAA) to every row.
+	 *
+	 * @param  array<int,array<string,mixed>> $rows Rows with estado, baixa_en, baixa_efectiva_en.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private static function con_baixa_efectiva( array $rows ): array {
+		foreach ( $rows as &$r ) {
+			$r['baixa_efectiva'] = ANPA_Socios_Listado_Empresa::baixa_efectiva( $r );
+		}
+		unset( $r );
+		return $rows;
 	}
 
 	/**
@@ -191,7 +216,7 @@ final class ANPA_Socios_Alumnos_Export {
 		$empresas    = ANPA_Socios_DB::tabela_empresas();
 		$socios      = ANPA_Socios_DB::tabela_socios();
 		return "SELECT {$extra}a.id AS actividad_id, COALESCE(e.nome, '') AS empresa_nome, a.nome AS actividade_nome, COALESCE(g.nome, '') AS grupo_nome, COALESCE(g.horario, '') AS horario, COALESCE(g.franxa, '') AS franxa, COALESCE(g.dias, '') AS dias, "
-			. "f.nome, f.apelidos, COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula, '') AS aula, m.estado, m.trimestre, m.comedor, m.tarde, m.autorizacion_comedor, m.tarde_transicion, m.tardes_divertidas_continua, m.recollida_autorizada, m.cesion_datos_empresa, "
+			. "f.nome, f.apelidos, COALESCE(fc.curso, f.curso) AS curso, COALESCE(fc.aula, f.aula, '') AS aula, m.estado, m.trimestre, m.baixa_en, m.baixa_efectiva_en, m.comedor, m.tarde, m.autorizacion_comedor, m.tarde_transicion, m.tardes_divertidas_continua, m.recollida_autorizada, m.cesion_datos_empresa, "
 			. "COALESCE(p1.nome, '') AS proxenitor1_nome, COALESCE(p1.apelidos, '') AS proxenitor1_apelidos, COALESCE(p1.telefono, '') AS proxenitor1_telefono, COALESCE(NULLIF(p1.email, ''), f.socio_email, '') AS proxenitor1_email, "
 			. "COALESCE(p2.nome, '') AS proxenitor2_nome, COALESCE(p2.apelidos, '') AS proxenitor2_apelidos, COALESCE(p2.telefono, '') AS proxenitor2_telefono, COALESCE(p2.email, '') AS proxenitor2_email "
 			. "FROM {$matriculas} m "

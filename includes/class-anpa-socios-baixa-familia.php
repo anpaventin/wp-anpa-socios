@@ -137,7 +137,7 @@ final class ANPA_Socios_Baixa_Familia {
 			$ph  = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- placeholders built above.
 			$matriculas_baixa = (int) $wpdb->query( $wpdb->prepare(
-				"UPDATE {$mat_t} SET estado = 'baixa', baixa_en = %s, oferta_token = NULL, oferta_expira = NULL, actualizado_en = %s WHERE id IN ({$ph})",
+				"UPDATE {$mat_t} SET estado = 'baixa', baixa_en = %s, oferta_token = NULL, oferta_expira = NULL, oferta_aceptada_en = NULL, actualizado_en = %s WHERE id IN ({$ph})",
 				array_merge( array( $now, $now ), $ids )
 			) );
 		}

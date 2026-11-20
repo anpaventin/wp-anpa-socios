@@ -94,7 +94,8 @@ final class Test_ANPA_Socios_Avisos_Xunta extends TestCase {
 	}
 
 	public function test_junta_templates_exist_with_their_variables(): void {
-		$vars = array( 'alumno', 'actividade', 'grupo', 'email_socio', 'xestion_url' );
+		// 1.93.0: + the group's state with the numbers and the automatic approval line.
+		$vars = array( 'alumno', 'actividade', 'grupo', 'email_socio', 'xestion_url', 'estado_grupo', 'aprobacion_automatica' );
 		foreach ( array( 'matricula_pendente_xunta', 'oferta_aceptada_xunta' ) as $id ) {
 			$v = ANPA_Socios_Email_Template_Store::get_variables( $id );
 			$this->assertSame( $vars, $v['html'], $id );
