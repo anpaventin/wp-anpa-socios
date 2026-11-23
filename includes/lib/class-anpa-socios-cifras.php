@@ -31,12 +31,12 @@ final class ANPA_Socios_Cifras {
 	/**
 	 * Figures the public shortcode shows when no `mostrar` attribute is given.
 	 */
-	const PUBLICAS_DEFECTO = array( 'familias', 'alumnado', 'extraescolares', 'actividades', 'prazas' );
+	const PUBLICAS_DEFECTO = array( 'familias', 'alumnado', 'extraescolares', 'actividades', 'prazas', 'sen_inscricion' );
 
 	/**
 	 * Every figure key the shortcode accepts, in display order.
 	 */
-	const CLAVES = array( 'familias', 'alumnado', 'extraescolares', 'inscricions', 'actividades', 'empresas', 'prazas', 'comedor', 'tarde' );
+	const CLAVES = array( 'familias', 'alumnado', 'extraescolares', 'inscricions', 'actividades', 'sen_inscricion', 'empresas', 'prazas', 'comedor', 'tarde' );
 
 	/**
 	 * Parses the shortcode `mostrar` attribute into known keys, in the order given.
@@ -97,6 +97,9 @@ final class ANPA_Socios_Cifras {
 				return _n( 'inscrición en extraescolares', 'inscricións en extraescolares', $n, 'anpa-socios' );
 			case 'actividades':
 				return _n( 'actividade extraescolar', 'actividades extraescolares', $n, 'anpa-socios' );
+			case 'sen_inscricion':
+				// 1.97.0: activities open to every pupil, no enrolment and no places (e.g. patios coeducativos).
+				return _n( 'actividade aberta a todo o alumnado, sen inscrición', 'actividades abertas a todo o alumnado, sen inscrición', $n, 'anpa-socios' );
 			case 'empresas':
 				return _n( 'empresa colaboradora', 'empresas colaboradoras', $n, 'anpa-socios' );
 			case 'prazas':
@@ -126,7 +129,7 @@ final class ANPA_Socios_Cifras {
 			}
 			$n = max( 0, (int) $datos[ $clave ] );
 			// A public block never advertises an empty offer («0 actividades»).
-			if ( $publico && 0 === $n && in_array( $clave, array( 'actividades', 'empresas', 'prazas', 'extraescolares', 'inscricions', 'comedor', 'tarde' ), true ) ) {
+			if ( $publico && 0 === $n && in_array( $clave, array( 'actividades', 'sen_inscricion', 'empresas', 'prazas', 'extraescolares', 'inscricions', 'comedor', 'tarde' ), true ) ) {
 				continue;
 			}
 			$out[] = array(
@@ -136,6 +139,21 @@ final class ANPA_Socios_Cifras {
 			);
 		}
 		return $out;
+	}
+
+	/**
+	 * Group name for the socios panel: without the activity name when it repeats it
+	 * («Xadrez (1º, 2º, 3º)» under «Xadrez» → «1º, 2º, 3º»); «Grupo único» when
+	 * nothing is left.
+	 *
+	 * @since  1.97.0
+	 * @param  string $actividade Activity name.
+	 * @param  string $grupo      Group name.
+	 * @return string
+	 */
+	public static function nome_grupo( string $actividade, string $grupo ): string {
+		$curto = ANPA_Socios_Horario_Builder::etiqueta_grupo( $actividade, $grupo );
+		return '' !== $curto ? $curto : __( 'Grupo único', 'anpa-socios' );
 	}
 
 	/**

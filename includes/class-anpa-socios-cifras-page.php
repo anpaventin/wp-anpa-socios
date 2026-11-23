@@ -32,7 +32,7 @@ final class ANPA_Socios_Cifras_Page {
 	/**
 	 * Transient prefix of the cached figures (10 minutes).
 	 */
-	const CACHE_KEY = 'anpa_socios_cifras_v1_';
+	const CACHE_KEY = 'anpa_socios_cifras_v2_'; // v2 (1.97.0): groups per activity.
 
 	/**
 	 * Cache lifetime in seconds.
@@ -123,7 +123,7 @@ final class ANPA_Socios_Cifras_Page {
 			array(
 				'success'     => true,
 				'curso'       => $datos['curso'],
-				'cifras'      => ANPA_Socios_Cifras::items( $todas, array( 'familias', 'alumnado', 'extraescolares', 'inscricions', 'actividades', 'empresas', 'comedor', 'tarde' ), false ),
+				'cifras'      => ANPA_Socios_Cifras::items( $todas, array( 'familias', 'alumnado', 'extraescolares', 'inscricions', 'actividades', 'sen_inscricion', 'empresas', 'comedor', 'tarde' ), false ),
 				'altas'       => (int) $datos['socios']['altas'],
 				'baixas'      => (int) $datos['socios']['baixas'],
 				'espera'      => (int) $datos['socios']['espera'],
@@ -194,6 +194,7 @@ final class ANPA_Socios_Cifras_Page {
 			'prazas'         => 0,
 			'comedor'        => 0,
 			'tarde'          => 0,
+			'sen_inscricion' => 0,
 		);
 		$socios      = array( 'altas' => 0, 'baixas' => 0, 'espera' => 0 );
 		$prazas      = ANPA_Socios_Cifras::prazas( array() );
@@ -241,46 +242,85 @@ final class ANPA_Socios_Cifras_Page {
 				...$ids
 			) );
 
+			// 1.97.0: every group of the course (not only the public ones), so the
+			// socios panel shows each group with its state; places are per group.
 			$grupos = $wpdb->get_results( $wpdb->prepare(
-				"SELECT g.id, g.actividad_id, g.estado, g.max_pupilos, a.nome, a.empresa_id,
+				"SELECT g.id, g.actividad_id, g.nome AS grupo, g.estado, g.horario, g.franxa, g.dias,
+				        g.min_pupilos, g.max_pupilos, g.aviso_comezo_en,
+				        a.nome, a.empresa_id, a.sen_inscricion,
 				        COUNT(DISTINCT CASE WHEN {$vivas} THEN m.fillo_id END) AS activos,
-				        COUNT(DISTINCT CASE WHEN m.estado = 'lista_espera' THEN m.id END) AS espera
+				        COUNT(DISTINCT CASE WHEN m.estado = 'lista_espera' THEN m.id END) AS espera,
+				        COUNT(DISTINCT m.id) AS total
 				 FROM {$gru_t} g
 				 INNER JOIN {$act_t} a ON a.id = g.actividad_id AND a.estado = 'activo'
 				 LEFT JOIN {$mat_t} m ON m.grupo_id = g.id
-				 WHERE g.id IN ({$ph})
-				 GROUP BY g.id, g.actividad_id, g.estado, g.max_pupilos, a.nome, a.empresa_id
-				 ORDER BY a.nome ASC",
-				...$ids
+				 WHERE g.curso_escolar = %s
+				 GROUP BY g.id, g.actividad_id, g.nome, g.estado, g.horario, g.franxa, g.dias, g.min_pupilos, g.max_pupilos, g.aviso_comezo_en, a.nome, a.empresa_id, a.sen_inscricion
+				 ORDER BY a.nome ASC, g.franxa ASC, g.nome ASC",
+				$curso
 			), ARRAY_A );
-			$grupos = is_array( $grupos ) ? $grupos : array();
+			$grupos   = is_array( $grupos ) ? $grupos : array();
+			$publicos = array_flip( $ids );
 
 			$abertos  = array();
 			$empresas = array();
+			$abertas  = array();
 			foreach ( $grupos as $g ) {
-				$aid = (int) $g['actividad_id'];
-				if ( (int) $g['empresa_id'] > 0 ) {
-					$empresas[ (int) $g['empresa_id'] ] = true;
+				$aid      = (int) $g['actividad_id'];
+				$publico  = isset( $publicos[ (int) $g['id'] ] );
+				$sen_insc = ! empty( $g['sen_inscricion'] );
+				$aviso    = null === $g['aviso_comezo_en'] ? null : (string) $g['aviso_comezo_en'];
+				$estado   = $sen_insc ? 'sen_inscricion' : ANPA_Socios_Oferta_Publica::estado_grupo( (string) $g['estado'], $aviso, (int) $g['activos'], (int) $g['min_pupilos'], (int) $g['total'] );
+				if ( '' === $estado || ( $sen_insc && ! $publico ) ) {
+					continue; // Disabled or never offered: not shown.
 				}
-				// Only groups still taking enrolments count for free places.
-				if ( in_array( (string) $g['estado'], array( 'aberto', 'sen_minimo' ), true ) ) {
-					$abertos[] = $g;
+				if ( $publico ) {
+					if ( (int) $g['empresa_id'] > 0 ) {
+						$empresas[ (int) $g['empresa_id'] ] = true;
+					}
+					if ( $sen_insc ) {
+						$abertas[ $aid ] = true;
+					} elseif ( in_array( (string) $g['estado'], array( 'aberto', 'sen_minimo' ), true ) ) {
+						// Only groups still taking enrolments count for free places.
+						$abertos[] = $g;
+					}
 				}
 				if ( ! isset( $actividades[ $aid ] ) ) {
-					$actividades[ $aid ] = array( 'nome' => (string) $g['nome'], 'inscritos' => 0, 'prazas' => 0, 'sen_limite' => false, 'espera' => 0 );
+					$actividades[ $aid ] = array( 'nome' => (string) $g['nome'], 'sen_inscricion' => $sen_insc, 'publica' => false, 'inscritos' => 0, 'prazas' => 0, 'sen_limite' => false, 'espera' => 0, 'grupos' => array() );
 				}
-				$actividades[ $aid ]['inscritos'] += (int) $g['activos'];
-				$actividades[ $aid ]['espera']    += (int) $g['espera'];
-				if ( (int) $g['max_pupilos'] <= 0 ) {
-					$actividades[ $aid ]['sen_limite'] = true;
-				} else {
-					$actividades[ $aid ]['prazas'] += (int) $g['max_pupilos'];
+				$actividades[ $aid ]['publica'] = $actividades[ $aid ]['publica'] || $publico;
+				// Groups that did not reach the minimum are listed but add no places.
+				if ( ANPA_Socios_Oferta_Publica::NON_ACADADO !== $estado ) {
+					$actividades[ $aid ]['inscritos'] += (int) $g['activos'];
+					$actividades[ $aid ]['espera']    += (int) $g['espera'];
+					if ( (int) $g['max_pupilos'] <= 0 ) {
+						$actividades[ $aid ]['sen_limite'] = true;
+					} else {
+						$actividades[ $aid ]['prazas'] += (int) $g['max_pupilos'];
+					}
 				}
+				$dias = array();
+				foreach ( ANPA_Socios_Actividade_Options::parse( (string) $g['dias'], ANPA_Socios_Actividade_Options::DIAS ) as $d ) {
+					$dias[] = ANPA_Socios_Horario_Builder::DIA_LABELS[ $d ] ?? $d;
+				}
+				$actividades[ $aid ]['grupos'][] = array(
+					'nome'      => ANPA_Socios_Cifras::nome_grupo( (string) $g['nome'], (string) $g['grupo'] ),
+					'estado'    => $estado,
+					'horario'   => ANPA_Socios_Grupo_Serie::horario_label( (string) $g['horario'] ),
+					'franxa'    => str_replace( '-', '–', (string) $g['franxa'] ),
+					'dias'      => implode( ', ', $dias ),
+					'inscritos' => (int) $g['activos'],
+					'minimo'    => (int) $g['min_pupilos'],
+					'maximo'    => (int) $g['max_pupilos'],
+					'espera'    => (int) $g['espera'],
+				);
 			}
-			$prazas                  = ANPA_Socios_Cifras::prazas( $abertos );
-			$publicas['actividades'] = count( $actividades );
-			$publicas['empresas']    = count( $empresas );
-			$publicas['prazas']      = (int) $prazas['grupos_con_prazas'];
+			// Activities only taken by groups that are no longer offered drop out of the public count.
+			$prazas                      = ANPA_Socios_Cifras::prazas( $abertos );
+			$publicas['actividades']     = count( array_filter( $actividades, static function ( $a ) { return $a['publica']; } ) );
+			$publicas['empresas']        = count( $empresas );
+			$publicas['prazas']          = (int) $prazas['grupos_con_prazas'];
+			$publicas['sen_inscricion']  = count( $abertas );
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery
 

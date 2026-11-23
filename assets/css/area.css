@@ -905,3 +905,110 @@
 /* 1.81.0: children in baixa the family can recover. */
 .anpa-fillos-recuperables { margin-top: 1.25rem; }
 .anpa-fillos-recuperables[hidden] { display: none; }
+
+/* 1.97.0: the family's enrolments as cards, one block per child. */
+#anpa-area .anpa-extra-mine {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	margin: 0.5rem 0 1rem;
+}
+#anpa-area .anpa-extra-fillo-cab {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	margin-bottom: 0.5rem;
+}
+#anpa-area .anpa-extra-fillo-avatar {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	border-radius: 999px;
+	background: var(--anpa-accent, #2d6a4f);
+	color: #fff;
+	font-weight: 700;
+	flex: none;
+}
+#anpa-area .anpa-extra-fillo-nome {
+	margin: 0;
+	font-size: 1.05rem;
+}
+#anpa-area ul.anpa-extra-mine-lista {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+	gap: 0.6rem;
+}
+#anpa-area ul.anpa-extra-mine-lista > li.anpa-extra-mat {
+	margin: 0;
+	padding: 0.75rem 0.9rem;
+	background: #fff;
+	border: 1px solid var(--anpa-border, #d9d9d9);
+	border-left: 4px solid var(--anpa-accent, #2d6a4f);
+	border-radius: var(--anpa-radius, 10px);
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	gap: 0.6rem;
+}
+#anpa-area ul.anpa-extra-mine-lista > li.anpa-extra-mat::before {
+	content: none !important;
+	display: none !important;
+}
+#anpa-area .anpa-extra-mat-topo {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 0.4rem 0.6rem;
+}
+#anpa-area .anpa-extra-mat-act {
+	font-weight: 700;
+	line-height: 1.3;
+}
+#anpa-area .anpa-extra-mat-estado {
+	display: inline-block;
+	padding: 0.1rem 0.6rem;
+	border-radius: 999px;
+	font-size: 0.8rem;
+	font-weight: 600;
+	white-space: nowrap;
+	background: #dcfce7;
+	color: #166534;
+}
+#anpa-area .anpa-extra-mat-detalle,
+#anpa-area .anpa-extra-mat-nota,
+#anpa-area .anpa-extra-mat-curso {
+	margin: 0.3rem 0 0;
+	font-size: 0.9rem;
+	color: #4b5563;
+	line-height: 1.45;
+}
+#anpa-area .anpa-extra-mat-nota { color: #1e40af; }
+#anpa-area .anpa-extra-mat-accions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+}
+#anpa-area .anpa-extra-mat-accions button {
+	margin: 0;
+	padding: 0.35rem 0.8rem;
+	font-size: 0.85rem;
+}
+
+/* States. */
+#anpa-area li.anpa-extra-mat--lista_espera { border-left-color: #d97706; }
+#anpa-area li.anpa-extra-mat--lista_espera .anpa-extra-mat-estado { background: #fef3c7; color: #92400e; }
+#anpa-area li.anpa-extra-mat--oferta { border-left-color: #2563eb; background: #eff6ff; }
+#anpa-area li.anpa-extra-mat--oferta .anpa-extra-mat-estado { background: #dbeafe; color: #1e40af; }
+#anpa-area li.anpa-extra-mat--pendente_aprobacion { border-left-color: #6b7280; }
+#anpa-area li.anpa-extra-mat--pendente_aprobacion .anpa-extra-mat-estado { background: #f3f4f6; color: #374151; }
+#anpa-area li.anpa-extra-mat--baixa_solicitada { border-left-color: #d97706; }
+#anpa-area li.anpa-extra-mat--baixa_solicitada .anpa-extra-mat-estado { background: #ffedd5; color: #9a3412; }
+#anpa-area li.anpa-extra-mat--baixa { border-left-color: #d1d5db; background: #f9fafb; }
+#anpa-area li.anpa-extra-mat--baixa .anpa-extra-mat-act { color: #6b7280; }
+#anpa-area li.anpa-extra-mat--baixa .anpa-extra-mat-estado { background: #e5e7eb; color: #4b5563; }

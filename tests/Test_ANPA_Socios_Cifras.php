@@ -125,4 +125,30 @@ final class Test_ANPA_Socios_Cifras extends TestCase {
 		$this->assertStringContainsString( "'anpa-cifras-lista anpa-cifras-lista--n' + items.length + (mini ? ' anpa-cifras-lista--mini' : '')", $js );
 		$this->assertStringContainsString( "el('div', 'anpa-cifras-ocupacion')", $js );
 	}
+
+	public function test_groups_and_open_activities_1_97(): void {
+		$this->assertSame( '1º, 2º, 3º', ANPA_Socios_Cifras::nome_grupo( 'Xadrez', 'Xadrez (1º, 2º, 3º)' ) );
+		$this->assertSame( 'LEGOTECA (4º, 5º, 6º)', ANPA_Socios_Cifras::nome_grupo( 'Bloques de Construción (legoteca)', 'LEGOTECA (4º, 5º, 6º)' ) );
+		$this->assertSame( 'Grupo único', ANPA_Socios_Cifras::nome_grupo( 'Hockey', 'Hockey' ) );
+		$this->assertContains( 'sen_inscricion', ANPA_Socios_Cifras::PUBLICAS_DEFECTO );
+		$this->assertSame( 'actividade aberta a todo o alumnado, sen inscrición', ANPA_Socios_Cifras::etiqueta( 'sen_inscricion', 1 ) );
+		// A public block never shows «0 actividades sen inscrición».
+		$this->assertSame( array(), ANPA_Socios_Cifras::items( array( 'sen_inscricion' => 0 ), array( 'sen_inscricion' ), true ) );
+
+		$page = $this->src( 'includes/class-anpa-socios-cifras-page.php' );
+		// Activities without enrolment never count as groups with free places.
+		$this->assertStringContainsString( "\$estado   = \$sen_insc ? 'sen_inscricion' : ANPA_Socios_Oferta_Publica::estado_grupo(", $page );
+		$this->assertStringContainsString( "if ( ANPA_Socios_Oferta_Publica::NON_ACADADO !== \$estado ) {", $page );
+		$this->assertStringContainsString( "const CACHE_KEY = 'anpa_socios_cifras_v2_';", $page );
+
+		$js = $this->src( 'assets/js/area.js' );
+		$this->assertStringContainsString( "el('div', 'anpa-cifras-grupo' + (completo ? ' anpa-cifras-grupo--completo' : ''))", $js );
+		$this->assertStringContainsString( "'anpa-cifras-act' + (aberta ? ' anpa-cifras-act--aberta' : '')", $js );
+		// Enrolments: one block per child, one card per enrolment, actions kept.
+		$this->assertStringContainsString( "nodo('section', 'anpa-extra-fillo')", $js );
+		$this->assertStringContainsString( "nodo('li', 'anpa-extra-mat anpa-extra-mat--'", $js );
+		foreach ( array( "'/oferta/aceptar'", "'/oferta/rexeitar'", "'/baixa'", "'/baixa/cancel'" ) as $endpoint ) {
+			$this->assertStringContainsString( $endpoint, $js );
+		}
+	}
 }

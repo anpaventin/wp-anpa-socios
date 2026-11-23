@@ -556,43 +556,86 @@
 					}
 					host.appendChild(curso);
 
-					// Occupancy per activity: enrolled / places with a bar.
+					// 1.97.0: occupancy per group (places, minimum and state belong to each
+					// group), grouped by activity. Activities without enrolment get their own card.
 					if (Array.isArray(data.actividades) && data.actividades.length) {
-						var oc = seccion(__( 'Ocupación das actividades', 'anpa-socios' ));
+						var ESTADOS = {
+							creado: [__( 'Grupo formado', 'anpa-socios' ), 'creado'],
+							aberto: [__( 'Aberto', 'anpa-socios' ), 'aberto'],
+							sen_minimo: [__( 'Aínda sen mínimo', 'anpa-socios' ), 'sen-minimo'],
+							non_acadado: [__( 'Non acadou o mínimo', 'anpa-socios' ), 'non-acadado'],
+							sen_inscricion: [__( 'Sen inscrición', 'anpa-socios' ), 'sen-inscricion']
+						};
+						var oc = seccion(__( 'Ocupación das actividades por grupo', 'anpa-socios' ));
 						var list = el('div', 'anpa-cifras-ocupacion');
 						data.actividades.forEach(function (a) {
-							var inscritos = Number(a.inscritos || 0);
-							var prazas = Number(a.prazas || 0);
-							var limitada = prazas > 0 && !a.sen_limite;
-							var pct = limitada ? Math.min(100, Math.round(inscritos * 100 / prazas)) : 0;
-							var estado = limitada ? (inscritos >= prazas ? ' anpa-cifras-act--completo' : (pct >= 80 ? ' anpa-cifras-act--case' : '')) : '';
-							var card = el('div', 'anpa-cifras-act' + estado);
+							var grupos = Array.isArray(a.grupos) ? a.grupos : [];
+							var aberta = !!a.sen_inscricion;
+							var naoForma = !aberta && grupos.length > 0 && grupos.every(function (g) { return g.estado === 'non_acadado'; });
+							var card = el('article', 'anpa-cifras-act' + (aberta ? ' anpa-cifras-act--aberta' : '') + (naoForma ? ' anpa-cifras-act--non-forma' : ''));
 							var cab = el('div', 'anpa-cifras-act-cab');
 							cab.appendChild(el('span', 'anpa-cifras-act-nome', a.nome));
-							var txt = limitada
-								? sprintf( __( '%1$s de %2$s', 'anpa-socios' ), num(inscritos), num(prazas) )
-								: sprintf( __( '%s · sen límite', 'anpa-socios' ), num(inscritos) );
-							cab.appendChild(el('span', 'anpa-cifras-act-num', txt));
+							if (aberta) {
+								cab.appendChild(el('span', 'anpa-cifras-act-num', __( 'Para todo o alumnado', 'anpa-socios' )));
+							} else if (naoForma) {
+								cab.appendChild(el('span', 'anpa-cifras-act-num', __( 'Non se forma este curso', 'anpa-socios' )));
+							} else {
+								var prazas = Number(a.prazas || 0);
+								cab.appendChild(el('span', 'anpa-cifras-act-num', prazas > 0
+									? sprintf( __( '%1$s de %2$s prazas', 'anpa-socios' ), num(a.inscritos), num(prazas) )
+									: sprintf( __( '%s inscritos/as', 'anpa-socios' ), num(a.inscritos) )));
+							}
 							card.appendChild(cab);
-							if (limitada) {
-								var barra = el('div', 'anpa-cifras-barra');
-								barra.setAttribute('aria-hidden', 'true');
-								var fill = el('span');
-								fill.style.width = pct + '%';
-								barra.appendChild(fill);
-								card.appendChild(barra);
+							if (aberta) {
+								card.appendChild(el('p', 'anpa-cifras-act-nota', __( 'Non precisa inscrición nin ten prazas: participa todo o alumnado do curso no seu horario.', 'anpa-socios' )));
 							}
-							var chips = el('div', 'anpa-cifras-act-etiquetas');
-							if (limitada && inscritos >= prazas) {
-								chips.appendChild(el('span', 'anpa-cifras-chip anpa-cifras-chip--completo', __( 'Completo', 'anpa-socios' )));
-							}
-							if (Number(a.espera || 0) > 0) {
-								chips.appendChild(el('span', 'anpa-cifras-chip anpa-cifras-chip--espera', sprintf( __( '%s en espera', 'anpa-socios' ), num(a.espera) )));
-							}
-							if (chips.childNodes.length) { card.appendChild(chips); }
+							grupos.forEach(function (g) {
+								var inscritos = Number(g.inscritos || 0);
+								var maximo = Number(g.maximo || 0);
+								var minimo = Number(g.minimo || 0);
+								var completo = maximo > 0 && inscritos >= maximo;
+								var row = el('div', 'anpa-cifras-grupo' + (completo ? ' anpa-cifras-grupo--completo' : ''));
+								var top = el('div', 'anpa-cifras-grupo-cab');
+								top.appendChild(el('span', 'anpa-cifras-grupo-nome', g.nome));
+								var est = ESTADOS[g.estado] || [g.estado, 'aberto'];
+								if (completo && g.estado !== 'non_acadado') { est = [__( 'Completo', 'anpa-socios' ), 'completo']; }
+								top.appendChild(el('span', 'anpa-cifras-chip anpa-cifras-chip--' + est[1], est[0]));
+								row.appendChild(top);
+								var horario = [g.dias, g.franxa, g.horario].filter(function (x) { return x; }).join(' · ');
+								if (horario) { row.appendChild(el('p', 'anpa-cifras-grupo-horario', horario)); }
+								if (!aberta) {
+									var datos = el('div', 'anpa-cifras-grupo-datos');
+									datos.appendChild(el('span', 'anpa-cifras-grupo-num', maximo > 0
+										? sprintf( __( '%1$s de %2$s', 'anpa-socios' ), num(inscritos), num(maximo) )
+										: sprintf( __( '%s inscritos/as · sen límite', 'anpa-socios' ), num(inscritos) )));
+									if (g.estado === 'sen_minimo' && minimo > inscritos) {
+										datos.appendChild(el('span', 'anpa-cifras-grupo-falta', sprintf( __( 'faltan %s para o mínimo', 'anpa-socios' ), num(minimo - inscritos) )));
+									}
+									if (Number(g.espera || 0) > 0) {
+										datos.appendChild(el('span', 'anpa-cifras-chip anpa-cifras-chip--espera', sprintf( __( '%s en espera', 'anpa-socios' ), num(g.espera) )));
+									}
+									row.appendChild(datos);
+									if (maximo > 0) {
+										var pct = Math.min(100, Math.round(inscritos * 100 / maximo));
+										var barra = el('div', 'anpa-cifras-barra' + (pct >= 80 && !completo ? ' anpa-cifras-barra--case' : ''));
+										barra.setAttribute('aria-hidden', 'true');
+										var fill = el('span');
+										fill.style.width = pct + '%';
+										barra.appendChild(fill);
+										if (minimo > 0 && minimo < maximo) {
+											var mark = el('i', 'anpa-cifras-barra-minimo');
+											mark.style.left = Math.round(minimo * 100 / maximo) + '%';
+											barra.appendChild(mark);
+										}
+										row.appendChild(barra);
+									}
+								}
+								card.appendChild(row);
+							});
 							list.appendChild(card);
 						});
 						oc.appendChild(list);
+						oc.appendChild(el('p', 'anpa-cifras-nota', __( 'A marca vertical da barra é o mínimo de inscricións para formar o grupo.', 'anpa-socios' )));
 						host.appendChild(oc);
 					}
 					section.hidden = false;
@@ -1190,21 +1233,65 @@
 				host.appendChild(p);
 				return;
 			}
-			const ul = document.createElement('ul');
-			ul.className = 'anpa-extra-mine';
-			list.forEach((m) => {
-				const li = document.createElement('li');
-				const who = ((m.fillo_nome || '') + ' ' + (m.fillo_apelidos || '')).trim();
-				const estado = EXTRA_ESTADO_LABELS[m.estado] || m.estado;
-				let txt = who + ' — ' + (m.actividade || '') + (m.curso_escolar ? ' [' + m.curso_escolar + ']' : '');
-				if (m.grupo_nome) { txt += ' (' + m.grupo_nome + (m.horario ? ' — ' + (m.horario === 'maña' ? 'Mañá' : m.horario === 'manha' ? 'Comedor' : 'Tarde') : '') + ')'; }
-				txt += ' · ' + estado;
+			// 1.97.0: one block per child and one card per enrolment (activity, group,
+			// timetable and a state badge) instead of a single line of text.
+			const ORDE = { oferta: 0, activo: 1, pendente_aprobacion: 2, lista_espera: 3, baixa_solicitada: 4, baixa: 5 };
+			const DIAS = { luns: 'Luns', martes: 'Martes', mercores: 'Mércores', xoves: 'Xoves', venres: 'Venres' };
+			const HORARIO = { 'maña': 'Mañá', manha: 'Comedor', tarde: 'Tarde' };
+			const nodo = function (tag, cls, text) {
+				const e = document.createElement(tag);
+				if (cls) { e.className = cls; }
+				if (text !== undefined && text !== null && text !== '') { e.textContent = String(text); }
+				return e;
+			};
+			const grupoCurto = function (actividade, grupo) {
+				let g = String(grupo || '').trim();
+				const a = String(actividade || '').trim();
+				if (a && g.toLowerCase().indexOf(a.toLowerCase()) === 0) {
+					g = g.slice(a.length).replace(/^[\s:·–—-]+|[\s:·–—-]+$/g, '');
+					const m = g.match(/^\((.*)\)$/);
+					if (m) { g = m[1].trim(); }
+				}
+				return g;
+			};
+			const ordenadas = list.slice().sort(function (x, y) {
+				const ox = ORDE[x.estado] === undefined ? 9 : ORDE[x.estado];
+				const oy = ORDE[y.estado] === undefined ? 9 : ORDE[y.estado];
+				return ox - oy || String(x.actividade || '').localeCompare(String(y.actividade || ''), 'gl');
+			});
+			const porFillo = {};
+			const wrap = nodo('div', 'anpa-extra-mine');
+			ordenadas.forEach((m) => {
+				const fid = String(m.fillo_id || ((m.fillo_nome || '') + (m.fillo_apelidos || '')));
+				if (!porFillo[fid]) {
+					const sec = nodo('section', 'anpa-extra-fillo');
+					const cab = nodo('div', 'anpa-extra-fillo-cab');
+					const nomeFillo = ((m.fillo_nome || '') + ' ' + (m.fillo_apelidos || '')).trim();
+					cab.appendChild(nodo('span', 'anpa-extra-fillo-avatar', (m.fillo_nome || '?').trim().charAt(0).toUpperCase()));
+					cab.appendChild(nodo('h4', 'anpa-extra-fillo-nome', nomeFillo));
+					sec.appendChild(cab);
+					const lista = nodo('ul', 'anpa-extra-mine-lista');
+					sec.appendChild(lista);
+					wrap.appendChild(sec);
+					porFillo[fid] = lista;
+				}
+				const li = nodo('li', 'anpa-extra-mat anpa-extra-mat--' + String(m.estado || '').replace(/[^a-z_]/g, ''));
+				const corpo = nodo('div', 'anpa-extra-mat-corpo');
+				const topo = nodo('div', 'anpa-extra-mat-topo');
+				topo.appendChild(nodo('span', 'anpa-extra-mat-act', m.actividade || ''));
+				let estadoTxt = EXTRA_ESTADO_LABELS[m.estado] || m.estado;
 				// 1.85.0: the position is the place in THIS group's waiting list.
-				if (m.estado === 'lista_espera' && m.posicion) { txt += ' (posición ' + m.posicion + ' na lista do grupo)'; }
-				if (m.estado === 'pendente_aprobacion' && m.oferta_aceptada_en) { txt += ' · ' + __( 'praza reservada: a directiva confirmaraa', 'anpa-socios' ); }
-				const span = document.createElement('span');
-				span.textContent = txt;
-				li.appendChild(span);
+				if (m.estado === 'lista_espera' && m.posicion) { estadoTxt += ' · ' + sprintf( __( 'posición %s', 'anpa-socios' ), m.posicion ); }
+				topo.appendChild(nodo('span', 'anpa-extra-mat-estado', estadoTxt));
+				corpo.appendChild(topo);
+				const grupo = grupoCurto(m.actividade, m.grupo_nome);
+				const dias = String(m.dias || '').split(',').map(function (d) { return DIAS[d.trim()] || ''; }).filter(Boolean).join(', ');
+				const detalles = [grupo, dias, String(m.franxa || '').replace('-', '–'), HORARIO[m.horario] || ''].filter(Boolean);
+				if (detalles.length) { corpo.appendChild(nodo('p', 'anpa-extra-mat-detalle', detalles.join(' · '))); }
+				if (m.estado === 'pendente_aprobacion' && m.oferta_aceptada_en) { corpo.appendChild(nodo('p', 'anpa-extra-mat-nota', __( 'Praza reservada: a directiva confirmaraa.', 'anpa-socios' ))); }
+				li.appendChild(corpo);
+				const acts = nodo('div', 'anpa-extra-mat-accions');
+				li.appendChild(acts);
 
 				const base = root.dataset.extraMatriculaBaseUrl + encodeURIComponent(m.id);
 				if (m.estado === 'oferta') {
@@ -1215,7 +1302,7 @@
 						const done = await tokenRequest('POST', base + '/oferta/aceptar', areaToken, {}, root);
 						if (done) { showMessage(root, __( 'Praza aceptada e reservada. A directiva confirmaraa e avisarémoste por correo.', 'anpa-socios' ), 'success'); await loadExtraescolares(); }
 					});
-					li.appendChild(acc);
+					acts.appendChild(acc);
 					// 1.85.0: turning it down keeps the pupil on the list, at the end.
 					const rex = document.createElement('button');
 					rex.type = 'button';
@@ -1226,7 +1313,7 @@
 						const done = await tokenRequest('POST', base + '/oferta/rexeitar', areaToken, {}, root);
 						if (done) { showMessage(root, __( 'Praza rexeitada: segues na lista de espera, ao final.', 'anpa-socios' ), 'success'); await loadExtraescolares(); }
 					});
-					li.appendChild(rex);
+					acts.appendChild(rex);
 				}
 				if (m.estado === 'activo' || m.estado === 'lista_espera' || m.estado === 'oferta') {
 					const baixa = document.createElement('button');
@@ -1238,7 +1325,7 @@
 						const done = await tokenRequest('POST', base + '/baixa', areaToken, {}, root);
 						if (done) { showMessage(root, __( 'Solicitude de baixa rexistrada.', 'anpa-socios' ), 'success'); await loadExtraescolares(); }
 					});
-					li.appendChild(baixa);
+					acts.appendChild(baixa);
 				}
 				if (m.estado === 'pendente_aprobacion') {
 					const retirar = document.createElement('button');
@@ -1250,7 +1337,7 @@
 						const done = await tokenRequest('POST', base + '/baixa', areaToken, {}, root);
 						if (done) { showMessage(root, __( 'Solicitude retirada.', 'anpa-socios' ), 'success'); await loadExtraescolares(); }
 					});
-					li.appendChild(retirar);
+					acts.appendChild(retirar);
 				}
 				if (m.estado === 'baixa_solicitada') {
 					const cancel = document.createElement('button');
@@ -1261,12 +1348,13 @@
 						const done = await tokenRequest('POST', base + '/baixa/cancel', areaToken, {}, root);
 						if (done) { showMessage(root, __( 'Baixa anulada.', 'anpa-socios' ), 'success'); await loadExtraescolares(); }
 					});
-					li.appendChild(cancel);
+					acts.appendChild(cancel);
 				}
 
-				ul.appendChild(li);
+				if (!acts.childNodes.length) { li.removeChild(acts); }
+				porFillo[fid].appendChild(li);
 			});
-			host.appendChild(ul);
+			host.appendChild(wrap);
 		}
 
 		function renderEnrolForm(host, oferta, fillos) {

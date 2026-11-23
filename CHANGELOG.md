@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.97.0] - 2026-11-23
+
+### Changed
+
+- **Ocupación por grupos na área de socios/as.** As prazas, o mínimo e o estado son de cada grupo, así que cada
+  actividade mostra agora os seus grupos: nome, días e horario, inscritos/as de prazas cunha barra (a marca
+  vertical é o mínimo), «faltan N para o mínimo», lista de espera e o estado: «Grupo formado», «Aberto»,
+  «Aínda sen mínimo», «Non acadou o mínimo» ou «Completo». Unha actividade cuxos grupos non acadaron o mínimo
+  indica «Non se forma este curso» e as súas prazas non suman.
+- **Actividades sen inscrición (por exemplo, patios coeducativos).** Teñen a súa propia tarxeta («Para todo o
+  alumnado»), cos grupos e o horario, e xa non contan como «grupos con prazas libres». Na portada saen nunha
+  cifra propia: «actividade aberta a todo o alumnado, sen inscrición».
+- **As matrículas da familia, en tarxetas.** Na área de socios/as as matrículas van agrupadas por fillo/a, cunha
+  tarxeta por actividade: grupo, días, horario e o estado destacado en cor (matriculado/a, lista de espera coa
+  posición, oferta de praza, pendente, baixa solicitada, baixa). Os botóns son os mesmos de antes.
+
 ## [1.96.3] - 2026-11-23
 
 ### Fixed
