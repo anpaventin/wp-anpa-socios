@@ -52,4 +52,11 @@ final class Test_ANPA_Socios_Tarxetas_Oferta extends TestCase {
 		$css = $this->src( 'assets/css/extraescolares.css' );
 		$this->assertStringContainsString( '.anpa-extra-dialog::backdrop', $css );
 	}
+
+	public function test_public_label_says_sen_grupo(): void {
+		$page = $this->src( 'includes/class-anpa-socios-extraescolares-page.php' );
+		// 1.98.3: timetable (table + phone list) and cards say «Sen grupo», never «Sen mínimo».
+		$this->assertSame( 3, substr_count( $page, "esc_html__( 'Sen grupo', 'anpa-socios' )" ) );
+		$this->assertStringNotContainsString( "esc_html__( 'Sen mínimo', 'anpa-socios' )", $page );
+	}
 }

@@ -24,7 +24,7 @@ class Test_ANPA_Socios_Horario_Builder extends TestCase {
 		$this->assertCount( 1, $grid );
 		$this->assertSame( '16:45-17:45', $grid[0]['franxa'] );
 		$this->assertSame( 'Robótica', $grid[0]['dias']['luns'][0]['nome'] );
-		$this->assertSame( array( 'Grupo iniciación — Tarde' ), $grid[0]['dias']['luns'][0]['grupos'] );
+		$this->assertSame( array( 'Grupo iniciación' ), $grid[0]['dias']['luns'][0]['grupos'] );
 		$this->assertSame( array(), $grid[0]['dias']['martes'] );
 	}
 
@@ -56,7 +56,7 @@ class Test_ANPA_Socios_Horario_Builder extends TestCase {
 
 		$this->assertSame( 'Inglés', $grid[0]['dias']['luns'][0]['nome'] );
 		$this->assertSame( 'Inglés', $grid[0]['dias']['mercores'][0]['nome'] );
-		$this->assertSame( array( 'Grupo mixto — Comedor' ), $grid[0]['dias']['luns'][0]['grupos'] );
+		$this->assertSame( array( 'Grupo mixto' ), $grid[0]['dias']['luns'][0]['grupos'] );
 	}
 
 	public function test_invalid_or_missing_franxa_is_ignored(): void {
@@ -68,17 +68,19 @@ class Test_ANPA_Socios_Horario_Builder extends TestCase {
 		$this->assertSame( array(), $grid );
 	}
 
-	public function test_etiqueta_grupo_for_the_cards(): void {
+	public function test_group_label_drops_the_repeated_activity_name_and_period(): void {
+		$grid = ANPA_Socios_Horario_Builder::build( array(
+			array( 'nome' => 'Patios coeducativos', 'grupo_nome' => 'Patios coeducativos (1º, 2º, 3º)', 'horario' => 'maña', 'franxa' => '11:30-11:55', 'dias' => 'luns', 'max_pupilos' => 20, 'activos' => 9 ),
+			array( 'nome' => 'Xadrez', 'grupo_nome' => 'Xadrez', 'horario' => 'tarde', 'franxa' => '16:00-17:00', 'dias' => 'martes' ),
+		) );
+		$this->assertSame( array( '1º, 2º, 3º 9/20' ), $grid[0]['dias']['luns'][0]['grupos'] );
+		$this->assertSame( array(), $grid[1]['dias']['martes'][0]['grupos'] );
+	}
+
+	public function test_etiqueta_grupo(): void {
 		$this->assertSame( '4º, 5º, 6º', ANPA_Socios_Horario_Builder::etiqueta_grupo( 'Patios coeducativos', 'patios Coeducativos (4º, 5º, 6º)' ) );
 		$this->assertSame( 'Iniciación', ANPA_Socios_Horario_Builder::etiqueta_grupo( 'Robótica', 'Robótica - Iniciación' ) );
 		$this->assertSame( 'Grupo A', ANPA_Socios_Horario_Builder::etiqueta_grupo( 'Robótica', 'Grupo A' ) );
 		$this->assertSame( '', ANPA_Socios_Horario_Builder::etiqueta_grupo( 'Robótica', 'Robótica' ) );
-	}
-
-	public function test_timetable_keeps_the_full_group_name_and_period(): void {
-		$grid = ANPA_Socios_Horario_Builder::build( array(
-			array( 'nome' => 'Patios coeducativos', 'grupo_nome' => 'Patios coeducativos (1º, 2º, 3º)', 'horario' => 'maña', 'franxa' => '11:30-11:55', 'dias' => 'luns' ),
-		) );
-		$this->assertSame( array( 'Patios coeducativos (1º, 2º, 3º) — Mañá' ), $grid[0]['dias']['luns'][0]['grupos'] );
 	}
 }

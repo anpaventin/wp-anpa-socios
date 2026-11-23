@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.98.3] - 2026-11-23
+
+### Changed
+
+- **O horario volve ser como na 1.98.1** (sen nomes repetidos, por días no móbil e sen as viñetas do tema): a
+  xunta só quería cambiar a etiqueta.
+- **«Sen grupo» en lugar de «Sen mínimo»** no horario e nas tarxetas das actividades: o grupo aínda non se
+  formou porque non chega ao mínimo e segue admitindo inscricións. O panel da xunta mantén o nome do estado.
+
 ## [1.98.2] - 2026-11-23
 
 ### Changed

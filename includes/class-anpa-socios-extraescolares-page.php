@@ -77,10 +77,10 @@ final class ANPA_Socios_Extraescolares_Page {
 						if ( ! empty( $entry['grupos'] ) ) {
 							$grupos = ' <span class="anpa-extra-grupos">(' . esc_html( implode( ', ', $entry['grupos'] ) ) . ')</span>';
 						}
-						// 1.85/1.87: a «sen mínimo» group is not green and carries the orange mark.
+						// 1.85/1.87: a «sen mínimo» group is not green and carries the orange mark («Sen grupo» since 1.98.3).
 						$sen_min = ! empty( $entry['sen_minimo'] );
 						$html   .= '<li' . ( $sen_min ? ' class="anpa-extra-lista-sen-minimo"' : '' ) . '><span class="anpa-extra-act">' . esc_html( $entry['nome'] ) . '</span>' . $grupos
-							. ( $sen_min ? ' <span class="anpa-extra-grupo-sen-minimo">' . esc_html__( 'Sen mínimo', 'anpa-socios' ) . '</span>' : '' ) . '</li>';
+							. ( $sen_min ? ' <span class="anpa-extra-grupo-sen-minimo">' . esc_html__( 'Sen grupo', 'anpa-socios' ) . '</span>' : '' ) . '</li>';
 					}
 					$html .= '</ul>';
 				}
@@ -90,8 +90,42 @@ final class ANPA_Socios_Extraescolares_Page {
 		}
 		$html .= '</tbody></table>';
 		$html .= '</div>';
+		// 1.96.0: on phones the 5-column table is replaced by one list per day.
+		$html .= self::horario_por_dias_html( $grid );
 
 		return $html;
+	}
+
+	/**
+	 * Timetable as one list per weekday (shown instead of the table on
+	 * phones, see extraescolares.css). Days with nothing are left out.
+	 *
+	 * @since  1.96.0
+	 * @param  array<int,array<string,mixed>> $grid Output of ANPA_Socios_Horario_Builder::build().
+	 * @return string Escaped HTML.
+	 */
+	private static function horario_por_dias_html( array $grid ): string {
+		$html = '<div class="anpa-extra-dias">';
+		foreach ( ANPA_Socios_Horario_Builder::DIA_LABELS as $dia => $dia_label ) {
+			$items = '';
+			foreach ( $grid as $row ) {
+				foreach ( (array) ( $row['dias'][ $dia ] ?? array() ) as $entry ) {
+					$sen_min = ! empty( $entry['sen_minimo'] );
+					$grupos  = empty( $entry['grupos'] ) ? '' : ' <span class="anpa-extra-grupos">(' . esc_html( implode( ', ', $entry['grupos'] ) ) . ')</span>';
+					$items  .= '<li' . ( $sen_min ? ' class="anpa-extra-lista-sen-minimo"' : '' ) . '>'
+						. '<span class="anpa-extra-dia-hora">' . esc_html( (string) $row['label'] ) . '</span> '
+						. '<span class="anpa-extra-act">' . esc_html( (string) $entry['nome'] ) . '</span>' . $grupos
+						. ( $sen_min ? ' <span class="anpa-extra-grupo-sen-minimo">' . esc_html__( 'Sen grupo', 'anpa-socios' ) . '</span>' : '' )
+						. '</li>';
+				}
+			}
+			if ( '' === $items ) {
+				continue;
+			}
+			$html .= '<section class="anpa-extra-dia"><h3 class="anpa-extra-dia-titulo">' . esc_html( $dia_label ) . '</h3>'
+				. '<ul class="anpa-extra-lista">' . $items . '</ul></section>';
+		}
+		return $html . '</div>';
 	}
 
 	/**
@@ -605,7 +639,7 @@ final class ANPA_Socios_Extraescolares_Page {
 			$html  .= '<div class="anpa-extra-grupo-cab"><strong class="anpa-extra-grupo-nome">' . esc_html( '' !== $nome_grupo ? $nome_grupo : ( '' !== (string) ( $cap['niveis'] ?? '' ) ? (string) $cap['niveis'] : __( 'Grupo único', 'anpa-socios' ) ) ) . '</strong>'
 				. ( $creado ? ' <span class="anpa-extra-grupo-creado">' . esc_html__( 'Creado', 'anpa-socios' ) . '</span>' : '' )
 				. ( $sen_inscricion ? ' <span class="anpa-extra-grupo-aberto-todos">' . esc_html__( 'Para todo o alumnado', 'anpa-socios' ) . '</span>' : '' )
-				. ( $sen_minimo ? ' <span class="anpa-extra-grupo-sen-minimo" title="' . esc_attr__( 'Aínda non chega ao mínimo para formarse: segue admitindo inscricións.', 'anpa-socios' ) . '">' . esc_html__( 'Sen mínimo', 'anpa-socios' ) . '</span>' : '' )
+				. ( $sen_minimo ? ' <span class="anpa-extra-grupo-sen-minimo" title="' . esc_attr__( 'Aínda non hai grupo: non chega ao mínimo e segue admitindo inscricións.', 'anpa-socios' ) . '">' . esc_html__( 'Sen grupo', 'anpa-socios' ) . '</span>' : '' )
 				. ( ! $creado && ! $sen_inscricion && ! $sen_minimo && array() !== $cap ? ' <span class="anpa-extra-grupo-aberto">' . esc_html__( 'Aberto', 'anpa-socios' ) . '</span>' : '' )
 				. '</div>';
 			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line anpa-extra-horario-dias">' . esc_html( $part['dias'] ) . ' · ' . esc_html( $part['franxa'] ) . '</p>';
