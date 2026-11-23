@@ -71,7 +71,7 @@ final class Test_ANPA_Socios_PR_ES9_Horario extends TestCase {
 				'dias'       => 'luns,mercores',
 			),
 		) );
-		$this->assertSame( array( 'Grupo iniciación' ), $grid[0]['dias']['luns'][0]['grupos'] );
+		$this->assertSame( array( 'Grupo iniciación — Comedor' ), $grid[0]['dias']['luns'][0]['grupos'] );
 	}
 
 	public function test_public_query_has_no_provisional_activity_slot(): void {

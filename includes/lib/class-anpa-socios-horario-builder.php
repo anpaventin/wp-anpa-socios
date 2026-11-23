@@ -63,17 +63,15 @@ final class ANPA_Socios_Horario_Builder {
 			$horario    = (string) ( $act['horario'] ?? '' );
 			$grupo_labels = array();
 			if ( '' !== $grupo_nome ) {
-				// 1.96.0: short label. The cell already names the activity and the
-				// row section names the period, so «Patios (1º, 2º, 3º) — Mañá»
-				// under «Patios» becomes «1º, 2º, 3º».
-				$label       = self::etiqueta_grupo( (string) ( $act['nome'] ?? '' ), $grupo_nome );
+				$label = $grupo_nome;
+				if ( '' !== $horario ) {
+					$label .= ' — ' . ANPA_Socios_Grupo_Serie::horario_label( $horario );
+				}
 				$max_pupilos = (int) ( $act['max_pupilos'] ?? 0 );
 				if ( $max_pupilos > 0 ) {
-					$label = trim( $label . ' ' . max( 0, (int) ( $act['activos'] ?? 0 ) ) . '/' . $max_pupilos );
+					$label .= ' ' . max( 0, (int) ( $act['activos'] ?? 0 ) ) . '/' . $max_pupilos;
 				}
-				if ( '' !== $label ) {
-					$grupo_labels[] = $label;
-				}
+				$grupo_labels[] = $label;
 			}
 
 			$entry = array(
@@ -122,7 +120,8 @@ final class ANPA_Socios_Horario_Builder {
 	}
 
 	/**
-	 * Short group label for a timetable cell.
+	 * Short group label (used by the activity cards and the socios panel; the
+	 * timetable keeps the full group name).
 	 *
 	 * Drops the activity name when the group name repeats it, and the
 	 * parentheses left around the levels: («Patios», «Patios (1º, 2º)») →

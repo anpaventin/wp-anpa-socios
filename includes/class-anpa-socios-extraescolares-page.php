@@ -90,42 +90,8 @@ final class ANPA_Socios_Extraescolares_Page {
 		}
 		$html .= '</tbody></table>';
 		$html .= '</div>';
-		// 1.96.0: on phones the 5-column table is replaced by one list per day.
-		$html .= self::horario_por_dias_html( $grid );
 
 		return $html;
-	}
-
-	/**
-	 * Timetable as one list per weekday (shown instead of the table on
-	 * phones, see extraescolares.css). Days with nothing are left out.
-	 *
-	 * @since  1.96.0
-	 * @param  array<int,array<string,mixed>> $grid Output of ANPA_Socios_Horario_Builder::build().
-	 * @return string Escaped HTML.
-	 */
-	private static function horario_por_dias_html( array $grid ): string {
-		$html = '<div class="anpa-extra-dias">';
-		foreach ( ANPA_Socios_Horario_Builder::DIA_LABELS as $dia => $dia_label ) {
-			$items = '';
-			foreach ( $grid as $row ) {
-				foreach ( (array) ( $row['dias'][ $dia ] ?? array() ) as $entry ) {
-					$sen_min = ! empty( $entry['sen_minimo'] );
-					$grupos  = empty( $entry['grupos'] ) ? '' : ' <span class="anpa-extra-grupos">(' . esc_html( implode( ', ', $entry['grupos'] ) ) . ')</span>';
-					$items  .= '<li' . ( $sen_min ? ' class="anpa-extra-lista-sen-minimo"' : '' ) . '>'
-						. '<span class="anpa-extra-dia-hora">' . esc_html( (string) $row['label'] ) . '</span> '
-						. '<span class="anpa-extra-act">' . esc_html( (string) $entry['nome'] ) . '</span>' . $grupos
-						. ( $sen_min ? ' <span class="anpa-extra-grupo-sen-minimo">' . esc_html__( 'Sen mínimo', 'anpa-socios' ) . '</span>' : '' )
-						. '</li>';
-				}
-			}
-			if ( '' === $items ) {
-				continue;
-			}
-			$html .= '<section class="anpa-extra-dia"><h3 class="anpa-extra-dia-titulo">' . esc_html( $dia_label ) . '</h3>'
-				. '<ul class="anpa-extra-lista">' . $items . '</ul></section>';
-		}
-		return $html . '</div>';
 	}
 
 	/**

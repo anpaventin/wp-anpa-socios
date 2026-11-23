@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.98.2] - 2026-11-23
+
+### Changed
+
+- **O horario semanal volve ser como antes da 1.96.0.** A xunta pediu cambiar só as tarxetas das actividades
+  ofertadas: o horario volve á táboa tamén no móbil, co nome completo do grupo, o período e as prazas («Patios
+  coeducativos (1º, 2º, 3º) — Mañá»). Segue arriba de todo na páxina.
+
 ## [1.98.1] - 2026-11-23
 
 ### Fixed

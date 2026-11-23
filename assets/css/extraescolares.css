@@ -228,29 +228,6 @@
 .anpa-extra-lista li.anpa-extra-lista-sen-minimo { background: #fff7f0; border: 1px solid #f0b48a; }
 .anpa-extra-sen-inscricion { color: #2e7d32; font-weight: 600; }
 
-/* 1.96.0: timetable by day on phones (the table needs ~820 px). */
-.anpa-extra-dias { display: none; }
-.anpa-extra-dia { margin: 0 0 1rem; }
-.anpa-extra-dia-titulo { margin: 0 0 0.5rem; font-size: 1.1rem; color: #17412f; }
-.anpa-extra-dia-hora { display: inline-block; min-width: 6.5em; font-variant-numeric: tabular-nums; color: #1c5d3a; font-weight: 700; }
-@media (max-width: 720px) {
-	.anpa-extra-horario:not(.anpa-extra-empty) { display: none; }
-	.anpa-extra-dias { display: block; }
-}
-
-/* Theme content lists add a dot and left padding to every <li>: not here. */
-.anpa-extra-horario ul.anpa-extra-lista > li::before,
-.anpa-extra-dias ul.anpa-extra-lista > li::before {
-	content: none !important;
-	display: none !important;
-}
-.anpa-extra-horario ul.anpa-extra-lista > li,
-.anpa-extra-dias ul.anpa-extra-lista > li {
-	padding: 0.35rem 0.55rem !important;
-	margin: 0 !important;
-	line-height: 1.4;
-}
-
 /* 1.97.2: activity without enrolment (e.g. patios coeducativos). */
 .anpa-extra-grupo-aberto-todos { display: inline-block; margin-left: 0.35rem; padding: 0.05rem 0.5rem; border-radius: 999px; background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; font-size: 0.8em; font-weight: 600; vertical-align: middle; }
 .anpa-extra-sen-inscricion { color: #075985; }
