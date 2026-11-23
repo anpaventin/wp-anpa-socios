@@ -428,6 +428,7 @@
 		}
 
 		function renderPanel() {
+			renderCifras();
 			// Greeting from the already-filled profile fields (no extra fetch).
 			var saudo = root.querySelector('[data-panel-saudo]');
 			if (saudo) {
@@ -492,6 +493,93 @@
 					});
 				});
 			}
+		}
+
+		// 1.95.0: «A ANPA en cifras» on the Inicio panel. Quiet request: on any
+		// failure the section just stays hidden (no error banner).
+		function renderCifras() {
+			var section = root.querySelector('[data-panel-cifras-section]');
+			var host = root.querySelector('[data-panel-cifras]');
+			if (!section || !host || !root.dataset.cifrasUrl || !areaToken) {
+				return;
+			}
+			fetch(root.dataset.cifrasUrl, { method: 'GET', headers: { 'X-Anpa-Area-Token': areaToken } })
+				.then(function (r) { return r.ok ? r.json() : null; })
+				.then(function (data) {
+					if (!data || !Array.isArray(data.cifras)) {
+						section.hidden = true;
+						return;
+					}
+					host.textContent = '';
+					if (data.curso) {
+						var curso = document.createElement('p');
+						curso.className = 'anpa-cifras-curso';
+						curso.textContent = sprintf( __( 'Curso %s', 'anpa-socios' ), data.curso );
+						host.appendChild(curso);
+					}
+					var ul = document.createElement('ul');
+					ul.className = 'anpa-cifras-lista';
+					data.cifras.forEach(function (c) {
+						var li = document.createElement('li');
+						li.className = 'anpa-cifras-item';
+						var v = document.createElement('span');
+						v.className = 'anpa-cifras-valor';
+						v.textContent = c.valor;
+						var e = document.createElement('span');
+						e.className = 'anpa-cifras-etiqueta';
+						e.textContent = c.etiqueta;
+						li.appendChild(v);
+						li.appendChild(e);
+						ul.appendChild(li);
+					});
+					host.appendChild(ul);
+
+					var det = document.createElement('div');
+					det.className = 'anpa-cifras-socios';
+					function line(text) {
+						var p = document.createElement('p');
+						p.textContent = text;
+						det.appendChild(p);
+					}
+					line(sprintf( __( 'Este curso: %1$d altas novas e %2$d baixas de familias.', 'anpa-socios' ), data.altas || 0, data.baixas || 0 ));
+					if (data.prazas) {
+						line(sprintf( __( 'Grupos con prazas libres: %1$d (%2$d prazas en grupos con límite). Grupos completos: %3$d.', 'anpa-socios' ), data.prazas.grupos_con_prazas || 0, data.prazas.prazas_libres || 0, data.prazas.completos || 0 ));
+					}
+					line(sprintf( __( 'Solicitudes en lista de espera: %d.', 'anpa-socios' ), data.espera || 0 ));
+
+					if (Array.isArray(data.actividades) && data.actividades.length) {
+						var table = document.createElement('table');
+						table.className = 'anpa-cifras-taboa';
+						var thead = document.createElement('thead');
+						var hr = document.createElement('tr');
+						[[__( 'Actividade', 'anpa-socios' ), ''], [__( 'Inscritos/as', 'anpa-socios' ), 'anpa-cifras-num'], [__( 'Prazas', 'anpa-socios' ), 'anpa-cifras-num'], [__( 'En espera', 'anpa-socios' ), 'anpa-cifras-num']].forEach(function (h) {
+							var th = document.createElement('th');
+							th.scope = 'col';
+							th.textContent = h[0];
+							if (h[1]) { th.className = h[1]; }
+							hr.appendChild(th);
+						});
+						thead.appendChild(hr);
+						table.appendChild(thead);
+						var tbody = document.createElement('tbody');
+						data.actividades.forEach(function (a) {
+							var tr = document.createElement('tr');
+							var prazas = a.sen_limite ? ( a.prazas ? sprintf( __( '%d + sen límite', 'anpa-socios' ), a.prazas ) : __( 'sen límite', 'anpa-socios' ) ) : String(a.prazas || 0);
+							[[a.nome, ''], [String(a.inscritos || 0), 'anpa-cifras-num'], [prazas, 'anpa-cifras-num'], [String(a.espera || 0), 'anpa-cifras-num']].forEach(function (c) {
+								var td = document.createElement('td');
+								td.textContent = c[0];
+								if (c[1]) { td.className = c[1]; }
+								tr.appendChild(td);
+							});
+							tbody.appendChild(tr);
+						});
+						table.appendChild(tbody);
+						det.appendChild(table);
+					}
+					host.appendChild(det);
+					section.hidden = false;
+				})
+				.catch(function () { section.hidden = true; });
 		}
 
 		function navigateArea(step) {

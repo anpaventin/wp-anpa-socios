@@ -711,6 +711,22 @@
 #anpa-area .anpa-area-panel-extra h3 {
 	margin: 0 0 0.5rem;
 }
+/* 1.95.0: «A ANPA en cifras» (tiles styled by cifras.css). */
+#anpa-area .anpa-area-panel-cifras {
+	margin-top: 1rem;
+	padding: 1rem;
+	border: 1px solid var(--anpa-border, #d9d9d9);
+	border-radius: var(--anpa-radius, 10px);
+}
+#anpa-area .anpa-area-panel-cifras h3 {
+	margin: 0 0 0.25rem;
+}
+#anpa-area .anpa-area-panel-cifras .anpa-cifras {
+	margin: 0;
+}
+#anpa-area .anpa-area-panel-cifras .anpa-cifras-item {
+	background: var(--anpa-surface-muted, #eef7f2);
+}
 #anpa-area .anpa-area-panel-shortcuts {
 	display: flex;
 	flex-wrap: wrap;

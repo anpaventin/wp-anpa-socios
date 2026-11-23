@@ -255,6 +255,8 @@ class ANPA_Socios_Unified_Page {
 			array(),
 			$css_version
 		);
+		// 1.95.0: «A ANPA en cifras» in the Inicio panel.
+		ANPA_Socios_Cifras_Page::enqueue_style();
 
 		// The embedded alta form is driven by asociarse.js (window.AnpaAlta)
 		// and styled by asociarse.css, so both must load on the unified page.

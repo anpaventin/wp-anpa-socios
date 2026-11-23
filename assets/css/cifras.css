@@ -1,0 +1,100 @@
+/* ANPA Socios — «A ANPA en cifras» ([anpa_cifras] and the socios panel).
+ *
+ * Inherits the theme typography and palette (Blocksy --theme-* variables)
+ * with neutral fallbacks, so it fits any site.
+ *
+ * @since  1.95.0
+ * @package ANPA_Socios
+ */
+
+.anpa-cifras {
+	--anpa-cifras-accent: var(--theme-palette-color-1, #2e7d4f);
+	--anpa-cifras-surface: var(--theme-palette-color-7, #f3f7f4);
+	--anpa-cifras-border: var(--theme-border-color, #d9e2dc);
+	--anpa-cifras-muted: var(--theme-text-color, #4a4a4a);
+	margin: 1.5em 0;
+}
+
+.anpa-cifras-titulo {
+	margin: 0 0 0.2em;
+}
+
+.anpa-cifras-curso {
+	margin: 0 0 1em;
+	opacity: 0.75;
+	font-size: 0.95em;
+}
+
+.anpa-cifras-lista {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 12px;
+}
+
+.anpa-cifras-item {
+	margin: 0;
+	padding: 16px 14px;
+	background: var(--anpa-cifras-surface);
+	border: 1px solid var(--anpa-cifras-border);
+	border-radius: var(--theme-border-radius, 10px);
+	text-align: center;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.anpa-cifras-valor {
+	font-size: 2em;
+	font-weight: 700;
+	line-height: 1.1;
+	color: var(--anpa-cifras-accent);
+	font-variant-numeric: tabular-nums;
+}
+
+.anpa-cifras-etiqueta {
+	font-size: 0.92em;
+	line-height: 1.3;
+	color: var(--anpa-cifras-muted);
+}
+
+/* Socios-only detail in the personal area. */
+.anpa-cifras-socios {
+	margin-top: 12px;
+}
+
+.anpa-cifras-socios p {
+	margin: 0.4em 0;
+}
+
+.anpa-cifras-taboa {
+	width: 100%;
+	border-collapse: collapse;
+	margin-top: 8px;
+	font-size: 0.95em;
+}
+
+.anpa-cifras-taboa th,
+.anpa-cifras-taboa td {
+	padding: 6px 8px;
+	border-bottom: 1px solid var(--anpa-cifras-border);
+	text-align: left;
+}
+
+.anpa-cifras-taboa td.anpa-cifras-num,
+.anpa-cifras-taboa th.anpa-cifras-num {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+	.anpa-cifras-lista {
+		grid-template-columns: repeat(2, 1fr);
+	}
+	.anpa-cifras-valor {
+		font-size: 1.6em;
+	}
+}

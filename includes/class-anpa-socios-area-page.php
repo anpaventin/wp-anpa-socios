@@ -65,6 +65,8 @@ class ANPA_Socios_Area_Page {
 		$extra_matriculas_url  = rest_url( 'anpa-socios/v1/area/me/matriculas' );
 		$extra_fillo_base_url  = rest_url( 'anpa-socios/v1/area/fillo/' );
 		$extra_matricula_base_url = rest_url( 'anpa-socios/v1/area/matricula/' );
+		// 1.95.0: «A ANPA en cifras» for the Inicio panel.
+		$cifras_url = rest_url( 'anpa-socios/v1/area/cifras' );
 
 		// Empresa endpoints (PR4b).
 		$empresa_session_url      = rest_url( 'anpa-socios/v1/empresa/session' );
@@ -94,6 +96,7 @@ class ANPA_Socios_Area_Page {
 			data-extra-matriculas-url="<?php echo esc_attr( $extra_matriculas_url ); ?>"
 			data-extra-fillo-base-url="<?php echo esc_attr( $extra_fillo_base_url ); ?>"
 			data-extra-matricula-base-url="<?php echo esc_attr( $extra_matricula_base_url ); ?>"
+			data-cifras-url="<?php echo esc_attr( $cifras_url ); ?>"
 			data-empresa-session-url="<?php echo esc_attr( $empresa_session_url ); ?>"
 			data-empresa-request-code-url="<?php echo esc_attr( $empresa_request_code_url ); ?>"
 			data-empresa-me-url="<?php echo esc_attr( $empresa_me_url ); ?>"
@@ -172,6 +175,10 @@ class ANPA_Socios_Area_Page {
 					<div class="anpa-area-actions" data-panel-extra-actions>
 						<button type="button" data-nav="extraescolares"><?php esc_html_e( 'Nova matrícula', 'anpa-socios' ); ?></button>
 					</div>
+				</section>
+				<section class="anpa-area-panel-cifras" data-panel-cifras-section hidden>
+					<h3><?php esc_html_e( 'A ANPA en cifras', 'anpa-socios' ); ?></h3>
+					<div class="anpa-cifras" data-panel-cifras></div>
 				</section>
 				<section class="anpa-area-panel-shortcuts">
 					<button type="button" class="anpa-area-secondary" data-nav="fillos"><?php esc_html_e( 'Os meus fillos/as', 'anpa-socios' ); ?></button>
@@ -389,6 +396,7 @@ class ANPA_Socios_Area_Page {
 			array(),
 			$css_version
 		);
+		ANPA_Socios_Cifras_Page::enqueue_style();
 	}
 
 	/**

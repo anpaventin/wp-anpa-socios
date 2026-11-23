@@ -28,6 +28,11 @@ if ( ! function_exists( '__' ) ) {
 		return $text;
 	}
 }
+if ( ! function_exists( '_n' ) ) {
+	function _n( $single, $plural, $number, $domain = 'default' ) {
+		return 1 === (int) $number ? $single : $plural;
+	}
+}
 if ( ! function_exists( 'esc_html' ) ) {
 	function esc_html( $text ) {
 		return htmlspecialchars( (string) $text, ENT_QUOTES, 'UTF-8' );
@@ -195,6 +200,7 @@ require_once __DIR__ . '/../includes/lib/class-anpa-socios-curso-fit.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-grupo-niveis.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-grupo-serie.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-prazas.php';
+require_once __DIR__ . '/../includes/lib/class-anpa-socios-cifras.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-oferta-seccions.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-oferta-publica.php';
 require_once __DIR__ . '/../includes/lib/class-anpa-socios-aviso-matricula.php';

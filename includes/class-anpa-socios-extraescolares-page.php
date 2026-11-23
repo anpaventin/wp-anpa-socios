@@ -181,6 +181,19 @@ final class ANPA_Socios_Extraescolares_Page {
 	}
 
 	/**
+	 * Groups the public offer shows for the course: open ones (aberto /
+	 * sen_minimo) plus the closed ones the junta confirmed. Used by
+	 * [anpa_cifras] so its figures match the offered-activity cards.
+	 *
+	 * @since  1.95.0
+	 * @param  string $curso School year.
+	 * @return int[]
+	 */
+	public static function grupos_publicos_ids( string $curso ): array {
+		return array_values( array_unique( array_merge( self::available_group_ids( $curso ), self::grupos_creados_ids( $curso ) ) ) );
+	}
+
+	/**
 	 * Closed groups the junta confirmed («grupo creado» notice sent or marked by
 	 * hand) for the course. They still show on the public page with «Creado».
 	 *

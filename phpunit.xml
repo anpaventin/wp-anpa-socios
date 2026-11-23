@@ -162,6 +162,7 @@
       <file>tests/Test_ANPA_Socios_Baixa_Programada.php</file>
       <file>tests/Test_ANPA_Socios_Avisos_Xunta.php</file>
       <file>tests/Test_ANPA_Socios_Inscricions_Todo_Curso.php</file>
+      <file>tests/Test_ANPA_Socios_Cifras.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.95.0] - 2026-11-23
+
+### Added
+
+- **A ANPA en cifras.** Shortcode novo `[anpa_cifras]` cos totais do curso activo, sen nomes nin datos persoais:
+  - Familias socias. Cada familia cóntase unha vez, polo primeiro proxenitor (non se contan os correos do segundo).
+  - Alumnado das familias socias.
+  - Nenos/as en extraescolares (cada neno/a unha vez aínda que estea en varias actividades).
+  - Actividades extraescolares do curso e grupos con prazas libres.
+
+  As cifras públicas de 1 a 4 amósanse como «menos de 5», para que ninguén poida saber quen hai detrás. Opcións:
+  `titulo="…"` (baleiro para non poñer título) e
+  `mostrar="familias,alumnado,extraescolares,inscricions,actividades,empresas,prazas,comedor,tarde"`. As cifras
+  coinciden coa oferta pública de extraescolares e actualízanse cada 10 minutos.
+- **Cifras na área de socios.** En «Inicio», as familias socias ven as mesmas cifras con todos os números e
+  ademais as altas e baixas de familias do curso, os grupos con prazas libres e completos, a lista de espera e a
+  ocupación de cada actividade (inscritos/as, prazas e en espera).
+- A documentación da xunta e Axustes → Xeral explican o shortcode novo.
+
 ## [1.94.0] - 2026-11-20
 
 ### Changed

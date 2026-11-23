@@ -194,7 +194,8 @@ final class Test_ANPA_Socios_Avisos_Metade_Curso extends TestCase {
 		$this->assertStringContainsString( 'ANPA_Socios_Oferta_Publica::aviso_datas( $inicio, $remate )', $page );
 		$this->assertStringContainsString( 'anpa-extra-card-datas', $page );
 		$this->assertStringContainsString( 'private static function non_acadados_html( string $curso ): string', $page );
-		$this->assertSame( 2, substr_count( $page, 'self::grupos_creados_ids( $curso )' ) );
+		// 1.95.0: the third use is grupos_publicos_ids(), shared with [anpa_cifras].
+		$this->assertSame( 3, substr_count( $page, 'self::grupos_creados_ids( $curso )' ) );
 		// The below-minimum list never carries description, schedule or price.
 		$body = $this->method_body( $page, 'private static function non_acadados_html(' );
 		foreach ( array( 'descripcion', 'custo', 'franxa', 'dias' ) as $f ) {

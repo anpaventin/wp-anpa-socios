@@ -731,6 +731,7 @@ final class ANPA_Socios_Admin_Settings {
 			echo '<code>[anpa_socios_area]</code> — ' . esc_html__( 'Área principal de socios (login, perfil, fillos, extraescolares).', 'anpa-socios' ) . '<br>';
 			echo '<code>[anpa_extraescolares_ofertadas]</code> — ' . esc_html__( 'Tarxetas de actividades ofertadas no curso actual.', 'anpa-socios' ) . '<br>';
 			echo '<code>[anpa_extraescolares_horario]</code> — ' . esc_html__( 'Grella semanal con horarios e grupos activos.', 'anpa-socios' ) . '<br>';
+			echo '<code>[anpa_cifras]</code> — ' . esc_html__( 'A ANPA en cifras: familias socias, alumnado, nenos/as en extraescolares, actividades e grupos con prazas libres.', 'anpa-socios' ) . '<br>';
 			echo '</td></tr>';
 			echo '</tbody></table>';
 			submit_button( __( 'Gardar páxinas', 'anpa-socios' ) );
@@ -2976,6 +2977,7 @@ final class ANPA_Socios_Admin_Settings {
 		echo '<tr><td><code>[anpa_socios_area]</code></td><td>' . esc_html__( 'Área de socios: identificación por código, datos, fillos/as, extraescolares e conta bancaria.', 'anpa-socios' ) . '</td></tr>';
 		echo '<tr><td><code>[anpa_extraescolares_ofertadas]</code></td><td>' . esc_html__( 'Tarxetas coas actividades activas do curso actual que teñen grupos abertos.', 'anpa-socios' ) . '</td></tr>';
 		echo '<tr><td><code>[anpa_extraescolares_horario]</code></td><td>' . esc_html__( 'Grella semanal de luns a venres cos grupos abertos.', 'anpa-socios' ) . '</td></tr>';
+		echo '<tr><td><code>[anpa_cifras]</code></td><td>' . esc_html__( 'A ANPA en cifras: só totais do curso activo, sen nomes. Familias socias (cóntase unha vez cada familia, polo primeiro proxenitor), alumnado das familias socias, nenos/as en extraescolares, actividades e grupos con prazas libres. As cifras públicas de 1 a 4 amósanse como «menos de 5». Opcións: titulo="…" e mostrar="familias,alumnado,extraescolares,inscricions,actividades,empresas,prazas,comedor,tarde". Actualízase cada 10 minutos. Na área de socios, en «Inicio», as familias ven ademais as altas e baixas do curso, a lista de espera e a ocupación de cada actividade.', 'anpa-socios' ) . '</td></tr>';
 		echo '</tbody></table></section>';
 
 		// 2. Ciclo anual.
