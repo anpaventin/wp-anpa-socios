@@ -163,6 +163,7 @@
       <file>tests/Test_ANPA_Socios_Avisos_Xunta.php</file>
       <file>tests/Test_ANPA_Socios_Inscricions_Todo_Curso.php</file>
       <file>tests/Test_ANPA_Socios_Cifras.php</file>
+      <file>tests/Test_ANPA_Socios_Horario_Movil.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

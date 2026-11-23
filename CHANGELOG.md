@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.96.0] - 2026-11-23
+
+### Changed
+
+- **Horario de extraescolares en móbil, por días.** Nos teléfonos a grella de cinco columnas (había que movela
+  de lado) substitúese por unha lista por día: hora, actividade e grupo. Os días sen actividades non saen.
+- **Etiqueta do grupo máis curta no horario.** Xa non repite o nome da actividade nin o período: «Patios
+  coeducativos (Patios coeducativos (1º, 2º, 3º) — Mañá)» pasa a «Patios coeducativos (1º, 2º, 3º)». As prazas
+  ocupadas seguen ao lado.
+- **Pantalla de acceso á área de socios.** O título é «Entra na área de socios/as» e o texto explica para que
+  serve a área e como chega o código. Antes falaba só do formulario de alta.
+
+### Fixed
+
+- No horario xa non aparecen os puntos e a sangría que o tema pon nas listas do contido.
+
 ## [1.95.1] - 2026-11-23
 
 ### Fixed

@@ -127,8 +127,10 @@ class ANPA_Socios_Unified_Page {
 
 			<!-- STEP: alta -- email input for new members -->
 			<div data-step="alta" hidden>
-				<h2><?php echo sprintf( esc_html__( 'Acceder ó Área de socios/as da %s', 'anpa-socios' ), esc_html( ANPA_Socios_Config::association_name() ) ); ?></h2>
-				<p><?php esc_html_e( 'O formulario de alta require cubrir todos os campos obrigatorios e aceptar a política de privacidade. Recibirás un código de verificación no teu correo para confirmar a identidade.', 'anpa-socios' ); ?></p>
+				<h2><?php esc_html_e( 'Entra na área de socios/as', 'anpa-socios' ); ?></h2>
+				<?php // 1.96.0: say what the area is for and how the code works (the old text spoke only about the alta form). ?>
+				<p><?php esc_html_e( 'Escribe o teu correo e enviarémosche un código de 6 díxitos. Con el entras sen contrasinal para ver e cambiar os teus datos, os teus fillos/as, as extraescolares e a conta bancaria.', 'anpa-socios' ); ?></p>
+				<p class="anpa-unified-nota"><?php echo sprintf( esc_html__( 'Aínda non es socio/a da %s? Escribe igualmente o teu correo: despois do código completas a alta.', 'anpa-socios' ), esc_html( ANPA_Socios_Config::association_name() ) ); ?></p>
 				<label for="anpa-unified-email"><?php esc_html_e( 'Email', 'anpa-socios' ); ?></label>
 				<input id="anpa-unified-email" type="email" autocomplete="email" required placeholder="<?php esc_attr_e( 'nome@exemplo.com', 'anpa-socios' ); ?>">
 				<div style="position:absolute;left:-9999px" aria-hidden="true">

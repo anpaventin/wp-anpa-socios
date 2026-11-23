@@ -79,3 +79,9 @@
 	opacity: 1;
 	font-style: normal;
 }
+
+/* 1.96.0: secondary line on the sign-in step. */
+#anpa-unified .anpa-unified-nota {
+	color: #4b5563;
+	font-size: 0.95em;
+}
