@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.98.5] - 2026-11-24
+
+### Changed
+
+- Na ocupación por grupos da área de socios/as, os grupos que aínda non chegan ao mínimo levan tamén «Sen grupo»
+  (antes «Aínda sen mínimo»), igual que no horario e nas tarxetas.
+
 ## [1.98.4] - 2026-11-24
 
 ### Fixed

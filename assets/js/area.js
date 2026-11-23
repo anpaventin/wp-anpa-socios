@@ -562,7 +562,7 @@
 						var ESTADOS = {
 							creado: [__( 'Grupo formado', 'anpa-socios' ), 'creado'],
 							aberto: [__( 'Aberto', 'anpa-socios' ), 'aberto'],
-							sen_minimo: [__( 'Aínda sen mínimo', 'anpa-socios' ), 'sen-minimo'],
+							sen_minimo: [__( 'Sen grupo', 'anpa-socios' ), 'sen-minimo'],
 							non_acadado: [__( 'Non acadou o mínimo', 'anpa-socios' ), 'non-acadado'],
 							sen_inscricion: [__( 'Sen inscrición', 'anpa-socios' ), 'sen-inscricion']
 						};
