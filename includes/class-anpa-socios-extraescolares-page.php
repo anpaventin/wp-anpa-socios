@@ -600,12 +600,14 @@ final class ANPA_Socios_Extraescolares_Page {
 		$html = '';
 		foreach ( $parts as $part ) {
 			$html .= '<div class="anpa-extra-horario-grupo">';
-			// 1.87.0: an activity that needs no enrolment: every group «Creado», no places.
+			// 1.87.0: an activity that needs no enrolment has no places.
+			// 1.97.2: its groups say «Para todo o alumnado» instead of «Creado» (nothing to form).
 			$sen_inscricion = ! empty( $act['sen_inscricion'] );
-			$creado         = $sen_inscricion || ( is_array( $part['capacity'] ) && ! empty( $part['capacity']['creado'] ) );
+			$creado         = ! $sen_inscricion && ( is_array( $part['capacity'] ) && ! empty( $part['capacity']['creado'] ) );
 			$sen_minimo     = ! $sen_inscricion && is_array( $part['capacity'] ) && ! empty( $part['capacity']['sen_minimo'] );
 			$html  .= '<p class="anpa-extra-meta anpa-extra-horario-line"><strong>' . esc_html( $part['grupo'] ) . '</strong>'
 				. ( $creado ? ' <span class="anpa-extra-grupo-creado">' . esc_html__( 'Creado', 'anpa-socios' ) . '</span>' : '' )
+				. ( $sen_inscricion ? ' <span class="anpa-extra-grupo-aberto-todos">' . esc_html__( 'Para todo o alumnado', 'anpa-socios' ) . '</span>' : '' )
 				. ( $sen_minimo ? ' <span class="anpa-extra-grupo-sen-minimo" title="' . esc_attr__( 'Aínda non chega ao mínimo para formarse: segue admitindo inscricións.', 'anpa-socios' ) . '">' . esc_html__( 'Sen mínimo', 'anpa-socios' ) . '</span>' : '' )
 				. ' — ' . esc_html( $part['franxa'] ) . '</p>';
 			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line anpa-extra-horario-dias">' . esc_html( $part['dias'] ) . '</p>';

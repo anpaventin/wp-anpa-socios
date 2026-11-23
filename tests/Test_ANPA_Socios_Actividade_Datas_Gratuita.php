@@ -66,7 +66,9 @@ final class Test_ANPA_Socios_Actividade_Datas_Gratuita extends TestCase {
 		$m->setAccessible( true );
 		$this->assertSame( 'Gratuíta', $m->invoke( null, '0.00' ) );
 		$this->assertSame( 'Gratuíta', $m->invoke( null, null ) );
-		$this->assertStringContainsString( "\$creado         = \$sen_inscricion || (", $page );
+		// 1.97.2: no «Creado» badge for activities without enrolment; «Para todo o alumnado» instead.
+		$this->assertStringContainsString( "\$creado         = ! \$sen_inscricion && (", $page );
+		$this->assertStringContainsString( "'Para todo o alumnado'", $page );
 		$this->assertStringContainsString( "'Non precisa inscrición.'", $page );
 		$this->assertStringContainsString( "AND a.sen_inscricion = 0", $this->src( 'includes/class-anpa-socios-extraescolares-rest.php' ), 'not offered in the area' );
 		$this->assertStringContainsString( "'anpa_extra_sen_inscricion'", $this->src( 'includes/class-anpa-socios-extraescolares-rest.php' ) );
