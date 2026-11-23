@@ -34,6 +34,18 @@
 	gap: 12px;
 }
 
+/* Themes often decorate content list items (bullets, dots via ::before). */
+.anpa-cifras .anpa-cifras-lista .anpa-cifras-item::before,
+.anpa-cifras .anpa-cifras-lista .anpa-cifras-item::marker {
+	content: none;
+	display: none;
+}
+
+.anpa-cifras .anpa-cifras-lista {
+	padding-left: 0;
+	margin-left: 0;
+}
+
 .anpa-cifras-item {
 	margin: 0;
 	padding: 16px 14px;
