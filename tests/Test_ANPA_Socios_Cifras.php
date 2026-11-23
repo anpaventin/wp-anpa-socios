@@ -122,7 +122,7 @@ final class Test_ANPA_Socios_Cifras extends TestCase {
 			$this->assertStringContainsString( '.anpa-cifras-item--' . $k . ' { --anpa-cifras-icon: url("data:image/svg+xml,', $css, $k );
 		}
 		$js = $this->src( 'assets/js/area.js' );
-		$this->assertStringContainsString( "'anpa-cifras-lista' + (mini ? ' anpa-cifras-lista--mini' : '')", $js );
+		$this->assertStringContainsString( "'anpa-cifras-lista anpa-cifras-lista--n' + items.length + (mini ? ' anpa-cifras-lista--mini' : '')", $js );
 		$this->assertStringContainsString( "el('div', 'anpa-cifras-ocupacion')", $js );
 	}
 }

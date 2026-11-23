@@ -514,7 +514,7 @@
 				return Number(n || 0).toLocaleString('gl-ES');
 			}
 			function tiles(items, mini) {
-				var ul = el('ul', 'anpa-cifras-lista' + (mini ? ' anpa-cifras-lista--mini' : ''));
+				var ul = el('ul', 'anpa-cifras-lista anpa-cifras-lista--n' + items.length + (mini ? ' anpa-cifras-lista--mini' : ''));
 				items.forEach(function (c) {
 					var li = el('li', 'anpa-cifras-item anpa-cifras-item--' + String(c.clave || '').replace(/[^a-z_-]/g, ''));
 					li.appendChild(el('span', 'anpa-cifras-valor', c.valor));

@@ -103,6 +103,16 @@
 	max-width: 16ch;
 }
 
+/* 1.96.3: columns by number of figures, so rows are even (no lone tile). */
+@media (min-width: 640px) {
+	.anpa-cifras ul.anpa-cifras-lista--n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+	.anpa-cifras ul.anpa-cifras-lista--n4,
+	.anpa-cifras ul.anpa-cifras-lista--n8 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+	.anpa-cifras ul.anpa-cifras-lista--n5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+	.anpa-cifras ul.anpa-cifras-lista--n6,
+	.anpa-cifras ul.anpa-cifras-lista--n9 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 /* Smaller tiles: «Este curso» in the socios panel. */
 .anpa-cifras ul.anpa-cifras-lista--mini {
 	grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -212,10 +222,14 @@
 .anpa-cifras-chip--completo { background: #fee2e2; color: var(--anpa-cifras-full); }
 .anpa-cifras-chip--espera { background: #fef3c7; color: var(--anpa-cifras-warn); }
 
-@media (max-width: 480px) {
+@media (max-width: 639px) {
 	.anpa-cifras ul.anpa-cifras-lista {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 10px;
+	}
+	/* An odd last tile takes the whole row. */
+	.anpa-cifras ul.anpa-cifras-lista > li.anpa-cifras-item:last-child:nth-child(odd) {
+		grid-column: 1 / -1;
 	}
 	.anpa-cifras-valor {
 		font-size: 1.75em;

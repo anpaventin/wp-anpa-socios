@@ -302,7 +302,8 @@ final class ANPA_Socios_Cifras_Page {
 	 * @return string Escaped HTML.
 	 */
 	private static function items_html( array $items ): string {
-		$html = '<ul class="anpa-cifras-lista">';
+		// 1.96.3: the column count follows the number of figures (no lone tile).
+		$html = '<ul class="anpa-cifras-lista anpa-cifras-lista--n' . count( $items ) . '">';
 		foreach ( $items as $item ) {
 			$html .= '<li class="anpa-cifras-item anpa-cifras-item--' . esc_attr( $item['clave'] ) . '">'
 				. '<span class="anpa-cifras-valor">' . esc_html( $item['valor'] ) . '</span>'

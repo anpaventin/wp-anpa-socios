@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.96.3] - 2026-11-23
+
+### Fixed
+
+- **A ANPA en cifras sen tarxetas soltas.** O número de columnas depende do número de cifras: as cinco da portada
+  van nunha fila e as oito da área en dúas filas de catro. No móbil van de dúas en dúas e, se sobra unha, ocupa
+  toda a fila.
+
 ## [1.96.2] - 2026-11-23
 
 ### Changed
