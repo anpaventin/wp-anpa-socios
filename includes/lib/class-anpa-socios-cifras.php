@@ -39,6 +39,11 @@ final class ANPA_Socios_Cifras {
 	const CLAVES = array( 'familias', 'alumnado', 'extraescolares', 'inscricions', 'actividades', 'sen_inscricion', 'empresas', 'prazas', 'comedor', 'tarde' );
 
 	/**
+	 * Figures that count people: only these use the small-number rule.
+	 */
+	const PERSOAS = array( 'familias', 'alumnado', 'extraescolares', 'inscricions', 'comedor', 'tarde' );
+
+	/**
 	 * Parses the shortcode `mostrar` attribute into known keys, in the order given.
 	 *
 	 * Unknown keys and duplicates are dropped; an empty or fully unknown list
@@ -134,7 +139,8 @@ final class ANPA_Socios_Cifras {
 			}
 			$out[] = array(
 				'clave'    => $clave,
-				'valor'    => $publico ? self::valor_publico( $n ) : number_format( $n, 0, ',', '.' ),
+				// 1.97.1: «menos de 5» only hides small counts of people, not of activities or groups.
+				'valor'    => $publico && in_array( $clave, self::PERSOAS, true ) ? self::valor_publico( $n ) : number_format( $n, 0, ',', '.' ),
 				'etiqueta' => self::etiqueta( $clave, $n ),
 			);
 		}

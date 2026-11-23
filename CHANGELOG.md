@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.97.1] - 2026-11-23
+
+### Fixed
+
+- **«Menos de 5» só para persoas.** A regra que oculta as cifras pequenas aplicábase tamén ás actividades e aos
+  grupos: «menos de 5 actividades sen inscrición». Agora só se aplica a familias, alumnado e inscricións.
+
 ## [1.97.0] - 2026-11-23
 
 ### Changed

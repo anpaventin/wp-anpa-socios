@@ -41,6 +41,8 @@ final class Test_ANPA_Socios_Cifras extends TestCase {
 		$this->assertSame( 'familias socias', $pub[0]['etiqueta'] );
 		$this->assertSame( 'menos de 5', $pub[1]['valor'] );
 		$this->assertSame( 'grupo con prazas libres', $pub[2]['etiqueta'] );
+		// 1.97.1: small counts of groups or activities are shown as they are.
+		$this->assertSame( '1', $pub[2]['valor'] );
 
 		// The socios panel shows exact numbers, zeros included.
 		$soc = ANPA_Socios_Cifras::items( $datos, array( 'alumnado', 'actividades' ), false );
