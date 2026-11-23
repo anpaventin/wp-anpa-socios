@@ -636,7 +636,7 @@ final class ANPA_Socios_Extraescolares_Page {
 			// 1.98.0: each group is a small box (name + state, when, levels, places + bar).
 			$html .= '<div class="anpa-extra-horario-grupo' . ( $sen_inscricion ? ' anpa-extra-horario-grupo--aberta' : '' ) . ( $completo ? ' anpa-extra-horario-grupo--completo' : '' ) . '">';
 			$nome_grupo = ANPA_Socios_Horario_Builder::etiqueta_grupo( (string) ( $act['nome'] ?? '' ), (string) $part['grupo'] );
-			$html  .= '<div class="anpa-extra-grupo-cab"><strong class="anpa-extra-grupo-nome">' . esc_html( '' !== $nome_grupo ? $nome_grupo : __( 'Grupo único', 'anpa-socios' ) ) . '</strong>'
+			$html  .= '<div class="anpa-extra-grupo-cab"><strong class="anpa-extra-grupo-nome">' . esc_html( '' !== $nome_grupo ? $nome_grupo : ( '' !== (string) ( $cap['niveis'] ?? '' ) ? (string) $cap['niveis'] : __( 'Grupo único', 'anpa-socios' ) ) ) . '</strong>'
 				. ( $creado ? ' <span class="anpa-extra-grupo-creado">' . esc_html__( 'Creado', 'anpa-socios' ) . '</span>' : '' )
 				. ( $sen_inscricion ? ' <span class="anpa-extra-grupo-aberto-todos">' . esc_html__( 'Para todo o alumnado', 'anpa-socios' ) . '</span>' : '' )
 				. ( $sen_minimo ? ' <span class="anpa-extra-grupo-sen-minimo" title="' . esc_attr__( 'Aínda non chega ao mínimo para formarse: segue admitindo inscricións.', 'anpa-socios' ) . '">' . esc_html__( 'Sen mínimo', 'anpa-socios' ) . '</span>' : '' )

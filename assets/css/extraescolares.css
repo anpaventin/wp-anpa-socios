@@ -474,4 +474,6 @@ html.anpa-extra-dialog-aberto { overflow: hidden; }
 .anpa-extra-ofertadas .anpa-extra-card p.anpa-extra-prazas-minimo,
 .anpa-extra-ofertadas .anpa-extra-card p.anpa-extra-sen-inscricion { font-size: 0.85rem !important; line-height: 1.4 !important; }
 .anpa-extra-ofertadas .anpa-extra-card .anpa-extra-mais-corpo p { font-size: 0.9rem !important; line-height: 1.5 !important; }
-
+.anpa-extra-dialog .anpa-extra-horario-grupo p,
+.anpa-extra-dialog .anpa-extra-horario-grupo .anpa-extra-horario-dias { padding-left: 0 !important; margin: 0.15rem 0 0; }
+.anpa-extra-dialog .anpa-extra-grupos { display: flex; flex-direction: column; gap: 0.5rem; }
