@@ -1,17 +1,21 @@
 /* ANPA Socios — «A ANPA en cifras» ([anpa_cifras] and the socios panel).
  *
  * Inherits the theme typography and palette (Blocksy --theme-* variables)
- * with neutral fallbacks, so it fits any site.
+ * with neutral fallbacks, so it fits any site. Theme content rules for lists
+ * (bullets, left padding) are neutralised with higher specificity.
  *
  * @since  1.95.0
+ * @since  1.96.2 Centred tiles with icons, «Este curso» tiles and occupancy bars.
  * @package ANPA_Socios
  */
 
 .anpa-cifras {
-	--anpa-cifras-accent: var(--theme-palette-color-1, #2e7d4f);
-	--anpa-cifras-surface: var(--theme-palette-color-7, #f3f7f4);
+	--anpa-cifras-accent: var(--theme-palette-color-1, #2d6a4f);
+	--anpa-cifras-soft: var(--theme-palette-color-7, #eef7f2);
 	--anpa-cifras-border: var(--theme-border-color, #d9e2dc);
-	--anpa-cifras-muted: var(--theme-text-color, #4a4a4a);
+	--anpa-cifras-text: var(--theme-text-color, #374151);
+	--anpa-cifras-warn: #b45309;
+	--anpa-cifras-full: #b91c1c;
 	margin: 1.5em 0;
 }
 
@@ -21,92 +25,217 @@
 
 .anpa-cifras-curso {
 	margin: 0 0 1em;
-	opacity: 0.75;
+	color: var(--anpa-cifras-text);
+	opacity: 0.8;
 	font-size: 0.95em;
 }
 
-.anpa-cifras-lista {
+/* ── Tiles ─────────────────────────────────────────────────────────── */
+.anpa-cifras ul.anpa-cifras-lista {
 	list-style: none;
-	margin: 0;
-	padding: 0;
+	margin: 0 !important;
+	padding: 0 !important;
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-	gap: 12px;
+	gap: 14px;
 }
 
-/* Themes often decorate content list items (bullets, dots via ::before). */
-.anpa-cifras .anpa-cifras-lista .anpa-cifras-item::before,
-.anpa-cifras .anpa-cifras-lista .anpa-cifras-item::marker {
-	content: none;
-	display: none;
-}
-
-.anpa-cifras .anpa-cifras-lista {
-	padding-left: 0;
-	margin-left: 0;
-}
-
-.anpa-cifras-item {
-	margin: 0;
-	padding: 16px 14px;
-	background: var(--anpa-cifras-surface);
+.anpa-cifras ul.anpa-cifras-lista > li.anpa-cifras-item {
+	position: relative;
+	margin: 0 !important;
+	padding: 20px 12px 16px !important;
+	background: #fff;
 	border: 1px solid var(--anpa-cifras-border);
-	border-radius: var(--theme-border-radius, 10px);
+	border-top: 4px solid var(--anpa-cifras-accent);
+	border-radius: var(--theme-border-radius, 12px);
+	box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
 	text-align: center;
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	align-items: center;
+	justify-content: flex-start;
+	gap: 6px;
+	line-height: 1.3;
+}
+
+/* Icon (mask, coloured with the accent). Replaces the theme's list dot. */
+.anpa-cifras ul.anpa-cifras-lista > li.anpa-cifras-item::before {
+	content: "" !important;
+	display: block !important;
+	position: static !important;
+	width: 40px !important;
+	height: 40px !important;
+	margin: 0 0 2px !important;
+	border-radius: 999px !important;
+	background-color: var(--anpa-cifras-soft) !important;
+	background-image: none !important;
+}
+.anpa-cifras ul.anpa-cifras-lista > li.anpa-cifras-item::after {
+	content: "";
+	position: absolute;
+	top: 29px;
+	left: 50%;
+	width: 22px;
+	height: 22px;
+	transform: translateX(-50%);
+	background-color: var(--anpa-cifras-accent);
+	-webkit-mask: var(--anpa-cifras-icon) center / contain no-repeat;
+	mask: var(--anpa-cifras-icon) center / contain no-repeat;
+}
+.anpa-cifras ul.anpa-cifras-lista > li.anpa-cifras-item:not([class*="anpa-cifras-item--"])::before,
+.anpa-cifras ul.anpa-cifras-lista > li.anpa-cifras-item:not([class*="anpa-cifras-item--"])::after {
+	display: none !important;
 }
 
 .anpa-cifras-valor {
-	font-size: 2em;
+	font-size: 2.1em;
 	font-weight: 700;
-	line-height: 1.1;
+	line-height: 1.05;
 	color: var(--anpa-cifras-accent);
 	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.01em;
 }
 
 .anpa-cifras-etiqueta {
-	font-size: 0.92em;
+	font-size: 0.9em;
 	line-height: 1.3;
-	color: var(--anpa-cifras-muted);
+	color: var(--anpa-cifras-text);
+	max-width: 16ch;
 }
 
-/* Socios-only detail in the personal area. */
-.anpa-cifras-socios {
-	margin-top: 12px;
+/* Smaller tiles: «Este curso» in the socios panel. */
+.anpa-cifras ul.anpa-cifras-lista--mini {
+	grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+	gap: 10px;
+}
+.anpa-cifras ul.anpa-cifras-lista--mini > li.anpa-cifras-item {
+	padding: 14px 10px 12px !important;
+	border-top-width: 3px;
+	background: var(--anpa-cifras-soft);
+}
+.anpa-cifras ul.anpa-cifras-lista--mini > li.anpa-cifras-item::before {
+	width: 32px !important;
+	height: 32px !important;
+	background-color: #fff !important;
+}
+.anpa-cifras ul.anpa-cifras-lista--mini > li.anpa-cifras-item::after {
+	top: 21px;
+	width: 18px;
+	height: 18px;
+}
+.anpa-cifras ul.anpa-cifras-lista--mini .anpa-cifras-valor {
+	font-size: 1.6em;
+}
+.anpa-cifras ul.anpa-cifras-lista--mini .anpa-cifras-etiqueta {
+	font-size: 0.85em;
+}
+.anpa-cifras-item--baixas { --anpa-cifras-accent: #6b7280; }
+.anpa-cifras-item--completos { --anpa-cifras-accent: var(--anpa-cifras-full); }
+.anpa-cifras-item--espera { --anpa-cifras-accent: var(--anpa-cifras-warn); }
+
+/* ── Socios panel sections ─────────────────────────────────────────── */
+.anpa-cifras-seccion {
+	margin: 1.5em 0 0;
+}
+.anpa-cifras-seccion-titulo {
+	margin: 0 0 0.6em !important;
+	font-size: 1.05em !important;
+	font-weight: 700;
+	color: var(--anpa-cifras-text);
+}
+.anpa-cifras-nota {
+	margin: 0.5em 0 0;
+	font-size: 0.88em;
+	color: var(--anpa-cifras-text);
+	opacity: 0.85;
 }
 
-.anpa-cifras-socios p {
-	margin: 0.4em 0;
+/* Occupancy per activity. */
+.anpa-cifras-ocupacion {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+	gap: 10px 18px;
 }
-
-.anpa-cifras-taboa {
-	width: 100%;
-	border-collapse: collapse;
-	margin-top: 8px;
-	font-size: 0.95em;
+.anpa-cifras-act {
+	padding: 10px 12px;
+	border: 1px solid var(--anpa-cifras-border);
+	border-radius: 10px;
+	background: #fff;
 }
-
-.anpa-cifras-taboa th,
-.anpa-cifras-taboa td {
-	padding: 6px 8px;
-	border-bottom: 1px solid var(--anpa-cifras-border);
-	text-align: left;
+.anpa-cifras-act-cab {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 10px;
 }
-
-.anpa-cifras-taboa td.anpa-cifras-num,
-.anpa-cifras-taboa th.anpa-cifras-num {
-	text-align: right;
-	font-variant-numeric: tabular-nums;
+.anpa-cifras-act-nome {
+	font-weight: 600;
+	color: var(--anpa-cifras-text);
+	line-height: 1.3;
+}
+.anpa-cifras-act-num {
 	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+	color: var(--anpa-cifras-text);
+	font-size: 0.92em;
 }
+.anpa-cifras-barra {
+	margin-top: 8px;
+	height: 8px;
+	border-radius: 999px;
+	background: #e5e7eb;
+	overflow: hidden;
+}
+.anpa-cifras-barra > span {
+	display: block;
+	height: 100%;
+	border-radius: 999px;
+	background: var(--anpa-cifras-accent);
+}
+.anpa-cifras-act--case .anpa-cifras-barra > span { background: var(--anpa-cifras-warn); }
+.anpa-cifras-act--completo .anpa-cifras-barra > span { background: var(--anpa-cifras-full); }
+.anpa-cifras-act-etiquetas {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 8px;
+}
+.anpa-cifras-chip {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-size: 0.8em;
+	font-weight: 600;
+	background: var(--anpa-cifras-soft);
+	color: var(--anpa-cifras-accent);
+}
+.anpa-cifras-chip--completo { background: #fee2e2; color: var(--anpa-cifras-full); }
+.anpa-cifras-chip--espera { background: #fef3c7; color: var(--anpa-cifras-warn); }
 
 @media (max-width: 480px) {
-	.anpa-cifras-lista {
-		grid-template-columns: repeat(2, 1fr);
+	.anpa-cifras ul.anpa-cifras-lista {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 10px;
 	}
 	.anpa-cifras-valor {
-		font-size: 1.6em;
+		font-size: 1.75em;
+	}
+	.anpa-cifras-ocupacion {
+		grid-template-columns: 1fr;
 	}
 }
+
+/* Iconas: Lucide v0.460.0, licenza ISC (https://lucide.dev). */
+.anpa-cifras .anpa-cifras-item--familias { --anpa-cifras-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E"); }
+.anpa-cifras .anpa-cifras-item--alumnado { --anpa-cifras-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 22v-4a2 2 0 1 0-4 0v4'/%3E%3Cpath d='m18 10 3.447 1.724a1 1 0 0 1 .553.894V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-7.382a1 1 0 0 1 .553-.894L6 10'/%3E%3Cpath d='M18 5v17'/%3E%3Cpath d='m4 6 7.106-3.553a2 2 0 0 1 1.788 0L20 6'/%3E%3Cpath d='M6 5v17'/%3E%3Ccircle cx='12' cy='9' r='2'/%3E%3C/svg%3E"); }
+.anpa-cifras .anpa-cifras-item--extraescolares { --anpa-cifras-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z'/%3E%3Cpath d='M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z'/%3E%3Cpath d='M16 17h4'/%3E%3Cpath d='M4 13h4'/%3E%3C/svg%3E"); }
+.anpa-cifras .anpa-cifras-item--inscricions { --anpa-cifras-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='8' height='4' x='8' y='2' rx='1' ry='1'/%3E%3Cpath d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/%3E%3Cpath d='M12 11h4'/%3E%3Cpath d='M12 16h4'/%3E%3Cpath d='M8 11h.01'/%3E%3Cpath d='M8 16h.01'/%3E%3C/svg%3E"); }
+.anpa-cifras .anpa-cifras-item--actividades { --anpa-cifras-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='13.5' cy='6.5' r='.5' fill='currentColor'/%3E%3Ccircle cx='17.5' cy='10.5' r='.5' fill='currentColor'/%3E%3Ccircle cx='8.5' cy='7.5' r='.5' fill='currentColor'/%3E%3Ccircle cx='6.5' cy='12.5' r='.5' fill='currentColor'/%3E%3Cpath d='M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z'/%3E%3C/svg%3E"); }
+.anpa-cifras .anpa-cifras-item--empresas { --anpa-cifras-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m11 17 2 2a1 1 0 1 0 3-3'/%3E%3Cpath d='m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4'/%3E%3Cpath d='m21 3 1 11h-2'/%3E%3Cpath d='M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3'/%3E%3Cpath d='M3 4h8'/%3E%3C/svg%3E"); }
+.anpa-cifras .anpa-cifras-item--prazas { --anpa-cifras-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E"); }
+.anpa-cifras .anpa-cifras-item--comedor { --anpa-cifras-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2'/%3E%3Cpath d='M7 2v20'/%3E%3Cpath d='M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7'/%3E%3C/svg%3E"); }
+.anpa-cifras .anpa-cifras-item--tarde { --anpa-cifras-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cpath d='M12 2v2'/%3E%3Cpath d='M12 20v2'/%3E%3Cpath d='m4.93 4.93 1.41 1.41'/%3E%3Cpath d='m17.66 17.66 1.41 1.41'/%3E%3Cpath d='M2 12h2'/%3E%3Cpath d='M20 12h2'/%3E%3Cpath d='m6.34 17.66-1.41 1.41'/%3E%3Cpath d='m19.07 4.93-1.41 1.41'/%3E%3C/svg%3E"); }
+.anpa-cifras .anpa-cifras-item--altas { --anpa-cifras-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='22 7 13.5 15.5 8.5 10.5 2 17'/%3E%3Cpolyline points='16 7 22 7 22 13'/%3E%3C/svg%3E"); }
+.anpa-cifras .anpa-cifras-item--baixas { --anpa-cifras-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E"); }
+.anpa-cifras .anpa-cifras-item--completos { --anpa-cifras-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='11' x='3' y='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E"); }
+.anpa-cifras .anpa-cifras-item--espera { --anpa-cifras-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='13' r='8'/%3E%3Cpath d='M12 9v4l2 2'/%3E%3Cpath d='M5 3 2 6'/%3E%3Cpath d='m22 6-3-3'/%3E%3Cpath d='M6.38 18.7 4 21'/%3E%3Cpath d='M17.64 18.67 20 21'/%3E%3C/svg%3E"); }

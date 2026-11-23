@@ -497,11 +497,36 @@
 
 		// 1.95.0: «A ANPA en cifras» on the Inicio panel. Quiet request: on any
 		// failure the section just stays hidden (no error banner).
+		// 1.96.2: tiles with icons, «Este curso» tiles and occupancy bars.
 		function renderCifras() {
 			var section = root.querySelector('[data-panel-cifras-section]');
 			var host = root.querySelector('[data-panel-cifras]');
 			if (!section || !host || !root.dataset.cifrasUrl || !areaToken) {
 				return;
+			}
+			function el(tag, cls, text) {
+				var e = document.createElement(tag);
+				if (cls) { e.className = cls; }
+				if (text !== undefined && text !== null) { e.textContent = String(text); }
+				return e;
+			}
+			function num(n) {
+				return Number(n || 0).toLocaleString('gl-ES');
+			}
+			function tiles(items, mini) {
+				var ul = el('ul', 'anpa-cifras-lista' + (mini ? ' anpa-cifras-lista--mini' : ''));
+				items.forEach(function (c) {
+					var li = el('li', 'anpa-cifras-item anpa-cifras-item--' + String(c.clave || '').replace(/[^a-z_-]/g, ''));
+					li.appendChild(el('span', 'anpa-cifras-valor', c.valor));
+					li.appendChild(el('span', 'anpa-cifras-etiqueta', c.etiqueta));
+					ul.appendChild(li);
+				});
+				return ul;
+			}
+			function seccion(titulo) {
+				var s = el('section', 'anpa-cifras-seccion');
+				s.appendChild(el('h4', 'anpa-cifras-seccion-titulo', titulo));
+				return s;
 			}
 			fetch(root.dataset.cifrasUrl, { method: 'GET', headers: { 'X-Anpa-Area-Token': areaToken } })
 				.then(function (r) { return r.ok ? r.json() : null; })
@@ -512,71 +537,64 @@
 					}
 					host.textContent = '';
 					if (data.curso) {
-						var curso = document.createElement('p');
-						curso.className = 'anpa-cifras-curso';
-						curso.textContent = sprintf( __( 'Curso %s', 'anpa-socios' ), data.curso );
-						host.appendChild(curso);
+						host.appendChild(el('p', 'anpa-cifras-curso', sprintf( __( 'Curso %s', 'anpa-socios' ), data.curso )));
 					}
-					var ul = document.createElement('ul');
-					ul.className = 'anpa-cifras-lista';
-					data.cifras.forEach(function (c) {
-						var li = document.createElement('li');
-						li.className = 'anpa-cifras-item';
-						var v = document.createElement('span');
-						v.className = 'anpa-cifras-valor';
-						v.textContent = c.valor;
-						var e = document.createElement('span');
-						e.className = 'anpa-cifras-etiqueta';
-						e.textContent = c.etiqueta;
-						li.appendChild(v);
-						li.appendChild(e);
-						ul.appendChild(li);
-					});
-					host.appendChild(ul);
+					host.appendChild(tiles(data.cifras, false));
 
-					var det = document.createElement('div');
-					det.className = 'anpa-cifras-socios';
-					function line(text) {
-						var p = document.createElement('p');
-						p.textContent = text;
-						det.appendChild(p);
+					// Este curso: altas, baixas, places and waiting list as small tiles.
+					var pz = data.prazas || {};
+					var curso = seccion(__( 'Este curso', 'anpa-socios' ));
+					curso.appendChild(tiles([
+						{ clave: 'altas', valor: num(data.altas), etiqueta: __( 'altas novas de familias', 'anpa-socios' ) },
+						{ clave: 'baixas', valor: num(data.baixas), etiqueta: __( 'baixas de familias', 'anpa-socios' ) },
+						{ clave: 'prazas', valor: num(pz.grupos_con_prazas), etiqueta: __( 'grupos con prazas libres', 'anpa-socios' ) },
+						{ clave: 'completos', valor: num(pz.completos), etiqueta: __( 'grupos completos', 'anpa-socios' ) },
+						{ clave: 'espera', valor: num(data.espera), etiqueta: __( 'solicitudes en lista de espera', 'anpa-socios' ) },
+					], true));
+					if (pz.prazas_libres) {
+						curso.appendChild(el('p', 'anpa-cifras-nota', sprintf( __( 'Quedan %s prazas libres nos grupos con número máximo.', 'anpa-socios' ), num(pz.prazas_libres) )));
 					}
-					line(sprintf( __( 'Este curso: %1$d altas novas e %2$d baixas de familias.', 'anpa-socios' ), data.altas || 0, data.baixas || 0 ));
-					if (data.prazas) {
-						line(sprintf( __( 'Grupos con prazas libres: %1$d (%2$d prazas en grupos con límite). Grupos completos: %3$d.', 'anpa-socios' ), data.prazas.grupos_con_prazas || 0, data.prazas.prazas_libres || 0, data.prazas.completos || 0 ));
-					}
-					line(sprintf( __( 'Solicitudes en lista de espera: %d.', 'anpa-socios' ), data.espera || 0 ));
+					host.appendChild(curso);
 
+					// Occupancy per activity: enrolled / places with a bar.
 					if (Array.isArray(data.actividades) && data.actividades.length) {
-						var table = document.createElement('table');
-						table.className = 'anpa-cifras-taboa';
-						var thead = document.createElement('thead');
-						var hr = document.createElement('tr');
-						[[__( 'Actividade', 'anpa-socios' ), ''], [__( 'Inscritos/as', 'anpa-socios' ), 'anpa-cifras-num'], [__( 'Prazas', 'anpa-socios' ), 'anpa-cifras-num'], [__( 'En espera', 'anpa-socios' ), 'anpa-cifras-num']].forEach(function (h) {
-							var th = document.createElement('th');
-							th.scope = 'col';
-							th.textContent = h[0];
-							if (h[1]) { th.className = h[1]; }
-							hr.appendChild(th);
-						});
-						thead.appendChild(hr);
-						table.appendChild(thead);
-						var tbody = document.createElement('tbody');
+						var oc = seccion(__( 'Ocupación das actividades', 'anpa-socios' ));
+						var list = el('div', 'anpa-cifras-ocupacion');
 						data.actividades.forEach(function (a) {
-							var tr = document.createElement('tr');
-							var prazas = a.sen_limite ? ( a.prazas ? sprintf( __( '%d + sen límite', 'anpa-socios' ), a.prazas ) : __( 'sen límite', 'anpa-socios' ) ) : String(a.prazas || 0);
-							[[a.nome, ''], [String(a.inscritos || 0), 'anpa-cifras-num'], [prazas, 'anpa-cifras-num'], [String(a.espera || 0), 'anpa-cifras-num']].forEach(function (c) {
-								var td = document.createElement('td');
-								td.textContent = c[0];
-								if (c[1]) { td.className = c[1]; }
-								tr.appendChild(td);
-							});
-							tbody.appendChild(tr);
+							var inscritos = Number(a.inscritos || 0);
+							var prazas = Number(a.prazas || 0);
+							var limitada = prazas > 0 && !a.sen_limite;
+							var pct = limitada ? Math.min(100, Math.round(inscritos * 100 / prazas)) : 0;
+							var estado = limitada ? (inscritos >= prazas ? ' anpa-cifras-act--completo' : (pct >= 80 ? ' anpa-cifras-act--case' : '')) : '';
+							var card = el('div', 'anpa-cifras-act' + estado);
+							var cab = el('div', 'anpa-cifras-act-cab');
+							cab.appendChild(el('span', 'anpa-cifras-act-nome', a.nome));
+							var txt = limitada
+								? sprintf( __( '%1$s de %2$s', 'anpa-socios' ), num(inscritos), num(prazas) )
+								: sprintf( __( '%s · sen límite', 'anpa-socios' ), num(inscritos) );
+							cab.appendChild(el('span', 'anpa-cifras-act-num', txt));
+							card.appendChild(cab);
+							if (limitada) {
+								var barra = el('div', 'anpa-cifras-barra');
+								barra.setAttribute('aria-hidden', 'true');
+								var fill = el('span');
+								fill.style.width = pct + '%';
+								barra.appendChild(fill);
+								card.appendChild(barra);
+							}
+							var chips = el('div', 'anpa-cifras-act-etiquetas');
+							if (limitada && inscritos >= prazas) {
+								chips.appendChild(el('span', 'anpa-cifras-chip anpa-cifras-chip--completo', __( 'Completo', 'anpa-socios' )));
+							}
+							if (Number(a.espera || 0) > 0) {
+								chips.appendChild(el('span', 'anpa-cifras-chip anpa-cifras-chip--espera', sprintf( __( '%s en espera', 'anpa-socios' ), num(a.espera) )));
+							}
+							if (chips.childNodes.length) { card.appendChild(chips); }
+							list.appendChild(card);
 						});
-						table.appendChild(tbody);
-						det.appendChild(table);
+						oc.appendChild(list);
+						host.appendChild(oc);
 					}
-					host.appendChild(det);
 					section.hidden = false;
 				})
 				.catch(function () { section.hidden = true; });

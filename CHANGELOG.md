@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.96.2] - 2026-11-23
+
+### Changed
+
+- **A ANPA en cifras, máis clara.** Cada cifra vai nunha tarxeta centrada cunha icona. Na área de socios/as,
+  «Este curso» (altas, baixas, grupos con prazas, grupos completos e lista de espera) móstrase tamén en tarxetas,
+  e a ocupación de cada actividade cunha barra («14 de 30») e as etiquetas «Completo» e «N en espera» en lugar
+  da táboa.
+
+### Fixed
+
+- Na portada as cifras non saían centradas: o tema engade sangría e un punto a todas as listas do contido.
+
 ## [1.96.1] - 2026-11-23
 
 ### Fixed

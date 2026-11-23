@@ -724,9 +724,6 @@
 #anpa-area .anpa-area-panel-cifras .anpa-cifras {
 	margin: 0;
 }
-#anpa-area .anpa-area-panel-cifras .anpa-cifras-item {
-	background: var(--anpa-surface-muted, #eef7f2);
-}
 #anpa-area .anpa-area-panel-shortcuts {
 	display: flex;
 	flex-wrap: wrap;

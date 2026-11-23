@@ -112,4 +112,17 @@ final class Test_ANPA_Socios_Cifras extends TestCase {
 
 		$this->assertFileExists( dirname( __DIR__ ) . '/assets/css/cifras.css' );
 	}
+
+	public function test_tiles_override_theme_list_padding_and_keep_icons(): void {
+		$css = $this->src( 'assets/css/cifras.css' );
+		// 1.96.2: theme rules give every content <li> a left padding and a dot; the tiles neutralise both.
+		$this->assertMatchesRegularExpression( '/\.anpa-cifras ul\.anpa-cifras-lista > li\.anpa-cifras-item \{[^}]*padding: 20px 12px 16px !important;/s', $css );
+		$this->assertStringContainsString( '.anpa-cifras ul.anpa-cifras-lista > li.anpa-cifras-item::before', $css );
+		foreach ( array( 'familias', 'alumnado', 'extraescolares', 'actividades', 'prazas', 'altas', 'baixas', 'completos', 'espera' ) as $k ) {
+			$this->assertStringContainsString( '.anpa-cifras-item--' . $k . ' { --anpa-cifras-icon: url("data:image/svg+xml,', $css, $k );
+		}
+		$js = $this->src( 'assets/js/area.js' );
+		$this->assertStringContainsString( "'anpa-cifras-lista' + (mini ? ' anpa-cifras-lista--mini' : '')", $js );
+		$this->assertStringContainsString( "el('div', 'anpa-cifras-ocupacion')", $js );
+	}
 }
