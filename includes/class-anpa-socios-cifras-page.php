@@ -32,7 +32,7 @@ final class ANPA_Socios_Cifras_Page {
 	/**
 	 * Transient prefix of the cached figures (10 minutes).
 	 */
-	const CACHE_KEY = 'anpa_socios_cifras_v2_'; // v2 (1.97.0): groups per activity.
+	const CACHE_KEY = 'anpa_socios_cifras_v3_'; // v3 (1.98.4): group levels.
 
 	/**
 	 * Cache lifetime in seconds.
@@ -171,6 +171,8 @@ final class ANPA_Socios_Cifras_Page {
 		$mat_t = ANPA_Socios_DB::tabela_matriculas();
 		$gru_t = ANPA_Socios_DB::tabela_grupos();
 		$act_t = ANPA_Socios_DB::tabela_actividades();
+		$gn_t  = ANPA_Socios_DB::tabela_grupos_niveis();
+		$niv_t = ANPA_Socios_DB::tabela_niveis();
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery -- read-only aggregate counts, no personal data leaves.
 		// One family = its first parent (principal). Second parents never count.
@@ -248,6 +250,7 @@ final class ANPA_Socios_Cifras_Page {
 				"SELECT g.id, g.actividad_id, g.nome AS grupo, g.estado, g.horario, g.franxa, g.dias,
 				        g.min_pupilos, g.max_pupilos, g.aviso_comezo_en,
 				        a.nome, a.empresa_id, a.sen_inscricion,
+				        (SELECT GROUP_CONCAT(n.etiqueta ORDER BY n.orde SEPARATOR ', ') FROM {$gn_t} gn INNER JOIN {$niv_t} n ON n.id = gn.nivel_id WHERE gn.grupo_id = g.id) AS niveis,
 				        COUNT(DISTINCT CASE WHEN {$vivas} THEN m.fillo_id END) AS activos,
 				        COUNT(DISTINCT CASE WHEN m.estado = 'lista_espera' THEN m.id END) AS espera,
 				        COUNT(DISTINCT m.id) AS total
@@ -304,7 +307,7 @@ final class ANPA_Socios_Cifras_Page {
 					$dias[] = ANPA_Socios_Horario_Builder::DIA_LABELS[ $d ] ?? $d;
 				}
 				$actividades[ $aid ]['grupos'][] = array(
-					'nome'      => ANPA_Socios_Cifras::nome_grupo( (string) $g['nome'], (string) $g['grupo'] ),
+					'nome'      => ANPA_Socios_Cifras::nome_grupo( (string) $g['nome'], (string) $g['grupo'], (string) ( $g['niveis'] ?? '' ) ),
 					'estado'    => $estado,
 					'horario'   => ANPA_Socios_Grupo_Serie::horario_label( (string) $g['horario'] ),
 					'franxa'    => str_replace( '-', '–', (string) $g['franxa'] ),

@@ -132,6 +132,7 @@ final class Test_ANPA_Socios_Cifras extends TestCase {
 		$this->assertSame( '1º, 2º, 3º', ANPA_Socios_Cifras::nome_grupo( 'Xadrez', 'Xadrez (1º, 2º, 3º)' ) );
 		$this->assertSame( 'LEGOTECA (4º, 5º, 6º)', ANPA_Socios_Cifras::nome_grupo( 'Bloques de Construción (legoteca)', 'LEGOTECA (4º, 5º, 6º)' ) );
 		$this->assertSame( 'Grupo único', ANPA_Socios_Cifras::nome_grupo( 'Hockey', 'Hockey' ) );
+		$this->assertSame( '1º, 2º, 3º', ANPA_Socios_Cifras::nome_grupo( 'Inglés', 'Inglés', '1º, 2º, 3º' ) );
 		$this->assertContains( 'sen_inscricion', ANPA_Socios_Cifras::PUBLICAS_DEFECTO );
 		$this->assertSame( 'actividade aberta a todo o alumnado, sen inscrición', ANPA_Socios_Cifras::etiqueta( 'sen_inscricion', 1 ) );
 		// A public block never shows «0 actividades sen inscrición».
@@ -141,7 +142,7 @@ final class Test_ANPA_Socios_Cifras extends TestCase {
 		// Activities without enrolment never count as groups with free places.
 		$this->assertStringContainsString( "\$estado   = \$sen_insc ? 'sen_inscricion' : ANPA_Socios_Oferta_Publica::estado_grupo(", $page );
 		$this->assertStringContainsString( "if ( ANPA_Socios_Oferta_Publica::NON_ACADADO !== \$estado ) {", $page );
-		$this->assertStringContainsString( "const CACHE_KEY = 'anpa_socios_cifras_v2_';", $page );
+		$this->assertStringContainsString( "const CACHE_KEY = 'anpa_socios_cifras_v3_';", $page );
 
 		$js = $this->src( 'assets/js/area.js' );
 		$this->assertStringContainsString( "el('div', 'anpa-cifras-grupo' + (completo ? ' anpa-cifras-grupo--completo' : ''))", $js );

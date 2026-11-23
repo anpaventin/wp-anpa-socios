@@ -155,11 +155,16 @@ final class ANPA_Socios_Cifras {
 	 * @since  1.97.0
 	 * @param  string $actividade Activity name.
 	 * @param  string $grupo      Group name.
+	 * @param  string $niveis     Levels of the group («1º, 2º, 3º»), used when the
+	 *                            name only repeats the activity (1.98.4).
 	 * @return string
 	 */
-	public static function nome_grupo( string $actividade, string $grupo ): string {
+	public static function nome_grupo( string $actividade, string $grupo, string $niveis = '' ): string {
 		$curto = ANPA_Socios_Horario_Builder::etiqueta_grupo( $actividade, $grupo );
-		return '' !== $curto ? $curto : __( 'Grupo único', 'anpa-socios' );
+		if ( '' !== $curto ) {
+			return $curto;
+		}
+		return '' !== trim( $niveis ) ? trim( $niveis ) : __( 'Grupo único', 'anpa-socios' );
 	}
 
 	/**
