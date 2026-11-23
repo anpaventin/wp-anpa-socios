@@ -35,6 +35,7 @@ class ANPA_Socios_Unified_Page {
 	 * @return string
 	 */
 	public static function render( $atts ): string {
+		ANPA_Socios_Non_Cachear::marcar(); // 1.96.1: live page, never from a page cache.
 		$preflight_url        = rest_url( 'anpa-socios/v1/area/preflight' );
 		$solicitar_codigo_url = rest_url( 'anpa/v1/solicitar-codigo' );
 		// Alta (new member) code endpoint: issues a code to ANY valid email.

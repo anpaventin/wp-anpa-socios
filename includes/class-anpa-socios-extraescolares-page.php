@@ -28,6 +28,7 @@ final class ANPA_Socios_Extraescolares_Page {
 	 * @return string Escaped HTML.
 	 */
 	public static function render( $atts ): string {
+		ANPA_Socios_Non_Cachear::marcar(); // 1.96.1: live page, never from a page cache.
 		$rows = self::active_group_slots();
 		$grid = ANPA_Socios_Horario_Builder::build( $rows );
 
@@ -137,6 +138,7 @@ final class ANPA_Socios_Extraescolares_Page {
 	 * @return string Escaped HTML.
 	 */
 	public static function render_ofertadas( $atts ): string {
+		ANPA_Socios_Non_Cachear::marcar(); // 1.96.1: live page, never from a page cache.
 		$curso = ANPA_Socios_Curso_Activo::get();
 		$rows  = self::active_activities();
 		// 1.71.0: activity dates (Axustes → Xeral) and the groups that did not reach their minimum.

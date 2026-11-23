@@ -46,6 +46,7 @@ class ANPA_Socios_Area_Page {
 	 * @return string
 	 */
 	private static function render_shell( bool $embedded ): string {
+		ANPA_Socios_Non_Cachear::marcar(); // 1.96.1: live page, never from a page cache.
 		$solicitar_codigo_url = rest_url( 'anpa/v1/solicitar-codigo' );
 		$verificar_codigo_url  = rest_url( 'anpa/v1/verificar-codigo' );
 		$preflight_url         = rest_url( 'anpa-socios/v1/area/preflight' );

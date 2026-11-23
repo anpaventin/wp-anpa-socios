@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.96.1] - 2026-11-23
+
+### Fixed
+
+- **As páxinas da área, da alta e das extraescolares nunca se serven desde unha caché de páxinas.** Os
+  formularios de acceso levan a hora en que se mostrou a páxina, e o sistema antibot rexeita sen aviso as
+  peticións de código feitas máis dunha hora despois. Se un plugin de caché servise unha copia vella, o código
+  non chegaría. Agora calquera páxina con `[anpa_socios_area]`, `[anpa_socios_area_persoal]`,
+  `[anpa_socios_asociarse]`, `[anpa_extraescolares_horario]` ou `[anpa_extraescolares_ofertadas]` márcase como
+  «non cachear» (`DONOTCACHEPAGE` e cabeceiras no-cache), estea na URL que estea.
+
 ## [1.96.0] - 2026-11-23
 
 ### Changed

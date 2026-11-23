@@ -38,6 +38,7 @@ class ANPA_Socios_Socios_Page {
 	 * @return string     The form HTML.
 	 */
 	public static function render( $atts ): string {
+		ANPA_Socios_Non_Cachear::marcar(); // 1.96.1: live page, never from a page cache.
 		// The alta form now lives ON the unified socios page so that alta and
 		// login share a single, simple flow. This shortcode renders only a CTA
 		// button that sends the visitor to that page. The full form markup is
