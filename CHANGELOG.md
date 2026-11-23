@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.98.0] - 2026-11-23
+
+### Changed
+
+- **Tarxetas das actividades extraescolares co novo formato.** Parécense ás de ocupación da área de socios/as:
+  cabeceira coa icona, o nome, as datas e o prezo; a empresa; e un recadro por grupo co estado («Creado»,
+  «Aberto», «Sen mínimo» ou «Para todo o alumnado»), os días e o horario, os cursos, as prazas e unha barra de
+  ocupación (a marca é o mínimo para formar o grupo).
+- **«Máis información» nunha ventá flotante.** A descrición e o resto de datos (empresa, datas, prezo e como
+  inscribirse) ábrense nunha ventá, cos grupos e o horario. Péchase co botón, con Esc ou premendo fóra. Sen
+  JavaScript a información desprégase na propia tarxeta.
+
 ## [1.97.2] - 2026-11-23
 
 ### Changed

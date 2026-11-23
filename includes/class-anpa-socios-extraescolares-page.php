@@ -168,8 +168,14 @@ final class ANPA_Socios_Extraescolares_Page {
 		$html .= '<h2 class="anpa-extra-seccion-titulo">' . esc_html( (string) $seccion['titulo'] ) . '</h2>';
 		$html .= '<div class="anpa-card-grid">';
 		foreach ( $seccion['rows'] as $act ) {
-			$html .= '<div class="anpa-card anpa-extra-card">';
+			// 1.98.0: card like the socios occupancy cards. Header (icon, name, dates,
+			// price), company, one block per group with its state and places, and the
+			// description and the rest in «Máis información» (a floating window with JS).
+			$sen_insc_act = ! empty( $act['sen_inscricion'] );
+			$html .= '<div class="anpa-card anpa-extra-card' . ( $sen_insc_act ? ' anpa-extra-card--aberta' : '' ) . '">';
+			$html .= '<div class="anpa-extra-card-cab">';
 			$html .= '<p class="anpa-icon-circle">' . esc_html( self::activity_icon( (string) ( $act['icono'] ?? '' ) ) ) . '</p>';
+			$html .= '<div class="anpa-extra-card-titulo">';
 			$html .= '<h3>' . esc_html( (string) ( $act['nome'] ?? '' ) ) . '</h3>';
 			// 1.87.0: an activity with its own dates shows them instead of the global ones.
 			$curto_act = ! empty( $act['datas_propias'] )
@@ -178,34 +184,49 @@ final class ANPA_Socios_Extraescolares_Page {
 			if ( '' !== $curto_act ) {
 				$html .= '<p class="anpa-extra-meta anpa-extra-card-datas">' . esc_html( $curto_act ) . '</p>';
 			}
+			$html .= '</div>';
+			$prezo = self::price_label( $act['custo'] ?? null );
+			$html .= '<span class="anpa-extra-prezo">' . esc_html( $prezo ) . '</span>';
+			$html .= '</div>';
 
 			// Empresa — the name itself is the link when a website is set
 			// (fase22 S8.1); no bare URL in parentheses.
-			$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Empresa:', 'anpa-socios' ) . '</strong> ';
+			$empresa_html = '';
 			if ( ! empty( $act['empresa_nome'] ) ) {
 				$empresa_nome = (string) $act['empresa_nome'];
-				if ( ! empty( $act['url_web'] ) ) {
-					$html .= '<a href="' . esc_url( $act['url_web'] ) . '" target="_blank" rel="noopener">'
-						. esc_html( $empresa_nome ) . '</a>';
-				} else {
-					$html .= esc_html( $empresa_nome );
-				}
+				$empresa_html = ! empty( $act['url_web'] )
+					? '<a href="' . esc_url( $act['url_web'] ) . '" target="_blank" rel="noopener">' . esc_html( $empresa_nome ) . '</a>'
+					: esc_html( $empresa_nome );
 			}
-			$html .= '</p>';
+			$html .= '<p class="anpa-extra-meta anpa-extra-empresa"><strong>' . esc_html__( 'Empresa:', 'anpa-socios' ) . '</strong> ' . $empresa_html . '</p>';
 
+			// Grupos: horario, estado e prazas de cada un.
+			$html .= '<div class="anpa-extra-grupos">' . self::schedule_detail_html( $act ) . '</div>';
+
+			// Máis información: description and every detail of the activity.
+			$html .= '<details class="anpa-extra-mais">';
+			$html .= '<summary>' . esc_html__( 'Máis información', 'anpa-socios' ) . '</summary>';
+			$html .= '<div class="anpa-extra-mais-corpo" data-titulo="' . esc_attr( (string) ( $act['nome'] ?? '' ) ) . '">';
 			// Descripción (só se ten contido).
 			if ( ! empty( $act['descripcion'] ) ) {
-				$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Descripción:', 'anpa-socios' ) . '</strong> '
+				$html .= '<p class="anpa-extra-meta anpa-extra-descricion"><strong>' . esc_html__( 'Descripción:', 'anpa-socios' ) . '</strong> '
 					. esc_html( (string) $act['descripcion'] ) . '</p>';
 			}
-
-			// Horario — días e franxa separados.
-			$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Horario:', 'anpa-socios' ) . '</strong></p>';
-			$html .= self::schedule_detail_html( $act );
-
+			if ( '' !== $empresa_html ) {
+				$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Empresa:', 'anpa-socios' ) . '</strong> ' . $empresa_html . '</p>';
+			}
+			if ( '' !== $curto_act ) {
+				$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Datas:', 'anpa-socios' ) . '</strong> ' . esc_html( $curto_act ) . '</p>';
+			}
 			// Prezo.
 			$html .= '<p class="anpa-extra-meta"><strong>' . esc_html__( 'Prezo:', 'anpa-socios' ) . '</strong> '
-				. esc_html( self::price_label( $act['custo'] ?? null ) ) . '</p>';
+				. esc_html( $prezo ) . '</p>';
+			if ( $sen_insc_act ) {
+				$html .= '<p class="anpa-extra-meta anpa-extra-sen-inscricion">' . esc_html__( 'Actividade para todo o alumnado do curso: non hai que inscribirse.', 'anpa-socios' ) . '</p>';
+			} else {
+				$html .= '<p class="anpa-extra-meta">' . esc_html__( 'A matrícula faise na área de socios/as. As prazas e o estado de cada grupo actualízanse ao momento.', 'anpa-socios' ) . '</p>';
+			}
+			$html .= '</div></details>';
 
 			$html .= '</div>';
 		}
@@ -338,6 +359,12 @@ final class ANPA_Socios_Extraescolares_Page {
 		$css_path    = ANPA_SOCIOS_PLUGIN_DIR . 'assets/css/extraescolares.css';
 		$css_version = file_exists( $css_path ) ? (int) filemtime( $css_path ) : ANPA_SOCIOS_VERSION;
 		wp_enqueue_style( 'anpa-extraescolares', plugins_url( 'assets/css/extraescolares.css', ANPA_SOCIOS_PLUGIN_FILE ), array(), $css_version );
+		// 1.98.0: «Máis información» as a floating window.
+		if ( has_shortcode( $content, 'anpa_extraescolares_ofertadas' ) ) {
+			$js_path    = ANPA_SOCIOS_PLUGIN_DIR . 'assets/js/extraescolares.js';
+			$js_version = file_exists( $js_path ) ? (int) filemtime( $js_path ) : ANPA_SOCIOS_VERSION;
+			wp_enqueue_script( 'anpa-extraescolares', plugins_url( 'assets/js/extraescolares.js', ANPA_SOCIOS_PLUGIN_FILE ), array(), $js_version, true );
+		}
 	}
 
 	/**
@@ -599,18 +626,23 @@ final class ANPA_Socios_Extraescolares_Page {
 
 		$html = '';
 		foreach ( $parts as $part ) {
-			$html .= '<div class="anpa-extra-horario-grupo">';
 			// 1.87.0: an activity that needs no enrolment has no places.
 			// 1.97.2: its groups say «Para todo o alumnado» instead of «Creado» (nothing to form).
 			$sen_inscricion = ! empty( $act['sen_inscricion'] );
 			$creado         = ! $sen_inscricion && ( is_array( $part['capacity'] ) && ! empty( $part['capacity']['creado'] ) );
 			$sen_minimo     = ! $sen_inscricion && is_array( $part['capacity'] ) && ! empty( $part['capacity']['sen_minimo'] );
-			$html  .= '<p class="anpa-extra-meta anpa-extra-horario-line"><strong>' . esc_html( $part['grupo'] ) . '</strong>'
+			$cap            = is_array( $part['capacity'] ) ? $part['capacity'] : array();
+			$completo       = ! $sen_inscricion && (int) ( $cap['max_pupilos'] ?? 0 ) > 0 && (int) ( $cap['activos'] ?? 0 ) >= (int) ( $cap['max_pupilos'] ?? 0 );
+			// 1.98.0: each group is a small box (name + state, when, levels, places + bar).
+			$html .= '<div class="anpa-extra-horario-grupo' . ( $sen_inscricion ? ' anpa-extra-horario-grupo--aberta' : '' ) . ( $completo ? ' anpa-extra-horario-grupo--completo' : '' ) . '">';
+			$nome_grupo = ANPA_Socios_Horario_Builder::etiqueta_grupo( (string) ( $act['nome'] ?? '' ), (string) $part['grupo'] );
+			$html  .= '<div class="anpa-extra-grupo-cab"><strong class="anpa-extra-grupo-nome">' . esc_html( '' !== $nome_grupo ? $nome_grupo : __( 'Grupo único', 'anpa-socios' ) ) . '</strong>'
 				. ( $creado ? ' <span class="anpa-extra-grupo-creado">' . esc_html__( 'Creado', 'anpa-socios' ) . '</span>' : '' )
 				. ( $sen_inscricion ? ' <span class="anpa-extra-grupo-aberto-todos">' . esc_html__( 'Para todo o alumnado', 'anpa-socios' ) . '</span>' : '' )
 				. ( $sen_minimo ? ' <span class="anpa-extra-grupo-sen-minimo" title="' . esc_attr__( 'Aínda non chega ao mínimo para formarse: segue admitindo inscricións.', 'anpa-socios' ) . '">' . esc_html__( 'Sen mínimo', 'anpa-socios' ) . '</span>' : '' )
-				. ' — ' . esc_html( $part['franxa'] ) . '</p>';
-			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line anpa-extra-horario-dias">' . esc_html( $part['dias'] ) . '</p>';
+				. ( ! $creado && ! $sen_inscricion && ! $sen_minimo && array() !== $cap ? ' <span class="anpa-extra-grupo-aberto">' . esc_html__( 'Aberto', 'anpa-socios' ) . '</span>' : '' )
+				. '</div>';
+			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line anpa-extra-horario-dias">' . esc_html( $part['dias'] ) . ' · ' . esc_html( $part['franxa'] ) . '</p>';
 			if ( is_array( $part['capacity'] ) ) {
 				if ( ! empty( $part['capacity']['niveis'] ) ) {
 					$html .= '<p class="anpa-extra-meta anpa-extra-grupo-niveis"><strong>'
@@ -619,11 +651,35 @@ final class ANPA_Socios_Extraescolares_Page {
 				}
 				$html .= $sen_inscricion
 					? '<p class="anpa-extra-meta anpa-extra-sen-inscricion">' . esc_html__( 'Non precisa inscrición.', 'anpa-socios' ) . '</p>'
-					: self::group_prazas_html( $part['capacity'] );
+					: self::group_prazas_html( $part['capacity'] ) . self::barra_prazas_html( $part['capacity'] );
 			}
 			$html .= '</div>';
 		}
 		return $html;
+	}
+
+	/**
+	 * Occupancy bar of a group (enrolled / places) with a mark at the minimum.
+	 * Decorative: the numbers are in the «Prazas:» line.
+	 *
+	 * @since  1.98.0
+	 * @param  array $group Group capacity row (activos, max_pupilos, min_pupilos, creado).
+	 * @return string Escaped HTML ('' for groups without a limit).
+	 */
+	private static function barra_prazas_html( array $group ): string {
+		$max = (int) ( $group['max_pupilos'] ?? 0 );
+		if ( $max <= 0 ) {
+			return '';
+		}
+		$activos = max( 0, (int) ( $group['activos'] ?? 0 ) );
+		$pct     = min( 100, (int) round( $activos * 100 / $max ) );
+		$clase   = $activos >= $max ? ' anpa-extra-barra--completo' : ( $pct >= 80 ? ' anpa-extra-barra--case' : '' );
+		$html    = '<div class="anpa-extra-barra' . $clase . '" aria-hidden="true"><span style="width:' . $pct . '%"></span>';
+		$min     = (int) ( $group['min_pupilos'] ?? 0 );
+		if ( $min > 0 && $min < $max && empty( $group['creado'] ) ) {
+			$html .= '<i style="left:' . (int) round( $min * 100 / $max ) . '%"></i>';
+		}
+		return $html . '</div>';
 	}
 
 	/**

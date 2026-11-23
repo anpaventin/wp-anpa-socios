@@ -254,3 +254,224 @@
 /* 1.97.2: activity without enrolment (e.g. patios coeducativos). */
 .anpa-extra-grupo-aberto-todos { display: inline-block; margin-left: 0.35rem; padding: 0.05rem 0.5rem; border-radius: 999px; background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; font-size: 0.8em; font-weight: 600; vertical-align: middle; }
 .anpa-extra-sen-inscricion { color: #075985; }
+
+/* ====================================================================
+   1.98.0: activity cards like the socios occupancy cards, and the
+   «Máis información» floating window.
+   ==================================================================== */
+.anpa-extra-ofertadas .anpa-extra-card {
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+	padding: 1rem 1rem 0.85rem;
+	border-top: 4px solid #2d6a4f;
+	border-radius: 12px;
+	box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+}
+.anpa-extra-ofertadas .anpa-extra-card p { margin: 0; }
+.anpa-extra-card-cab {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.7rem;
+}
+.anpa-extra-ofertadas .anpa-extra-card .anpa-icon-circle {
+	width: 2.6rem;
+	height: 2.6rem;
+	margin: 0;
+	flex: none;
+}
+.anpa-extra-card-titulo { flex: 1 1 auto; min-width: 0; }
+.anpa-extra-ofertadas .anpa-extra-card h3 {
+	margin: 0;
+	font-size: 1.15rem !important;
+	line-height: 1.25 !important;
+}
+.anpa-extra-ofertadas .anpa-extra-card-datas {
+	margin-top: 0.15rem;
+	font-size: 0.82rem;
+	color: #5a6b60;
+}
+.anpa-extra-prezo {
+	flex: none;
+	padding: 0.15rem 0.6rem;
+	border-radius: 999px;
+	background: #edf7f1;
+	color: #17412f;
+	font-size: 0.82rem;
+	font-weight: 700;
+	white-space: nowrap;
+}
+.anpa-extra-ofertadas .anpa-extra-empresa { font-size: 0.88rem; }
+
+/* Groups. */
+.anpa-extra-grupos {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+.anpa-extra-ofertadas .anpa-extra-horario-grupo {
+	margin: 0;
+	padding: 0.55rem 0.7rem;
+	border-radius: 8px;
+	background: #f6f9f7;
+}
+.anpa-extra-ofertadas .anpa-extra-horario-grupo .anpa-extra-grupo-niveis,
+.anpa-extra-ofertadas .anpa-extra-horario-grupo .anpa-extra-prazas,
+.anpa-extra-ofertadas .anpa-extra-horario-grupo .anpa-extra-prazas-minimo,
+.anpa-extra-ofertadas .anpa-extra-card .anpa-extra-horario-dias {
+	padding-left: 0;
+}
+.anpa-extra-grupo-cab {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.3rem 0.5rem;
+}
+.anpa-extra-grupo-nome { font-size: 0.92rem; color: #17412f; }
+.anpa-extra-grupo-cab .anpa-extra-grupo-creado,
+.anpa-extra-grupo-cab .anpa-extra-grupo-sen-minimo,
+.anpa-extra-grupo-cab .anpa-extra-grupo-aberto-todos,
+.anpa-extra-grupo-cab .anpa-extra-grupo-aberto { margin-left: 0; }
+.anpa-extra-grupo-aberto {
+	display: inline-block;
+	padding: 0.05rem 0.5rem;
+	border-radius: 999px;
+	background: #edf7f1;
+	color: #2d6a4f;
+	border: 1px solid #b7e4c7;
+	font-size: 0.8em;
+	font-weight: 600;
+}
+.anpa-extra-ofertadas .anpa-extra-horario-dias {
+	margin-top: 0.15rem;
+	font-size: 0.82rem;
+	color: #4b5563;
+}
+.anpa-extra-ofertadas .anpa-extra-grupo-niveis,
+.anpa-extra-ofertadas .anpa-extra-prazas,
+.anpa-extra-ofertadas .anpa-extra-prazas-minimo,
+.anpa-extra-ofertadas .anpa-extra-horario-grupo .anpa-extra-sen-inscricion {
+	margin-top: 0.2rem;
+	font-size: 0.85rem;
+}
+.anpa-extra-barra {
+	position: relative;
+	height: 7px;
+	margin-top: 0.4rem;
+	border-radius: 999px;
+	background: #e5e7eb;
+}
+.anpa-extra-barra > span {
+	display: block;
+	height: 100%;
+	border-radius: 999px;
+	background: #2d6a4f;
+}
+.anpa-extra-barra--case > span { background: #d97706; }
+.anpa-extra-barra--completo > span { background: #cf222e; }
+.anpa-extra-barra > i {
+	position: absolute;
+	top: -3px;
+	width: 2px;
+	height: 13px;
+	margin-left: -1px;
+	background: #374151;
+	border-radius: 1px;
+}
+.anpa-extra-card--aberta { border-top-color: #0369a1; }
+.anpa-extra-ofertadas .anpa-extra-horario-grupo--aberta {
+	background: #f0f9ff;
+	border: 1px dashed #bae6fd;
+}
+
+/* «Máis información»: inline without JS, floating window with JS. */
+.anpa-extra-mais { margin-top: auto; }
+.anpa-extra-mais > summary {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	min-height: 38px;
+	padding: 0.35rem 0.9rem;
+	border: 1px solid #b7e4c7;
+	border-radius: 999px;
+	background: #fff;
+	color: #2d6a4f;
+	font-size: 0.88rem;
+	font-weight: 600;
+	cursor: pointer;
+	list-style: none;
+}
+.anpa-extra-mais > summary::-webkit-details-marker { display: none; }
+.anpa-extra-mais > summary::after { content: "+"; font-weight: 700; }
+.anpa-extra-mais[open] > summary::after { content: "−"; }
+.anpa-extra-mais > summary:hover,
+.anpa-extra-mais > summary:focus-visible { background: #2d6a4f; color: #fff; }
+.anpa-extra-mais-corpo {
+	margin-top: 0.6rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.45rem;
+}
+
+.anpa-extra-dialog {
+	width: min(640px, calc(100vw - 32px));
+	max-height: calc(100vh - 48px);
+	padding: 0;
+	border: 0;
+	border-radius: 14px;
+	box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+	color: #1a1a1a;
+}
+.anpa-extra-dialog::backdrop { background: rgba(8, 28, 21, 0.55); }
+.anpa-extra-dialog-cab {
+	position: sticky;
+	top: 0;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.9rem 1.1rem;
+	background: #2d6a4f;
+	color: #fff;
+}
+.anpa-extra-dialog-cab h3 { margin: 0; font-size: 1.15rem; color: #fff; }
+.anpa-extra-dialog-pechar {
+	flex: none;
+	width: 40px;
+	height: 40px;
+	border: 0;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.15);
+	color: #fff;
+	font-size: 1.5rem;
+	line-height: 1;
+	cursor: pointer;
+}
+.anpa-extra-dialog-pechar:hover,
+.anpa-extra-dialog-pechar:focus-visible { background: rgba(255, 255, 255, 0.3); }
+.anpa-extra-dialog-corpo {
+	padding: 1rem 1.1rem 1.25rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+	font-size: 0.95rem;
+	line-height: 1.55;
+}
+.anpa-extra-dialog-corpo p { margin: 0; }
+.anpa-extra-dialog-corpo .anpa-extra-mais-corpo { margin: 0; }
+.anpa-extra-dialog-subtitulo { margin: 0.5rem 0 0; font-size: 1rem; color: #17412f; }
+.anpa-extra-dialog .anpa-extra-horario-grupo { margin: 0; padding: 0.55rem 0.7rem; border-radius: 8px; background: #f6f9f7; }
+.anpa-extra-dialog .anpa-extra-horario-grupo p { font-size: 0.85rem; }
+html.anpa-extra-dialog-aberto { overflow: hidden; }
+
+/* The theme sets every content paragraph to 1rem/grey with !important: keep the card sizes. */
+.anpa-extra-ofertadas .anpa-extra-card p.anpa-extra-card-datas { font-size: 0.82rem !important; color: #5a6b60 !important; line-height: 1.4 !important; }
+.anpa-extra-ofertadas .anpa-extra-card p.anpa-extra-empresa { font-size: 0.88rem !important; line-height: 1.45 !important; }
+.anpa-extra-ofertadas .anpa-extra-card p.anpa-extra-horario-dias { font-size: 0.82rem !important; color: #4b5563 !important; line-height: 1.4 !important; }
+.anpa-extra-ofertadas .anpa-extra-card p.anpa-extra-grupo-niveis,
+.anpa-extra-ofertadas .anpa-extra-card p.anpa-extra-prazas,
+.anpa-extra-ofertadas .anpa-extra-card p.anpa-extra-prazas-minimo,
+.anpa-extra-ofertadas .anpa-extra-card p.anpa-extra-sen-inscricion { font-size: 0.85rem !important; line-height: 1.4 !important; }
+.anpa-extra-ofertadas .anpa-extra-card .anpa-extra-mais-corpo p { font-size: 0.9rem !important; line-height: 1.5 !important; }
+

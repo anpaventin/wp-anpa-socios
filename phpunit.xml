@@ -165,6 +165,7 @@
       <file>tests/Test_ANPA_Socios_Cifras.php</file>
       <file>tests/Test_ANPA_Socios_Horario_Movil.php</file>
       <file>tests/Test_ANPA_Socios_Non_Cachear.php</file>
+      <file>tests/Test_ANPA_Socios_Tarxetas_Oferta.php</file>
     </testsuite>
   </testsuites>
 </phpunit>
