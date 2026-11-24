@@ -488,10 +488,10 @@ html.anpa-extra-dialog-aberto { overflow: hidden; }
 	content: attr(data-axuda);
 	position: absolute;
 	top: calc(100% + 6px);
-	left: 50%;
+	left: 0;
 	z-index: 20;
 	width: max-content;
-	max-width: 240px;
+	max-width: min(240px, calc(100vw - 48px));
 	padding: 0.45rem 0.6rem;
 	border-radius: 6px;
 	background: #1f2937;
@@ -502,7 +502,6 @@ html.anpa-extra-dialog-aberto { overflow: hidden; }
 	text-align: left;
 	white-space: normal;
 	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-	transform: translateX(-50%);
 	opacity: 0;
 	visibility: hidden;
 	pointer-events: none;
@@ -518,7 +517,6 @@ html.anpa-extra-dialog-aberto { overflow: hidden; }
 .anpa-extra-grupo-cab .anpa-axuda::after {
 	left: auto;
 	right: 0;
-	transform: none;
 }
 .anpa-axuda .screen-reader-text {
 	position: absolute !important;
