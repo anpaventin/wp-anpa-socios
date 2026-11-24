@@ -54,7 +54,9 @@ p.anpa-evento-data {
 	display: flex;
 	align-items: center;
 	gap: 14px;
-	margin: 0 0 1.5rem !important;
+	/* Only vertical margins: the theme centres content blocks with auto side margins. */
+	margin-top: 0 !important;
+	margin-bottom: 1.5rem !important;
 	padding: 12px 16px;
 	border-left: 4px solid #2d6a4f;
 	border-radius: 8px;
