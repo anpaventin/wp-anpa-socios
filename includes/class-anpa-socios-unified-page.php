@@ -70,7 +70,8 @@ class ANPA_Socios_Unified_Page {
 		// normal Fase 19 path renders the shared area inline on this page.
 		$area_page_url = ANPA_Socios_Hub_Page::find_page_url( 'anpa_socios_area_persoal' );
 		$new_area      = get_page_by_path( 'socios/area-persoal' );
-		if ( $new_area ) {
+		// 1.100.1: only a published page counts (it may be removed as a duplicate).
+		if ( $new_area && 'publish' === $new_area->post_status ) {
 			$area_page_url = (string) get_permalink( $new_area->ID );
 		}
 

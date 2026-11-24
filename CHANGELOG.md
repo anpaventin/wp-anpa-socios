@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.100.1] - 2026-11-24
+
+### Fixed
+
+- **Páxina da área de socios.** Cando varias páxinas teñen o formulario da área, as ligazóns do plugin («Ir á Área
+  de socios», correos, panel) usan sempre a páxina configurada en Axustes (*/socios/*). Antes usaban a máis recente
+  (*/socios/area-persoal/*).
+- A reserva antiga da área persoal só usa unha páxina publicada, e a posta en marcha xa non crea */asociarse/*
+  cando a alta está na páxina da área. Así pódense retirar as páxinas duplicadas sen romper o acceso nin a alta.
+
 ## [1.100.0] - 2026-11-24
 
 ### Added

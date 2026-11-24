@@ -34,6 +34,14 @@ final class ANPA_Socios_Hub_Page {
 	 * @return string
 	 */
 	public static function find_page_url( string $shortcode ): string {
+		// 1.100.1: several pages can host the area; the configured socios page wins
+		// (before, the newest one did, e.g. /socios/area-persoal/ instead of /socios/).
+		if ( 'anpa_socios_area' === $shortcode ) {
+			$landing = (int) get_option( 'anpa_socios_landing_page_id', 0 );
+			if ( $landing > 0 && 'publish' === get_post_status( $landing ) && has_shortcode( (string) get_post_field( 'post_content', $landing ), $shortcode ) ) {
+				return (string) get_permalink( $landing );
+			}
+		}
 		$key    = 'anpa_socios_pageurl_' . md5( $shortcode );
 		$cached = get_transient( $key );
 		// Only trust a non-empty cached value; never cache "not found" so a page

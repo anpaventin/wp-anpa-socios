@@ -456,7 +456,11 @@ final class ANPA_Socios_Admin_Settings {
 
 		// 3b) Ensure the signup (asociarse) and extraescolares pages exist so the
 		// alta flow and the public activities/timetable work out of the box.
-		self::ensure_page_by_shortcode( 'anpa_socios_asociarse', 'asociarse', 'Asociarse', '[anpa_socios_asociarse]' );
+		// 1.100.1: the alta form lives on the area page; a separate /asociarse/
+		// page is only created when no page hosts the area.
+		if ( '' === ANPA_Socios_Hub_Page::find_page_url( 'anpa_socios_area' ) ) {
+			self::ensure_page_by_shortcode( 'anpa_socios_asociarse', 'asociarse', 'Asociarse', '[anpa_socios_asociarse]' );
+		}
 		// Extraescolares: create only if absent; NEVER overwrite an existing page.
 		self::ensure_page_by_shortcode( 'anpa_extraescolares_ofertadas', 'extraescolares', 'Extraescolares', self::extraescolares_page_content(), false );
 
