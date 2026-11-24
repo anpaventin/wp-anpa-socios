@@ -1,0 +1,63 @@
+/* 1.101.0: «Próximos eventos» block and the date box of an event post. */
+.anpa-eventos { margin: 0 0 2rem; }
+.anpa-eventos-titulo { margin: 0 0 0.85rem; font-size: clamp(1.25rem, 1.1rem + 0.5vw, 1.5rem); color: #17412f; }
+.anpa-eventos ul.anpa-eventos-lista {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+	gap: 14px;
+	margin: 0 !important;
+	padding: 0 !important;
+	list-style: none !important;
+}
+.anpa-eventos ul.anpa-eventos-lista > li { margin: 0 !important; padding: 0 !important; }
+.anpa-eventos ul.anpa-eventos-lista > li::before { content: none !important; display: none !important; }
+.anpa-evento-ligazon {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	height: 100%;
+	padding: 14px 16px;
+	border: 1px solid #d9e2dc;
+	border-top: 4px solid #2d6a4f;
+	border-radius: 12px;
+	background: #fff;
+	box-shadow: 0 2px 6px rgba(8, 28, 21, 0.07);
+	color: inherit;
+	text-decoration: none !important;
+	transition: box-shadow 0.15s, transform 0.15s;
+}
+.anpa-evento-ligazon:hover,
+.anpa-evento-ligazon:focus-visible { box-shadow: 0 8px 20px rgba(8, 28, 21, 0.12); transform: translateY(-1px); }
+.anpa-evento-chip {
+	flex: none;
+	display: inline-flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	width: 58px;
+	min-height: 62px;
+	border-radius: 10px;
+	background: #edf7f1;
+	color: #1c5d3a;
+	line-height: 1.1;
+	text-transform: uppercase;
+	font-size: 0.72rem;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+}
+.anpa-evento-chip strong { font-size: 1.45rem; line-height: 1.05; color: #17412f; letter-spacing: 0; }
+.anpa-evento-texto { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.anpa-evento-nome { font-weight: 600; color: #17412f; line-height: 1.3; }
+.anpa-evento-cando { font-size: 0.88rem; color: #4b5563; }
+.entry-content p.anpa-evento-data,
+p.anpa-evento-data {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	margin: 0 0 1.5rem !important;
+	padding: 12px 16px;
+	border-left: 4px solid #2d6a4f;
+	border-radius: 8px;
+	background: #f1f8f3;
+	color: #1f2937 !important;
+}

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.101.0] - 2026-11-24
+
+### Added
+
+- **Data do evento.** No editor das entradas hai unha caixa «Data do evento»: día e, se fai falta, hora e último día
+  (para eventos de varios días). Se se deixa baleira, a entrada non é un evento.
+- **Próximos eventos.** O shortcode `[anpa_proximos_eventos numero="3"]` amosa os seguintes eventos, cunha etiqueta
+  de data (por exemplo «VEN 30 OUT») e a data completa en galego. Cada evento sae ata que pasa o seu último día, e
+  se non hai ningún o bloque non se amosa.
+- As entradas dun evento levan a data destacada ao principio do texto.
+
 ## [1.100.1] - 2026-11-24
 
 ### Fixed

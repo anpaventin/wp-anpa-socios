@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ANPA Socios
  * Description: Xestión de socios para asociacións de nais e pais (ANPA/AMPA): área de socios sen contrasinal, fillos e actividades extraescolares, domiciliación SEPA cifrada, ciclo de curso, panel de administración e actualizacións self-hosted. Configurable para calquera asociación.
- * Version: 1.100.1
+ * Version: 1.101.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: ANPA Socios
@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ANPA_SOCIOS_VERSION', '1.100.1' );
+define( 'ANPA_SOCIOS_VERSION', '1.101.0' );
 define( 'ANPA_SOCIOS_DB_VERSION', '1.51.0' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
@@ -160,6 +160,9 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-contenido-shor
 // 1.100.0: board roles ([anpa_xunta_directiva] + Axustes → Contido → Xunta directiva).
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-xunta-directiva.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-xunta-directiva-page.php';
+// 1.101.0: event date of posts and [anpa_proximos_eventos].
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-eventos.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-eventos-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-preseason-guard.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-admin-nav.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-verificacion-guard.php';
@@ -255,6 +258,7 @@ add_action( 'wp_enqueue_scripts', array( 'ANPA_Socios_Hub_Page', 'enqueue_assets
 add_action( 'wp_enqueue_scripts', array( 'ANPA_Socios_Unified_Page', 'enqueue_assets' ) );
 ANPA_Socios_Contenido_Shortcode::register();
 ANPA_Socios_Xunta_Directiva_Page::register();
+ANPA_Socios_Eventos_Page::register();
 // 1.95.0: «A ANPA en cifras» — [anpa_cifras] and GET area/cifras for the socios panel.
 ANPA_Socios_Cifras_Page::register();
 // 1.96.1: pages with the area, the alta or the live offer never come from a page cache.
