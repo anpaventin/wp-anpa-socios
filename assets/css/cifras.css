@@ -337,6 +337,44 @@
 .anpa-cifras-act--non-forma { opacity: 0.75; background: #f9fafb; }
 .anpa-cifras-act--non-forma .anpa-cifras-barra { display: none; }
 
+/* 1.98.6: explanation of «Sen grupo» on hover / focus (tap on phones). */
+.anpa-cifras .anpa-axuda { position: relative; cursor: help; }
+.anpa-cifras .anpa-axuda:focus { outline: 2px solid #9a3412; outline-offset: 2px; }
+.anpa-cifras .anpa-axuda::after {
+	content: attr(data-axuda);
+	position: absolute;
+	top: calc(100% + 6px);
+	right: 0;
+	z-index: 20;
+	width: max-content;
+	max-width: 240px;
+	padding: 0.45rem 0.6rem;
+	border-radius: 6px;
+	background: #1f2937;
+	color: #fff;
+	font-size: 0.78rem;
+	font-weight: 400;
+	line-height: 1.35;
+	text-align: left;
+	white-space: normal;
+	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	transition: opacity 0.15s;
+}
+.anpa-cifras .anpa-axuda:hover::after,
+.anpa-cifras .anpa-axuda:focus::after { opacity: 1; visibility: visible; }
+.anpa-cifras .anpa-axuda .screen-reader-text {
+	position: absolute !important;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+}
+
 /* Iconas: Lucide v0.460.0, licenza ISC (https://lucide.dev). */
 .anpa-cifras .anpa-cifras-item--familias { --anpa-cifras-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E"); }
 .anpa-cifras .anpa-cifras-item--alumnado { --anpa-cifras-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 22v-4a2 2 0 1 0-4 0v4'/%3E%3Cpath d='m18 10 3.447 1.724a1 1 0 0 1 .553.894V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-7.382a1 1 0 0 1 .553-.894L6 10'/%3E%3Cpath d='M18 5v17'/%3E%3Cpath d='m4 6 7.106-3.553a2 2 0 0 1 1.788 0L20 6'/%3E%3Cpath d='M6 5v17'/%3E%3Ccircle cx='12' cy='9' r='2'/%3E%3C/svg%3E"); }

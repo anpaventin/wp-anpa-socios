@@ -56,7 +56,14 @@ final class Test_ANPA_Socios_Tarxetas_Oferta extends TestCase {
 	public function test_public_label_says_sen_grupo(): void {
 		$page = $this->src( 'includes/class-anpa-socios-extraescolares-page.php' );
 		// 1.98.3: timetable (table + phone list) and cards say «Sen grupo», never «Sen mínimo».
-		$this->assertSame( 3, substr_count( $page, "esc_html__( 'Sen grupo', 'anpa-socios' )" ) );
+		$this->assertSame( 3, substr_count( $page, "' ' . self::sen_grupo_badge()" ) );
+		// 1.98.6: the badge explains itself (hover, focus and screen readers).
+		$m = new ReflectionMethod( 'ANPA_Socios_Extraescolares_Page', 'sen_grupo_badge' );
+		$m->setAccessible( true );
+		$html = $m->invoke( null );
+		$this->assertStringContainsString( 'tabindex="0"', $html );
+		$this->assertStringContainsString( 'data-axuda="O grupo aínda non acadou o mínimo de inscricións para crearse.', $html );
+		$this->assertStringContainsString( '<span class="screen-reader-text">: O grupo aínda non acadou o mínimo', $html );
 		$this->assertStringNotContainsString( "esc_html__( 'Sen mínimo', 'anpa-socios' )", $page );
 	}
 }

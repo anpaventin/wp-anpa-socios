@@ -80,7 +80,7 @@ final class ANPA_Socios_Extraescolares_Page {
 						// 1.85/1.87: a «sen mínimo» group is not green and carries the orange mark («Sen grupo» since 1.98.3).
 						$sen_min = ! empty( $entry['sen_minimo'] );
 						$html   .= '<li' . ( $sen_min ? ' class="anpa-extra-lista-sen-minimo"' : '' ) . '><span class="anpa-extra-act">' . esc_html( $entry['nome'] ) . '</span>' . $grupos
-							. ( $sen_min ? ' <span class="anpa-extra-grupo-sen-minimo">' . esc_html__( 'Sen grupo', 'anpa-socios' ) . '</span>' : '' ) . '</li>';
+							. ( $sen_min ? ' ' . self::sen_grupo_badge() : '' ) . '</li>';
 					}
 					$html .= '</ul>';
 				}
@@ -115,7 +115,7 @@ final class ANPA_Socios_Extraescolares_Page {
 					$items  .= '<li' . ( $sen_min ? ' class="anpa-extra-lista-sen-minimo"' : '' ) . '>'
 						. '<span class="anpa-extra-dia-hora">' . esc_html( (string) $row['label'] ) . '</span> '
 						. '<span class="anpa-extra-act">' . esc_html( (string) $entry['nome'] ) . '</span>' . $grupos
-						. ( $sen_min ? ' <span class="anpa-extra-grupo-sen-minimo">' . esc_html__( 'Sen grupo', 'anpa-socios' ) . '</span>' : '' )
+						. ( $sen_min ? ' ' . self::sen_grupo_badge() : '' )
 						. '</li>';
 				}
 			}
@@ -639,7 +639,7 @@ final class ANPA_Socios_Extraescolares_Page {
 			$html  .= '<div class="anpa-extra-grupo-cab"><strong class="anpa-extra-grupo-nome">' . esc_html( '' !== $nome_grupo ? $nome_grupo : ( '' !== (string) ( $cap['niveis'] ?? '' ) ? (string) $cap['niveis'] : __( 'Grupo único', 'anpa-socios' ) ) ) . '</strong>'
 				. ( $creado ? ' <span class="anpa-extra-grupo-creado">' . esc_html__( 'Creado', 'anpa-socios' ) . '</span>' : '' )
 				. ( $sen_inscricion ? ' <span class="anpa-extra-grupo-aberto-todos">' . esc_html__( 'Para todo o alumnado', 'anpa-socios' ) . '</span>' : '' )
-				. ( $sen_minimo ? ' <span class="anpa-extra-grupo-sen-minimo" title="' . esc_attr__( 'Aínda non hai grupo: non chega ao mínimo e segue admitindo inscricións.', 'anpa-socios' ) . '">' . esc_html__( 'Sen grupo', 'anpa-socios' ) . '</span>' : '' )
+				. ( $sen_minimo ? ' ' . self::sen_grupo_badge() : '' )
 				. ( ! $creado && ! $sen_inscricion && ! $sen_minimo && array() !== $cap ? ' <span class="anpa-extra-grupo-aberto">' . esc_html__( 'Aberto', 'anpa-socios' ) . '</span>' : '' )
 				. '</div>';
 			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line anpa-extra-horario-dias">' . esc_html( $part['dias'] ) . ' · ' . esc_html( $part['franxa'] ) . '</p>';
@@ -656,6 +656,20 @@ final class ANPA_Socios_Extraescolares_Page {
 			$html .= '</div>';
 		}
 		return $html;
+	}
+
+	/**
+	 * «Sen grupo» badge with its explanation (1.98.6). The explanation shows on
+	 * hover and on focus (tap on phones, keyboard), and screen readers read it.
+	 *
+	 * @since  1.98.6
+	 * @return string Escaped HTML.
+	 */
+	private static function sen_grupo_badge(): string {
+		$axuda = __( 'O grupo aínda non acadou o mínimo de inscricións para crearse. Segue admitindo inscricións: se chega ao mínimo, fórmase.', 'anpa-socios' );
+		return '<span class="anpa-extra-grupo-sen-minimo anpa-axuda" tabindex="0" data-axuda="' . esc_attr( $axuda ) . '">'
+			. esc_html__( 'Sen grupo', 'anpa-socios' )
+			. '<span class="screen-reader-text">: ' . esc_html( $axuda ) . '</span></span>';
 	}
 
 	/**

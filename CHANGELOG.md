@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.98.6] - 2026-11-24
+
+### Added
+
+- **Explicación de «Sen grupo».** Ao pasar o rato por riba da etiqueta, ou ao tocala no móbil, aparece: «O grupo
+  aínda non acadou o mínimo de inscricións para crearse. Segue admitindo inscricións: se chega ao mínimo,
+  fórmase.» Está no horario, nas tarxetas das actividades e na ocupación da área de socios/as, e os lectores de
+  pantalla tamén a len.
+
 ## [1.98.5] - 2026-11-24
 
 ### Changed

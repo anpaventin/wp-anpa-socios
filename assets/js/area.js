@@ -599,7 +599,16 @@
 								top.appendChild(el('span', 'anpa-cifras-grupo-nome', g.nome));
 								var est = ESTADOS[g.estado] || [g.estado, 'aberto'];
 								if (completo && g.estado !== 'non_acadado') { est = [__( 'Completo', 'anpa-socios' ), 'completo']; }
-								top.appendChild(el('span', 'anpa-cifras-chip anpa-cifras-chip--' + est[1], est[0]));
+								var chip = el('span', 'anpa-cifras-chip anpa-cifras-chip--' + est[1], est[0]);
+								if (g.estado === 'sen_minimo' && !completo) {
+									// 1.98.6: explain «Sen grupo» on hover / focus (tap on phones).
+									var axuda = __( 'O grupo aínda non acadou o mínimo de inscricións para crearse. Segue admitindo inscricións: se chega ao mínimo, fórmase.', 'anpa-socios' );
+									chip.className += ' anpa-axuda';
+									chip.setAttribute('tabindex', '0');
+									chip.setAttribute('data-axuda', axuda);
+									chip.appendChild(el('span', 'screen-reader-text', ': ' + axuda));
+								}
+								top.appendChild(chip);
 								row.appendChild(top);
 								var horario = [g.dias, g.franxa, g.horario].filter(function (x) { return x; }).join(' · ');
 								if (horario) { row.appendChild(el('p', 'anpa-cifras-grupo-horario', horario)); }
