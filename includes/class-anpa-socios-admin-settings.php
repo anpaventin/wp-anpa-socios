@@ -1402,6 +1402,12 @@ final class ANPA_Socios_Admin_Settings {
 		$post_url  = esc_url( admin_url( 'admin-post.php' ) );
 		$sections  = ANPA_Socios_Admin_Nav::settings_sections( 'contenido' );
 		$active    = in_array( $section, array_keys( $sections ), true ) ? $section : 'transporte';
+		// 1.100.0: the board roles have their own list and form.
+		if ( 'xunta-directiva' === $active ) {
+			printf( '<h2>%s</h2>', esc_html__( 'Cargos da xunta directiva', 'anpa-socios' ) );
+			ANPA_Socios_Xunta_Directiva_Page::render_admin();
+			return;
+		}
 		$config    = ANPA_Socios_Config::contenido_admin( $active );
 
 		printf( '<h2>%s</h2>', esc_html__( 'Contido Administrativo', 'anpa-socios' ) );
@@ -2969,6 +2975,7 @@ final class ANPA_Socios_Admin_Settings {
 		$li( __( 'Axustes → Cursos → Estrutura escolar: niveis (1º a 6º, con «Idade alumnado» 7 a 12) e aulas (A, B…). Ao crear un curso novo pódese copiar a estrutura do anterior.', 'anpa-socios' ) );
 		$li( __( 'Plantillas de Email: revisa os textos automáticos (40, por defecto en galego). «Restaurar» devolve o texto orixinal dunha plantilla; as que nunca se editaron actualízanse soas co plugin, as editadas a man hai que restauralas para recibir os textos novos.', 'anpa-socios' ) );
 		$li( __( 'Axustes → Contido: textos, documentos e ligazóns de transporte, libros, bos días, comedor e tardes divertidas. Amósanse nas páxinas públicas co shortcode [anpa_contenido categoria="comedor"] (unha categoría por shortcode).', 'anpa-socios' ) );
+		$li( __( 'Axustes → Contido → Xunta directiva: cargos e nomes da xunta (presidencia, secretaría, tesourería, vogais…) na orde que queirades. A páxina «Xunta Directiva» xera as tarxetas co shortcode [anpa_xunta_directiva]: cando cambie a xunta só hai que actualizar esta lista.', 'anpa-socios' ) );
 		$li( __( 'Proba final: entra na área de socios cun correo teu, comproba que chega o código de seis díxitos e que a acción queda rexistrada en Xestión → Auditoría.', 'anpa-socios' ) );
 		echo '</ol>';
 		echo '<p>' . esc_html__( 'A área de socios amósase na páxina configurada en Axustes → Xeral co shortcode canónico:', 'anpa-socios' ) . ' <code>[anpa_socios_area]</code></p>';

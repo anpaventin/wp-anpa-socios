@@ -91,7 +91,7 @@ final class Test_ANPA_Socios_Contenido_Admin extends TestCase {
 
 	public function test_contido_has_five_sections(): void {
 		$sections = ANPA_Socios_Admin_Nav::settings_sections( 'contenido' );
-		$this->assertCount( 5, $sections );
+		$this->assertCount( 6, $sections ); // 1.100.0: + xunta-directiva (own form, not a category).
 		$this->assertArrayHasKey( 'transporte', $sections );
 		$this->assertArrayHasKey( 'libros', $sections );
 		$this->assertArrayHasKey( 'bos-dias', $sections );

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.100.0] - 2026-11-24
+
+### Added
+
+- **Cargos da xunta directiva no plugin.** Nova sección *Axustes → Contido → Xunta directiva*, cunha fila por cargo
+  (orde, cargo e nome). Suxire os cargos habituais (Presidencia, Vicepresidencia, Secretaría, Vicesecretaría,
+  Tesourería, Vicetesourería, Vogal) e admite os que fagan falta, por exemplo varias vogalías.
+- **Shortcode `[anpa_xunta_directiva]`.** Xera as tarxetas dos cargos coa mesma aparencia ca as anteriores e cunha
+  icona segundo o cargo. Cando cambie a xunta só hai que actualizar a lista; a páxina actualízase soa.
+
 ## [1.99.0] - 2026-11-24
 
 ### Changed

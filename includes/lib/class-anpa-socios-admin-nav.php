@@ -59,6 +59,7 @@ final class ANPA_Socios_Admin_Nav {
 			'bos-dias'        => 'Bos Días',
 			'comedor'         => 'Comedor',
 			'tardes-divertidas' => 'Tardes Divertidas',
+			'xunta-directiva' => 'Xunta directiva',
 		),
 	);
 
