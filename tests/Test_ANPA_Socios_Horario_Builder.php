@@ -73,8 +73,27 @@ class Test_ANPA_Socios_Horario_Builder extends TestCase {
 			array( 'nome' => 'Patios coeducativos', 'grupo_nome' => 'Patios coeducativos (1º, 2º, 3º)', 'horario' => 'maña', 'franxa' => '11:30-11:55', 'dias' => 'luns', 'max_pupilos' => 20, 'activos' => 9 ),
 			array( 'nome' => 'Xadrez', 'grupo_nome' => 'Xadrez', 'horario' => 'tarde', 'franxa' => '16:00-17:00', 'dias' => 'martes' ),
 		) );
-		$this->assertSame( array( '1º, 2º, 3º 9/20' ), $grid[0]['dias']['luns'][0]['grupos'] );
+		// 1.99.0: the places travel apart from the levels («Nome (cursos) 9/20 Estado»).
+		$this->assertSame( array( '1º, 2º, 3º' ), $grid[0]['dias']['luns'][0]['grupos'] );
+		$this->assertSame( 9, $grid[0]['dias']['luns'][0]['activos'] );
+		$this->assertSame( 20, $grid[0]['dias']['luns'][0]['max'] );
 		$this->assertSame( array(), $grid[1]['dias']['martes'][0]['grupos'] );
+	}
+
+	public function test_entry_carries_state_and_occupancy(): void {
+		$grid = ANPA_Socios_Horario_Builder::build( array(
+			array( 'nome' => 'Legoteca', 'grupo_nome' => 'Legoteca (4º, 5º, 6º)', 'horario' => 'tarde', 'franxa' => '16:00-17:00', 'dias' => 'luns', 'max_pupilos' => 15, 'min_pupilos' => 9, 'activos' => 10, 'estado' => 'pechado', 'estado_publico' => 'creado' ),
+			array( 'nome' => 'Xadrez', 'grupo_nome' => 'Xadrez', 'horario' => 'tarde', 'franxa' => '16:00-17:00', 'dias' => 'martes', 'max_pupilos' => 12, 'min_pupilos' => 8, 'activos' => 3, 'estado' => 'sen_minimo' ),
+			array( 'nome' => 'Teatro', 'grupo_nome' => 'Teatro', 'horario' => 'tarde', 'franxa' => '16:00-17:00', 'dias' => 'mercores', 'max_pupilos' => 10, 'min_pupilos' => 5, 'activos' => 10, 'estado_publico' => 'aberto' ),
+			array( 'nome' => 'Patios', 'grupo_nome' => 'Patios (1º)', 'horario' => 'maña', 'franxa' => '11:30-11:55', 'dias' => 'xoves', 'max_pupilos' => 0, 'min_pupilos' => 0, 'activos' => 0, 'estado_publico' => 'aberto' ),
+		) );
+		$tarde = $grid[1]['dias'];
+		$this->assertSame( array( 'creado', 'ok' ), array( $tarde['luns'][0]['estado'], $tarde['luns'][0]['ocupacion'] ) );
+		$this->assertSame( array( 'sen_minimo', 'baixo', true ), array( $tarde['martes'][0]['estado'], $tarde['martes'][0]['ocupacion'], $tarde['martes'][0]['sen_minimo'] ) );
+		$this->assertSame( array( 'aberto', 'completo' ), array( $tarde['mercores'][0]['estado'], $tarde['mercores'][0]['ocupacion'] ) );
+		// No places nor minimum: always runs, no state.
+		$this->assertSame( '', $grid[0]['dias']['xoves'][0]['estado'] );
+		$this->assertFalse( $grid[0]['dias']['xoves'][0]['sen_minimo'] );
 	}
 
 	public function test_etiqueta_grupo(): void {

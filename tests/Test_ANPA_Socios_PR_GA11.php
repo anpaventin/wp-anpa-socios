@@ -182,7 +182,8 @@ final class Test_ANPA_Socios_PR_GA11 extends TestCase {
 		) );
 
 		// 1.96.0: the period is no longer repeated inside the cell (the row section names it).
-		$this->assertSame( array( 'Grupo 1-2-3 8/15' ), $grid[0]['dias']['luns'][0]['grupos'] );
+		$this->assertSame( array( 'Grupo 1-2-3' ), $grid[0]['dias']['luns'][0]['grupos'] );
+		$this->assertSame( array( 8, 15 ), array( $grid[0]['dias']['luns'][0]['activos'], $grid[0]['dias']['luns'][0]['max'] ) ); // 1.99.0
 		$this->assertArrayNotHasKey( 'email', $grid[0]['dias']['luns'][0] );
 	}
 }

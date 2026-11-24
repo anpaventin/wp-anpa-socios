@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.99.0] - 2026-11-24
+
+### Changed
+
+- **Cores da ocupación.** As barras e os números de inscritos/as van en laranxa cando o grupo está «Sen grupo» ou
+  por debaixo do mínimo, en verde cando o grupo está creado ou xa acadou o mínimo, e en vermello cando está
+  completo. Igual nas tarxetas das actividades e na ocupación da área de socios/as.
+- **Horario.** Cada actividade móstrase como «Bloques de Construción (legoteca) (4º, 5º, 6º) 10/15 Creado»: os
+  cursos entre parénteses, as prazas coa cor da ocupación e a etiqueta do estado do grupo.
+- Os grupos sen prazas nin mínimo (por exemplo, Patios coeducativos) non levan etiqueta de estado: sempre se fan.
+
+### Added
+
+- **Todas as etiquetas de estado explícanse** ao pasar o rato por riba ou ao tocalas no móbil: «Creado», «Aberto»,
+  «Sen grupo» e «Para todo o alumnado» no horario e nas tarxetas; e tamén «Grupo formado», «Completo», «Non
+  acadou o mínimo» e «Sen inscrición» na área de socios/as.
+
 ## [1.98.7] - 2026-11-24
 
 ### Fixed

@@ -368,7 +368,7 @@
 	border-radius: 999px;
 	background: #2d6a4f;
 }
-.anpa-extra-barra--case > span { background: #d97706; }
+.anpa-extra-barra--baixo > span { background: #e8590c; }
 .anpa-extra-barra--completo > span { background: #cf222e; }
 .anpa-extra-barra > i {
 	position: absolute;
@@ -483,7 +483,7 @@ html.anpa-extra-dialog-aberto { overflow: hidden; }
 	position: relative;
 	cursor: help;
 }
-.anpa-axuda:focus { outline: 2px solid #9a3412; outline-offset: 2px; }
+.anpa-axuda:focus { outline: 2px solid #1f2937; outline-offset: 2px; }
 .anpa-axuda::after {
 	content: attr(data-axuda);
 	position: absolute;
@@ -530,3 +530,24 @@ html.anpa-extra-dialog-aberto { overflow: hidden; }
 	border: 0;
 }
 
+
+/* 1.99.0: occupancy colours (orange below the minimum) and the timetable
+   entry «Nome (cursos) 10/15 Creado». */
+.anpa-extra-prazas-baixo {
+	color: #bc4c00; /* orange — not created / below the minimum */
+	font-weight: 600;
+}
+.anpa-extra-horario-prazas {
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+	font-weight: 700;
+}
+.anpa-extra-lista .anpa-extra-grupo-creado,
+.anpa-extra-lista .anpa-extra-grupo-aberto,
+.anpa-extra-lista .anpa-extra-grupo-sen-minimo,
+.anpa-extra-lista .anpa-extra-grupo-aberto-todos {
+	margin-left: 0;
+	white-space: nowrap;
+	vertical-align: baseline;
+}
+.anpa-extra-lista .anpa-extra-grupos { color: #4b5563; }

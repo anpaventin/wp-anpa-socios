@@ -73,14 +73,9 @@ final class ANPA_Socios_Extraescolares_Page {
 				if ( ! empty( $row['dias'][ $dia ] ) ) {
 					$html .= '<ul class="anpa-extra-lista">';
 					foreach ( $row['dias'][ $dia ] as $entry ) {
-						$grupos = '';
-						if ( ! empty( $entry['grupos'] ) ) {
-							$grupos = ' <span class="anpa-extra-grupos">(' . esc_html( implode( ', ', $entry['grupos'] ) ) . ')</span>';
-						}
 						// 1.85/1.87: a «sen mínimo» group is not green and carries the orange mark («Sen grupo» since 1.98.3).
 						$sen_min = ! empty( $entry['sen_minimo'] );
-						$html   .= '<li' . ( $sen_min ? ' class="anpa-extra-lista-sen-minimo"' : '' ) . '><span class="anpa-extra-act">' . esc_html( $entry['nome'] ) . '</span>' . $grupos
-							. ( $sen_min ? ' ' . self::sen_grupo_badge() : '' ) . '</li>';
+						$html   .= '<li' . ( $sen_min ? ' class="anpa-extra-lista-sen-minimo"' : '' ) . '>' . self::entrada_horario_html( $entry ) . '</li>';
 					}
 					$html .= '</ul>';
 				}
@@ -93,6 +88,31 @@ final class ANPA_Socios_Extraescolares_Page {
 		// 1.96.0: on phones the 5-column table is replaced by one list per day.
 		$html .= self::horario_por_dias_html( $grid );
 
+		return $html;
+	}
+
+	/**
+	 * One timetable entry: «Nome (cursos) 10/15 Creado». The places are
+	 * coloured by occupancy and the state chip explains itself (1.99.0).
+	 *
+	 * @since  1.99.0
+	 * @param  array<string,mixed> $entry Entry of ANPA_Socios_Horario_Builder::build().
+	 * @return string Escaped HTML.
+	 */
+	private static function entrada_horario_html( array $entry ): string {
+		$html = '<span class="anpa-extra-act">' . esc_html( (string) ( $entry['nome'] ?? '' ) ) . '</span>';
+		if ( ! empty( $entry['grupos'] ) ) {
+			$html .= ' <span class="anpa-extra-grupos">(' . esc_html( implode( ', ', (array) $entry['grupos'] ) ) . ')</span>';
+		}
+		$max = (int) ( $entry['max'] ?? 0 );
+		if ( $max > 0 ) {
+			$html .= ' <span class="anpa-extra-horario-prazas ' . esc_attr( ANPA_Socios_Prazas::nivel_class( (string) ( $entry['ocupacion'] ?? 'ok' ) ) ) . '">'
+				. (int) ( $entry['activos'] ?? 0 ) . '/' . $max . '</span>';
+		}
+		$estado = (string) ( $entry['estado'] ?? '' );
+		if ( '' !== $estado ) {
+			$html .= ' ' . self::estado_chip( $estado );
+		}
 		return $html;
 	}
 
@@ -111,11 +131,9 @@ final class ANPA_Socios_Extraescolares_Page {
 			foreach ( $grid as $row ) {
 				foreach ( (array) ( $row['dias'][ $dia ] ?? array() ) as $entry ) {
 					$sen_min = ! empty( $entry['sen_minimo'] );
-					$grupos  = empty( $entry['grupos'] ) ? '' : ' <span class="anpa-extra-grupos">(' . esc_html( implode( ', ', $entry['grupos'] ) ) . ')</span>';
 					$items  .= '<li' . ( $sen_min ? ' class="anpa-extra-lista-sen-minimo"' : '' ) . '>'
 						. '<span class="anpa-extra-dia-hora">' . esc_html( (string) $row['label'] ) . '</span> '
-						. '<span class="anpa-extra-act">' . esc_html( (string) $entry['nome'] ) . '</span>' . $grupos
-						. ( $sen_min ? ' ' . self::sen_grupo_badge() : '' )
+						. self::entrada_horario_html( $entry )
 						. '</li>';
 				}
 			}
@@ -443,7 +461,7 @@ final class ANPA_Socios_Extraescolares_Page {
 		// provisional fallback in the revised fase24 model.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT a.nome, g.nome AS grupo_nome, g.horario, g.franxa, g.dias, g.max_pupilos, g.estado,
+				"SELECT a.nome, g.nome AS grupo_nome, g.horario, g.franxa, g.dias, g.max_pupilos, g.min_pupilos, g.estado, g.aviso_comezo_en,
 				        COUNT(DISTINCT CASE WHEN m.estado = 'activo' THEN m.id END) AS activos
 				 FROM {$act_t} a
 				 INNER JOIN {$gru_t} g ON g.actividad_id = a.id AND g.curso_escolar = %s
@@ -451,14 +469,22 @@ final class ANPA_Socios_Extraescolares_Page {
 				 WHERE a.estado = 'activo'
 				   AND g.id IN ({$available_placeholders})
 				   AND g.horario IN ('maña','manha','tarde') AND g.franxa <> '' AND g.dias <> ''
-				 GROUP BY g.id, a.nome, g.nome, g.horario, g.franxa, g.dias, g.max_pupilos, g.estado
+				 GROUP BY g.id, a.nome, g.nome, g.horario, g.franxa, g.dias, g.max_pupilos, g.min_pupilos, g.estado, g.aviso_comezo_en
 				 ORDER BY g.franxa ASC, a.nome ASC, g.nome ASC",
 				...array_merge( array( $curso ), $available_ids )
 			),
 			ARRAY_A
 		);
 
-		return is_array( $rows ) ? $rows : array();
+		if ( ! is_array( $rows ) ) {
+			return array();
+		}
+		// 1.99.0: public state of each group (Creado / Aberto / Sen grupo) for the timetable chips.
+		foreach ( $rows as &$row ) {
+			$row['estado_publico'] = ANPA_Socios_Oferta_Publica::estado_grupo( (string) $row['estado'], null === $row['aviso_comezo_en'] ? null : (string) $row['aviso_comezo_en'], (int) $row['activos'], (int) $row['min_pupilos'] );
+		}
+		unset( $row );
+		return $rows;
 	}
 
 	/**
@@ -632,15 +658,15 @@ final class ANPA_Socios_Extraescolares_Page {
 			$creado         = ! $sen_inscricion && ( is_array( $part['capacity'] ) && ! empty( $part['capacity']['creado'] ) );
 			$sen_minimo     = ! $sen_inscricion && is_array( $part['capacity'] ) && ! empty( $part['capacity']['sen_minimo'] );
 			$cap            = is_array( $part['capacity'] ) ? $part['capacity'] : array();
+			// 1.99.0: groups without places nor minimum always run: no Creado / Aberto / Sen grupo chip.
+			$con_limites    = array() !== $cap && ANPA_Socios_Prazas::ten_limites( (int) ( $cap['max_pupilos'] ?? 0 ), (int) ( $cap['min_pupilos'] ?? 0 ) );
 			$completo       = ! $sen_inscricion && (int) ( $cap['max_pupilos'] ?? 0 ) > 0 && (int) ( $cap['activos'] ?? 0 ) >= (int) ( $cap['max_pupilos'] ?? 0 );
 			// 1.98.0: each group is a small box (name + state, when, levels, places + bar).
 			$html .= '<div class="anpa-extra-horario-grupo' . ( $sen_inscricion ? ' anpa-extra-horario-grupo--aberta' : '' ) . ( $completo ? ' anpa-extra-horario-grupo--completo' : '' ) . '">';
 			$nome_grupo = ANPA_Socios_Horario_Builder::etiqueta_grupo( (string) ( $act['nome'] ?? '' ), (string) $part['grupo'] );
 			$html  .= '<div class="anpa-extra-grupo-cab"><strong class="anpa-extra-grupo-nome">' . esc_html( '' !== $nome_grupo ? $nome_grupo : ( '' !== (string) ( $cap['niveis'] ?? '' ) ? (string) $cap['niveis'] : __( 'Grupo único', 'anpa-socios' ) ) ) . '</strong>'
-				. ( $creado ? ' <span class="anpa-extra-grupo-creado">' . esc_html__( 'Creado', 'anpa-socios' ) . '</span>' : '' )
-				. ( $sen_inscricion ? ' <span class="anpa-extra-grupo-aberto-todos">' . esc_html__( 'Para todo o alumnado', 'anpa-socios' ) . '</span>' : '' )
-				. ( $sen_minimo ? ' ' . self::sen_grupo_badge() : '' )
-				. ( ! $creado && ! $sen_inscricion && ! $sen_minimo && array() !== $cap ? ' <span class="anpa-extra-grupo-aberto">' . esc_html__( 'Aberto', 'anpa-socios' ) . '</span>' : '' )
+				. ( $sen_inscricion ? ' ' . self::estado_chip( 'sen_inscricion' ) : '' )
+				. ( ! $sen_inscricion && $con_limites ? ' ' . self::estado_chip( $creado ? 'creado' : ( $sen_minimo ? 'sen_minimo' : 'aberto' ) ) : '' )
 				. '</div>';
 			$html .= '<p class="anpa-extra-meta anpa-extra-horario-line anpa-extra-horario-dias">' . esc_html( $part['dias'] ) . ' · ' . esc_html( $part['franxa'] ) . '</p>';
 			if ( is_array( $part['capacity'] ) ) {
@@ -659,16 +685,27 @@ final class ANPA_Socios_Extraescolares_Page {
 	}
 
 	/**
-	 * «Sen grupo» badge with its explanation (1.98.6). The explanation shows on
-	 * hover and on focus (tap on phones, keyboard), and screen readers read it.
+	 * Public state chip of a group with its explanation (1.98.6 «Sen grupo»,
+	 * 1.99.0 every state). The explanation shows on hover and on focus (tap on
+	 * phones, keyboard), and screen readers read it.
 	 *
-	 * @since  1.98.6
-	 * @return string Escaped HTML.
+	 * @since  1.99.0
+	 * @param  string $estado creado, aberto, sen_minimo or sen_inscricion.
+	 * @return string Escaped HTML ('' for an unknown state).
 	 */
-	private static function sen_grupo_badge(): string {
-		$axuda = __( 'O grupo aínda non acadou o mínimo de inscricións para crearse. Segue admitindo inscricións: se chega ao mínimo, fórmase.', 'anpa-socios' );
-		return '<span class="anpa-extra-grupo-sen-minimo anpa-axuda" tabindex="0" data-axuda="' . esc_attr( $axuda ) . '">'
-			. esc_html__( 'Sen grupo', 'anpa-socios' )
+	private static function estado_chip( string $estado ): string {
+		$chips = array(
+			'creado'         => array( 'anpa-extra-grupo-creado', __( 'Creado', 'anpa-socios' ), __( 'Grupo confirmado: acadou o mínimo de inscricións e a actividade realízase.', 'anpa-socios' ) ),
+			'aberto'         => array( 'anpa-extra-grupo-aberto', __( 'Aberto', 'anpa-socios' ), __( 'Admite inscricións. O grupo aínda non está confirmado: confírmase ao pechar a inscrición.', 'anpa-socios' ) ),
+			'sen_minimo'     => array( 'anpa-extra-grupo-sen-minimo', __( 'Sen grupo', 'anpa-socios' ), __( 'O grupo aínda non acadou o mínimo de inscricións para crearse. Segue admitindo inscricións: se chega ao mínimo, fórmase.', 'anpa-socios' ) ),
+			'sen_inscricion' => array( 'anpa-extra-grupo-aberto-todos', __( 'Para todo o alumnado', 'anpa-socios' ), __( 'Non precisa inscrición: participa todo o alumnado do curso no seu horario.', 'anpa-socios' ) ),
+		);
+		if ( ! isset( $chips[ $estado ] ) ) {
+			return '';
+		}
+		list( $clase, $texto, $axuda ) = $chips[ $estado ];
+		return '<span class="' . esc_attr( $clase ) . ' anpa-axuda" tabindex="0" data-axuda="' . esc_attr( $axuda ) . '">'
+			. esc_html( $texto )
 			. '<span class="screen-reader-text">: ' . esc_html( $axuda ) . '</span></span>';
 	}
 
@@ -687,7 +724,9 @@ final class ANPA_Socios_Extraescolares_Page {
 		}
 		$activos = max( 0, (int) ( $group['activos'] ?? 0 ) );
 		$pct     = min( 100, (int) round( $activos * 100 / $max ) );
-		$clase   = $activos >= $max ? ' anpa-extra-barra--completo' : ( $pct >= 80 ? ' anpa-extra-barra--case' : '' );
+		// 1.99.0: red full, orange below the minimum / «Sen grupo», green created or minimum reached.
+		$nivel   = ANPA_Socios_Prazas::nivel_ocupacion( $activos, $max, (int) ( $group['min_pupilos'] ?? 0 ), ! empty( $group['creado'] ), ! empty( $group['sen_minimo'] ) );
+		$clase   = 'ok' === $nivel ? '' : ' anpa-extra-barra--' . $nivel;
 		$html    = '<div class="anpa-extra-barra' . $clase . '" aria-hidden="true"><span style="width:' . $pct . '%"></span>';
 		$min     = (int) ( $group['min_pupilos'] ?? 0 );
 		if ( $min > 0 && $min < $max && empty( $group['creado'] ) ) {
@@ -708,7 +747,8 @@ final class ANPA_Socios_Extraescolares_Page {
 	 */
 	private static function group_prazas_html( array $group ): string {
 		$s              = ANPA_Socios_Prazas::summary( array( $group ) );
-		$activos_class = ANPA_Socios_Prazas::activos_class( $s );
+		// 1.99.0: the number has the colour of the bar.
+		$activos_class = ANPA_Socios_Prazas::nivel_class( ANPA_Socios_Prazas::nivel_ocupacion( (int) $s['activos'], (int) $s['max_pupilos'], (int) ( $group['min_pupilos'] ?? 0 ), ! empty( $group['creado'] ), ! empty( $group['sen_minimo'] ) ) );
 
 		$html  = '<p class="anpa-extra-meta anpa-extra-prazas"><strong>' . esc_html__( 'Prazas:', 'anpa-socios' ) . '</strong> ';
 		if ( (int) $s['max_pupilos'] <= 0 ) {

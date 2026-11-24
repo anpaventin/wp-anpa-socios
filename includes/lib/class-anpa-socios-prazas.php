@@ -82,4 +82,55 @@ final class ANPA_Socios_Prazas {
 	public static function activos_class( array $summary ): string {
 		return ! empty( $summary['completo'] ) ? 'anpa-extra-prazas-completo' : 'anpa-extra-prazas-ok';
 	}
+
+	/**
+	 * Occupancy level of one group, for the colour of its bar and numbers
+	 * (1.99.0): red when full, orange while the group is not created and
+	 * below its minimum («Sen grupo»), green otherwise (created, or minimum
+	 * reached).
+	 *
+	 * @since  1.99.0
+	 * @param  int  $activos    Pupils enrolled.
+	 * @param  int  $max        Places (0 = no limit).
+	 * @param  int  $min        Minimum to form the group (0 = none).
+	 * @param  bool $creado     The group is created.
+	 * @param  bool $sen_minimo The group is in the «sen mínimo» state.
+	 * @return string 'completo', 'baixo' or 'ok'.
+	 */
+	public static function nivel_ocupacion( int $activos, int $max, int $min, bool $creado, bool $sen_minimo ): string {
+		if ( $max > 0 && $activos >= $max ) {
+			return 'completo';
+		}
+		if ( $creado ) {
+			return 'ok';
+		}
+		if ( $sen_minimo || ( $min > 0 && $activos < $min ) ) {
+			return 'baixo';
+		}
+		return 'ok';
+	}
+
+	/**
+	 * CSS class for the enrolled number of one group (1.99.0).
+	 *
+	 * @since  1.99.0
+	 * @param  string $nivel Output of nivel_ocupacion().
+	 * @return string anpa-extra-prazas-ok / -baixo / -completo.
+	 */
+	public static function nivel_class( string $nivel ): string {
+		return 'anpa-extra-prazas-' . ( in_array( $nivel, array( 'completo', 'baixo' ), true ) ? $nivel : 'ok' );
+	}
+
+	/**
+	 * Whether a group has places or a minimum. Groups with neither are always
+	 * running, so they show no «Creado» / «Sen grupo» state (1.99.0).
+	 *
+	 * @since  1.99.0
+	 * @param  int $max Places.
+	 * @param  int $min Minimum.
+	 * @return bool
+	 */
+	public static function ten_limites( int $max, int $min ): bool {
+		return $max > 0 || $min > 0;
+	}
 }

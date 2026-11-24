@@ -301,7 +301,11 @@
 .anpa-cifras-grupo .anpa-cifras-barra > span {
 	border-radius: 999px;
 }
-.anpa-cifras-barra--case > span { background: var(--anpa-cifras-warn) !important; }
+.anpa-cifras-barra--baixo > span { background: #e8590c !important; }
+.anpa-cifras-barra--completo > span { background: var(--anpa-cifras-full) !important; }
+.anpa-cifras-grupo-num--baixo { color: #bc4c00; }
+.anpa-cifras-grupo-num--completo { color: var(--anpa-cifras-full); }
+.anpa-cifras-grupo-num--ok { color: #1a7f37; }
 .anpa-cifras-grupo--completo .anpa-cifras-barra > span { background: var(--anpa-cifras-full) !important; }
 .anpa-cifras-barra-minimo {
 	position: absolute;
@@ -339,7 +343,7 @@
 
 /* 1.98.6: explanation of «Sen grupo» on hover / focus (tap on phones). */
 .anpa-cifras .anpa-axuda { position: relative; cursor: help; }
-.anpa-cifras .anpa-axuda:focus { outline: 2px solid #9a3412; outline-offset: 2px; }
+.anpa-cifras .anpa-axuda:focus { outline: 2px solid #1f2937; outline-offset: 2px; }
 .anpa-cifras .anpa-axuda::after {
 	content: attr(data-axuda);
 	position: absolute;

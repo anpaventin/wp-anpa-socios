@@ -157,7 +157,7 @@ final class Test_ANPA_Socios_Cifras extends TestCase {
 
 	public function test_sen_grupo_chip_explains_itself_in_the_area(): void {
 		$js = $this->src( 'assets/js/area.js' );
-		$this->assertStringContainsString( "chip.setAttribute('data-axuda', axuda);", $js );
+		$this->assertStringContainsString( "chip.setAttribute('data-axuda', est[2]);", $js );
 		$this->assertStringContainsString( "chip.setAttribute('tabindex', '0');", $js );
 		$this->assertStringContainsString( '.anpa-cifras .anpa-axuda:focus::after', $this->src( 'assets/css/cifras.css' ) );
 	}

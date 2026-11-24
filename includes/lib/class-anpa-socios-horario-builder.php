@@ -66,22 +66,32 @@ final class ANPA_Socios_Horario_Builder {
 				// 1.96.0: short label. The cell already names the activity and the
 				// row section names the period, so «Patios (1º, 2º, 3º) — Mañá»
 				// under «Patios» becomes «1º, 2º, 3º».
-				$label       = self::etiqueta_grupo( (string) ( $act['nome'] ?? '' ), $grupo_nome );
-				$max_pupilos = (int) ( $act['max_pupilos'] ?? 0 );
-				if ( $max_pupilos > 0 ) {
-					$label = trim( $label . ' ' . max( 0, (int) ( $act['activos'] ?? 0 ) ) . '/' . $max_pupilos );
-				}
+				$label = self::etiqueta_grupo( (string) ( $act['nome'] ?? '' ), $grupo_nome );
 				if ( '' !== $label ) {
 					$grupo_labels[] = $label;
 				}
 			}
+
+			// 1.99.0: places, minimum and the public state travel apart from the
+			// label, so the cell shows «Nome (cursos) 10/15 Creado» with colours.
+			$max_pupilos = max( 0, (int) ( $act['max_pupilos'] ?? 0 ) );
+			$min_pupilos = max( 0, (int) ( $act['min_pupilos'] ?? 0 ) );
+			$activos     = max( 0, (int) ( $act['activos'] ?? 0 ) );
+			$estado      = (string) ( $act['estado_publico'] ?? ( 'sen_minimo' === (string) ( $act['estado'] ?? '' ) ? 'sen_minimo' : 'aberto' ) );
+			$sen_minimo  = 'sen_minimo' === $estado;
+			$con_limites = ANPA_Socios_Prazas::ten_limites( $max_pupilos, $min_pupilos );
 
 			$entry = array(
 				'nome'       => (string) ( $act['nome'] ?? '' ),
 				'grupos'     => $grupo_labels,
 				'horario'    => $horario,
 				// 1.87.0: the timetable marks «sen mínimo» groups (orange, not green).
-				'sen_minimo' => 'sen_minimo' === (string) ( $act['estado'] ?? '' ),
+				'sen_minimo' => $sen_minimo && $con_limites,
+				'activos'    => $activos,
+				'max'        => $max_pupilos,
+				// '' = no state shown (groups without places nor minimum always run).
+				'estado'     => $con_limites ? $estado : '',
+				'ocupacion'  => ANPA_Socios_Prazas::nivel_ocupacion( $activos, $max_pupilos, $min_pupilos, 'creado' === $estado, $sen_minimo ),
 			);
 
 			foreach ( $dias as $dia ) {

@@ -559,13 +559,15 @@
 					// 1.97.0: occupancy per group (places, minimum and state belong to each
 					// group), grouped by activity. Activities without enrolment get their own card.
 					if (Array.isArray(data.actividades) && data.actividades.length) {
+						// 1.99.0: every state chip explains itself on hover / focus (tap on phones).
 						var ESTADOS = {
-							creado: [__( 'Grupo formado', 'anpa-socios' ), 'creado'],
-							aberto: [__( 'Aberto', 'anpa-socios' ), 'aberto'],
-							sen_minimo: [__( 'Sen grupo', 'anpa-socios' ), 'sen-minimo'],
-							non_acadado: [__( 'Non acadou o mínimo', 'anpa-socios' ), 'non-acadado'],
-							sen_inscricion: [__( 'Sen inscrición', 'anpa-socios' ), 'sen-inscricion']
+							creado: [__( 'Grupo formado', 'anpa-socios' ), 'creado', __( 'Grupo confirmado: acadou o mínimo de inscricións e a actividade realízase.', 'anpa-socios' )],
+							aberto: [__( 'Aberto', 'anpa-socios' ), 'aberto', __( 'Admite inscricións. O grupo aínda non está confirmado: confírmase ao pechar a inscrición.', 'anpa-socios' )],
+							sen_minimo: [__( 'Sen grupo', 'anpa-socios' ), 'sen-minimo', __( 'O grupo aínda non acadou o mínimo de inscricións para crearse. Segue admitindo inscricións: se chega ao mínimo, fórmase.', 'anpa-socios' )],
+							non_acadado: [__( 'Non acadou o mínimo', 'anpa-socios' ), 'non-acadado', __( 'Non chegou ao mínimo de inscricións: o grupo non se forma este curso.', 'anpa-socios' )],
+							sen_inscricion: [__( 'Sen inscrición', 'anpa-socios' ), 'sen-inscricion', __( 'Non precisa inscrición: participa todo o alumnado do curso no seu horario.', 'anpa-socios' )]
 						};
+						var COMPLETO = [__( 'Completo', 'anpa-socios' ), 'completo', __( 'Todas as prazas están ocupadas: as novas inscricións quedan en lista de espera.', 'anpa-socios' )];
 						var oc = seccion(__( 'Ocupación das actividades por grupo', 'anpa-socios' ));
 						var list = el('div', 'anpa-cifras-ocupacion');
 						data.actividades.forEach(function (a) {
@@ -597,24 +599,27 @@
 								var row = el('div', 'anpa-cifras-grupo' + (completo ? ' anpa-cifras-grupo--completo' : ''));
 								var top = el('div', 'anpa-cifras-grupo-cab');
 								top.appendChild(el('span', 'anpa-cifras-grupo-nome', g.nome));
-								var est = ESTADOS[g.estado] || [g.estado, 'aberto'];
-								if (completo && g.estado !== 'non_acadado') { est = [__( 'Completo', 'anpa-socios' ), 'completo']; }
-								var chip = el('span', 'anpa-cifras-chip anpa-cifras-chip--' + est[1], est[0]);
-								if (g.estado === 'sen_minimo' && !completo) {
-									// 1.98.6: explain «Sen grupo» on hover / focus (tap on phones).
-									var axuda = __( 'O grupo aínda non acadou o mínimo de inscricións para crearse. Segue admitindo inscricións: se chega ao mínimo, fórmase.', 'anpa-socios' );
-									chip.className += ' anpa-axuda';
-									chip.setAttribute('tabindex', '0');
-									chip.setAttribute('data-axuda', axuda);
-									chip.appendChild(el('span', 'screen-reader-text', ': ' + axuda));
+								var est = ESTADOS[g.estado] || [g.estado, 'aberto', ''];
+								if (completo && g.estado !== 'non_acadado') { est = COMPLETO; }
+								// 1.99.0: groups without places nor minimum always run: no state chip.
+								if (maximo > 0 || minimo > 0 || g.estado === 'non_acadado') {
+									var chip = el('span', 'anpa-cifras-chip anpa-cifras-chip--' + est[1], est[0]);
+									if (est[2]) {
+										chip.className += ' anpa-axuda';
+										chip.setAttribute('tabindex', '0');
+										chip.setAttribute('data-axuda', est[2]);
+										chip.appendChild(el('span', 'screen-reader-text', ': ' + est[2]));
+									}
+									top.appendChild(chip);
 								}
-								top.appendChild(chip);
 								row.appendChild(top);
 								var horario = [g.dias, g.franxa, g.horario].filter(function (x) { return x; }).join(' · ');
 								if (horario) { row.appendChild(el('p', 'anpa-cifras-grupo-horario', horario)); }
 								if (!aberta) {
 									var datos = el('div', 'anpa-cifras-grupo-datos');
-									datos.appendChild(el('span', 'anpa-cifras-grupo-num', maximo > 0
+									// 1.99.0: red full, orange below the minimum / «Sen grupo», green created or minimum reached.
+									var nivel = completo ? 'completo' : (g.estado === 'creado' ? 'ok' : ((g.estado === 'sen_minimo' || (minimo > 0 && inscritos < minimo)) ? 'baixo' : 'ok'));
+									datos.appendChild(el('span', 'anpa-cifras-grupo-num anpa-cifras-grupo-num--' + nivel, maximo > 0
 										? sprintf( __( '%1$s de %2$s', 'anpa-socios' ), num(inscritos), num(maximo) )
 										: sprintf( __( '%s inscritos/as · sen límite', 'anpa-socios' ), num(inscritos) )));
 									if (g.estado === 'sen_minimo' && minimo > inscritos) {
@@ -626,7 +631,7 @@
 									row.appendChild(datos);
 									if (maximo > 0) {
 										var pct = Math.min(100, Math.round(inscritos * 100 / maximo));
-										var barra = el('div', 'anpa-cifras-barra' + (pct >= 80 && !completo ? ' anpa-cifras-barra--case' : ''));
+										var barra = el('div', 'anpa-cifras-barra anpa-cifras-barra--' + nivel);
 										barra.setAttribute('aria-hidden', 'true');
 										var fill = el('span');
 										fill.style.width = pct + '%';
