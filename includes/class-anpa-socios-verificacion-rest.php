@@ -91,6 +91,26 @@ final class ANPA_Socios_Verificacion_REST {
 		return sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
 	}
 
+	/** Codes one address may be sent per hour, whatever the IP asking (1.102.0). */
+	const CODIGOS_EMAIL_HORA = 20;
+
+	/**
+	 * 1.102.0: cap on codes per ADDRESS across every IP. The per-IP limits alone
+	 * let many IPs ask for fresh codes for one address, each with its own five
+	 * guesses. Shared by the member, sign-up and company code requests (one table).
+	 *
+	 * @param  string $email Address the code would go to.
+	 * @return bool True when no more codes may be issued for it this hour.
+	 */
+	public static function limite_email_superado( string $email ): bool {
+		global $wpdb;
+		$tabela = $wpdb->prefix . 'anpa_codigos_verificacion';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- rate-limit count on the codes table.
+		$n = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$tabela} WHERE email = %s AND creado_en >= DATE_SUB(NOW(), INTERVAL 1 HOUR)", $email ) );
+
+		return $n >= self::CODIGOS_EMAIL_HORA;
+	}
+
 	/**
 	 * POST /anpa/v1/solicitar-codigo — sends a login code to ACTIVE socios only.
 	 *
@@ -115,7 +135,7 @@ final class ANPA_Socios_Verificacion_REST {
 		) );
 		$timestamps = array_map( 'intval', is_array( $timestamps ) ? $timestamps : array() );
 
-		if ( ! ANPA_Socios_Rate_Limiter::permitir( $timestamps, ANPA_Socios_Rate_Limiter::INTENTOS_ACCESO_HORA, 3600 ) ) {
+		if ( ! ANPA_Socios_Rate_Limiter::permitir( $timestamps, ANPA_Socios_Rate_Limiter::INTENTOS_ACCESO_HORA, 3600 ) || self::limite_email_superado( $email ) ) {
 			return self::resposta_xenerica();
 		}
 
@@ -205,16 +225,22 @@ final class ANPA_Socios_Verificacion_REST {
 		if ( ANPA_Socios_Codigo_Generator::is_expired( (int) strtotime( (string) $row->expira_en ) ) ) {
 			return new WP_Error( 'code_expired', __( 'Código expirado, solicita un novo', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
-		if ( (int) $row->intentos >= 5 ) {
+		// 1.102.0: the guess is counted BEFORE it is checked, in one statement, so
+		// requests sent at the same time cannot share the same remaining attempt.
+		$contado = $wpdb->query( $wpdb->prepare( "UPDATE {$tabela} SET intentos = intentos + 1 WHERE id = %d AND usado = 0 AND intentos < 5", $row->id ) );
+		if ( 1 !== (int) $contado ) {
 			return new WP_Error( 'code_expired', __( 'Código expirado, solicita un novo', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
 		if ( ! ANPA_Socios_Codigo_Generator::verify( $codigo, (string) $row->codigo_hash ) ) {
-			$wpdb->query( $wpdb->prepare( "UPDATE {$tabela} SET intentos = intentos + 1 WHERE id = %d", $row->id ) );
 			return new WP_Error( 'invalid_code', __( 'Código incorrecto', 'anpa-socios' ), array( 'status' => 400 ) );
 		}
 
-		$wpdb->update( $tabela, array( 'usado' => 1 ), array( 'id' => $row->id ), array( '%d' ), array( '%d' ) );
+		// Single use: only the request that flips the row gets the token.
+		$usado = $wpdb->query( $wpdb->prepare( "UPDATE {$tabela} SET usado = 1 WHERE id = %d AND usado = 0", $row->id ) );
+		if ( 1 !== (int) $usado ) {
+			return new WP_Error( 'invalid_code', __( 'Código incorrecto', 'anpa-socios' ), array( 'status' => 400 ) );
+		}
 
 		$token = wp_generate_password( 32, false );
 		set_transient( 'anpa_token_' . $token, $email, 30 * MINUTE_IN_SECONDS );

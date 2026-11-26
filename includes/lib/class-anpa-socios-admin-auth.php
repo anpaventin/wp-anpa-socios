@@ -7,7 +7,7 @@
  * (auto-verified via the `X-WP-Nonce` header). The former custom
  * area-session token + admin-password gate is removed.
  *
- * The 5-word banking passphrase is NOT an access credential: it is used
+ * The banking passphrase is NOT an access credential: it is used
  * exclusively to unwrap the X25519 banking secret for sensitive banking
  * operations, handled by `permission_with_passphrase()`.
  *
@@ -163,18 +163,46 @@ final class ANPA_Socios_Admin_Auth {
 	 * passphrase. On success the unwrapped secret is stashed on the request for
 	 * the handler under REQ_PARAM_SECRET.
 	 *
+	 * The passphrase is read only from the request body (JSON or form body),
+	 * never from the query string, so it cannot leak into access logs. Wrong
+	 * attempts count towards the shared banking-passphrase lockout.
+	 *
 	 * @since  1.31.0
+	 * @since  1.102.0 Body-only passphrase + shared failure lockout.
 	 * @param  WP_REST_Request $request The incoming request.
 	 * @return true|WP_Error
 	 */
 	public static function permission_with_passphrase( WP_REST_Request $request ) {
+		$can_manage = current_user_can( 'manage_options' );
+		$email      = self::current_wp_email();
+
+		if ( $can_manage && ANPA_Socios_Banking_Key::passphrase_locked( $email ) ) {
+			return new WP_Error(
+				'anpa_admin_passphrase_locked',
+				self::message( 'anpa_admin_passphrase_locked' ),
+				array( 'status' => 429 )
+			);
+		}
+
+		$body = $request->get_json_params();
+		if ( ! is_array( $body ) ) {
+			$body = $request->get_body_params();
+		}
+		$passphrase = ( is_array( $body ) && is_scalar( $body['passphrase'] ?? null ) ) ? (string) $body['passphrase'] : '';
+
 		$result = self::decide(
-			current_user_can( 'manage_options' ),
-			self::current_wp_email(),
+			$can_manage,
+			$email,
 			true,
 			ANPA_Socios_Banking_Key::wrapped_secret(),
-			(string) $request->get_param( 'passphrase' )
+			$passphrase
 		);
+
+		if ( ! empty( $result['ok'] ) ) {
+			ANPA_Socios_Banking_Key::passphrase_succeeded( $email );
+		} elseif ( 'anpa_admin_bad_passphrase' === $result['code'] ) {
+			ANPA_Socios_Banking_Key::passphrase_failed( $email );
+		}
 
 		return self::to_result( $request, $result );
 	}
@@ -233,6 +261,8 @@ final class ANPA_Socios_Admin_Auth {
 				return __( 'Clave bancaria non configurada.', 'anpa-socios' );
 			case 'anpa_admin_bad_passphrase':
 				return __( 'Contrasinal incorrecto.', 'anpa-socios' );
+			case 'anpa_admin_passphrase_locked':
+				return ANPA_Socios_Banking_Key::passphrase_locked_message();
 			default:
 				return __( 'Acceso non permitido.', 'anpa-socios' );
 		}

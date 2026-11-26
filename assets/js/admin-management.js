@@ -255,7 +255,7 @@
 		h3.textContent = title || 'Contrasinal de descifrado';
 		modal.appendChild(h3);
 		var p = document.createElement('p');
-		p.textContent = 'Introduce a frase de 5 palabras da clave bancaria:';
+		p.textContent = 'Introduce a frase da clave bancaria:';
 		modal.appendChild(p);
 		var input = document.createElement('input');
 		input.type = 'password';

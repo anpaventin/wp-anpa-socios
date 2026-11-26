@@ -80,12 +80,20 @@ final class ANPA_Socios_Admin_Domiciliacion_Handler {
 		if ( null === $public || null === $wrapped ) {
 			return new WP_Error( 'anpa_admin_no_key', __( 'A clave bancaria non está configurada', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
+		// Shared brute-force lockout on the banking passphrase (per admin actor).
+		$actor = (string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_EMAIL );
+		if ( ANPA_Socios_Banking_Key::passphrase_locked( $actor ) ) {
+			ANPA_Socios_Admin_Shared::write_audit( $request, 'domiciliacion', (string) $familia_id, 'decrypt_locked' );
+			return new WP_Error( 'anpa_admin_passphrase_locked', ANPA_Socios_Banking_Key::passphrase_locked_message(), array( 'status' => 429 ) );
+		}
 		$secret = ANPA_Socios_Crypto::unwrap_secret( $wrapped['blob'], $wrapped['salt'], $wrapped['nonce'], $passphrase );
 		if ( null === $secret ) {
 			// Wrong passphrase (or tampered blob): generic error, no oracle.
+			ANPA_Socios_Banking_Key::passphrase_failed( $actor );
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'domiciliacion', (string) $familia_id, 'decrypt_denied' );
 			return new WP_Error( 'anpa_admin_bad_passphrase', __( 'Contrasinal incorrecto', 'anpa-socios' ), array( 'status' => 403 ) );
 		}
+		ANPA_Socios_Banking_Key::passphrase_succeeded( $actor );
 
 		$iban = ANPA_Socios_Crypto::unseal( (string) $row['iban_cifrado'], $public, $secret );
 		$nif  = ANPA_Socios_Crypto::unseal( (string) $row['titular_nif_cifrado'], $public, $secret );

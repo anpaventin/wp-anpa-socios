@@ -48,6 +48,97 @@ final class ANPA_Socios_Cambio_Email {
 		return $email;
 	}
 
+	/** Life of the code sent to a new address, in seconds. */
+	const CODIGO_TTL = 900;
+
+	/** Wrong guesses allowed per code. */
+	const CODIGO_INTENTOS = 5;
+
+	/** Codes a member may ask for per hour. */
+	const CODIGO_ENVIOS_HORA = 5;
+
+	/**
+	 * 1.102.0: a member changing their own email in the area must prove the new
+	 * address. Sends a 6-digit code to it and keeps the pending change (hash only)
+	 * for 15 minutes. The pending change belongs to the member, not to the
+	 * address, so the code cannot be used to sign in or to join.
+	 *
+	 * @param  int    $socio_id Member asking for the change.
+	 * @param  string $novo     New address, already validated.
+	 * @return true|WP_Error
+	 */
+	public static function solicitar_codigo( int $socio_id, string $novo ) {
+		$novo     = strtolower( trim( $novo ) );
+		$chave_n  = 'anpa_cambio_email_n_' . $socio_id;
+		$enviados = (int) get_transient( $chave_n );
+		if ( $enviados >= self::CODIGO_ENVIOS_HORA ) {
+			return new WP_Error( 'anpa_area_rate_limited', __( 'Demasiados intentos. Téntao de novo máis tarde.', 'anpa-socios' ), array( 'status' => 429 ) );
+		}
+		set_transient( $chave_n, $enviados + 1, HOUR_IN_SECONDS );
+
+		$codigo = ANPA_Socios_Codigo_Generator::generate();
+		set_transient(
+			'anpa_cambio_email_' . $socio_id,
+			array(
+				'email'    => $novo,
+				'hash'     => ANPA_Socios_Codigo_Generator::hash_code( $codigo ),
+				'expira'   => ANPA_Socios_Codigo_Generator::expiry( time() ),
+				'intentos' => 0,
+			),
+			self::CODIGO_TTL
+		);
+		if ( ! ANPA_Socios_Email::enviar_codigo( $novo, $codigo, 'verificacion' ) ) {
+			delete_transient( 'anpa_cambio_email_' . $socio_id );
+			return new WP_Error( 'anpa_area_email_send_failed', __( 'Non se puido enviar o código ao novo correo. Téntao de novo máis tarde.', 'anpa-socios' ), array( 'status' => 500 ) );
+		}
+		return true;
+	}
+
+	/**
+	 * Checks the code typed for a pending email change. The attempt is counted
+	 * before the comparison, and the pending change is used up on success.
+	 *
+	 * @param  int    $socio_id Member asking for the change.
+	 * @param  string $novo     New address in the request (must be the pending one).
+	 * @param  string $codigo   Typed code.
+	 * @return true|WP_Error
+	 */
+	public static function comprobar_codigo( int $socio_id, string $novo, string $codigo ) {
+		$chave    = 'anpa_cambio_email_' . $socio_id;
+		$pendente = get_transient( $chave );
+		$caducado = new WP_Error( 'anpa_area_email_code_expired', __( 'O código caducou. Garda de novo para recibir outro.', 'anpa-socios' ), array( 'status' => 400, 'fields' => array( 'email_codigo' => __( 'Código caducado.', 'anpa-socios' ) ) ) );
+		if ( ! self::pendente_vixente( $pendente, $novo, time() ) ) {
+			delete_transient( $chave );
+			return $caducado;
+		}
+		++$pendente['intentos'];
+		set_transient( $chave, $pendente, max( 1, (int) $pendente['expira'] - time() ) );
+		if ( ! ANPA_Socios_Codigo_Generator::verify( $codigo, (string) $pendente['hash'] ) ) {
+			return new WP_Error( 'anpa_area_email_code_invalid', __( 'Código incorrecto', 'anpa-socios' ), array( 'status' => 400, 'fields' => array( 'email_codigo' => __( 'Código incorrecto.', 'anpa-socios' ) ) ) );
+		}
+		delete_transient( $chave );
+		return true;
+	}
+
+	/**
+	 * Whether a stored pending change can still take a guess for this address.
+	 * Pure: no WordPress, no I/O.
+	 *
+	 * @param  mixed  $pendente Stored value (array with email, hash, expira, intentos).
+	 * @param  string $novo     Address in the request.
+	 * @param  int    $agora    Reference time.
+	 * @return bool
+	 */
+	public static function pendente_vixente( $pendente, string $novo, int $agora ): bool {
+		if ( ! is_array( $pendente ) || ! isset( $pendente['email'], $pendente['hash'], $pendente['expira'], $pendente['intentos'] ) ) {
+			return false;
+		}
+		if ( strtolower( trim( $novo ) ) !== (string) $pendente['email'] ) {
+			return false;
+		}
+		return (int) $pendente['expira'] > $agora && (int) $pendente['intentos'] < self::CODIGO_INTENTOS;
+	}
+
 	/**
 	 * After the socio row got its new email: the children it added follow it,
 	 * and the sessions and login codes of the old address are removed (whoever

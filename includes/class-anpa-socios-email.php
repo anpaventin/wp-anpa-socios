@@ -174,6 +174,34 @@ class ANPA_Socios_Email {
 	}
 
 	/**
+	 * 1.102.0: tells the OLD address that the account's login email changed, so
+	 * a change the owner did not make is noticed. Best-effort: never throws.
+	 *
+	 * @since  1.102.0
+	 * @param  string $vello Address that no longer opens the account.
+	 * @param  string $novo  New login address.
+	 * @return bool
+	 */
+	public static function enviar_aviso_cambio_correo( string $vello, string $novo ): bool {
+		$vello = trim( $vello );
+		if ( '' === $vello || false === filter_var( $vello, FILTER_VALIDATE_EMAIL ) ) {
+			return false;
+		}
+		/* translators: %s: association name */
+		$asunto = sprintf( __( 'Cambiouse o correo da túa conta — %s', 'anpa-socios' ), ANPA_Socios_Config::association_name() );
+		$html   = '<h2>' . esc_html__( 'Cambio de correo', 'anpa-socios' ) . '</h2>'
+			/* translators: 1: old email, 2: new email */
+			. '<p>' . esc_html( sprintf( __( 'O correo de acceso á área de socios cambiouse de %1$s a %2$s. A partir de agora só se pode entrar co novo enderezo.', 'anpa-socios' ), $vello, $novo ) ) . '</p>'
+			/* translators: %s: contact email */
+			. '<p>' . esc_html( sprintf( __( 'Se non fixeches ti este cambio, escribe canto antes a %s.', 'anpa-socios' ), ANPA_Socios_Config::contact_email() ) ) . '</p>';
+		try {
+			return self::send_from_master( $vello, $asunto, $html );
+		} catch ( \Throwable $e ) {
+			return false;
+		}
+	}
+
+	/**
 	 * The configurable email signature as an HTML block (empty if unset).
 	 *
 	 * @since  1.22.0

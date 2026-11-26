@@ -158,12 +158,8 @@
 	}
 
 	function tokenRequest(method, url, token, body, root) {
-		// Double-submit CSRF protection: for state-changing methods,
-		// include the token as a URL parameter too.
-		if (token && (method === 'DELETE' || method === 'POST' || method === 'PUT' || method === 'PATCH')) {
-			var sep = url.indexOf('?') === -1 ? '?' : '&';
-			url += sep + '_csrf=' + encodeURIComponent(token);
-		}
+		// The session token travels only in the header: a custom header already
+		// stops cross-site requests, and a token in the URL ends up in server logs.
 		const options = {
 			method,
 			headers: {
@@ -193,9 +189,29 @@
 		var emailEditEl = root.querySelector('#anpa-area-email-edit');
 		if (emailEditEl) { emailEditEl.value = profile.email || ''; }
 
+		// 1.102.0: a pending email change keeps the typed address and asks for the code.
+		var emailCodigoBox = root.querySelector('[data-email-codigo]');
+		var emailCodigoEl = root.querySelector('#anpa-area-email-codigo');
+		if (emailCodigoEl) { emailCodigoEl.value = ''; }
+		if (emailCodigoBox) { emailCodigoBox.hidden = !profile.email_pendente; }
+		if (emailEditEl && profile.email_pendente) { emailEditEl.value = profile.email_pendente; }
+
 		// Second parent inline display/edit.
 		var p2 = profile.segundo_proxenitor || null;
 		var p2Section = root.querySelector('[data-p2-inline]');
+		// 1.102.0: only the first parent edits the other adult of the family.
+		var p2SoLectura = profile.rol_familia === 'secundario';
+		root._anpaP2SoLectura = p2SoLectura;
+		if (p2Section) {
+			['anpa-area-p2-nome','anpa-area-p2-apelidos','anpa-area-p2-email','anpa-area-p2-nif','anpa-area-p2-telefono'].forEach(function(id) {
+				var campo = root.querySelector('#' + id);
+				if (campo) { campo.disabled = p2SoLectura; }
+			});
+			var p2Aviso = p2Section.querySelector('[data-p2-readonly]');
+			if (p2Aviso) { p2Aviso.hidden = !p2SoLectura; }
+			var p2Gardar = p2Section.querySelector('[data-action="proxenitor2-save"]');
+			if (p2Gardar) { p2Gardar.hidden = p2SoLectura; }
+		}
 		if (p2Section) {
 			if (p2) {
 				p2Section.hidden = false;
@@ -873,10 +889,13 @@
 			if (telefono.trim()) { payload.telefono = telefono; }
 			if (nif.trim()) { payload.nif = nif; }
 			if (emailEdit.trim()) { payload.email_edit = emailEdit; }
+			const emailCodigo = ((root.querySelector('#anpa-area-email-codigo') || {}).value || '').trim();
+			if (emailCodigo) { payload.email_codigo = emailCodigo; }
+			const emailAntes = (root._anpaProfile && root._anpaProfile.email) || '';
 
 			// Include 2nd parent if the inline section is visible and has data.
 			var p2Section = root.querySelector('[data-p2-inline]');
-			if (p2Section && !p2Section.hidden) {
+			if (p2Section && !p2Section.hidden && !root._anpaP2SoLectura) {
 				var p2Nome = (root.querySelector('#anpa-area-p2-nome') || {}).value || '';
 				var p2Apelidos = (root.querySelector('#anpa-area-p2-apelidos') || {}).value || '';
 				var p2Email = (root.querySelector('#anpa-area-p2-email') || {}).value || '';
@@ -895,8 +914,25 @@
 
 			const profile = await tokenRequest('PUT', root.dataset.profileUrl, areaToken, payload, root);
 			if (profile) {
+				if (emailAntes && profile.email && profile.email !== emailAntes) {
+					// The old address's sessions are gone: sign in again with the new one.
+					areaToken = '';
+					fase1Token = '';
+					clearAreaToken();
+					clearIdleTimers();
+					hideSessionHeader();
+					root.classList.remove('anpa-area-wide');
+					showSocioLoggedOut(__( 'Correo cambiado. Volve entrar co novo correo.', 'anpa-socios' ), 'success');
+					return;
+				}
 				fillProfile(root, profile);
-				showMessage(root, __( 'Datos gardados correctamente.', 'anpa-socios' ), 'success');
+				if (profile.email_pendente) {
+					showMessage(root, __( 'Datos gardados. Para cambiar o correo, escribe o código que che enviamos ao novo enderezo e garda de novo.', 'anpa-socios' ), 'info');
+					var codigoEl = root.querySelector('#anpa-area-email-codigo');
+					if (codigoEl) { try { codigoEl.focus(); } catch (_) {} }
+				} else {
+					showMessage(root, __( 'Datos gardados correctamente.', 'anpa-socios' ), 'success');
+				}
 			}
 		});
 

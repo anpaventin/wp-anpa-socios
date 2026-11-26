@@ -3,7 +3,7 @@
  * Backup / restore / wipe for the ANPA plugin data (fase12 PR-12o).
  *
  * Backup container (.anpabak): a JSON dump of the domain tables, with banking
- * data DECRYPTED to plaintext (requires the 5-word banking passphrase), then the
+ * data DECRYPTED to plaintext (requires the banking passphrase), then the
  * whole payload is symmetrically encrypted under the SAME banking passphrase
  * (Argon2id + secretbox via ANPA_Socios_Crypto::wrap_secret).
  *
@@ -263,10 +263,10 @@ final class ANPA_Socios_Backup {
 	/**
 	 * Builds an encrypted backup blob.
 	 *
-	 * The 5-word banking passphrase serves as the SINGLE secret: it unlocks
+	 * The banking passphrase serves as the SINGLE secret: it unlocks
 	 * the sealed banking data AND encrypts the resulting backup container.
 	 *
-	 * @param  string $banking_passphrase 5-word passphrase (decrypts banking data + encrypts container).
+	 * @param  string $banking_passphrase Banking passphrase (decrypts banking data + encrypts container).
 	 * @return string|WP_Error Encrypted container bytes, or error.
 	 */
 	public static function build( string $banking_passphrase ) {
@@ -379,7 +379,7 @@ final class ANPA_Socios_Backup {
 	 * Restores a backup blob into a freshly-initialised install.
 	 *
 	 * @param  string $blob               Encrypted container bytes.
-	 * @param  string $banking_passphrase  5-word passphrase used to encrypt the container.
+	 * @param  string $banking_passphrase  Banking passphrase used to encrypt the container.
 	 * @return true|WP_Error
 	 */
 	public static function restore( string $blob, string $banking_passphrase ) {

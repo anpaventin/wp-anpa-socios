@@ -217,6 +217,35 @@ final class ANPA_Socios_Crypto {
 	}
 
 	/**
+	 * 1.102.0: wraps the SAME secret key under a new passphrase (passphrase
+	 * change). The key pair does not change, so every sealed IBAN stays readable
+	 * and nothing has to be re-encrypted. The new wrap is opened again before it
+	 * is returned, so a wrap that cannot be read back is never stored.
+	 *
+	 * @since  1.102.0
+	 * @param  array{blob:string,salt:string,nonce:string} $wrapped Current wrapped secret.
+	 * @param  string                                      $vella   Current passphrase.
+	 * @param  string                                      $nova    New passphrase.
+	 * @return array{blob:string,salt:string,nonce:string}|null Null on a wrong current passphrase or any failure.
+	 */
+	public static function rewrap_secret( array $wrapped, string $vella, string $nova ): ?array {
+		if ( '' === $nova || ! isset( $wrapped['blob'], $wrapped['salt'], $wrapped['nonce'] ) ) {
+			return null;
+		}
+		$secret = self::unwrap_secret( (string) $wrapped['blob'], (string) $wrapped['salt'], (string) $wrapped['nonce'], $vella );
+		if ( null === $secret ) {
+			return null;
+		}
+		$novo = self::wrap_secret( $secret, $nova );
+		if ( null === $novo ) {
+			return null;
+		}
+		$comprobado = self::unwrap_secret( $novo['blob'], $novo['salt'], $novo['nonce'], $nova );
+
+		return ( null !== $comprobado && hash_equals( $secret, $comprobado ) ) ? $novo : null;
+	}
+
+	/**
 	 * Unwraps the secret key with the passphrase.
 	 *
 	 * Returns null on wrong passphrase, tampering, or malformed input.
@@ -338,32 +367,61 @@ final class ANPA_Socios_Crypto {
 	}
 
 	/**
-	 * Generates a random 5-word passphrase in Galician.
+	 * Number of words in a suggested passphrase.
 	 *
-	 * Used by the setup wizard to suggest a banking key passphrase.
+	 * @since 1.102.0
+	 * @var int
+	 */
+	const PASSPHRASE_WORD_COUNT = 6;
+
+	/**
+	 * Word list for suggested passphrases: exactly 128 distinct, short, common
+	 * Galician words, lowercase ASCII only (no accents or ñ, so the phrase is
+	 * easy to type on any keyboard). 128 = 2^7, so each word adds 7 bits.
+	 *
+	 * @since 1.102.0
+	 * @var string[]
+	 */
+	const PASSPHRASE_WORDS = array(
+		'ceu', 'mar', 'sol', 'lua', 'nube', 'monte', 'rio', 'ponte',
+		'casa', 'horta', 'rosa', 'pino', 'carballo', 'pomba', 'gaivota', 'paxaro',
+		'grilo', 'pera', 'uvas', 'froita', 'millo', 'auga', 'lume', 'vento',
+		'neve', 'verde', 'azul', 'branco', 'negro', 'roxo', 'danza', 'canto',
+		'risa', 'amor', 'paz', 'ben', 'luz', 'vida', 'praia', 'area',
+		'onda', 'porto', 'barco', 'rede', 'peixe', 'polbo', 'xouba', 'cunca',
+		'pan', 'leite', 'queixo', 'mel', 'noz', 'souto', 'bosque', 'folla',
+		'flor', 'herba', 'campo', 'eira', 'lobo', 'raposo', 'cabalo', 'vaca',
+		'ovella', 'galo', 'pita', 'porco', 'coello', 'cervo', 'corvo', 'moucho',
+		'merlo', 'lagarto', 'sapo', 'troita', 'cebola', 'allo', 'nabo', 'berza',
+		'fabas', 'trigo', 'centeo', 'regato', 'fonte', 'pedra', 'seixo', 'illa',
+		'cabo', 'faro', 'val', 'outeiro', 'vila', 'aldea', 'lar', 'porta',
+		'xanela', 'cadeira', 'mesa', 'libro', 'papel', 'lapis', 'escola', 'festa',
+		'gaita', 'tambor', 'baile', 'cantiga', 'conto', 'xogo', 'amigo', 'avoa',
+		'neno', 'nena', 'lingua', 'verba', 'chuvia', 'orballo', 'xeada', 'inverno',
+		'outono', 'abril', 'maio', 'xullo', 'agosto', 'estrela', 'cometa', 'serra',
+	);
+
+	/**
+	 * Generates a random 6-word passphrase in Galician.
+	 *
+	 * Used by the setup wizard to suggest a banking key passphrase. Six words
+	 * drawn uniformly (with repetition) from the 128-word list give
+	 * 6 × 7 = 42 bits of entropy, enough to resist offline brute force of the
+	 * wrapped key given the Argon2id cost.
 	 *
 	 * @since  1.32.0
+	 * @since  1.102.0 Six words from a 128-word ASCII list (was 5 from 45).
 	 * @return string Hyphen-separated words.
 	 */
 	public static function generate_passphrase(): string {
-		$words = array(
-			'ceu', 'mar', 'sol', 'lua', 'nube', 'monte', 'rio', 'ponte',
-			'casa', 'horta', 'rosa', 'pino', 'carvalho', 'nogueira', 'salgueiro',
-			'pomba', 'gaivota', 'andoriña', 'paxaro', 'grilo',
-			'mazá', 'pera', 'uvas', 'froita', 'millo',
-			'auga', 'lume', 'vento', 'neve', 'brétema',
-			'verde', 'azul', 'branco', 'negro', 'roxo',
-			'música', 'danza', 'canto', 'risa', 'soño',
-			'amor', 'paz', 'ben', 'luz', 'vida',
-		);
-
 		// Use a CSPRNG (random_int) rather than a non-cryptographic PRNG. This is
 		// only a suggested passphrase (editable by the admin), but a suggestion
-		// should not be predictable. Words may repeat; that is fine for a 5-word
-		// suggestion and keeps the selection uniform.
+		// should not be predictable. Words may repeat; that keeps the selection
+		// uniform.
+		$words    = self::PASSPHRASE_WORDS;
 		$count    = count( $words );
 		$selected = array();
-		for ( $i = 0; $i < 5; $i++ ) {
+		for ( $i = 0; $i < self::PASSPHRASE_WORD_COUNT; $i++ ) {
 			$selected[] = $words[ random_int( 0, $count - 1 ) ];
 		}
 

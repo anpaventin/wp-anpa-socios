@@ -230,24 +230,23 @@ final class ANPA_Socios_Admin_Reports_Handler {
 			return new WP_Error( 'anpa_admin_no_key', __( 'A clave bancaria non está configurada', 'anpa-socios' ), array( 'status' => 409 ) );
 		}
 
-		// Brute-force lockout on the decryption passphrase (per admin actor):
-		// 5 wrong attempts within 15 minutes blocks further tries.
-		$actor    = (string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_EMAIL );
-		$lock_key = 'anpa_export_pp_fail_' . md5( '' !== $actor ? $actor : 'export' );
-		$fails    = (int) get_transient( $lock_key );
-		if ( $fails >= 5 ) {
+		// Brute-force lockout on the decryption passphrase (per admin actor,
+		// shared with every other passphrase entry point): 5 wrong attempts
+		// within 15 minutes blocks further tries.
+		$actor = (string) $request->get_param( ANPA_Socios_Admin_Shared::REQ_PARAM_EMAIL );
+		if ( ANPA_Socios_Banking_Key::passphrase_locked( $actor ) ) {
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'export', 'full', 'export_locked' );
-			return new WP_Error( 'anpa_admin_export_locked', 'Demasiados intentos co contrasinal. Téntao de novo en 15 minutos.', array( 'status' => 429 ) );
+			return new WP_Error( 'anpa_admin_export_locked', ANPA_Socios_Banking_Key::passphrase_locked_message(), array( 'status' => 429 ) );
 		}
 
 		$secret = ANPA_Socios_Crypto::unwrap_secret( $wrapped['blob'], $wrapped['salt'], $wrapped['nonce'], $passphrase );
 		if ( null === $secret ) {
-			set_transient( $lock_key, $fails + 1, 15 * MINUTE_IN_SECONDS );
+			ANPA_Socios_Banking_Key::passphrase_failed( $actor );
 			ANPA_Socios_Admin_Shared::write_audit( $request, 'export', 'full', 'export_denied' );
 			return new WP_Error( 'anpa_admin_bad_passphrase', __( 'Contrasinal incorrecto', 'anpa-socios' ), array( 'status' => 403 ) );
 		}
 		// Correct passphrase: clear the failed-attempt counter.
-		delete_transient( $lock_key );
+		ANPA_Socios_Banking_Key::passphrase_succeeded( $actor );
 
 		$socios = ANPA_Socios_DB::tabela_socios();
 		$dom    = ANPA_Socios_DB::tabela_domiciliacions();

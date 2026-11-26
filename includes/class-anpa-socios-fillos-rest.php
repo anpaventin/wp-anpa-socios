@@ -658,9 +658,9 @@ final class ANPA_Socios_Fillos_REST {
 		$apelidos_lc = strtolower( trim( (string) $payload['apelidos'] ) );
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		$existing = $wpdb->get_row(
+		$existing = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT f.socio_email, s.nome AS socio_nome, s.apelidos AS socio_apelidos
+				"SELECT f.id
 				 FROM {$table} f
 				 JOIN {$wpdb->prefix}anpa_socios s ON s.email = f.socio_email
 				 WHERE LOWER(f.nome) = %s AND LOWER(f.apelidos) = %s AND f.familia_id <> %d AND f.estado <> 'baixa'
@@ -668,43 +668,21 @@ final class ANPA_Socios_Fillos_REST {
 				$nome_lc,
 				$apelidos_lc,
 				$familia_id
-			),
-			ARRAY_A
+			)
 		);
 
-		if ( ! is_array( $existing ) ) {
+		if ( null === $existing ) {
 			return null;
 		}
 
-		// Mask the other socio's data.
-		$other_email = (string) $existing['socio_email'];
-		$parts       = explode( '@', $other_email );
-		$local       = $parts[0] ?? '';
-		$domain      = $parts[1] ?? '';
-		$masked_email = substr( $local, 0, min( 3, strlen( $local ) ) ) . '***@' . $domain;
-
-		$other_nome   = (string) $existing['socio_nome'];
-		$other_apels  = (string) $existing['socio_apelidos'];
-		$masked_nome  = strlen( $other_nome ) > 4 ? substr( $other_nome, 0, 4 ) . '***' : $other_nome;
-
-		$apel_parts   = explode( ' ', $other_apels );
-		$masked_apels = array();
-		foreach ( $apel_parts as $part ) {
-			if ( strlen( $part ) > 3 ) {
-				$masked_apels[] = substr( $part, 0, 4 ) . '***';
-			} else {
-				$masked_apels[] = $part;
-			}
-		}
-		$masked_full = $masked_nome . ' ' . implode( ' ', $masked_apels );
-
+		// 1.102.0: nothing about the other family is returned. Until now the
+		// message carried that parent's email and name half-masked, which in a
+		// single school is enough to identify them.
 		return new WP_Error(
 			'anpa_fillos_duplicate',
 			sprintf(
-				/* translators: 1: masked email, 2: masked child name, 3: contact email */
-				'O usuario con conta de correo %1$s e o nome %2$s xa ten ese fillo dado de alta. Se consideras que isto é un erro, ponte en contacto co ANPA no correo %3$s',
-				$masked_email,
-				$masked_full,
+				/* translators: %s: contact email */
+				__( 'Ese fillo/a xa está dado de alta por outra familia. Se consideras que isto é un erro, ponte en contacto coa ANPA no correo %s', 'anpa-socios' ),
 				ANPA_Socios_Config::contact_email()
 			),
 			array( 'status' => 409 )

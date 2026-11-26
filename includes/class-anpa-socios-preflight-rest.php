@@ -35,6 +35,9 @@ class ANPA_Socios_Preflight_REST {
 	 */
 	const REST_NAMESPACE = 'anpa-socios/v1';
 
+	/** Lookups one IP may make per hour, whatever the address (1.102.0). */
+	const CONSULTAS_IP_HORA = 60;
+
 	/**
 	 * Registers the preflight route.
 	 *
@@ -212,8 +215,22 @@ class ANPA_Socios_Preflight_REST {
 			return false;
 		}
 
-		$key = 'anpa_preflight_rl_' . md5( $email . '|' . $ip );
 		$now = time();
+
+		// 1.102.0: a cap per IP whatever the address, so one origin cannot test a
+		// long list of emails (the email+IP limit below never fires for that).
+		$ip_key     = 'anpa_preflight_ip_' . md5( $ip );
+		$ip_history = get_transient( $ip_key );
+		$ip_history = is_array( $ip_history ) ? array_map( 'intval', $ip_history ) : array();
+		if ( ! ANPA_Socios_Rate_Limiter::permitir( $ip_history, self::CONSULTAS_IP_HORA, HOUR_IN_SECONDS, $now ) ) {
+			return true;
+		}
+		$ip_history[] = $now;
+		set_transient( $ip_key, array_values( array_filter( $ip_history, static function ( $ts ) use ( $now ) {
+			return $ts >= $now - HOUR_IN_SECONDS;
+		} ) ), HOUR_IN_SECONDS );
+
+		$key = 'anpa_preflight_rl_' . md5( $email . '|' . $ip );
 		$history = get_transient( $key );
 		$history = is_array( $history ) ? array_map( 'intval', $history ) : array();
 

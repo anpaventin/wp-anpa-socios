@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.102.0] - 2026-11-26
+
+### Security
+
+- **Sesión da área.** O identificador da sesión xa non se engade ao enderezo das peticións (quedaba nos rexistros
+  do servidor); viaxa só na cabeceira.
+- **Cambio de correo na área.** O correo novo ten que confirmarse cun código enviado a ese enderezo antes de que a
+  conta pase a el, e o enderezo antigo recibe un aviso. O cambio queda na Auditoría.
+- **Segundo proxenitor.** Só o primeiro proxenitor/titor pode cambiar os datos do outro adulto da familia. Cando
+  lle cambia o correo, o enderezo antigo recibe un aviso.
+- **Códigos de acceso.** Cada intento cóntase antes de comprobar o código, de xeito que varias peticións á vez non
+  poden pasar dos 5 intentos; un código só se pode usar unha vez. Hai un tope de 20 códigos por hora para un mesmo
+  enderezo, veña a petición de onde veña, e outro de 60 comprobacións de correo por hora desde un mesmo equipo.
+- **Fillo/a xa rexistrado.** O aviso xa non amosa o correo nin o nome da outra familia.
+- **Frase da clave bancaria.** A frase que suxire o asistente ten agora 6 palabras dunha lista de 128. Tras 5
+  frases erradas en 15 minutos quedan bloqueados á vez a exportación con IBAN, a consulta dunha domiciliación, a
+  importación de IBAN, a copia de seguridade e a recuperación. A frase só se acepta no corpo da petición.
+- **Actualizacións.** Só se aceptan paquetes das publicacións deste repositorio en GitHub (agás que se defina
+  `ANPA_SOCIOS_UPDATE_URL`).
+
+### Added
+
+- **Cambiar a frase da clave bancaria.** En Axustes → Xeral → Mantemento pódese cambiar a frase sen borrar nin
+  volver subir nada: os IBAN e o resto dos datos non se tocan. As copias de seguridade antigas seguen abríndose coa
+  frase coa que se fixeron. O cambio queda na Auditoría.
+
 ## [1.101.1] - 2026-11-24
 
 ### Fixed

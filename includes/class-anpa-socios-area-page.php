@@ -209,10 +209,17 @@ class ANPA_Socios_Area_Page {
 				<label for="anpa-area-email-edit"><?php esc_html_e( 'Correo electrónico', 'anpa-socios' ); ?></label>
 				<input id="anpa-area-email-edit" type="email" autocomplete="email">
 				<span class="anpa-field-error" data-error="email" hidden></span>
+				<!-- 1.102.0: code sent to the new address before the email changes. -->
+				<div data-email-codigo hidden>
+					<label for="anpa-area-email-codigo"><?php esc_html_e( 'Código enviado ao novo correo', 'anpa-socios' ); ?></label>
+					<input id="anpa-area-email-codigo" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+					<span class="anpa-field-error" data-error="email_codigo" hidden></span>
+				</div>
 
 				<!-- ── Segundo proxenitor / inline edit (fase 20) ── -->
 				<div class="anpa-area-p2-inline" data-p2-inline hidden>
 					<h3><?php esc_html_e( 'Segundo proxenitor / titor', 'anpa-socios' ); ?></h3>
+					<p class="anpa-area-muted" data-p2-readonly hidden><?php esc_html_e( 'Estes datos só os pode cambiar o primeiro proxenitor/titor da familia, ou a ANPA.', 'anpa-socios' ); ?></p>
 					<p class="anpa-area-muted"><?php esc_html_e( 'Datos do outro proxenitor/titor da unidade familiar. O email é opcional; o NIF é obrigatorio.', 'anpa-socios' ); ?></p>
 					<label for="anpa-area-p2-nome"><?php esc_html_e( 'Nome', 'anpa-socios' ); ?></label>
 					<input id="anpa-area-p2-nome" type="text" autocomplete="off">

@@ -144,10 +144,10 @@ final class Test_ANPA_Socios_Crypto extends TestCase {
 		$this->assertStringNotContainsString( 'array_rand', $method );
 		$this->assertStringContainsString( 'random_int', $method );
 
-		// Functional: returns 5 hyphen-separated words drawn from the fixed list.
+		// Functional: returns 6 hyphen-separated words drawn from the fixed list.
 		$phrase = ANPA_Socios_Crypto::generate_passphrase();
 		$parts  = explode( '-', $phrase );
-		$this->assertCount( 5, $parts );
+		$this->assertCount( 6, $parts );
 		foreach ( $parts as $w ) {
 			$this->assertNotSame( '', $w );
 		}

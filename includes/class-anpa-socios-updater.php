@@ -46,6 +46,15 @@ final class ANPA_Socios_Updater {
 	const REPO_URL = 'https://github.com/anpaventin/wp-anpa-socios';
 
 	/**
+	 * Only release assets under this prefix are accepted as update packages
+	 * (unless ANPA_SOCIOS_UPDATE_URL overrides the metadata source).
+	 *
+	 * @since 1.102.0
+	 * @var string
+	 */
+	const DOWNLOAD_PREFIX = 'https://github.com/anpaventin/wp-anpa-socios/releases/download/';
+
+	/**
 	 * Plugin folder slug (must match the installed directory name).
 	 *
 	 * @var string
@@ -76,7 +85,8 @@ final class ANPA_Socios_Updater {
 		//   1. ANPA_SOCIOS_UPDATE_URL constant (wp-config.php) — full override.
 		//   2. Prerelease channel when the admin opted in (Axustes → Actualizacións).
 		//   3. Stable channel (default) — production installs stay here.
-		if ( defined( 'ANPA_SOCIOS_UPDATE_URL' ) && ANPA_SOCIOS_UPDATE_URL ) {
+		$override = defined( 'ANPA_SOCIOS_UPDATE_URL' ) && ANPA_SOCIOS_UPDATE_URL;
+		if ( $override ) {
 			$url = (string) ANPA_SOCIOS_UPDATE_URL;
 		} elseif ( class_exists( 'ANPA_Socios_Config' ) && ANPA_Socios_Config::use_prereleases() ) {
 			$url = self::PRERELEASE_METADATA_URL;
@@ -86,12 +96,63 @@ final class ANPA_Socios_Updater {
 
 		call_user_func( array( $factory, 'buildUpdateChecker' ), $url, ANPA_SOCIOS_PLUGIN_FILE, self::SLUG );
 
+		// Pin the download source: the metadata JSON is fetched from the repo, but
+		// its download_url is only trusted when it points at this repo's GitHub
+		// release assets. An operator-chosen ANPA_SOCIOS_UPDATE_URL (fork or
+		// mirror) is an explicit decision, so the pin is skipped then.
+		if ( ! $override ) {
+			add_filter( 'puc_request_info_result-' . self::SLUG, array( __CLASS__, 'pin_download_url' ), 10, 2 );
+		}
+
 		// 1.63.1: the library ships Spanish but no Galician, so the «Check for
 		// updates» link and its result notice on the Plugins screen stayed in
 		// English on a gl_ES site. Label them in the plugin's own language (the
 		// es_ES catalogue translates them for Spanish sites).
 		add_filter( 'puc_manual_check_link-' . self::SLUG, array( __CLASS__, 'manual_check_link_text' ) );
 		add_filter( 'puc_manual_check_message-' . self::SLUG, array( __CLASS__, 'manual_check_message' ), 10, 2 );
+	}
+
+	/**
+	 * Drops the update info when its download_url is not an allowed release asset.
+	 *
+	 * Hooked on the library's `puc_request_info_result-{slug}` filter, which
+	 * feeds both the update check and the «View details» popup. Returning null
+	 * means «no update available».
+	 *
+	 * @since  1.102.0
+	 * @param  object|null $info   Library PluginInfo, or null.
+	 * @param  mixed       $result Raw HTTP result (unused).
+	 * @return object|null
+	 */
+	public static function pin_download_url( $info, $result = null ) {
+		unset( $result );
+		if ( ! is_object( $info ) ) {
+			return $info;
+		}
+		$download = isset( $info->download_url ) ? (string) $info->download_url : '';
+
+		return self::is_allowed_download_url( $download ) ? $info : null;
+	}
+
+	/**
+	 * Whether a download URL points at this repo's GitHub release assets.
+	 *
+	 * Pure: a strict prefix match plus rejection of path traversal, backslashes,
+	 * whitespace/control characters, credentials, queries and fragments.
+	 *
+	 * @since  1.102.0
+	 * @param  string $url Candidate download URL.
+	 * @return bool
+	 */
+	public static function is_allowed_download_url( string $url ): bool {
+		if ( 0 !== strpos( $url, self::DOWNLOAD_PREFIX ) || strlen( $url ) <= strlen( self::DOWNLOAD_PREFIX ) ) {
+			return false;
+		}
+		if ( false !== strpos( $url, '..' ) || 1 === preg_match( '/[\\\\\s\x00-\x1f\x7f@?#%]/', $url ) ) {
+			return false;
+		}
+
+		return true;
 	}
 
 	/**

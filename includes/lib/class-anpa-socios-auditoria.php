@@ -90,6 +90,8 @@ final class ANPA_Socios_Auditoria {
 		'baixas_eliminadas_google'   => 'Baixas eliminadas a man en Google Contactos',
 		'retencion_purga'            => 'Borrado automático por prazo de conservación',
 		'email_cambiado'             => 'Correo do socio/a cambiado',
+		'frase_cambiada'             => 'Frase da clave bancaria cambiada',
+		'frase_cambio_denegado'      => 'Cambio da frase bancaria denegado (frase actual incorrecta)',
 		'email_substituido'          => 'Correo substituído por outro',
 		'baixa_confirm_familia'      => 'Baixa confirmada (resto da familia)',
 		'baixa_confirm_famili'       => 'Baixa confirmada (resto da familia)',

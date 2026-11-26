@@ -49,6 +49,7 @@ final class ANPA_Socios_Admin_Settings {
 		add_action( 'admin_post_anpa_socios_backup', array( __CLASS__, 'handle_backup' ) );
 		add_action( 'admin_post_anpa_socios_wipe', array( __CLASS__, 'handle_wipe' ) );
 		add_action( 'admin_post_anpa_socios_restore', array( __CLASS__, 'handle_restore' ) );
+		add_action( 'admin_post_anpa_socios_cambiar_frase', array( __CLASS__, 'handle_cambiar_frase' ) );
 		// FASE37: administrative content (transporte, libros, servizos).
 		add_action( 'admin_post_anpa_save_contenido', array( __CLASS__, 'handle_save_contenido' ) );
 	}
@@ -1856,6 +1857,24 @@ final class ANPA_Socios_Admin_Settings {
 		submit_button( __( 'Recuperar copia', 'anpa-socios' ), 'secondary', 'submit', false );
 		echo '</form>';
 
+		// 1.102.0: change the banking passphrase without touching the data.
+		if ( null !== ANPA_Socios_Banking_Key::wrapped_secret() ) {
+			echo '<h2>' . esc_html__( 'Cambiar a frase da clave bancaria', 'anpa-socios' ) . '</h2>';
+			echo '<p class="description">' . esc_html__( 'Cambia a frase que protexe os datos bancarios. Os IBAN e o resto dos datos non se tocan nin hai que volver subilos. Descarga antes unha copia de seguridade coa frase actual e, despois do cambio, outra coa nova: as copias antigas seguen abríndose só coa frase coa que se fixeron.', 'anpa-socios' ) . '</p>';
+			echo '<form method="post" action="' . $post_url . '">';
+			echo '<input type="hidden" name="action" value="anpa_socios_cambiar_frase">';
+			echo '<input type="hidden" name="tab" value="xeral">';
+			echo '<input type="hidden" name="section" value="mantemento">';
+			wp_nonce_field( 'anpa_socios_cambiar_frase' );
+			echo '<table class="form-table" role="presentation"><tbody>';
+			echo '<tr><th scope="row"><label for="cf-vella">' . esc_html__( 'Frase actual', 'anpa-socios' ) . '</label></th><td><input name="frase_actual" id="cf-vella" type="text" class="regular-text code" autocomplete="off" required>' . self::eye_button( 'cf-vella' ) . '</td></tr>';
+			echo '<tr><th scope="row"><label for="cf-nova">' . esc_html__( 'Frase nova', 'anpa-socios' ) . '</label></th><td><input name="frase_nova" id="cf-nova" type="text" class="regular-text code" autocomplete="off" minlength="' . (int) self::MIN_PASSPHRASE . '" required>' . self::eye_button( 'cf-nova' ) . '<p class="description">' . esc_html__( 'Recomendado: cinco ou máis palabras ao chou, en minúsculas, sen acentos nin ñ, separadas por guións. Apúntaa nun lugar seguro: se se perde, os datos bancarios non se poden recuperar.', 'anpa-socios' ) . '</p></td></tr>';
+			echo '<tr><th scope="row"><label for="cf-nova2">' . esc_html__( 'Repite a frase nova', 'anpa-socios' ) . '</label></th><td><input name="frase_nova_2" id="cf-nova2" type="text" class="regular-text code" autocomplete="off" required>' . self::eye_button( 'cf-nova2' ) . '</td></tr>';
+			echo '</tbody></table>';
+			submit_button( __( 'Cambiar frase', 'anpa-socios' ), 'secondary', 'submit', false );
+			echo '</form>';
+		}
+
 		echo '<h2 style="color:#b32d2e">Borrar base de datos</h2>';
 		echo '<p class="description" style="color:#b32d2e"><strong>Irreversible.</strong> Borra TODOS os datos do plugin e volve ao asistente de instalación. Descarga primeiro unha copia de seguridade.</p>';
 		$confirm_msg = __( 'Seguro? Esta acción borra TODOS os datos e non se pode desfacer.', 'anpa-socios' );
@@ -2503,10 +2522,19 @@ final class ANPA_Socios_Admin_Settings {
 		if ( '' === $pass ) {
 			self::redirect_msg( 'bak_err' );
 		}
+		// Shared brute-force lockout on the banking passphrase.
+		$actor = ANPA_Socios_Banking_Key::current_actor();
+		if ( ANPA_Socios_Banking_Key::passphrase_locked( $actor ) ) {
+			self::redirect_msg( 'pp_locked' );
+		}
 		$blob = ANPA_Socios_Backup::build( $pass );
 		if ( is_wp_error( $blob ) ) {
+			if ( 'anpa_bak_bad_passphrase' === $blob->get_error_code() ) {
+				ANPA_Socios_Banking_Key::passphrase_failed( $actor );
+			}
 			self::redirect_msg( 'bak_err' );
 		}
+		ANPA_Socios_Banking_Key::passphrase_succeeded( $actor );
 
 		nocache_headers();
 		$fname = 'anpa-copia-' . gmdate( 'Y-m-d-His' ) . '.anpabak';
@@ -2536,12 +2564,64 @@ final class ANPA_Socios_Admin_Settings {
 		if ( $size <= 0 || $size > $max_bytes ) {
 			self::redirect_msg( 'restore_err' );
 		}
+		// Shared brute-force lockout on the banking passphrase.
+		$actor = ANPA_Socios_Banking_Key::current_actor();
+		if ( ANPA_Socios_Banking_Key::passphrase_locked( $actor ) ) {
+			self::redirect_msg( 'pp_locked' );
+		}
 		$blob = (string) file_get_contents( (string) $_FILES['backup_file']['tmp_name'] );
 		$res  = ANPA_Socios_Backup::restore( $blob, $pass );
 		if ( is_wp_error( $res ) ) {
+			if ( 'anpa_bak_bad_pw' === $res->get_error_code() ) {
+				ANPA_Socios_Banking_Key::passphrase_failed( $actor );
+			}
 			self::redirect_msg( 'restore_err' );
 		}
+		ANPA_Socios_Banking_Key::passphrase_succeeded( $actor );
 		self::redirect_msg( 'restored' );
+	}
+
+	/**
+	 * admin-post: change the banking passphrase (1.102.0). Only the wrapped
+	 * secret key is rewritten; the key pair and every sealed row stay as they are.
+	 *
+	 * @since  1.102.0
+	 * @return void
+	 */
+	public static function handle_cambiar_frase(): void {
+		self::guard( 'anpa_socios_cambiar_frase' );
+		$vella = (string) wp_unslash( $_POST['frase_actual'] ?? '' );
+		$nova  = (string) wp_unslash( $_POST['frase_nova'] ?? '' );
+		$nova2 = (string) wp_unslash( $_POST['frase_nova_2'] ?? '' );
+
+		$wrapped = ANPA_Socios_Banking_Key::wrapped_secret();
+		if ( null === $wrapped || '' === $vella ) {
+			self::redirect_msg( 'frase_err' );
+		}
+		// The new phrase is checked before the current one is tried, so a typo in
+		// it never costs one of the five attempts.
+		$erro_nova = ANPA_Socios_Banking_Key::erro_frase_nova( $vella, $nova, $nova2, self::MIN_PASSPHRASE );
+		if ( '' !== $erro_nova ) {
+			self::redirect_msg( $erro_nova );
+		}
+		$actor = ANPA_Socios_Banking_Key::current_actor();
+		if ( ANPA_Socios_Banking_Key::passphrase_locked( $actor ) ) {
+			self::redirect_msg( 'pp_locked' );
+		}
+		$novo = ANPA_Socios_Crypto::rewrap_secret( $wrapped, $vella, $nova );
+		if ( null === $novo ) {
+			// A wrong current phrase or a failed wrap look the same here; only a
+			// phrase that does not open the current wrap counts as an attempt.
+			if ( null === ANPA_Socios_Crypto::unwrap_secret( $wrapped['blob'], $wrapped['salt'], $wrapped['nonce'], $vella ) ) {
+				ANPA_Socios_Banking_Key::passphrase_failed( $actor );
+				ANPA_Socios_Admin_Shared::write_audit_actor( $actor, 'admin', 'clave_bancaria', 'frase', 'frase_cambio_denegado' );
+			}
+			self::redirect_msg( 'frase_err' );
+		}
+		ANPA_Socios_Banking_Key::passphrase_succeeded( $actor );
+		update_option( ANPA_Socios_Banking_Key::OPTION_SECKEY, (string) wp_json_encode( $novo ), false );
+		ANPA_Socios_Admin_Shared::write_audit_actor( $actor, 'admin', 'clave_bancaria', 'frase', 'frase_cambiada' );
+		self::redirect_msg( 'frase_cambiada' );
 	}
 
 	/**
@@ -2915,7 +2995,14 @@ final class ANPA_Socios_Admin_Settings {
 			'trimestres_inicializados' => array( 'success', __( 'Trimestres inicializados para o curso (T1 activo, T2/T3 pendentes, ventás pechadas).', 'anpa-socios' ) ),
 			'bak_bad_pw'     => array( 'error', __( 'Contrasinal de admin incorrecto.', 'anpa-socios' ) ),
 			'bak_err'        => array( 'error', __( 'Non se puido xerar a copia (revisa a frase da clave bancaria).', 'anpa-socios' ) ),
+			'pp_locked'      => array( 'error', ANPA_Socios_Banking_Key::passphrase_locked_message() ),
 			'restored'       => array( 'success', __( 'Copia recuperada correctamente.', 'anpa-socios' ) ),
+			'frase_cambiada' => array( 'success', __( 'Frase da clave bancaria cambiada. Descarga agora unha copia de seguridade coa frase nova.', 'anpa-socios' ) ),
+			'frase_err'      => array( 'error', __( 'Non se puido cambiar a frase (revisa a frase actual).', 'anpa-socios' ) ),
+			'frase_curta'    => array( 'error', __( 'A frase nova é demasiado curta (mínimo 12 caracteres).', 'anpa-socios' ) ),
+			'frase_distinta' => array( 'error', __( 'As dúas copias da frase nova non coinciden.', 'anpa-socios' ) ),
+			'frase_espazos'  => array( 'error', __( 'A frase nova non pode comezar nin rematar con espazos.', 'anpa-socios' ) ),
+			'frase_igual'    => array( 'error', __( 'A frase nova ten que ser distinta da actual.', 'anpa-socios' ) ),
 			'restore_nofile' => array( 'error', __( 'Non se recibiu ningún ficheiro de copia.', 'anpa-socios' ) ),
 			'restore_err'    => array( 'error', __( 'Non se puido recuperar a copia (ficheiro ou contrasinal incorrectos).', 'anpa-socios' ) ),
 			'wiped'          => array( 'success', __( 'Base de datos borrada. Configura de novo o plugin.', 'anpa-socios' ) ),

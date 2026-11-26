@@ -117,6 +117,11 @@ class ANPA_Socios_Area_REST {
 							'type'              => 'string',
 							'sanitize_callback' => 'sanitize_email',
 						),
+						'email_codigo' => array(
+							'required'          => false,
+							'type'              => 'string',
+							'sanitize_callback' => 'sanitize_text_field',
+						),
 						'segundo_proxenitor' => array(
 							'required'          => false,
 							'type'              => 'object',
@@ -955,6 +960,7 @@ class ANPA_Socios_Area_REST {
 		}
 
 		// Email change (optional, UNIQUE integrity enforced).
+		$email_pendente = '';
 		$raw_email_edit = sanitize_email( (string) $request->get_param( 'email_edit' ) );
 		if ( '' !== trim( $raw_email_edit ) ) {
 			$new_email = ANPA_Socios_Normalize::email( $raw_email_edit );
@@ -984,8 +990,24 @@ class ANPA_Socios_Area_REST {
 				if ( null !== $existing ) {
 					return new WP_Error( 'anpa_area_email_taken', __( 'Ese email xa está rexistrado por outro socio/a', 'anpa-socios' ), array( 'status' => 409 ) );
 				}
-				$update_data['email'] = $new_email;
-				$update_format[]      = '%s';
+				// 1.102.0: the new address proves itself with a code before the
+				// account moves to it. Without a code in the request one is sent and
+				// the rest of the form is saved; the email stays as it was.
+				$codigo_email = (string) preg_replace( '/\D/', '', (string) $request->get_param( 'email_codigo' ) );
+				if ( '' === $codigo_email ) {
+					$enviado = ANPA_Socios_Cambio_Email::solicitar_codigo( (int) $profile['id'], $new_email );
+					if ( is_wp_error( $enviado ) ) {
+						return $enviado;
+					}
+					$email_pendente = $new_email;
+				} else {
+					$comprobado = ANPA_Socios_Cambio_Email::comprobar_codigo( (int) $profile['id'], $new_email, $codigo_email );
+					if ( is_wp_error( $comprobado ) ) {
+						return $comprobado;
+					}
+					$update_data['email'] = $new_email;
+					$update_format[]      = '%s';
+				}
 			}
 		}
 
@@ -1020,14 +1042,30 @@ class ANPA_Socios_Area_REST {
 				return new WP_Error( 'anpa_area_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 			}
 			$wpdb->query( 'COMMIT' );
+			// 1.102.0: the old address is told, and the change is audited.
+			ANPA_Socios_Admin_Shared::write_audit_actor( strtolower( (string) $profile['email'] ), 'socio', 'socio', (string) $update_data['email'], 'email_cambiado' );
+			ANPA_Socios_Email::enviar_aviso_cambio_correo( (string) $profile['email'], (string) $update_data['email'] );
 		}
 
 		// ── Segundo proxenitor (optional) ──────────────────────────────
-		$p2_input = $request->get_param( 'segundo_proxenitor' );
-		if ( is_array( $p2_input ) && ! empty( array_filter( $p2_input ) ) ) {
-			$p2_result = self::save_segundo_proxenitor( $fam['familia_id'], (int) $fam['id'], $p2_input );
+		// 1.102.0: only the first parent edits the other adult of the family. A
+		// second parent's form still carries those fields; they are ignored, so
+		// nobody can rewrite the first parent's name, NIF or login address.
+		$p2_input    = $request->get_param( 'segundo_proxenitor' );
+		$e_principal = 'secundario' !== (string) ( $profile['rol_familia'] ?? '' );
+		if ( $e_principal && is_array( $p2_input ) && ! empty( array_filter( $p2_input ) ) ) {
+			$p2_antes       = self::resolve_segundo_proxenitor( $profile );
+			$p2_email_antes = is_array( $p2_antes ) ? strtolower( trim( (string) ( $p2_antes['email'] ?? '' ) ) ) : '';
+			$p2_result      = self::save_segundo_proxenitor( $fam['familia_id'], (int) $fam['id'], $p2_input );
 			if ( is_wp_error( $p2_result ) ) {
 				return $p2_result;
+			}
+			// The second parent's old address is told when the first parent replaces it.
+			$p2_email_novo = (string) ANPA_Socios_Normalize::email( (string) ( $p2_input['email'] ?? '' ) );
+			if ( '' !== $p2_email_antes && '' !== $p2_email_novo && $p2_email_novo !== $p2_email_antes ) {
+				$actor = strtolower( (string) ( isset( $update_data['email'] ) ? $update_data['email'] : $profile['email'] ) );
+				ANPA_Socios_Admin_Shared::write_audit_actor( $actor, 'socio', 'socio', $p2_email_novo, 'email_cambiado' );
+				ANPA_Socios_Email::enviar_aviso_cambio_correo( $p2_email_antes, $p2_email_novo );
 			}
 		}
 
@@ -1041,7 +1079,12 @@ class ANPA_Socios_Area_REST {
 			return self::invalid_session_error();
 		}
 
-		return new WP_REST_Response( self::format_profile( $updated_profile ), 200 );
+		$resposta = self::format_profile( $updated_profile );
+		if ( '' !== $email_pendente ) {
+			$resposta['email_pendente'] = $email_pendente;
+		}
+
+		return new WP_REST_Response( $resposta, 200 );
 	}
 
 	/**
@@ -1455,6 +1498,7 @@ class ANPA_Socios_Area_REST {
 			'nif'            => isset( $profile['nif'] ) ? (string) $profile['nif'] : '',
 			'estado'         => isset( $profile['estado'] ) ? (string) $profile['estado'] : '',
 			'rol'            => isset( $profile['rol'] ) ? (string) $profile['rol'] : 'socio',
+			'rol_familia'    => isset( $profile['rol_familia'] ) && 'secundario' === (string) $profile['rol_familia'] ? 'secundario' : 'principal',
 			'baixa_estado'   => isset( $profile['baixa_estado'] ) ? (string) $profile['baixa_estado'] : 'none',
 			'creado_en'      => isset( $profile['creado_en'] ) ? (string) $profile['creado_en'] : '',
 			'actualizado_en' => isset( $profile['actualizado_en'] ) ? (string) $profile['actualizado_en'] : '',

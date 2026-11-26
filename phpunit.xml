@@ -169,6 +169,8 @@
       <file>tests/Test_ANPA_Socios_Xunta_Directiva.php</file>
       <file>tests/Test_ANPA_Socios_Paxinas_Duplicadas.php</file>
       <file>tests/Test_ANPA_Socios_Eventos.php</file>
+      <file>tests/Test_ANPA_Socios_Seguridade_Area.php</file>
+      <file>tests/Test_ANPA_Socios_Seguridade_Clave.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

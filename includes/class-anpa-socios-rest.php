@@ -220,7 +220,8 @@ class ANPA_Socios_REST {
 
 		$timestamps = array_map( 'intval', is_array( $timestamps ) ? $timestamps : array() );
 
-		if ( ! ANPA_Socios_Rate_Limiter::permitir( $timestamps, ANPA_Socios_Rate_Limiter::INTENTOS_ACCESO_HORA, 3600 ) ) {
+		// 1.102.0: also a cap per address across every IP.
+		if ( ! ANPA_Socios_Rate_Limiter::permitir( $timestamps, ANPA_Socios_Rate_Limiter::INTENTOS_ACCESO_HORA, 3600 ) || ANPA_Socios_Verificacion_REST::limite_email_superado( $email ) ) {
 			return self::resposta_xenerica();
 		}
 
