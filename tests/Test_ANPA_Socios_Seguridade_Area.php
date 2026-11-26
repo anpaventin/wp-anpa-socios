@@ -52,13 +52,29 @@ final class Test_ANPA_Socios_Seguridade_Area extends TestCase {
 		$this->assertLessThan( strpos( $c, 'ANPA_Socios_Codigo_Generator::verify(' ), strpos( $c, "++\$pendente['intentos'];" ), 'the guess is counted before it is checked' );
 	}
 
-	public function test_second_parent_cannot_edit_the_first(): void {
+	public function test_both_parents_edit_each_other_and_the_other_is_told(): void {
 		$a = $this->src( 'includes/class-anpa-socios-area-rest.php' );
-		$this->assertStringContainsString( "\$e_principal = 'secundario' !== (string) ( \$profile['rol_familia'] ?? '' );", $a );
-		$this->assertStringContainsString( 'if ( $e_principal && is_array( $p2_input )', $a );
-		$js = $this->src( 'assets/js/area.js' );
-		$this->assertStringContainsString( "profile.rol_familia === 'secundario'", $js );
-		$this->assertStringContainsString( '!root._anpaP2SoLectura', $js );
+		$this->assertStringNotContainsString( '$e_principal', $a, '1.103.0: both adults may correct each other' );
+		$this->assertStringContainsString( 'ANPA_Socios_Cambio_Email::cambios( $p2_antes, $p2_despois )', $a );
+		$this->assertStringContainsString( 'ANPA_Socios_Email::enviar_aviso_datos_modificados(', $a );
+		$this->assertStringContainsString( "'' !== \$email_antes ? \$email_antes : \$email_agora", $a, 'a changed login address is told at the OLD address' );
+		$this->assertStringNotContainsString( '_anpaP2SoLectura', $this->src( 'assets/js/area.js' ) );
+		$e = $this->src( 'includes/class-anpa-socios-email.php' );
+		$this->assertStringContainsString( 'Se é un erro, ponte en contacto canto antes coa administración da ANPA en %s.', $e );
+	}
+
+	public function test_changes_between_parents_are_listed_with_the_nif_masked(): void {
+		$antes   = array( 'nome' => 'Ana', 'apelidos' => 'Souto Rei', 'nif' => '12345678Z', 'telefono' => '600111222', 'email' => 'Ana@Example.com' );
+		$despois = array( 'nome' => 'Ana', 'apelidos' => 'Souto Rey', 'nif' => '87654321X', 'telefono' => '600111222', 'email' => 'ana@example.com' );
+		$c = ANPA_Socios_Cambio_Email::cambios( $antes, $despois );
+		$this->assertCount( 2, $c, 'same email in another case is not a change' );
+		$this->assertSame( array( 'campo' => 'Apelidos', 'antes' => 'Souto Rei', 'despois' => 'Souto Rey' ), $c[0] );
+		$this->assertSame( array( 'campo' => 'NIF/NIE', 'antes' => '*****678Z', 'despois' => '*****321X' ), $c[1] );
+		$this->assertSame( array(), ANPA_Socios_Cambio_Email::cambios( $antes, $antes ) );
+		$despois['email'] = 'outra@example.com';
+		$c = ANPA_Socios_Cambio_Email::cambios( $antes, $despois );
+		$this->assertSame( 'Correo electrónico', $c[2]['campo'] );
+		$this->assertSame( '', ANPA_Socios_Cambio_Email::nif_oculto( '' ) );
 	}
 
 	public function test_code_guesses_are_counted_atomically_and_capped_per_address(): void {

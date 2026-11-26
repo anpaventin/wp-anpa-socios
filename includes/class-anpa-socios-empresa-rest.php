@@ -36,6 +36,9 @@ class ANPA_Socios_Empresa_REST {
 	 * @return void
 	 */
 	public static function register_routes(): void {
+		// 1.103.0: token-authenticated JSON must not be stored by caches.
+		add_filter( 'rest_post_dispatch', array( __CLASS__, 'engadir_no_store' ), 10, 3 );
+
 		register_rest_route(
 			self::REST_NAMESPACE,
 			'/empresa/solicitar-codigo',
@@ -112,6 +115,49 @@ class ANPA_Socios_Empresa_REST {
 				'permission_callback' => array( __CLASS__, 'permission_empresa' ),
 			)
 		);
+	}
+
+	/**
+	 * Whether a REST route belongs to the plugin's namespaces, whose
+	 * responses carry personal data for sessions WordPress does not know.
+	 *
+	 * @since  1.103.0
+	 * @param  string $route Request route, e.g. '/anpa-socios/v1/area/me'.
+	 * @return bool
+	 */
+	public static function ruta_sen_cache( string $route ): bool {
+		foreach ( array( '/anpa-socios/v1', '/anpa/v1' ) as $ns ) {
+			if ( $route === $ns || 0 === strpos( $route, $ns . '/' ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * rest_post_dispatch: adds `Cache-Control: no-store, private` to the
+	 * plugin's responses unless they already set Cache-Control.
+	 *
+	 * @since  1.103.0
+	 * @param  mixed           $response Response.
+	 * @param  WP_REST_Server  $server   Server.
+	 * @param  WP_REST_Request $request  Request.
+	 * @return mixed
+	 */
+	public static function engadir_no_store( $response, $server, $request ) {
+		if ( ! $response instanceof WP_HTTP_Response || ! $request instanceof WP_REST_Request ) {
+			return $response;
+		}
+		if ( ! self::ruta_sen_cache( (string) $request->get_route() ) ) {
+			return $response;
+		}
+		foreach ( array_keys( $response->get_headers() ) as $name ) {
+			if ( 0 === strcasecmp( (string) $name, 'Cache-Control' ) ) {
+				return $response;
+			}
+		}
+		$response->header( 'Cache-Control', 'no-store, private' );
+		return $response;
 	}
 
 	// ──────────────────────────────────────────────

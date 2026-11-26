@@ -91,6 +91,8 @@ final class ANPA_Socios_Auditoria {
 		'retencion_purga'            => 'Borrado automático por prazo de conservación',
 		'email_cambiado'             => 'Correo do socio/a cambiado',
 		'frase_cambiada'             => 'Frase da clave bancaria cambiada',
+		'copia_descargada'           => 'Copia de seguridade descargada',
+		'copia_recuperada'           => 'Copia de seguridade recuperada',
 		'frase_cambio_denegado'      => 'Cambio da frase bancaria denegado (frase actual incorrecta)',
 		'email_substituido'          => 'Correo substituído por outro',
 		'baixa_confirm_familia'      => 'Baixa confirmada (resto da familia)',

@@ -2,10 +2,13 @@
 
 ## Supported Versions
 
-| Version | Supported          |
-|---------|--------------------|
-| 1.49.x  | ✅ Yes             |
-| < 1.49  | ❌ No              |
+Only the latest stable release receives security fixes. Update to it before
+reporting a problem.
+
+| Version                | Supported |
+|------------------------|-----------|
+| Latest stable release  | ✅ Yes    |
+| Older releases, betas  | ❌ No     |
 
 ## Reporting a Vulnerability
 
@@ -43,8 +46,8 @@ We aim to acknowledge reports within 48 hours and provide a fix or mitigation wi
 
 ### Data Protection
 
-- **PII at rest:** Encrypted with `sodium_crypto_secretbox` (XSalsa20-Poly1305 AEAD)
-- **Banking data (IBAN/NIF):** Encrypted with libsodium, external key management
+- **Banking data at rest:** Only the IBAN and the account holder's NIF are encrypted, as libsodium sealed boxes (`sodium_crypto_box_seal`). The secret key is stored wrapped with `sodium_crypto_secretbox` under a key derived with Argon2id from the banking passphrase, which is never stored.
+- **Other personal data:** Names, emails, phone numbers, addresses, children's data, enrolments and the audit log are stored in clear in the WordPress database; protect the database and its backups accordingly. Backups made from the plugin (`.anpabak`) are encrypted.
 - **Sessions:** HMAC-SHA256, User-Agent binding, TTL, atomic increment, secure destruction on failure
 - **Logs:** No emails, codes, or PII written to error logs
 

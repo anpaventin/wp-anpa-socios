@@ -199,19 +199,8 @@
 		// Second parent inline display/edit.
 		var p2 = profile.segundo_proxenitor || null;
 		var p2Section = root.querySelector('[data-p2-inline]');
-		// 1.102.0: only the first parent edits the other adult of the family.
-		var p2SoLectura = profile.rol_familia === 'secundario';
-		root._anpaP2SoLectura = p2SoLectura;
-		if (p2Section) {
-			['anpa-area-p2-nome','anpa-area-p2-apelidos','anpa-area-p2-email','anpa-area-p2-nif','anpa-area-p2-telefono'].forEach(function(id) {
-				var campo = root.querySelector('#' + id);
-				if (campo) { campo.disabled = p2SoLectura; }
-			});
-			var p2Aviso = p2Section.querySelector('[data-p2-readonly]');
-			if (p2Aviso) { p2Aviso.hidden = !p2SoLectura; }
-			var p2Gardar = p2Section.querySelector('[data-action="proxenitor2-save"]');
-			if (p2Gardar) { p2Gardar.hidden = p2SoLectura; }
-		}
+		// 1.103.0: both adults of the family may correct each other's data (the
+		// other one is emailed the changes).
 		if (p2Section) {
 			if (p2) {
 				p2Section.hidden = false;
@@ -517,6 +506,9 @@
 		function renderCifras() {
 			var section = root.querySelector('[data-panel-cifras-section]');
 			var host = root.querySelector('[data-panel-cifras]');
+			// Occupancy per group has its own card, shown before «A ANPA en cifras».
+			var ocSection = root.querySelector('[data-panel-ocupacion-section]');
+			var ocHost = root.querySelector('[data-panel-ocupacion]');
 			if (!section || !host || !root.dataset.cifrasUrl || !areaToken) {
 				return;
 			}
@@ -547,11 +539,13 @@
 			fetch(root.dataset.cifrasUrl, { method: 'GET', headers: { 'X-Anpa-Area-Token': areaToken } })
 				.then(function (r) { return r.ok ? r.json() : null; })
 				.then(function (data) {
+					if (ocSection) { ocSection.hidden = true; }
 					if (!data || !Array.isArray(data.cifras)) {
 						section.hidden = true;
 						return;
 					}
 					host.textContent = '';
+					if (ocHost) { ocHost.textContent = ''; }
 					if (data.curso) {
 						host.appendChild(el('p', 'anpa-cifras-curso', sprintf( __( 'Curso %s', 'anpa-socios' ), data.curso )));
 					}
@@ -666,11 +660,19 @@
 						});
 						oc.appendChild(list);
 						oc.appendChild(el('p', 'anpa-cifras-nota', __( 'A marca vertical da barra é o mínimo de inscricións para formar o grupo.', 'anpa-socios' )));
-						host.appendChild(oc);
+						if (ocSection && ocHost) {
+							ocHost.appendChild(oc);
+							ocSection.hidden = false;
+						} else {
+							host.appendChild(oc);
+						}
 					}
 					section.hidden = false;
 				})
-				.catch(function () { section.hidden = true; });
+				.catch(function () {
+					section.hidden = true;
+					if (ocSection) { ocSection.hidden = true; }
+				});
 		}
 
 		function navigateArea(step) {
@@ -895,7 +897,7 @@
 
 			// Include 2nd parent if the inline section is visible and has data.
 			var p2Section = root.querySelector('[data-p2-inline]');
-			if (p2Section && !p2Section.hidden && !root._anpaP2SoLectura) {
+			if (p2Section && !p2Section.hidden) {
 				var p2Nome = (root.querySelector('#anpa-area-p2-nome') || {}).value || '';
 				var p2Apelidos = (root.querySelector('#anpa-area-p2-apelidos') || {}).value || '';
 				var p2Email = (root.querySelector('#anpa-area-p2-email') || {}).value || '';
@@ -2040,7 +2042,8 @@
 			const web = root.querySelector('[data-empresa-web]');
 			if (web) {
 				web.textContent = '';
-				if (profile.url_web) {
+				if (profile.url_web && /^https?:\/\//i.test(profile.url_web)) {
+					// 1.103.0: only http(s) values become a link.
 					const a = document.createElement('a'); a.href = profile.url_web; a.target = '_blank'; a.rel = 'noopener'; a.textContent = profile.url_web; web.appendChild(a);
 				} else { web.textContent = '—'; }
 			}

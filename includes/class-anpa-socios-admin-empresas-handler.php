@@ -227,6 +227,7 @@ final class ANPA_Socios_Admin_Empresas_Handler {
 			'email_required'       => __( 'O email é obrigatorio.', 'anpa-socios' ),
 			'email_invalid'        => __( 'O email non é válido.', 'anpa-socios' ),
 			'estado_invalid'       => __( 'O estado da empresa non é válido.', 'anpa-socios' ),
+			'url_web_invalid'      => __( 'A web debe comezar por http:// ou https://.', 'anpa-socios' ),
 		);
 
 		return new WP_Error( 'anpa_admin_' . $issue, $messages[ $issue ] ?? __( 'Revisa os datos da empresa.', 'anpa-socios' ), array( 'status' => 400 ) );

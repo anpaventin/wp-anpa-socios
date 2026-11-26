@@ -116,7 +116,9 @@ final class ANPA_Socios_Admin_Eliminar_Handler {
 			return self::family_confirmation_error( $context['summary'] );
 		}
 
-		if ( ! self::delete_family_context( $context ) ) {
+		// 1.103.0: like the retention cron, the deleted emails also leave the
+		// earlier audit rows (same transaction).
+		if ( ! self::delete_family_context( $context ) || ! ANPA_Socios_Retencion_Service::anonimizar( $context['emails'] ) ) {
 			$wpdb->query( 'ROLLBACK' );
 			return new WP_Error( 'anpa_admin_db_error', __( 'Erro interno', 'anpa-socios' ), array( 'status' => 500 ) );
 		}

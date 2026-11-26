@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.103.0] - 2026-11-26
+
+### Changed
+
+- **Datos do outro proxenitor/titor.** Os dous adultos dunha familia poden corrixirse os datos entre si na área
+  (na 1.102.0 só podía o primeiro). Quen ve cambiados os seus datos recibe un correo coa lista de cambios e o nome
+  de quen os fixo. Se o que cambia é o correo de acceso, o aviso vai ao enderezo antigo e indica que, se é un erro,
+  hai que poñerse en contacto coa administración da ANPA.
+- **Panel de inicio da área.** «Ocupación das actividades por grupo» é unha tarxeta propia e sae antes de «A ANPA
+  en cifras».
+
+### Security
+
+- As páxinas da área envían cabeceiras que impiden cargalas dentro doutra web e limitan o que se comparte ao saír
+  dela. As respostas con datos da área e do panel de empresas non se gardan en ningunha caché.
+- **Web das empresas.** Só se aceptan enderezos que comecen por `http://` ou `https://`; en Xestión hai que
+  escribila completa.
+- **Modelos de correo.** Un `%` solto nun modelo editado xa non impide enviar o correo (nin os códigos de acceso):
+  úsase o texto orixinal dese modelo.
+- **Eliminar definitivamente.** O borrado manual dunha familia tamén retira os seus correos das entradas anteriores
+  da Auditoría, como xa facía o borrado automático.
+- **Auditoría.** Quedan rexistradas a descarga e a recuperación de copias de seguridade.
+
 ## [1.102.0] - 2026-11-26
 
 ### Security

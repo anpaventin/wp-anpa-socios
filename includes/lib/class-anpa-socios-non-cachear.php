@@ -37,6 +37,17 @@ final class ANPA_Socios_Non_Cachear {
 	);
 
 	/**
+	 * Security headers sent with the no-cache headers on live pages.
+	 *
+	 * @since 1.103.0
+	 */
+	const SECURITY_HEADERS = array(
+		'X-Frame-Options'        => 'SAMEORIGIN',
+		'X-Content-Type-Options' => 'nosniff',
+		'Referrer-Policy'        => 'strict-origin-when-cross-origin',
+	);
+
+	/**
 	 * Registers the early check.
 	 *
 	 * @since  1.96.1
@@ -77,6 +88,10 @@ final class ANPA_Socios_Non_Cachear {
 			self::marcar();
 			if ( ! headers_sent() ) {
 				nocache_headers();
+				// 1.103.0: no framing, no MIME sniffing, no full URL in Referer.
+				foreach ( self::SECURITY_HEADERS as $name => $value ) {
+					header( $name . ': ' . $value );
+				}
 			}
 		}
 	}

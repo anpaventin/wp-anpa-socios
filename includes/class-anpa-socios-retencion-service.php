@@ -240,10 +240,12 @@ final class ANPA_Socios_Retencion_Service {
 	/**
 	 * Replaces deleted members' emails in the audit log.
 	 *
+	 * 1.103.0: public, also used by the manual «Eliminar definitivamente».
+	 *
 	 * @param  array<int,string> $emails Emails.
 	 * @return bool
 	 */
-	private static function anonimizar( array $emails ): bool {
+	public static function anonimizar( array $emails ): bool {
 		global $wpdb;
 		$emails = array_values( array_filter( array_map( static function ( $e ) { return strtolower( trim( (string) $e ) ); }, $emails ) ) );
 		if ( array() === $emails ) {

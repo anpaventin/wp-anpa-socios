@@ -724,6 +724,10 @@
 #anpa-area .anpa-area-panel-cifras .anpa-cifras {
 	margin: 0;
 }
+/* Occupancy card before «A ANPA en cifras»: its title opens the card. */
+#anpa-area .anpa-area-panel-ocupacion .anpa-cifras-seccion:first-child {
+	margin-top: 0;
+}
 #anpa-area .anpa-area-panel-shortcuts {
 	display: flex;
 	flex-wrap: wrap;

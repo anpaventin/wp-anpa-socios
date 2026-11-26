@@ -2538,6 +2538,8 @@ final class ANPA_Socios_Admin_Settings {
 
 		nocache_headers();
 		$fname = 'anpa-copia-' . gmdate( 'Y-m-d-His' ) . '.anpabak';
+		// 1.103.0: the full copy of the data leaves the site; keep a record.
+		ANPA_Socios_Admin_Shared::write_audit_actor( $actor, 'admin', 'copia', $fname, 'copia_descargada' );
 		header( 'Content-Type: application/octet-stream' );
 		header( 'Content-Disposition: attachment; filename="' . $fname . '"' );
 		header( 'Content-Length: ' . strlen( (string) $blob ) );
@@ -2578,6 +2580,8 @@ final class ANPA_Socios_Admin_Settings {
 			self::redirect_msg( 'restore_err' );
 		}
 		ANPA_Socios_Banking_Key::passphrase_succeeded( $actor );
+		// 1.103.0: written after the restore, so it lands in the restored log.
+		ANPA_Socios_Admin_Shared::write_audit_actor( $actor, 'admin', 'copia', 'anpabak', 'copia_recuperada' );
 		self::redirect_msg( 'restored' );
 	}
 

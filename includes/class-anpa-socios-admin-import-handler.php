@@ -710,7 +710,8 @@ final class ANPA_Socios_Admin_Import_Handler {
 				'email'       => $email,
 				'responsable' => $row['responsable'] ?? '',
 				'telefono'    => $row['telefono'] ?? '',
-				'url_web'     => $row['url_web'] ?? '',
+				// 1.103.0: only http(s) websites are kept.
+				'url_web'     => esc_url_raw( (string) ( $row['url_web'] ?? '' ), array( 'http', 'https' ) ),
 				'estado'      => in_array( $row['estado'] ?? '', array( 'activo', 'inactivo' ), true ) ? $row['estado'] : 'activo',
 			), array( '%s', '%s', '%s', '%s', '%s', '%s' ) );
 

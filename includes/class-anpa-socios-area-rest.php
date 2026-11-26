@@ -1048,24 +1048,33 @@ class ANPA_Socios_Area_REST {
 		}
 
 		// ── Segundo proxenitor (optional) ──────────────────────────────
-		// 1.102.0: only the first parent edits the other adult of the family. A
-		// second parent's form still carries those fields; they are ignored, so
-		// nobody can rewrite the first parent's name, NIF or login address.
-		$p2_input    = $request->get_param( 'segundo_proxenitor' );
-		$e_principal = 'secundario' !== (string) ( $profile['rol_familia'] ?? '' );
-		if ( $e_principal && is_array( $p2_input ) && ! empty( array_filter( $p2_input ) ) ) {
-			$p2_antes       = self::resolve_segundo_proxenitor( $profile );
-			$p2_email_antes = is_array( $p2_antes ) ? strtolower( trim( (string) ( $p2_antes['email'] ?? '' ) ) ) : '';
-			$p2_result      = self::save_segundo_proxenitor( $fam['familia_id'], (int) $fam['id'], $p2_input );
+		// 1.103.0 (junta decision): both adults of a family may correct each
+		// other's data. Whatever one changes is emailed to the other; when the
+		// login address is what changed, the notice goes to the OLD address and
+		// tells them to contact the association if it is a mistake.
+		$p2_input = $request->get_param( 'segundo_proxenitor' );
+		if ( is_array( $p2_input ) && ! empty( array_filter( $p2_input ) ) ) {
+			$p2_antes  = self::resolve_segundo_proxenitor( $profile );
+			$p2_result = self::save_segundo_proxenitor( $fam['familia_id'], (int) $fam['id'], $p2_input );
 			if ( is_wp_error( $p2_result ) ) {
 				return $p2_result;
 			}
-			// The second parent's old address is told when the first parent replaces it.
-			$p2_email_novo = (string) ANPA_Socios_Normalize::email( (string) ( $p2_input['email'] ?? '' ) );
-			if ( '' !== $p2_email_antes && '' !== $p2_email_novo && $p2_email_novo !== $p2_email_antes ) {
-				$actor = strtolower( (string) ( isset( $update_data['email'] ) ? $update_data['email'] : $profile['email'] ) );
-				ANPA_Socios_Admin_Shared::write_audit_actor( $actor, 'socio', 'socio', $p2_email_novo, 'email_cambiado' );
-				ANPA_Socios_Email::enviar_aviso_cambio_correo( $p2_email_antes, $p2_email_novo );
+			$p2_despois = self::resolve_segundo_proxenitor( $profile );
+			$cambios    = is_array( $p2_antes ) && is_array( $p2_despois ) ? ANPA_Socios_Cambio_Email::cambios( $p2_antes, $p2_despois ) : array();
+			if ( array() !== $cambios ) {
+				$actor       = strtolower( (string) ( isset( $update_data['email'] ) ? $update_data['email'] : $profile['email'] ) );
+				$email_antes = strtolower( trim( (string) ( $p2_antes['email'] ?? '' ) ) );
+				$email_agora = strtolower( trim( (string) ( $p2_despois['email'] ?? '' ) ) );
+				$cambia_mail = '' !== $email_antes && $email_agora !== $email_antes;
+				if ( $cambia_mail ) {
+					ANPA_Socios_Admin_Shared::write_audit_actor( $actor, 'socio', 'socio', $email_agora, 'email_cambiado' );
+				}
+				ANPA_Socios_Email::enviar_aviso_datos_modificados(
+					'' !== $email_antes ? $email_antes : $email_agora,
+					trim( $nome . ' ' . $apelidos ),
+					$cambios,
+					$cambia_mail
+				);
 			}
 		}
 

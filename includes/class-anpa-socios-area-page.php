@@ -177,6 +177,10 @@ class ANPA_Socios_Area_Page {
 						<button type="button" data-nav="extraescolares"><?php esc_html_e( 'Nova matrícula', 'anpa-socios' ); ?></button>
 					</div>
 				</section>
+				<!-- Occupancy per group goes before «A ANPA en cifras» (filled by renderCifras). -->
+				<section class="anpa-area-panel-cifras anpa-area-panel-ocupacion" data-panel-ocupacion-section hidden>
+					<div class="anpa-cifras" data-panel-ocupacion></div>
+				</section>
 				<section class="anpa-area-panel-cifras" data-panel-cifras-section hidden>
 					<h3><?php esc_html_e( 'A ANPA en cifras', 'anpa-socios' ); ?></h3>
 					<div class="anpa-cifras" data-panel-cifras></div>
@@ -219,7 +223,7 @@ class ANPA_Socios_Area_Page {
 				<!-- ── Segundo proxenitor / inline edit (fase 20) ── -->
 				<div class="anpa-area-p2-inline" data-p2-inline hidden>
 					<h3><?php esc_html_e( 'Segundo proxenitor / titor', 'anpa-socios' ); ?></h3>
-					<p class="anpa-area-muted" data-p2-readonly hidden><?php esc_html_e( 'Estes datos só os pode cambiar o primeiro proxenitor/titor da familia, ou a ANPA.', 'anpa-socios' ); ?></p>
+					<p class="anpa-area-muted"><?php esc_html_e( 'Se cambias estes datos, o outro proxenitor/titor recibirá un correo cos cambios feitos.', 'anpa-socios' ); ?></p>
 					<p class="anpa-area-muted"><?php esc_html_e( 'Datos do outro proxenitor/titor da unidade familiar. O email é opcional; o NIF é obrigatorio.', 'anpa-socios' ); ?></p>
 					<label for="anpa-area-p2-nome"><?php esc_html_e( 'Nome', 'anpa-socios' ); ?></label>
 					<input id="anpa-area-p2-nome" type="text" autocomplete="off">

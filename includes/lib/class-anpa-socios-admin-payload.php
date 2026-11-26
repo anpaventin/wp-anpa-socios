@@ -362,8 +362,31 @@ final class ANPA_Socios_Admin_Payload {
 		if ( isset( $input['estado'] ) && ! in_array( (string) $input['estado'], self::EMPRESA_ESTADO, true ) ) {
 			return 'estado_invalid';
 		}
+		if ( ! self::url_web_valida( $input['url_web'] ?? null ) ) {
+			return 'url_web_invalid';
+		}
 
 		return null;
+	}
+
+	/**
+	 * Whether a company website is empty or an http(s) URL. Any other
+	 * scheme (javascript:, data:…) is rejected, since the value becomes a
+	 * link href in the company panel.
+	 *
+	 * @since  1.103.0
+	 * @param  mixed $value Raw value.
+	 * @return bool
+	 */
+	public static function url_web_valida( $value ): bool {
+		if ( null === $value ) {
+			return true;
+		}
+		if ( ! is_scalar( $value ) ) {
+			return false;
+		}
+		$value = trim( (string) $value );
+		return '' === $value || 1 === preg_match( '#^https?://[^\s]+$#i', $value );
 	}
 
 	/**
@@ -388,6 +411,10 @@ final class ANPA_Socios_Admin_Payload {
 		}
 
 		if ( null === $nome || null === $responsable || null === $telefono || null === $email ) {
+			return null;
+		}
+		// 1.103.0: only http(s) websites.
+		if ( null !== $url_web && ! self::url_web_valida( $url_web ) ) {
 			return null;
 		}
 		if ( '' === $email ) {

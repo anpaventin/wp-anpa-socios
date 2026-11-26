@@ -115,6 +115,23 @@ final class Test_ANPA_Socios_Cifras extends TestCase {
 		$this->assertFileExists( dirname( __DIR__ ) . '/assets/css/cifras.css' );
 	}
 
+	public function test_panel_shows_occupancy_before_cifras(): void {
+		// The occupancy per group has its own card, placed before «A ANPA en cifras».
+		$area = $this->src( 'includes/class-anpa-socios-area-page.php' );
+		$oc   = strpos( $area, 'data-panel-ocupacion-section hidden' );
+		$cif  = strpos( $area, 'data-panel-cifras-section hidden' );
+		$this->assertNotFalse( $oc );
+		$this->assertNotFalse( $cif );
+		$this->assertLessThan( $cif, $oc );
+
+		$js = $this->src( 'assets/js/area.js' );
+		$this->assertStringContainsString( "root.querySelector('[data-panel-ocupacion]')", $js );
+		$this->assertStringContainsString( 'ocHost.appendChild(oc);', $js );
+
+		$css = $this->src( 'assets/css/area.css' );
+		$this->assertStringContainsString( '.anpa-area-panel-ocupacion .anpa-cifras-seccion:first-child', $css );
+	}
+
 	public function test_tiles_override_theme_list_padding_and_keep_icons(): void {
 		$css = $this->src( 'assets/css/cifras.css' );
 		// 1.96.2: theme rules give every content <li> a left padding and a dot; the tiles neutralise both.

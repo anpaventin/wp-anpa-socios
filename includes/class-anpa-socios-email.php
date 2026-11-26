@@ -193,9 +193,53 @@ class ANPA_Socios_Email {
 			/* translators: 1: old email, 2: new email */
 			. '<p>' . esc_html( sprintf( __( 'O correo de acceso á área de socios cambiouse de %1$s a %2$s. A partir de agora só se pode entrar co novo enderezo.', 'anpa-socios' ), $vello, $novo ) ) . '</p>'
 			/* translators: %s: contact email */
-			. '<p>' . esc_html( sprintf( __( 'Se non fixeches ti este cambio, escribe canto antes a %s.', 'anpa-socios' ), ANPA_Socios_Config::contact_email() ) ) . '</p>';
+			. '<p>' . esc_html( sprintf( __( 'Se é un erro, ponte en contacto canto antes coa administración da ANPA en %s.', 'anpa-socios' ), ANPA_Socios_Config::contact_email() ) ) . '</p>';
 		try {
 			return self::send_from_master( $vello, $asunto, $html );
+		} catch ( \Throwable $e ) {
+			return false;
+		}
+	}
+
+	/**
+	 * 1.103.0: one parent changed the other parent's data in the area. The
+	 * other one gets the list of changes; when the login address changed, the
+	 * message goes to the OLD address and says how to report a mistake.
+	 * Best-effort: never throws.
+	 *
+	 * @since  1.103.0
+	 * @param  string                                                         $destino     Address of the parent whose data changed (the old one if it changed).
+	 * @param  string                                                         $autor       Full name of the parent who made the change.
+	 * @param  array<int,array{campo:string,antes:string,despois:string}> $cambios     ANPA_Socios_Cambio_Email::cambios().
+	 * @param  bool                                                           $cambia_mail The login address is one of the changes.
+	 * @return bool
+	 */
+	public static function enviar_aviso_datos_modificados( string $destino, string $autor, array $cambios, bool $cambia_mail ): bool {
+		$destino = trim( $destino );
+		if ( '' === $destino || false === filter_var( $destino, FILTER_VALIDATE_EMAIL ) || array() === $cambios ) {
+			return false;
+		}
+		/* translators: %s: association name */
+		$asunto = sprintf( __( 'Cambiáronse os teus datos na área de socios — %s', 'anpa-socios' ), ANPA_Socios_Config::association_name() );
+		$filas  = '';
+		foreach ( $cambios as $c ) {
+			$baleiro = __( '(baleiro)', 'anpa-socios' );
+			$filas  .= '<li><strong>' . esc_html( (string) $c['campo'] ) . ':</strong> '
+				. esc_html( '' !== (string) $c['antes'] ? (string) $c['antes'] : $baleiro )
+				. ' → '
+				. esc_html( '' !== (string) $c['despois'] ? (string) $c['despois'] : $baleiro ) . '</li>';
+		}
+		$html = '<h2>' . esc_html__( 'Cambios nos teus datos', 'anpa-socios' ) . '</h2>'
+			/* translators: %s: full name of the other parent */
+			. '<p>' . esc_html( sprintf( __( '%s, o outro proxenitor/titor da túa familia, modificou os teus datos na área de socios:', 'anpa-socios' ), '' !== trim( $autor ) ? $autor : __( 'Outra persoa', 'anpa-socios' ) ) ) . '</p>'
+			. '<ul>' . $filas . '</ul>';
+		if ( $cambia_mail ) {
+			$html .= '<p><strong>' . esc_html__( 'O correo de acceso cambiou: a partir de agora só se pode entrar na área co novo enderezo, e este xa non recibirá os avisos da ANPA.', 'anpa-socios' ) . '</strong></p>';
+		}
+		/* translators: %s: contact email */
+		$html .= '<p>' . esc_html( sprintf( __( 'Se é un erro, ponte en contacto canto antes coa administración da ANPA en %s.', 'anpa-socios' ), ANPA_Socios_Config::contact_email() ) ) . '</p>';
+		try {
+			return self::send_from_master( $destino, $asunto, $html );
 		} catch ( \Throwable $e ) {
 			return false;
 		}

@@ -140,6 +140,47 @@ final class ANPA_Socios_Cambio_Email {
 	}
 
 	/**
+	 * 1.103.0: what one parent changed in the other's data, for the email the
+	 * other one receives. Pure. The NIF is shown masked (last four characters).
+	 *
+	 * @param  array<string,mixed> $antes   Row before (nome, apelidos, email, nif, telefono).
+	 * @param  array<string,mixed> $despois Row after.
+	 * @return array<int,array{campo:string,antes:string,despois:string}>
+	 */
+	public static function cambios( array $antes, array $despois ): array {
+		$campos = array(
+			'nome'     => 'Nome',
+			'apelidos' => 'Apelidos',
+			'nif'      => 'NIF/NIE',
+			'telefono' => 'Teléfono',
+			'email'    => 'Correo electrónico',
+		);
+		$lista  = array();
+		foreach ( $campos as $chave => $etiqueta ) {
+			$a = trim( (string) ( $antes[ $chave ] ?? '' ) );
+			$d = trim( (string) ( $despois[ $chave ] ?? '' ) );
+			if ( 'email' === $chave ? strtolower( $a ) === strtolower( $d ) : $a === $d ) {
+				continue;
+			}
+			if ( 'nif' === $chave ) {
+				$a = self::nif_oculto( $a );
+				$d = self::nif_oculto( $d );
+			}
+			$lista[] = array( 'campo' => $etiqueta, 'antes' => $a, 'despois' => $d );
+		}
+		return $lista;
+	}
+
+	/**
+	 * @param  string $nif NIF/NIE.
+	 * @return string Only the last four characters visible ('' stays '').
+	 */
+	public static function nif_oculto( string $nif ): string {
+		$n = strlen( $nif );
+		return $n <= 4 ? $nif : str_repeat( '*', $n - 4 ) . substr( $nif, -4 );
+	}
+
+	/**
 	 * After the socio row got its new email: the children it added follow it,
 	 * and the sessions and login codes of the old address are removed (whoever
 	 * uses the new address signs in again with a code sent to it).
