@@ -1,0 +1,951 @@
+/* ANPA Socios - Collaborators network (1.104.0).
+ *
+ * Public list of shops and offers ([anpa_colaboradores]), the shop's panel
+ * and guided form (colab-portal.js), the card check page
+ * (colab-verificar.js) and the member card (.anpa-carne, member area).
+ *
+ * Everything is scoped under the module roots so nothing leaks into the
+ * theme. Colour values match area.css (plugin-owned, AA on white).
+ *
+ * @since  1.104.0
+ * @package ANPA_Socios
+ */
+
+/* ── Tokens ──────────────────────────────────────────────────────── */
+.anpa-colab-app,
+.anpa-colab-lista,
+.anpa-colab-baleiro,
+.anpa-colab-nota,
+.anpa-carne {
+	--anpa-font: var(--theme-font-family, inherit);
+	--anpa-border: #d9d9d9;
+	--anpa-radius: 10px;
+	--anpa-surface: #ffffff;
+	--anpa-surface-muted: #eef7f2;
+	--anpa-text: #1f1f1f;
+	--anpa-text-muted: #4d4d4d;
+	--anpa-accent: #2d6a4f;
+	--anpa-accent-hover: #1f513b;
+	--anpa-on-accent: #ffffff;
+	--anpa-secondary-text: #1f513b;
+	--anpa-secondary-border: #9cc6b4;
+	--anpa-secondary-hover-bg: #eef7f2;
+	--anpa-danger: #b42318;
+	--anpa-danger-hover: #7a271a;
+	--anpa-focus-ring: #1a4b8b;
+	--anpa-ok-bg: #e7f4ec;
+	--anpa-ok-text: #1f513b;
+	--anpa-error-bg: #fff1f0;
+	--anpa-error-text: #7a271a;
+	--anpa-warning-bg: #fffbeb;
+	--anpa-warning-text: #7c2d12;
+	--anpa-warning-border: #d97706;
+	--anpa-info-bg: #e6f0fb;
+	--anpa-info-text: #163d70;
+	--anpa-muted-bg: #f2f2f2;
+	--anpa-muted-border: #8a8a8a;
+	--anpa-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+	font-family: var(--anpa-font);
+}
+
+.anpa-colab-app [hidden],
+.anpa-colab-app[hidden] {
+	display: none !important;
+}
+
+/* ── Public list ─────────────────────────────────────────────────── */
+.anpa-colab-lista {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+	gap: 1.25rem;
+	margin: 1.5rem 0;
+	padding: 0;
+}
+
+.anpa-colab-lista .anpa-colab-comercio {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	margin: 0;
+	padding: 1.25rem;
+	background: var(--anpa-surface);
+	color: var(--anpa-text);
+	border: 1px solid var(--anpa-border);
+	border-top: 4px solid var(--anpa-accent);
+	border-radius: var(--anpa-radius);
+	box-shadow: var(--anpa-shadow);
+}
+
+.anpa-colab-lista .anpa-colab-comercio header {
+	margin: 0;
+	padding: 0;
+}
+
+.anpa-colab-lista .anpa-colab-comercio h3 {
+	margin: 0 0 0.35rem;
+	font-size: 1.2rem;
+	line-height: 1.3;
+	color: var(--anpa-text);
+}
+
+.anpa-colab-lista .anpa-colab-datos {
+	margin: 0 0 0.35rem;
+	font-size: 0.92rem;
+	color: var(--anpa-text-muted);
+	overflow-wrap: anywhere;
+}
+
+.anpa-colab-lista .anpa-colab-datos a {
+	color: var(--anpa-accent);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.anpa-colab-lista .anpa-colab-datos a:hover {
+	color: var(--anpa-accent-hover);
+}
+
+.anpa-colab-lista .anpa-colab-descricion {
+	margin: 0;
+	font-size: 0.95rem;
+	color: var(--anpa-text-muted);
+}
+
+/* Lists: the theme adds bullets and padding to `.entry-content ul li`. */
+.anpa-colab-lista .anpa-colab-ofertas,
+.anpa-colab-app .anpa-colab-ofertas,
+.anpa-colab-app .anpa-colab-panel-ofertas,
+.anpa-colab-app .anpa-colab-pasos {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.anpa-colab-lista .anpa-colab-ofertas > li,
+.anpa-colab-app .anpa-colab-ofertas > li,
+.anpa-colab-app .anpa-colab-panel-ofertas > li,
+.anpa-colab-app .anpa-colab-pasos > li {
+	list-style: none;
+	margin-left: 0;
+	padding-left: 0;
+	background-image: none;
+}
+
+.anpa-colab-lista .anpa-colab-ofertas > li::before,
+.anpa-colab-lista .anpa-colab-ofertas > li::marker,
+.anpa-colab-app .anpa-colab-ofertas > li::before,
+.anpa-colab-app .anpa-colab-ofertas > li::marker,
+.anpa-colab-app .anpa-colab-panel-ofertas > li::before,
+.anpa-colab-app .anpa-colab-panel-ofertas > li::marker,
+.anpa-colab-app .anpa-colab-pasos > li::before,
+.anpa-colab-app .anpa-colab-pasos > li::marker {
+	content: none;
+	display: none;
+}
+
+.anpa-colab-lista .anpa-colab-ofertas,
+.anpa-colab-app .anpa-colab-ofertas {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.anpa-colab-lista .anpa-colab-oferta,
+.anpa-colab-app .anpa-colab-oferta {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0.35rem;
+	margin: 0;
+	padding: 0.85rem 0 0;
+	border-top: 1px solid var(--anpa-border);
+	color: var(--anpa-text);
+}
+
+.anpa-colab-app .anpa-colab-oferta {
+	padding: 0;
+	border-top: 0;
+}
+
+.anpa-colab-lista .anpa-colab-oferta p,
+.anpa-colab-app .anpa-colab-oferta p {
+	margin: 0;
+	white-space: pre-line;
+	overflow-wrap: anywhere;
+}
+
+.anpa-colab-lista .anpa-colab-desconto,
+.anpa-colab-app .anpa-colab-desconto {
+	display: inline-block;
+	max-width: 100%;
+	padding: 0.2rem 0.7rem;
+	border-radius: 999px;
+	background: var(--anpa-accent);
+	color: var(--anpa-on-accent);
+	font-weight: 700;
+	font-size: 0.95rem;
+	line-height: 1.4;
+	overflow-wrap: anywhere;
+}
+
+.anpa-colab-lista .anpa-colab-titulo,
+.anpa-colab-app .anpa-colab-titulo {
+	display: block;
+	font-size: 1.05rem;
+	line-height: 1.35;
+	overflow-wrap: anywhere;
+}
+
+.anpa-colab-lista .anpa-colab-condicions,
+.anpa-colab-app .anpa-colab-condicions {
+	font-size: 0.9rem;
+	color: var(--anpa-text-muted);
+}
+
+.anpa-colab-lista .anpa-colab-vixencia,
+.anpa-colab-app .anpa-colab-vixencia {
+	font-size: 0.88rem;
+	font-weight: 600;
+	color: var(--anpa-secondary-text);
+}
+
+.anpa-colab-baleiro,
+.anpa-colab-nota {
+	margin: 1rem 0;
+	padding: 0.85rem 1rem;
+	border-radius: var(--anpa-radius);
+	background: var(--anpa-surface-muted);
+	color: var(--anpa-text);
+	border-left: 4px solid var(--anpa-accent);
+}
+
+/* ── App shell (panel + check page) ──────────────────────────────── */
+.anpa-colab-app {
+	width: 100%;
+	max-width: 46rem;
+	margin: 1.5rem auto;
+	color: var(--anpa-text);
+	box-sizing: border-box;
+}
+
+.anpa-colab-app *,
+.anpa-colab-app *::before,
+.anpa-colab-app *::after {
+	box-sizing: border-box;
+}
+
+.anpa-colab-app h2,
+.anpa-colab-app h3,
+.anpa-colab-app h4 {
+	margin: 0;
+	line-height: 1.3;
+	color: var(--anpa-text);
+}
+
+.anpa-colab-app h2 { font-size: 1.45rem; }
+.anpa-colab-app h3 { font-size: 1.2rem; }
+.anpa-colab-app h4 { font-size: 1.05rem; }
+
+.anpa-colab-app p {
+	margin: 0;
+}
+
+.anpa-colab-app .anpa-colab-cabeceira:focus {
+	outline: none;
+}
+
+.anpa-colab-app .anpa-colab-cabeceira:focus-visible {
+	outline: 3px solid var(--anpa-focus-ring);
+	outline-offset: 3px;
+	border-radius: 4px;
+}
+
+.anpa-colab-app .anpa-colab-tarxeta-paso,
+.anpa-colab-app .anpa-colab-asistente,
+.anpa-colab-app .anpa-colab-seccion,
+.anpa-colab-app .anpa-colab-verificar-form {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	padding: 1.25rem;
+	background: var(--anpa-surface);
+	border: 1px solid var(--anpa-border);
+	border-top: 4px solid var(--anpa-accent);
+	border-radius: var(--anpa-radius);
+	box-shadow: var(--anpa-shadow);
+}
+
+.anpa-colab-app .anpa-colab-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 1.25rem;
+}
+
+.anpa-colab-app .anpa-colab-panel-topo,
+.anpa-colab-app .anpa-colab-ofertas-topo {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+}
+
+.anpa-colab-app .anpa-colab-intro,
+.anpa-colab-app .anpa-colab-conta {
+	color: var(--anpa-text-muted);
+}
+
+/* Messages (aria-live). */
+.anpa-colab-app .anpa-colab-mensaxe {
+	margin: 0 0 1rem;
+	padding: 0.8rem 1rem;
+	border-radius: var(--anpa-radius);
+	border: 1px solid var(--anpa-border);
+	border-left-width: 4px;
+	background: var(--anpa-info-bg);
+	color: var(--anpa-info-text);
+	border-left-color: var(--anpa-focus-ring);
+	font-weight: 600;
+}
+
+.anpa-colab-app .anpa-colab-mensaxe[data-type="error"] {
+	background: var(--anpa-error-bg);
+	color: var(--anpa-error-text);
+	border-color: var(--anpa-danger);
+}
+
+.anpa-colab-app .anpa-colab-mensaxe[data-type="success"] {
+	background: var(--anpa-ok-bg);
+	color: var(--anpa-ok-text);
+	border-color: var(--anpa-accent);
+}
+
+.anpa-colab-app .anpa-colab-aviso {
+	padding: 0.75rem 1rem;
+	border-radius: var(--anpa-radius);
+	border-left: 4px solid var(--anpa-warning-border);
+	background: var(--anpa-warning-bg);
+	color: var(--anpa-warning-text);
+}
+
+.anpa-colab-app .anpa-colab-aviso--info {
+	border-left-color: var(--anpa-focus-ring);
+	background: var(--anpa-info-bg);
+	color: var(--anpa-info-text);
+}
+
+/* ── Forms ───────────────────────────────────────────────────────── */
+.anpa-colab-app .anpa-colab-form {
+	display: flex;
+	flex-direction: column;
+	gap: 1.1rem;
+}
+
+.anpa-colab-app .anpa-colab-campo {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	max-width: 36rem;
+}
+
+.anpa-colab-app .anpa-colab-etiqueta {
+	font-weight: 700;
+	color: var(--anpa-text);
+}
+
+.anpa-colab-app .anpa-colab-opcional {
+	font-weight: 400;
+	color: var(--anpa-text-muted);
+}
+
+.anpa-colab-app .anpa-colab-axuda {
+	font-size: 0.9rem;
+	color: var(--anpa-text-muted);
+}
+
+.anpa-colab-app input[type="text"],
+.anpa-colab-app input[type="email"],
+.anpa-colab-app input[type="date"],
+.anpa-colab-app textarea {
+	width: 100%;
+	min-height: 44px;
+	padding: 0.65rem 0.85rem;
+	border: 1px solid #8a8a8a;
+	border-radius: 6px;
+	background: #ffffff;
+	color: var(--anpa-text);
+	font: inherit;
+	font-size: 1rem;
+	line-height: 1.4;
+}
+
+.anpa-colab-app textarea {
+	resize: vertical;
+	min-height: 6rem;
+}
+
+.anpa-colab-app input::placeholder,
+.anpa-colab-app textarea::placeholder {
+	color: #6b6b6b;
+	opacity: 1;
+}
+
+.anpa-colab-app .anpa-colab-input-codigo {
+	max-width: 16rem;
+	font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+	font-size: 1.5rem;
+	letter-spacing: 0.15em;
+	text-transform: uppercase;
+}
+
+.anpa-colab-app input:focus-visible,
+.anpa-colab-app textarea:focus-visible,
+.anpa-colab-app button:focus-visible,
+.anpa-colab-app a:focus-visible,
+.anpa-colab-lista a:focus-visible {
+	outline: 3px solid var(--anpa-focus-ring);
+	outline-offset: 2px;
+}
+
+.anpa-colab-app .anpa-colab-contador {
+	align-self: flex-end;
+	font-size: 0.85rem;
+	color: var(--anpa-text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.anpa-colab-app .anpa-colab-contador--curto,
+.anpa-colab-app .anpa-colab-contador--limite {
+	color: var(--anpa-warning-text);
+	font-weight: 700;
+}
+
+.anpa-colab-app .anpa-colab-campo--erro input,
+.anpa-colab-app .anpa-colab-campo--erro textarea,
+.anpa-colab-app [aria-invalid="true"] {
+	border: 2px solid var(--anpa-danger);
+	background: var(--anpa-error-bg);
+}
+
+.anpa-colab-app .anpa-colab-erro-campo {
+	padding-left: 0.6rem;
+	border-left: 3px solid var(--anpa-danger);
+	color: var(--anpa-danger);
+	font-weight: 700;
+	font-size: 0.92rem;
+}
+
+/* Honeypot: out of sight and out of reach. */
+.anpa-colab-app .anpa-colab-hp {
+	position: absolute !important;
+	left: -10000px !important;
+	top: auto !important;
+	width: 1px !important;
+	height: 1px !important;
+	overflow: hidden !important;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────── */
+.anpa-colab-app .anpa-colab-accions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.6rem;
+}
+
+.anpa-colab-app .anpa-colab-boton {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 44px;
+	min-width: 44px;
+	padding: 0.6rem 1.15rem;
+	border: 2px solid var(--anpa-accent);
+	border-radius: 8px;
+	background: var(--anpa-accent);
+	color: var(--anpa-on-accent);
+	font: inherit;
+	font-size: 1rem;
+	font-weight: 700;
+	line-height: 1.2;
+	text-decoration: none;
+	cursor: pointer;
+	transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.anpa-colab-app .anpa-colab-boton:hover:not(:disabled) {
+	background: var(--anpa-accent-hover);
+	border-color: var(--anpa-accent-hover);
+}
+
+.anpa-colab-app .anpa-colab-boton--secundario {
+	background: #ffffff;
+	color: var(--anpa-secondary-text);
+	border-color: var(--anpa-secondary-border);
+}
+
+.anpa-colab-app .anpa-colab-boton--secundario:hover:not(:disabled) {
+	background: var(--anpa-secondary-hover-bg);
+	color: var(--anpa-secondary-text);
+	border-color: var(--anpa-accent);
+}
+
+.anpa-colab-app .anpa-colab-boton--perigo {
+	background: #ffffff;
+	color: var(--anpa-danger);
+	border-color: var(--anpa-danger);
+}
+
+.anpa-colab-app .anpa-colab-boton--perigo:hover:not(:disabled) {
+	background: var(--anpa-danger);
+	border-color: var(--anpa-danger);
+	color: #ffffff;
+}
+
+.anpa-colab-app .anpa-colab-boton--ligazon {
+	background: transparent;
+	border-color: transparent;
+	color: var(--anpa-accent);
+	text-decoration: underline;
+	text-underline-offset: 3px;
+	padding-left: 0.5rem;
+	padding-right: 0.5rem;
+}
+
+.anpa-colab-app .anpa-colab-boton--ligazon:hover:not(:disabled) {
+	background: transparent;
+	border-color: transparent;
+	color: var(--anpa-accent-hover);
+}
+
+.anpa-colab-app .anpa-colab-boton:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+/* Busy: a thin bar above the app while a request is in flight. */
+.anpa-colab-app {
+	position: relative;
+}
+
+.anpa-colab-app.anpa-colab-app--ocupado {
+	cursor: progress;
+}
+
+.anpa-colab-app.anpa-colab-app--ocupado::before {
+	content: "";
+	position: absolute;
+	top: -8px;
+	left: 0;
+	right: 0;
+	height: 4px;
+	border-radius: 2px;
+	background: linear-gradient(90deg, var(--anpa-accent) 0%, var(--anpa-secondary-border) 50%, var(--anpa-accent) 100%);
+	background-size: 200% 100%;
+	animation: anpa-colab-ocupado 1.1s linear infinite;
+}
+
+@keyframes anpa-colab-ocupado {
+	from { background-position: 200% 0; }
+	to { background-position: 0 0; }
+}
+
+/* ── Panel ───────────────────────────────────────────────────────── */
+.anpa-colab-app .anpa-colab-ficha {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: 0.4rem 1rem;
+	margin: 0;
+}
+
+.anpa-colab-app .anpa-colab-ficha dt {
+	font-weight: 700;
+	color: var(--anpa-text-muted);
+}
+
+.anpa-colab-app .anpa-colab-ficha dd {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.anpa-colab-app .anpa-colab-ficha a {
+	color: var(--anpa-accent);
+	text-decoration: underline;
+}
+
+.anpa-colab-app .anpa-colab-nota-datos {
+	font-size: 0.9rem;
+	color: var(--anpa-text-muted);
+	overflow-wrap: anywhere;
+}
+
+.anpa-colab-app .anpa-colab-panel-ofertas {
+	display: grid;
+	gap: 1rem;
+}
+
+.anpa-colab-app .anpa-colab-tarxeta {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0.45rem;
+	margin: 0;
+	padding: 1rem;
+	border: 1px solid var(--anpa-border);
+	border-left: 4px solid var(--anpa-muted-border);
+	border-radius: var(--anpa-radius);
+	background: var(--anpa-surface);
+}
+
+.anpa-colab-app .anpa-colab-tarxeta--pendente { border-left-color: var(--anpa-warning-border); }
+.anpa-colab-app .anpa-colab-tarxeta--aprobada { border-left-color: var(--anpa-accent); }
+.anpa-colab-app .anpa-colab-tarxeta--rexeitada { border-left-color: var(--anpa-danger); }
+.anpa-colab-app .anpa-colab-tarxeta--retirada { border-left-color: var(--anpa-muted-border); background: #fafafa; }
+
+.anpa-colab-app .anpa-colab-tarxeta p {
+	margin: 0;
+	white-space: pre-line;
+	overflow-wrap: anywhere;
+}
+
+.anpa-colab-app .anpa-colab-tarxeta-titulo {
+	overflow-wrap: anywhere;
+}
+
+.anpa-colab-app .anpa-colab-motivo {
+	padding: 0.5rem 0.75rem;
+	border-radius: 6px;
+	background: var(--anpa-error-bg);
+	color: var(--anpa-error-text);
+}
+
+.anpa-colab-app .anpa-colab-chip {
+	display: inline-block;
+	padding: 0.15rem 0.65rem;
+	border: 1px solid var(--anpa-muted-border);
+	border-radius: 999px;
+	background: var(--anpa-muted-bg);
+	color: #333333;
+	font-size: 0.85rem;
+	font-weight: 700;
+	line-height: 1.5;
+}
+
+.anpa-colab-app .anpa-colab-chip--pendente {
+	background: var(--anpa-warning-bg);
+	color: var(--anpa-warning-text);
+	border-color: var(--anpa-warning-border);
+}
+
+.anpa-colab-app .anpa-colab-chip--aprobada {
+	background: var(--anpa-ok-bg);
+	color: var(--anpa-ok-text);
+	border-color: var(--anpa-accent);
+}
+
+.anpa-colab-app .anpa-colab-chip--rexeitada {
+	background: var(--anpa-error-bg);
+	color: var(--anpa-error-text);
+	border-color: var(--anpa-danger);
+}
+
+.anpa-colab-app .anpa-colab-chip--retirada {
+	background: var(--anpa-muted-bg);
+	color: #3d3d3d;
+	border-color: var(--anpa-muted-border);
+	border-style: dashed;
+}
+
+/* ── Wizard ──────────────────────────────────────────────────────── */
+.anpa-colab-app .anpa-colab-progreso {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.anpa-colab-app .anpa-colab-progreso-texto {
+	font-weight: 700;
+	color: var(--anpa-secondary-text);
+}
+
+.anpa-colab-app .anpa-colab-progreso-barra {
+	height: 6px;
+	border-radius: 3px;
+	background: #e4e4e4;
+	overflow: hidden;
+}
+
+.anpa-colab-app .anpa-colab-progreso-enchido {
+	display: block;
+	height: 100%;
+	background: var(--anpa-accent);
+	transition: width 0.25s ease;
+}
+
+.anpa-colab-app .anpa-colab-pasos {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 0.5rem;
+}
+
+.anpa-colab-app .anpa-colab-paso {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-size: 0.85rem;
+	color: var(--anpa-text-muted);
+}
+
+.anpa-colab-app .anpa-colab-paso-num {
+	display: inline-flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	width: 1.75rem;
+	height: 1.75rem;
+	border: 2px solid var(--anpa-muted-border);
+	border-radius: 50%;
+	background: #ffffff;
+	font-weight: 700;
+}
+
+.anpa-colab-app .anpa-colab-paso--feito .anpa-colab-paso-num {
+	border-color: var(--anpa-accent);
+	background: var(--anpa-ok-bg);
+	color: var(--anpa-ok-text);
+}
+
+.anpa-colab-app .anpa-colab-paso--actual {
+	color: var(--anpa-text);
+	font-weight: 700;
+}
+
+.anpa-colab-app .anpa-colab-paso--actual .anpa-colab-paso-num {
+	border-color: var(--anpa-accent);
+	background: var(--anpa-accent);
+	color: var(--anpa-on-accent);
+}
+
+.anpa-colab-app .anpa-colab-paso-corpo {
+	display: flex;
+	flex-direction: column;
+	gap: 1.1rem;
+}
+
+.anpa-colab-app .anpa-colab-accions--asistente {
+	padding-top: 0.5rem;
+	border-top: 1px solid var(--anpa-border);
+}
+
+.anpa-colab-app .anpa-colab-resumo {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.anpa-colab-app .anpa-colab-vista-previa {
+	padding: 1rem;
+	border: 1px solid var(--anpa-border);
+	border-top: 4px solid var(--anpa-accent);
+	border-radius: var(--anpa-radius);
+	background: var(--anpa-surface);
+	box-shadow: var(--anpa-shadow);
+}
+
+.anpa-colab-app .anpa-colab-vista-previa-comercio {
+	margin: 0 0 0.6rem;
+	font-size: 1.15rem;
+	font-weight: 700;
+}
+
+/* ── Card check result ───────────────────────────────────────────── */
+.anpa-colab-app .anpa-colab-cabeceira + .anpa-colab-verificar-form {
+	margin-top: 1rem;
+}
+
+.anpa-colab-app .anpa-colab-verificar-form .anpa-colab-mensaxe {
+	margin: 0;
+}
+
+#anpa-colab-verificar > .anpa-colab-mensaxe {
+	margin-top: 1rem;
+}
+
+.anpa-colab-app .anpa-colab-resultado--valido,
+.anpa-colab-app .anpa-colab-resultado--invalido {
+	display: flex;
+	align-items: center;
+	gap: 1.25rem;
+	margin: 1.25rem 0 1rem;
+	padding: 1.5rem;
+	border: 3px solid;
+	border-radius: var(--anpa-radius);
+}
+
+.anpa-colab-app .anpa-colab-resultado--valido {
+	background: var(--anpa-ok-bg);
+	border-color: var(--anpa-accent);
+	color: var(--anpa-ok-text);
+}
+
+.anpa-colab-app .anpa-colab-resultado--invalido {
+	background: var(--anpa-error-bg);
+	border-color: var(--anpa-danger);
+	color: var(--anpa-error-text);
+}
+
+.anpa-colab-app .anpa-colab-resultado-icona {
+	flex: 0 0 auto;
+	width: 72px;
+	height: 72px;
+}
+
+.anpa-colab-app .anpa-colab-resultado--valido .anpa-colab-resultado-icona { color: var(--anpa-accent); }
+.anpa-colab-app .anpa-colab-resultado--invalido .anpa-colab-resultado-icona { color: var(--anpa-danger); }
+
+.anpa-colab-app .anpa-colab-resultado-texto {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	font-size: 1.05rem;
+}
+
+.anpa-colab-app .anpa-colab-resultado-titulo {
+	font-size: clamp(1.5rem, 5vw, 2rem);
+	font-weight: 800;
+	line-height: 1.15;
+}
+
+.anpa-colab-app .anpa-colab-resultado-hora {
+	font-variant-numeric: tabular-nums;
+	font-weight: 600;
+}
+
+/* ── Member card (member area) ───────────────────────────────────── */
+.anpa-carne {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.5rem;
+	width: 100%;
+	max-width: 20rem;
+	margin: 1rem auto;
+	padding: 1.25rem;
+	box-sizing: border-box;
+	background: var(--anpa-surface);
+	color: var(--anpa-text);
+	border: 1px solid var(--anpa-border);
+	border-top: 4px solid var(--anpa-accent);
+	border-radius: var(--anpa-radius);
+	box-shadow: var(--anpa-shadow);
+	text-align: center;
+}
+
+.anpa-carne .anpa-carne-qr {
+	width: 100%;
+	max-width: calc(240px + 2rem);
+	padding: 1rem;
+	box-sizing: border-box;
+	background: #ffffff;
+	border-radius: 6px;
+	line-height: 0;
+}
+
+.anpa-carne .anpa-carne-qr svg {
+	display: block;
+	width: 100%;
+	max-width: 240px;
+	height: auto;
+	margin: 0 auto;
+	shape-rendering: crispEdges;
+}
+
+.anpa-carne .anpa-carne-codigo {
+	margin: 0.25rem 0 0;
+	font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+	font-size: clamp(1.6rem, 7vw, 2rem);
+	font-weight: 700;
+	letter-spacing: 0.15em;
+	line-height: 1.2;
+	color: var(--anpa-text);
+	/* Letter-spacing adds space after the last character too. */
+	padding-left: 0.15em;
+	font-variant-numeric: tabular-nums;
+}
+
+.anpa-carne .anpa-carne-curso {
+	margin: 0;
+	font-weight: 700;
+	color: var(--anpa-secondary-text);
+}
+
+.anpa-carne .anpa-carne-caduca {
+	margin: 0;
+	font-size: 0.9rem;
+	color: var(--anpa-text-muted);
+}
+
+.anpa-carne p:empty {
+	display: none;
+}
+
+/* ── Small screens ───────────────────────────────────────────────── */
+@media (max-width: 600px) {
+	.anpa-colab-lista {
+		grid-template-columns: 1fr;
+	}
+
+	.anpa-colab-app .anpa-colab-tarxeta-paso,
+	.anpa-colab-app .anpa-colab-asistente,
+	.anpa-colab-app .anpa-colab-seccion,
+	.anpa-colab-app .anpa-colab-verificar-form {
+		padding: 1rem;
+	}
+
+	.anpa-colab-app .anpa-colab-pasos {
+		grid-template-columns: repeat(4, auto);
+		justify-content: space-between;
+	}
+
+	/* Only the number of the steps that are not the current one. */
+	.anpa-colab-app .anpa-colab-paso:not(.anpa-colab-paso--actual) .anpa-colab-paso-nome {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
+	}
+
+	.anpa-colab-app .anpa-colab-ficha {
+		grid-template-columns: 1fr;
+		gap: 0.15rem;
+	}
+
+	.anpa-colab-app .anpa-colab-ficha dd {
+		margin-bottom: 0.5rem;
+	}
+
+	.anpa-colab-app .anpa-colab-accions--asistente .anpa-colab-boton--primario {
+		flex: 1 1 auto;
+	}
+
+	.anpa-colab-app .anpa-colab-resultado--valido,
+	.anpa-colab-app .anpa-colab-resultado--invalido {
+		flex-direction: column;
+		text-align: center;
+		padding: 1.25rem;
+	}
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+	.anpa-colab-app *,
+	.anpa-colab-app *::before,
+	.anpa-colab-app *::after,
+	.anpa-colab-app.anpa-colab-app--ocupado::before {
+		animation: none !important;
+		transition: none !important;
+		scroll-behavior: auto !important;
+	}
+}

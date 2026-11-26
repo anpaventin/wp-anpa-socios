@@ -172,6 +172,7 @@
       <file>tests/Test_ANPA_Socios_Seguridade_Area.php</file>
       <file>tests/Test_ANPA_Socios_Seguridade_Clave.php</file>
       <file>tests/Test_ANPA_Socios_Seguridade_Menor.php</file>
+      <file>tests/Test_ANPA_Socios_Colab.php</file>
     </testsuite>
   </testsuites>
 </phpunit>

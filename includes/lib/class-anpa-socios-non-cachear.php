@@ -34,6 +34,9 @@ final class ANPA_Socios_Non_Cachear {
 		'anpa_socios_asociarse',
 		'anpa_extraescolares_horario',
 		'anpa_extraescolares_ofertadas',
+		// 1.104.0: the shops' panel and the card check are live pages too.
+		'anpa_colaboradores_acceso',
+		'anpa_colaboradores_verificar',
 	);
 
 	/**

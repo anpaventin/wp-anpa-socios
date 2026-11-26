@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.104.0] - 2026-11-26
+
+### Added
+
+- **Rede de colaboradores (fase 1).** Módulo novo, desactivado ata que a xunta o active en *ANPA → Colaboradores*.
+  - **Comercios.** A xunta dá de alta cada comercio co seu nome e correo. O comercio entra no seu panel con ese
+    correo e un código (sen contrasinal), nunha páxina propia.
+  - **Ofertas cun formulario guiado.** O comercio envía as súas ofertas en catro pasos (que ofrece, detalles,
+    vixencia, revisar). A oferta queda pendente: a xunta pode aprobala ou non aprobala (co motivo), e se ninguén a
+    revisa publícase soa ás 24 horas (configurable; con 0 só se publica a man). Cambiar unha oferta publicada
+    devólvea a pendente. A xunta recibe un correo por cada oferta enviada e o comercio outro co resultado.
+  - **Lista pública.** `[anpa_colaboradores]` amosa os comercios activos coas ofertas publicadas e en vigor.
+  - **Carné de socio/a.** Na área, «O meu carné de socio/a» xera un código de 8 caracteres e un QR válidos 10
+    minutos, un por familia.
+  - **Comprobación.** O comercio escanea o QR (ou teclea o código) na páxina `[anpa_colaboradores_verificar]` e
+    ve só «Socio/a válido» ou «Carné non válido»: non recibe o nome nin ningún outro dato da familia.
+  - Shortcodes: `[anpa_colaboradores]`, `[anpa_colaboradores_acceso]` e `[anpa_colaboradores_verificar]`.
+- O módulo ten táboas, sesións e códigos de acceso propios, e non usa as empresas das extraescolares. As copias de
+  seguridade (`.anpabak`) aínda non inclúen os comercios nin as ofertas.
+
 ## [1.103.0] - 2026-11-26
 
 ### Changed

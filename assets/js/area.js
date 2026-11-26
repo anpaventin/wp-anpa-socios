@@ -938,10 +938,93 @@
 			}
 		});
 
+		// 1.104.0: member card for the partner shops. Each press asks for a fresh
+		// code (the previous one stops working); it lasts ten minutes.
+		var carneTimer = null;
+		function limparCarne() {
+			if (carneTimer) { clearInterval(carneTimer); carneTimer = null; }
+			var host = root.querySelector('[data-panel-carne]');
+			if (host) { host.textContent = ''; }
+		}
+		function debuxarQr(host, texto) {
+			if (!texto || typeof window.qrcode !== 'function') { return; }
+			var qr;
+			try {
+				qr = window.qrcode(0, 'M');
+				qr.addData(texto);
+				qr.make();
+			} catch (_) { return; }
+			var n = qr.getModuleCount();
+			var marxe = 4;
+			var ns = 'http://www.w3.org/2000/svg';
+			var svg = document.createElementNS(ns, 'svg');
+			svg.setAttribute('viewBox', '0 0 ' + (n + marxe * 2) + ' ' + (n + marxe * 2));
+			svg.setAttribute('role', 'img');
+			svg.setAttribute('aria-label', __( 'Código QR do carné', 'anpa-socios' ));
+			svg.setAttribute('shape-rendering', 'crispEdges');
+			var fondo = document.createElementNS(ns, 'rect');
+			fondo.setAttribute('width', '100%');
+			fondo.setAttribute('height', '100%');
+			fondo.setAttribute('fill', '#ffffff');
+			svg.appendChild(fondo);
+			var d = '';
+			for (var r = 0; r < n; r++) {
+				for (var c = 0; c < n; c++) {
+					if (qr.isDark(r, c)) { d += 'M' + (c + marxe) + ' ' + (r + marxe) + 'h1v1h-1z'; }
+				}
+			}
+			var path = document.createElementNS(ns, 'path');
+			path.setAttribute('d', d);
+			path.setAttribute('fill', '#000000');
+			svg.appendChild(path);
+			host.appendChild(svg);
+		}
+		bind('[data-action="carne"]', 'click', async () => {
+			showMessage(root, '', 'info');
+			if (!areaToken || !root.dataset.carneUrl) { return; }
+			const datos = await tokenRequest('POST', root.dataset.carneUrl, areaToken, {}, root);
+			var host = root.querySelector('[data-panel-carne]');
+			if (!datos || !datos.codigo || !host) { return; }
+			limparCarne();
+			var caixa = document.createElement('div');
+			caixa.className = 'anpa-carne';
+			var qrHost = document.createElement('div');
+			qrHost.className = 'anpa-carne-qr';
+			debuxarQr(qrHost, datos.url || '');
+			if (qrHost.firstChild) { caixa.appendChild(qrHost); }
+			var cod = document.createElement('p');
+			cod.className = 'anpa-carne-codigo';
+			cod.textContent = datos.codigo;
+			caixa.appendChild(cod);
+			if (datos.curso) {
+				var curso = document.createElement('p');
+				curso.className = 'anpa-carne-curso';
+				curso.textContent = sprintf( __( 'Socio/a · curso %s', 'anpa-socios' ), datos.curso );
+				caixa.appendChild(curso);
+			}
+			var caduca = document.createElement('p');
+			caduca.className = 'anpa-carne-caduca';
+			caixa.appendChild(caduca);
+			host.appendChild(caixa);
+			var fin = Date.now() + (parseInt(datos.expires_in, 10) || 600) * 1000;
+			var pintar = function () {
+				var resta = Math.max(0, Math.round((fin - Date.now()) / 1000));
+				if (resta <= 0) {
+					limparCarne();
+					showMessage(root, __( 'O carné caducou. Preme «Amosar o carné» para xerar outro.', 'anpa-socios' ), 'info');
+					return;
+				}
+				caduca.textContent = sprintf( __( 'Válido durante %1$s:%2$s min', 'anpa-socios' ), String(Math.floor(resta / 60)), String(resta % 60).padStart(2, '0') );
+			};
+			pintar();
+			carneTimer = setInterval(pintar, 1000);
+		});
+
 		bind('[data-action="logout"]', 'click', async () => {
 			if (areaToken) {
 				await tokenRequest('DELETE', root.dataset.logoutUrl, areaToken, null, root);
 			}
+			limparCarne();
 			areaToken = '';
 			fase1Token = '';
 			clearAreaToken();

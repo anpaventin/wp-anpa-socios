@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ANPA Socios
  * Description: Xestión de socios para asociacións de nais e pais (ANPA/AMPA): área de socios sen contrasinal, fillos e actividades extraescolares, domiciliación SEPA cifrada, ciclo de curso, panel de administración e actualizacións self-hosted. Configurable para calquera asociación.
- * Version: 1.103.0
+ * Version: 1.104.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: ANPA Socios
@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ANPA_SOCIOS_VERSION', '1.103.0' );
+define( 'ANPA_SOCIOS_VERSION', '1.104.0' );
 define( 'ANPA_SOCIOS_DB_VERSION', '1.51.0' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
@@ -163,6 +163,13 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-xunta-directiv
 // 1.101.0: event date of posts and [anpa_proximos_eventos].
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-eventos.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-eventos-page.php';
+// 1.104.0: collaborators network (self-contained module, off until the junta turns it on).
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-colab.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-colab-db.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-colab-service.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-colab-rest.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-colab-page.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-colab-admin.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-preseason-guard.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-admin-nav.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-verificacion-guard.php';
@@ -198,6 +205,11 @@ add_action( 'admin_init', static function () {
 		ANPA_Socios_DB::crear_tabelas();
 	}
 
+	// 1.104.0: the collaborators module keeps its own tables (only once it is on).
+	if ( ANPA_Socios_Colab_DB::activo() ) {
+		ANPA_Socios_Colab_DB::instalar();
+	}
+
 	// fase36: seed/add templates on upgrade.
 	ANPA_Socios_Email_Template_Migration::migrate();
 
@@ -227,6 +239,7 @@ add_action( 'rest_api_init', array( 'ANPA_Socios_Fillo_Cursos_REST', 'register_r
 add_action( 'rest_api_init', array( 'ANPA_Socios_Extraescolares_REST', 'register_routes' ) );
 add_action( 'rest_api_init', array( 'ANPA_Socios_Empresa_REST', 'register_routes' ) );
 add_action( 'rest_api_init', array( 'ANPA_Socios_Admin_Estrutura_Handler', 'register_routes' ) );
+add_action( 'rest_api_init', array( 'ANPA_Socios_Colab_REST', 'register_routes' ) );
 
 add_action( ANPA_Socios_DB::CLEANUP_HOOK, array( 'ANPA_Socios_DB', 'borrar_sesions_expiradas' ) );
 // 1.91.0: baixas reported by the company — a single event at the due time, and the hourly
@@ -236,6 +249,8 @@ add_action( ANPA_Socios_Extraescolar_Offers::CRON_HOOK, array( 'ANPA_Socios_Baix
 add_action( ANPA_Socios_Extraescolar_Offers::CRON_HOOK, array( 'ANPA_Socios_Extraescolar_Offers', 'expire_stale' ) );
 // 1.93.0: pending enrolments approved automatically after the configured hours (Axustes → Xeral).
 add_action( ANPA_Socios_Extraescolar_Offers::CRON_HOOK, array( 'ANPA_Socios_Aprobacion_Automatica', 'executar' ), 15 );
+// 1.104.0: collaborators' offers approve themselves after the configured hours (hourly cron).
+add_action( ANPA_Socios_Extraescolar_Offers::CRON_HOOK, array( 'ANPA_Socios_Colab_Service', 'aprobar_vencidas' ), 25 );
 add_action( ANPA_Socios_Season_Service::CRON_HOOK, array( 'ANPA_Socios_Season_Service', 'run_check' ) );
 add_action( ANPA_Socios_Aprobacions_Semanal::CRON_HOOK, array( 'ANPA_Socios_Aprobacions_Semanal', 'executar' ) );
 add_action( ANPA_Socios_Retencion_Service::CRON_HOOK, array( 'ANPA_Socios_Retencion_Service', 'executar' ) );
@@ -258,6 +273,8 @@ add_action( 'wp_enqueue_scripts', array( 'ANPA_Socios_Hub_Page', 'enqueue_assets
 add_action( 'wp_enqueue_scripts', array( 'ANPA_Socios_Unified_Page', 'enqueue_assets' ) );
 ANPA_Socios_Contenido_Shortcode::register();
 ANPA_Socios_Xunta_Directiva_Page::register();
+ANPA_Socios_Colab_Page::register();
+ANPA_Socios_Colab_Admin::register();
 ANPA_Socios_Eventos_Page::register();
 // 1.95.0: «A ANPA en cifras» — [anpa_cifras] and GET area/cifras for the socios panel.
 ANPA_Socios_Cifras_Page::register();

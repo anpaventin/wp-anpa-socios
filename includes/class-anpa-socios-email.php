@@ -246,6 +246,28 @@ class ANPA_Socios_Email {
 	}
 
 	/**
+	 * 1.104.0: a plain notice from the association's identity, with the
+	 * signature. The caller escapes the HTML. Best-effort: never throws.
+	 *
+	 * @since  1.104.0
+	 * @param  string $to     Recipient.
+	 * @param  string $asunto Subject.
+	 * @param  string $html   Escaped HTML fragment.
+	 * @return bool
+	 */
+	public static function enviar_simple( string $to, string $asunto, string $html ): bool {
+		$to = trim( $to );
+		if ( '' === $to || false === filter_var( $to, FILTER_VALIDATE_EMAIL ) ) {
+			return false;
+		}
+		try {
+			return self::send_from_master( $to, $asunto, $html );
+		} catch ( \Throwable $e ) {
+			return false;
+		}
+	}
+
+	/**
 	 * The configurable email signature as an HTML block (empty if unset).
 	 *
 	 * @since  1.22.0

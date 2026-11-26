@@ -75,6 +75,8 @@ class ANPA_Socios_Area_Page {
 		$empresa_logout_url       = rest_url( 'anpa-socios/v1/empresa/me/session' );
 		$empresa_export_url       = rest_url( 'anpa-socios/v1/empresa/me/export' );
 		$empresa_request_code_url = rest_url( 'anpa-socios/v1/empresa/solicitar-codigo' );
+		// 1.104.0: member card for the collaborators network ('' while the module is off).
+		$carne_url = ANPA_Socios_Colab_DB::activo() ? rest_url( 'anpa-socios/v1/area/carne' ) : '';
 
 
 		ob_start();
@@ -98,6 +100,7 @@ class ANPA_Socios_Area_Page {
 			data-extra-fillo-base-url="<?php echo esc_attr( $extra_fillo_base_url ); ?>"
 			data-extra-matricula-base-url="<?php echo esc_attr( $extra_matricula_base_url ); ?>"
 			data-cifras-url="<?php echo esc_attr( $cifras_url ); ?>"
+			data-carne-url="<?php echo esc_attr( $carne_url ); ?>"
 			data-empresa-session-url="<?php echo esc_attr( $empresa_session_url ); ?>"
 			data-empresa-request-code-url="<?php echo esc_attr( $empresa_request_code_url ); ?>"
 			data-empresa-me-url="<?php echo esc_attr( $empresa_me_url ); ?>"
@@ -177,6 +180,17 @@ class ANPA_Socios_Area_Page {
 						<button type="button" data-nav="extraescolares"><?php esc_html_e( 'Nova matrícula', 'anpa-socios' ); ?></button>
 					</div>
 				</section>
+				<?php if ( '' !== $carne_url ) : ?>
+				<!-- 1.104.0: member card for the partner shops (code + QR, renewed on demand). -->
+				<section class="anpa-area-panel-carne" data-panel-carne-section>
+					<h3><?php esc_html_e( 'O meu carné de socio/a', 'anpa-socios' ); ?></h3>
+					<p class="anpa-area-muted"><?php esc_html_e( 'Ensínao nos comercios colaboradores para gozar das ofertas. O comercio só ve se o carné é válido: non recibe o teu nome nin ningún outro dato.', 'anpa-socios' ); ?></p>
+					<div data-panel-carne></div>
+					<div class="anpa-area-actions">
+						<button type="button" class="anpa-area-secondary" data-action="carne"><?php esc_html_e( 'Amosar o carné', 'anpa-socios' ); ?></button>
+					</div>
+				</section>
+				<?php endif; ?>
 				<!-- Occupancy per group goes before «A ANPA en cifras» (filled by renderCifras). -->
 				<section class="anpa-area-panel-cifras anpa-area-panel-ocupacion" data-panel-ocupacion-section hidden>
 					<div class="anpa-cifras" data-panel-ocupacion></div>
@@ -436,6 +450,11 @@ class ANPA_Socios_Area_Page {
 				file_exists( $path ) ? (string) filemtime( $path ) : ANPA_SOCIOS_VERSION,
 				true
 			);
+		}
+		// 1.104.0: the member card draws a QR (vendored generator) and uses the module styles.
+		if ( ANPA_Socios_Colab_DB::activo() ) {
+			ANPA_Socios_Colab_Page::enqueue_style();
+			return array( 'wp-i18n', 'anpa-socios-admin-table', 'anpa-socios-utils', ANPA_Socios_Colab_Page::registrar_qr() );
 		}
 		return array( 'wp-i18n', 'anpa-socios-admin-table', 'anpa-socios-utils' );
 	}
