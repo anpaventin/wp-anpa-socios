@@ -5,6 +5,73 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.105.0] - 2026-11-27
+
+### Added
+
+- **Rede de colaboradores: o comercio cobre os seus datos.** A xunta dá de alta o comercio só co nome e o correo de
+  acceso. O comercio entra no seu panel, completa os datos e sobe o logo. Calquera cambio de datos ou de logo queda
+  pendente: apróbao a xunta (*ANPA → Colaboradores → Datos pendentes de aprobación*) ou apróbase só ás horas
+  configuradas. Mentres tanto a web amosa a última versión aprobada.
+- **Ofertas máis completas.** Descrición breve, datas de inicio e de fin opcionais (sen datas, a oferta vale ata que o
+  comercio a retire), «acumulable con outras ofertas» (por defecto non), usos por familia (1 por defecto, varios ou
+  ilimitados) e unha imaxe pequena opcional (sen ela amósase o logo do comercio).
+- **Publicación das ofertas novas.** Cando hai ofertas novas aprobadas, saen xuntas o día fixado, por defecto os xoves
+  ás 16:00 (día e hora configurables en *ANPA → Colaboradores → Publicación semanal*). Créase unha entrada na web con
+  todas as ofertas en vigor e o comercio que as ofrece, na categoría propia «Ofertas para socios» (nunca en «Novas»),
+  e envíase o mesmo por correo ás familias socias. **Se esa semana non hai ningunha oferta nova, non se publica nin se
+  envía nada.** A entrada e o correo rematan coa invitación á canle de Telegram (a ligazón ponse nos axustes).
+- **Publicar agora as pendentes.** A xunta pode sacar no momento as ofertas aprobadas que aínda non saíron; o día
+  fixado xa non sairá nada, agás que se aproben máis ofertas antes.
+- **Publicación especial.** A xunta pode lanzar cando queira unha entrada (e o correo) con todas as ofertas en vigor,
+  escollendo a imaxe e editando o título e o texto que se propoñen para esa época. As ofertas caducadas ou retiradas
+  non se publican.
+- **A xunta xestiona as ofertas.** En *Todas as ofertas* pode corrixir calquera oferta, retirala da web ou recuperar
+  unha retirada, non aprobada ou caducada actualizándoa (queda aprobada e avísase ao comercio).
+- **Imaxes e textos por época.** 28 ilustracións (os 12 meses e 16 festas e momentos do curso: Reis, Entroido, Día do
+  pai, Pascua, Día do libro, Día da nai, Letras Galegas, fin de curso, San Xoán, verán, Día de Galicia, volta ao cole,
+  Samaín, Magosto, ponte de decembro e Nadal). A xunta pode substituír calquera por unha imaxe súa. O título e o texto
+  de cada publicación escóllense sós segundo a data, para calquera ano.
+- **Carné de familia socia.** Cada familia ten un QR permanente. En «O meu carné de socio/a» vese e descárgase o carné
+  co nome da asociación, o logo, os nomes dos proxenitores/titores e o QR; pódese imprimir e renovar (o anterior deixa
+  de valer). Alí mesmo vense as ofertas e os usos que lle quedan á familia, e pódese desactivar o correo semanal.
+- **Caixa do comercio.** Páxina `[anpa_colaboradores_caixa]`: o comercio escanea o QR do seu comercio (o dispositivo
+  queda vinculado 12 horas), despois o da familia, escolle unha das ofertas que lle quedan a esa familia e preme
+  «Aplicar»: réstaselle un uso. Pódese desfacer durante 10 minutos. O comercio ve só «Familia socia válida» e as
+  ofertas dispoñibles: nunca o nome nin ningún outro dato da familia.
+- O QR do comercio descárgase, imprímese e renóvase dende o seu panel. É a clave do comercio: non debe estar á vista do
+  público.
+
+### Changed
+
+- Desaparecen o carné de 10 minutos e a comprobación pública do carné da 1.104.0. O shortcode
+  `[anpa_colaboradores_verificar]` segue funcionando e amosa a caixa.
+- Aprobar unha oferta xa non a publica ao momento: sae na seguinte publicación semanal. Unha oferta editada sae da
+  lista pública ata que se aproba de novo e chega a seguinte publicación.
+- Para poder restar usos, de cada uso gárdase a familia, a oferta, o comercio e a data. Ese dato non se lle amosa a
+  ningún comercio e a xunta só ve as contas por oferta.
+- Inclúese o lector de QR jsQR 1.4.0 (licenza Apache-2.0) para os móbiles que non traen un propio.
+
+### Security
+
+Correccións da segunda auditoría (feita sobre a 1.104.0):
+
+- **Correo do outro proxenitor/titor.** Cando un adulto da familia pon ou cambia o correo do outro, o enderezo novo
+  ten que confirmarse cun código que se lle envía, igual que o correo propio. Ata entón gárdase o resto dos datos e
+  o correo queda como estaba. Así un enderezo mal escrito ou alleo non entra na área da familia.
+- **Segundo proxenitor/titor engadido dende a área.** Queda rexistrado na Auditoría.
+- Familias cuxo primeiro adulto non tiña identificador de familia: o segundo xa o atopa (antes podía crear un
+  terceiro).
+- **Ofertas dos comercios.** Unha oferta non aprobada que se envía de novo xa non se publica soa: ten que aprobala
+  a xunta. O mesmo para as ofertas novas dun comercio ao que a xunta lle rexeitou ou retirou unha oferta nos
+  últimos 30 días.
+- A xunta aproba ou rexeita a versión que ten diante: se o comercio cambia a oferta mentres se revisa, non se fai
+  nada e hai que revisala de novo.
+- Editar unha oferta xa non recupera unha que a xunta retirou nese mesmo momento.
+- Un comercio pode enviar ou cambiar ofertas 20 veces por hora como máximo, e a caché da web só se baleira cando
+  cambia a lista pública.
+- «Borrar base de datos» borra tamén as táboas e os axustes da rede de colaboradores.
+
 ## [1.104.0] - 2026-11-26
 
 ### Added

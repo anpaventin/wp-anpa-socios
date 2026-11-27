@@ -116,6 +116,7 @@ final class ANPA_Socios_Correos_Masivos {
 			'grupo_minimo'         => 'Grupo pechado por non acadar o mínimo',
 			'grupo_sen_minimo'     => 'Grupo sen mínimo (segue admitindo inscricións)',
 			'grupo_sen_minimo_espera' => 'Grupo sen mínimo: lista de espera',
+			'colab_semanal'        => 'Ofertas semanais dos colaboradores',
 		);
 		return $t[ $tag ] ?? $tag;
 	}

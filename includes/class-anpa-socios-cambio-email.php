@@ -63,13 +63,18 @@ final class ANPA_Socios_Cambio_Email {
 	 * for 15 minutes. The pending change belongs to the member, not to the
 	 * address, so the code cannot be used to sign in or to join.
 	 *
+	 * 1.105.0: $ambito 'p2_' keeps a second, separate pending change for the
+	 * address of the OTHER parent, asked for by this member.
+	 *
 	 * @param  int    $socio_id Member asking for the change.
 	 * @param  string $novo     New address, already validated.
+	 * @param  string $ambito   '' (own address) or 'p2_' (the other parent's).
 	 * @return true|WP_Error
 	 */
-	public static function solicitar_codigo( int $socio_id, string $novo ) {
+	public static function solicitar_codigo( int $socio_id, string $novo, string $ambito = '' ) {
+		$ambito   = 'p2_' === $ambito ? 'p2_' : '';
 		$novo     = strtolower( trim( $novo ) );
-		$chave_n  = 'anpa_cambio_email_n_' . $socio_id;
+		$chave_n  = 'anpa_cambio_email_n_' . $ambito . $socio_id;
 		$enviados = (int) get_transient( $chave_n );
 		if ( $enviados >= self::CODIGO_ENVIOS_HORA ) {
 			return new WP_Error( 'anpa_area_rate_limited', __( 'Demasiados intentos. Téntao de novo máis tarde.', 'anpa-socios' ), array( 'status' => 429 ) );
@@ -78,7 +83,7 @@ final class ANPA_Socios_Cambio_Email {
 
 		$codigo = ANPA_Socios_Codigo_Generator::generate();
 		set_transient(
-			'anpa_cambio_email_' . $socio_id,
+			'anpa_cambio_email_' . $ambito . $socio_id,
 			array(
 				'email'    => $novo,
 				'hash'     => ANPA_Socios_Codigo_Generator::hash_code( $codigo ),
@@ -88,7 +93,7 @@ final class ANPA_Socios_Cambio_Email {
 			self::CODIGO_TTL
 		);
 		if ( ! ANPA_Socios_Email::enviar_codigo( $novo, $codigo, 'verificacion' ) ) {
-			delete_transient( 'anpa_cambio_email_' . $socio_id );
+			delete_transient( 'anpa_cambio_email_' . $ambito . $socio_id );
 			return new WP_Error( 'anpa_area_email_send_failed', __( 'Non se puido enviar o código ao novo correo. Téntao de novo máis tarde.', 'anpa-socios' ), array( 'status' => 500 ) );
 		}
 		return true;
@@ -101,12 +106,15 @@ final class ANPA_Socios_Cambio_Email {
 	 * @param  int    $socio_id Member asking for the change.
 	 * @param  string $novo     New address in the request (must be the pending one).
 	 * @param  string $codigo   Typed code.
+	 * @param  string $ambito   '' (own address) or 'p2_' (the other parent's).
 	 * @return true|WP_Error
 	 */
-	public static function comprobar_codigo( int $socio_id, string $novo, string $codigo ) {
-		$chave    = 'anpa_cambio_email_' . $socio_id;
+	public static function comprobar_codigo( int $socio_id, string $novo, string $codigo, string $ambito = '' ) {
+		$ambito   = 'p2_' === $ambito ? 'p2_' : '';
+		$campo    = $ambito . 'email_codigo';
+		$chave    = 'anpa_cambio_email_' . $ambito . $socio_id;
 		$pendente = get_transient( $chave );
-		$caducado = new WP_Error( 'anpa_area_email_code_expired', __( 'O código caducou. Garda de novo para recibir outro.', 'anpa-socios' ), array( 'status' => 400, 'fields' => array( 'email_codigo' => __( 'Código caducado.', 'anpa-socios' ) ) ) );
+		$caducado = new WP_Error( 'anpa_area_email_code_expired', __( 'O código caducou. Garda de novo para recibir outro.', 'anpa-socios' ), array( 'status' => 400, 'fields' => array( $campo => __( 'Código caducado.', 'anpa-socios' ) ) ) );
 		if ( ! self::pendente_vixente( $pendente, $novo, time() ) ) {
 			delete_transient( $chave );
 			return $caducado;
@@ -114,7 +122,7 @@ final class ANPA_Socios_Cambio_Email {
 		++$pendente['intentos'];
 		set_transient( $chave, $pendente, max( 1, (int) $pendente['expira'] - time() ) );
 		if ( ! ANPA_Socios_Codigo_Generator::verify( $codigo, (string) $pendente['hash'] ) ) {
-			return new WP_Error( 'anpa_area_email_code_invalid', __( 'Código incorrecto', 'anpa-socios' ), array( 'status' => 400, 'fields' => array( 'email_codigo' => __( 'Código incorrecto.', 'anpa-socios' ) ) ) );
+			return new WP_Error( 'anpa_area_email_code_invalid', __( 'Código incorrecto', 'anpa-socios' ), array( 'status' => 400, 'fields' => array( $campo => __( 'Código incorrecto.', 'anpa-socios' ) ) ) );
 		}
 		delete_transient( $chave );
 		return true;

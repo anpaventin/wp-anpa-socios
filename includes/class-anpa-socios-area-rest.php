@@ -117,7 +117,12 @@ class ANPA_Socios_Area_REST {
 							'type'              => 'string',
 							'sanitize_callback' => 'sanitize_email',
 						),
-						'email_codigo' => array(
+					'email_codigo' => array(
+							'required'          => false,
+							'type'              => 'string',
+							'sanitize_callback' => 'sanitize_text_field',
+						),
+						'p2_email_codigo' => array(
 							'required'          => false,
 							'type'              => 'string',
 							'sanitize_callback' => 'sanitize_text_field',
@@ -1052,14 +1057,45 @@ class ANPA_Socios_Area_REST {
 		// other's data. Whatever one changes is emailed to the other; when the
 		// login address is what changed, the notice goes to the OLD address and
 		// tells them to contact the association if it is a mistake.
-		$p2_input = $request->get_param( 'segundo_proxenitor' );
+		$p2_input          = $request->get_param( 'segundo_proxenitor' );
+		$p2_email_pendente = '';
 		if ( is_array( $p2_input ) && ! empty( array_filter( $p2_input ) ) ) {
-			$p2_antes  = self::resolve_segundo_proxenitor( $profile );
+			$p2_antes = self::resolve_segundo_proxenitor( $profile );
+			// 1.105.0: a NEW address for the other parent (changed, or first set)
+			// proves itself with a code, like the member's own. Until then the
+			// rest of the data is saved and the address stays as it was, so a
+			// mistyped or foreign address never gets into the family area.
+			$p2_vello = strtolower( trim( (string) ( is_array( $p2_antes ) ? ( $p2_antes['email'] ?? '' ) : '' ) ) );
+			$p2_novo  = ANPA_Socios_Normalize::email( sanitize_text_field( (string) ( $p2_input['email'] ?? '' ) ) );
+			if ( null !== $p2_novo && $p2_novo !== $p2_vello ) {
+				$p2_valida = ANPA_Socios_Cambio_Email::validar( $p2_novo, is_array( $p2_antes ) ? (int) $p2_antes['id'] : 0, 'p2_email' );
+				if ( is_wp_error( $p2_valida ) ) {
+					return $p2_valida;
+				}
+				$p2_codigo = (string) preg_replace( '/\D/', '', (string) $request->get_param( 'p2_email_codigo' ) );
+				if ( '' === $p2_codigo ) {
+					$p2_enviado = ANPA_Socios_Cambio_Email::solicitar_codigo( (int) $profile['id'], $p2_novo, 'p2_' );
+					if ( is_wp_error( $p2_enviado ) ) {
+						return $p2_enviado;
+					}
+					$p2_email_pendente = $p2_novo;
+					$p2_input['email'] = $p2_vello;
+				} else {
+					$p2_comprobado = ANPA_Socios_Cambio_Email::comprobar_codigo( (int) $profile['id'], $p2_novo, $p2_codigo, 'p2_' );
+					if ( is_wp_error( $p2_comprobado ) ) {
+						return $p2_comprobado;
+					}
+				}
+			}
 			$p2_result = self::save_segundo_proxenitor( $fam['familia_id'], (int) $fam['id'], $p2_input );
 			if ( is_wp_error( $p2_result ) ) {
 				return $p2_result;
 			}
 			$p2_despois = self::resolve_segundo_proxenitor( $profile );
+			if ( ! is_array( $p2_antes ) && is_array( $p2_despois ) ) {
+				// 1.105.0: a second adult added from the area is on the junta's record.
+				ANPA_Socios_Admin_Shared::write_audit_actor( strtolower( (string) ( isset( $update_data['email'] ) ? $update_data['email'] : $profile['email'] ) ), 'socio', 'socio', (string) $p2_despois['id'], 'proxenitor2_engadido' );
+			}
 			$cambios    = is_array( $p2_antes ) && is_array( $p2_despois ) ? ANPA_Socios_Cambio_Email::cambios( $p2_antes, $p2_despois ) : array();
 			if ( array() !== $cambios ) {
 				$actor       = strtolower( (string) ( isset( $update_data['email'] ) ? $update_data['email'] : $profile['email'] ) );
@@ -1091,6 +1127,9 @@ class ANPA_Socios_Area_REST {
 		$resposta = self::format_profile( $updated_profile );
 		if ( '' !== $email_pendente ) {
 			$resposta['email_pendente'] = $email_pendente;
+		}
+		if ( '' !== $p2_email_pendente ) {
+			$resposta['p2_email_pendente'] = $p2_email_pendente;
 		}
 
 		return new WP_REST_Response( $resposta, 200 );
@@ -1178,7 +1217,8 @@ class ANPA_Socios_Area_REST {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- family-scoped lookup.
 		$existing = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, email FROM {$table} WHERE familia_id = %d AND id <> %d LIMIT 1",
+				"SELECT id, email FROM {$table} WHERE ( familia_id = %d OR id = %d ) AND id <> %d LIMIT 1",
+				$familia_id,
 				$familia_id,
 				$caller_id
 			),
@@ -1238,9 +1278,9 @@ class ANPA_Socios_Area_REST {
 			$wpdb->update(
 				$table,
 				$p2_update,
-				array( 'id' => (int) $existing['id'], 'familia_id' => $familia_id ),
+				array( 'id' => (int) $existing['id'] ), // Found inside the caller's family just above.
 				$p2_format,
-				array( '%d', '%d' )
+				array( '%d' )
 			);
 			if ( '' !== (string) $wpdb->last_error || ( $p2_cambia && ! ANPA_Socios_Cambio_Email::aplicar( (string) $existing['email'], (string) $p2_update['email'], $familia_id ) ) ) {
 				if ( $p2_cambia ) {
@@ -1551,9 +1591,10 @@ class ANPA_Socios_Area_REST {
 			$wpdb->prepare(
 				"SELECT id, nome, apelidos, email, nif, telefono
 				 FROM {$table}
-				 WHERE familia_id = %d
+				 WHERE ( familia_id = %d OR id = %d )
 				   AND id <> %d
 				 LIMIT 1",
+				$familia_id,
 				$familia_id,
 				$caller_id
 			),

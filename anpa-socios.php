@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ANPA Socios
  * Description: Xestión de socios para asociacións de nais e pais (ANPA/AMPA): área de socios sen contrasinal, fillos e actividades extraescolares, domiciliación SEPA cifrada, ciclo de curso, panel de administración e actualizacións self-hosted. Configurable para calquera asociación.
- * Version: 1.104.0
+ * Version: 1.105.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: ANPA Socios
@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ANPA_SOCIOS_VERSION', '1.104.0' );
+define( 'ANPA_SOCIOS_VERSION', '1.105.0' );
 define( 'ANPA_SOCIOS_DB_VERSION', '1.51.0' );
 define( 'ANPA_SOCIOS_PLUGIN_FILE', __FILE__ );
 define( 'ANPA_SOCIOS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
@@ -170,6 +170,9 @@ require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-colab-service.
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-colab-rest.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-colab-page.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-colab-admin.php';
+// 1.105.0: weekly publication of the partner shops' offers.
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-colab-calendario.php';
+require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-colab-publicacion.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/class-anpa-socios-preseason-guard.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-admin-nav.php';
 require_once ANPA_SOCIOS_PLUGIN_DIR . 'includes/lib/class-anpa-socios-verificacion-guard.php';
@@ -251,6 +254,8 @@ add_action( ANPA_Socios_Extraescolar_Offers::CRON_HOOK, array( 'ANPA_Socios_Extr
 add_action( ANPA_Socios_Extraescolar_Offers::CRON_HOOK, array( 'ANPA_Socios_Aprobacion_Automatica', 'executar' ), 15 );
 // 1.104.0: collaborators' offers approve themselves after the configured hours (hourly cron).
 add_action( ANPA_Socios_Extraescolar_Offers::CRON_HOOK, array( 'ANPA_Socios_Colab_Service', 'aprobar_vencidas' ), 25 );
+// 1.105.0: after the automatic approvals, so what was approved in this tick goes out too.
+add_action( ANPA_Socios_Extraescolar_Offers::CRON_HOOK, array( 'ANPA_Socios_Colab_Publicacion', 'executar_se_toca' ), 30 );
 add_action( ANPA_Socios_Season_Service::CRON_HOOK, array( 'ANPA_Socios_Season_Service', 'run_check' ) );
 add_action( ANPA_Socios_Aprobacions_Semanal::CRON_HOOK, array( 'ANPA_Socios_Aprobacions_Semanal', 'executar' ) );
 add_action( ANPA_Socios_Retencion_Service::CRON_HOOK, array( 'ANPA_Socios_Retencion_Service', 'executar' ) );
@@ -275,6 +280,7 @@ ANPA_Socios_Contenido_Shortcode::register();
 ANPA_Socios_Xunta_Directiva_Page::register();
 ANPA_Socios_Colab_Page::register();
 ANPA_Socios_Colab_Admin::register();
+ANPA_Socios_Colab_Publicacion::register();
 ANPA_Socios_Eventos_Page::register();
 // 1.95.0: «A ANPA en cifras» — [anpa_cifras] and GET area/cifras for the socios panel.
 ANPA_Socios_Cifras_Page::register();

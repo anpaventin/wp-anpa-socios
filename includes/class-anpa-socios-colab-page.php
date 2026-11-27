@@ -3,8 +3,9 @@
  * Collaborators network (1.104.0): public pages.
  *
  * - [anpa_colaboradores]: shops and their published offers (cacheable).
- * - [anpa_colaboradores_acceso]: the shop's own panel (sign in, guided offer form).
- * - [anpa_colaboradores_verificar]: checks a member card (valid / not valid).
+ * - [anpa_colaboradores_acceso]: the shop's own panel (sign in, data, offers, till QR).
+ * - [anpa_colaboradores_caixa] (1.105.0 v2): the till — shop QR, family QR,
+ *   apply an offer. [anpa_colaboradores_verificar] (1.104.0) renders the same.
  *
  * @since  1.104.0
  * @package ANPA_Socios
@@ -23,6 +24,7 @@ final class ANPA_Socios_Colab_Page {
 
 	const SC_LISTA     = 'anpa_colaboradores';
 	const SC_ACCESO    = 'anpa_colaboradores_acceso';
+	const SC_CAIXA     = 'anpa_colaboradores_caixa';
 	const SC_VERIFICAR = 'anpa_colaboradores_verificar';
 
 	/**
@@ -33,17 +35,29 @@ final class ANPA_Socios_Colab_Page {
 	public static function register(): void {
 		add_shortcode( self::SC_LISTA, array( __CLASS__, 'render_lista' ) );
 		add_shortcode( self::SC_ACCESO, array( __CLASS__, 'render_acceso' ) );
-		add_shortcode( self::SC_VERIFICAR, array( __CLASS__, 'render_verificar' ) );
+		add_shortcode( self::SC_CAIXA, array( __CLASS__, 'render_caixa' ) );
+		add_shortcode( self::SC_VERIFICAR, array( __CLASS__, 'render_caixa' ) );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ) );
 	}
 
 	/**
-	 * URL of the page that checks cards ('' when there is none yet).
+	 * URL of the till page ('' when there is none yet). A 1.104.0 page with
+	 * [anpa_colaboradores_verificar] still serves.
 	 *
 	 * @return string
 	 */
+	public static function url_caixa(): string {
+		$url = ANPA_Socios_Hub_Page::find_page_url( self::SC_CAIXA );
+
+		return '' !== $url ? $url : ANPA_Socios_Hub_Page::find_page_url( self::SC_VERIFICAR );
+	}
+
+	/**
+	 * @deprecated 1.105.0 Use url_caixa().
+	 * @return string
+	 */
 	public static function url_verificar(): string {
-		return ANPA_Socios_Hub_Page::find_page_url( self::SC_VERIFICAR );
+		return self::url_caixa();
 	}
 
 	/**
@@ -56,8 +70,8 @@ final class ANPA_Socios_Colab_Page {
 	}
 
 	/**
-	 * [anpa_colaboradores] — the public list. Prints nothing while the module
-	 * is off or there is nothing published.
+	 * [anpa_colaboradores] — the public list (published offers only). Prints
+	 * nothing while the module is off.
 	 *
 	 * @param  mixed $atts Unused.
 	 * @return string
@@ -74,7 +88,11 @@ final class ANPA_Socios_Colab_Page {
 		$html = '<div class="anpa-colab-lista">';
 		foreach ( $grupos as $g ) {
 			$c     = $g['comercio'];
-			$html .= '<article class="anpa-colab-comercio"><header><h3>' . esc_html( $c['nome'] ) . '</h3>';
+			$html .= '<article class="anpa-colab-comercio"><header>';
+			if ( '' !== $c['logo_url'] ) {
+				$html .= '<img class="anpa-colab-logo" src="' . esc_url( $c['logo_url'] ) . '" alt="' . esc_attr( $c['nome'] ) . '" loading="lazy" decoding="async">';
+			}
+			$html .= '<h3>' . esc_html( $c['nome'] ) . '</h3>';
 			$datos = array();
 			if ( '' !== $c['enderezo'] ) {
 				$datos[] = esc_html( $c['enderezo'] );
@@ -93,12 +111,19 @@ final class ANPA_Socios_Colab_Page {
 			}
 			$html .= '</header><ul class="anpa-colab-ofertas">';
 			foreach ( $g['ofertas'] as $o ) {
-				$html .= '<li class="anpa-colab-oferta"><span class="anpa-colab-desconto">' . esc_html( (string) $o['desconto'] ) . '</span>'
+				$imaxe = '' !== (string) $o['imaxe_url'] ? (string) $o['imaxe_url'] : (string) $c['logo_url'];
+				$html .= '<li class="anpa-colab-oferta">';
+				if ( '' !== $imaxe ) {
+					$html .= '<img class="anpa-colab-oferta-imaxe" src="' . esc_url( $imaxe ) . '" alt="" loading="lazy" decoding="async">';
+				}
+				$html .= '<span class="anpa-colab-desconto">' . esc_html( (string) $o['desconto'] ) . '</span>'
 					. '<strong class="anpa-colab-titulo">' . esc_html( (string) $o['titulo'] ) . '</strong>'
 					. '<p>' . nl2br( esc_html( (string) $o['descricion'] ) ) . '</p>';
 				if ( '' !== (string) $o['condicions'] ) {
 					$html .= '<p class="anpa-colab-condicions">' . nl2br( esc_html( (string) $o['condicions'] ) ) . '</p>';
 				}
+				$html .= '<p class="anpa-colab-etiquetas"><span class="anpa-colab-etiqueta">' . esc_html( $o['acumulable'] ? __( 'Acumulable con outras ofertas', 'anpa-socios' ) : __( 'Non acumulable', 'anpa-socios' ) ) . '</span> '
+					. '<span class="anpa-colab-etiqueta">' . esc_html( self::texto_usos( (int) $o['usos_familia'] ) ) . '</span></p>';
 				$ata = (string) $o['valida_ata'];
 				if ( '' !== $ata && '0000-00-00' !== $ata ) {
 					/* translators: %s: date */
@@ -109,7 +134,24 @@ final class ANPA_Socios_Colab_Page {
 			$html .= '</ul></article>';
 		}
 
-		return $html . '</div><p class="anpa-colab-nota">' . esc_html__( 'Para gozar dunha oferta, ensina no comercio o teu carné de socio/a (na área de socios, «O meu carné»).', 'anpa-socios' ) . '</p>';
+		return $html . '</div><p class="anpa-colab-nota">' . esc_html__( 'Para gozar dunha oferta, ensina no comercio o carné de socio/a da túa familia (na área de socios, «O meu carné»).', 'anpa-socios' ) . '</p>';
+	}
+
+	/**
+	 * Uses per family in words.
+	 *
+	 * @param  int $usos Uses per family (0 = unlimited).
+	 * @return string
+	 */
+	public static function texto_usos( int $usos ): string {
+		if ( $usos <= 0 ) {
+			return __( 'Sen límite de usos', 'anpa-socios' );
+		}
+		if ( 1 === $usos ) {
+			return __( 'Un uso por familia', 'anpa-socios' );
+		}
+		/* translators: %d: uses per family */
+		return sprintf( __( '%d usos por familia', 'anpa-socios' ), $usos );
 	}
 
 	/**
@@ -131,26 +173,40 @@ final class ANPA_Socios_Colab_Page {
 			. ' data-entrar-url="' . esc_attr( rest_url( $base . 'entrar' ) ) . '"'
 			. ' data-me-url="' . esc_attr( rest_url( $base . 'me' ) ) . '"'
 			. ' data-sair-url="' . esc_attr( rest_url( $base . 'me/session' ) ) . '"'
+			. ' data-logo-url="' . esc_attr( rest_url( $base . 'me/logo' ) ) . '"'
+			. ' data-proposta-url="' . esc_attr( rest_url( $base . 'me/proposta' ) ) . '"'
+			. ' data-qr-url="' . esc_attr( rest_url( $base . 'me/qr' ) ) . '"'
 			. ' data-ofertas-url="' . esc_attr( rest_url( $base . 'ofertas' ) ) . '"'
+			. ' data-caixa-paxina="' . esc_attr( self::url_caixa() ) . '"'
+			. ' data-asociacion="' . esc_attr( ANPA_Socios_Config::association_name() ) . '"'
 			. ' data-ts="' . esc_attr( (string) time() ) . '"'
 			. ' data-contacto="' . esc_attr( ANPA_Socios_Config::contact_email() ) . '">'
 			. '<noscript>' . esc_html__( 'Esta páxina precisa JavaScript.', 'anpa-socios' ) . '</noscript></div>';
 	}
 
 	/**
-	 * [anpa_colaboradores_verificar] — card check shell (built by colab-verificar.js).
+	 * [anpa_colaboradores_caixa] and [anpa_colaboradores_verificar] — the till
+	 * shell (built by colab-caixa.js). The codes arrive in the URL fragment and
+	 * only travel in a header or a POST body.
 	 *
 	 * @param  mixed $atts Unused.
 	 * @return string
 	 */
-	public static function render_verificar( $atts = array() ): string {
+	public static function render_caixa( $atts = array() ): string {
 		unset( $atts );
 		if ( ! ANPA_Socios_Colab_DB::activo() ) {
 			return '';
 		}
 		ANPA_Socios_Non_Cachear::marcar();
+		$base = 'anpa-socios/v1/colab/caixa';
 
-		return '<div id="anpa-colab-verificar" class="anpa-colab-app" data-verificar-url="' . esc_attr( rest_url( 'anpa-socios/v1/colab/verificar' ) ) . '">'
+		return '<div id="anpa-colab-caixa" class="anpa-colab-app"'
+			. ' data-caixa-url="' . esc_attr( rest_url( $base ) ) . '"'
+			. ' data-familia-url="' . esc_attr( rest_url( $base . '/familia' ) ) . '"'
+			. ' data-aplicar-url="' . esc_attr( rest_url( $base . '/aplicar' ) ) . '"'
+			. ' data-desfacer-url="' . esc_attr( rest_url( $base . '/desfacer' ) ) . '"'
+			. ' data-acceso-paxina="' . esc_attr( self::url_acceso() ) . '"'
+			. ' data-asociacion="' . esc_attr( ANPA_Socios_Config::association_name() ) . '">'
 			. '<noscript>' . esc_html__( 'Esta páxina precisa JavaScript.', 'anpa-socios' ) . '</noscript></div>';
 	}
 
@@ -164,19 +220,24 @@ final class ANPA_Socios_Colab_Page {
 		if ( ! is_singular() || ! ( $post instanceof WP_Post ) || ! ANPA_Socios_Colab_DB::activo() ) {
 			return;
 		}
-		$contido   = (string) $post->post_content;
-		$lista     = has_shortcode( $contido, self::SC_LISTA );
-		$acceso    = has_shortcode( $contido, self::SC_ACCESO );
-		$verificar = has_shortcode( $contido, self::SC_VERIFICAR );
-		if ( ! $lista && ! $acceso && ! $verificar ) {
+		$contido = (string) $post->post_content;
+		$lista   = has_shortcode( $contido, self::SC_LISTA );
+		$acceso  = has_shortcode( $contido, self::SC_ACCESO );
+		$caixa   = has_shortcode( $contido, self::SC_CAIXA ) || has_shortcode( $contido, self::SC_VERIFICAR );
+		if ( ! $lista && ! $acceso && ! $caixa ) {
 			return;
 		}
 		self::enqueue_style();
 		if ( $acceso ) {
-			self::enqueue_script( 'anpa-colab-portal', 'assets/js/colab-portal.js' );
+			self::enqueue_script( 'anpa-colab-portal', 'assets/js/colab-portal.js', array( self::registrar_qr() ) );
 		}
-		if ( $verificar ) {
-			self::enqueue_script( 'anpa-colab-verificar', 'assets/js/colab-verificar.js' );
+		if ( $caixa ) {
+			$deps   = array( self::registrar_qr() );
+			$lector = self::registrar_lector();
+			if ( '' !== $lector ) {
+				$deps[] = $lector;
+			}
+			self::enqueue_script( 'anpa-colab-caixa', 'assets/js/colab-caixa.js', $deps );
 		}
 	}
 
@@ -191,7 +252,7 @@ final class ANPA_Socios_Colab_Page {
 	}
 
 	/**
-	 * Registers the vendored QR generator (MIT) for the member card.
+	 * Registers the vendored QR generator (MIT) for the member card and the shop QR.
 	 *
 	 * @return string Script handle.
 	 */
@@ -203,13 +264,31 @@ final class ANPA_Socios_Colab_Page {
 	}
 
 	/**
-	 * @param  string $handle Script handle.
-	 * @param  string $rel    Path inside the plugin.
+	 * Registers the vendored QR decoder for the till's in-page scanner (used
+	 * where BarcodeDetector is missing), when the file is there.
+	 *
+	 * @return string Script handle, or '' when there is no decoder file.
+	 */
+	public static function registrar_lector(): string {
+		$rel  = 'assets/js/vendor/qr-lector.js';
+		$path = ANPA_SOCIOS_PLUGIN_DIR . $rel;
+		if ( ! file_exists( $path ) ) {
+			return '';
+		}
+		wp_register_script( 'anpa-qr-lector', plugins_url( $rel, ANPA_SOCIOS_PLUGIN_FILE ), array(), (int) filemtime( $path ), true );
+
+		return 'anpa-qr-lector';
+	}
+
+	/**
+	 * @param  string             $handle Script handle.
+	 * @param  string             $rel    Path inside the plugin.
+	 * @param  array<int,string>  $deps   Extra dependencies.
 	 * @return void
 	 */
-	private static function enqueue_script( string $handle, string $rel ): void {
+	private static function enqueue_script( string $handle, string $rel, array $deps = array() ): void {
 		$path = ANPA_SOCIOS_PLUGIN_DIR . $rel;
-		wp_enqueue_script( $handle, plugins_url( $rel, ANPA_SOCIOS_PLUGIN_FILE ), array( 'wp-i18n' ), file_exists( $path ) ? (int) filemtime( $path ) : ANPA_SOCIOS_VERSION, true );
+		wp_enqueue_script( $handle, plugins_url( $rel, ANPA_SOCIOS_PLUGIN_FILE ), array_merge( array( 'wp-i18n' ), $deps ), file_exists( $path ) ? (int) filemtime( $path ) : ANPA_SOCIOS_VERSION, true );
 		wp_set_script_translations( $handle, 'anpa-socios', ANPA_SOCIOS_PLUGIN_DIR . 'languages' );
 	}
 }

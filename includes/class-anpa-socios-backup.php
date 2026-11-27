@@ -631,7 +631,32 @@ final class ANPA_Socios_Backup {
 			return $wipe_failed();
 		}
 
+		// 1.105.0: the collaborators module goes too (shops, offers, sessions,
+		// login codes, cards, uses, family cards) and comes back switched off.
+		foreach ( array( 'comercios', 'ofertas', 'sesions', 'codigos', 'carnes', 'usos', 'familias' ) as $s ) {
+			$t = $wpdb->prefix . 'anpa_colab_' . $s;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- irreversible admin wipe.
+			if ( false === $wpdb->query( "DROP TABLE IF EXISTS `{$t}`" ) ) {
+				return $wipe_failed();
+			}
+		}
+
 		foreach ( array(
+			ANPA_Socios_Colab_DB::VERSION_OPTION,
+			ANPA_Socios_Colab_DB::OPTION_ACTIVO,
+			ANPA_Socios_Colab_DB::OPTION_HORAS,
+			ANPA_Socios_Colab_DB::OPTION_LOGO_CARNE,
+			'anpa_colab_pub_dia',
+			'anpa_colab_pub_hora',
+			'anpa_colab_pub_sempre',
+			'anpa_colab_pub_termo',
+			'anpa_colab_pub_autor',
+			'anpa_colab_pub_telegram',
+			'anpa_colab_pub_correo',
+			'anpa_colab_pub_imaxes',
+			'anpa_colab_pub_importadas',
+			'anpa_colab_pub_feito',
+			'anpa_colab_pub_ultima',
 			'anpa_socios_db_version',
 			'anpa_socios_banking_pubkey',
 			'anpa_socios_banking_seckey_wrapped',

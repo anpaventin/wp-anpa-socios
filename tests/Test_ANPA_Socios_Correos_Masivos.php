@@ -101,7 +101,7 @@ final class Test_ANPA_Socios_Correos_Masivos extends TestCase {
 		$this->assertStringContainsString( 'anpa_codigos_verificacion', $a );
 		$area = $this->src( 'includes/class-anpa-socios-area-rest.php' );
 		$this->assertSame( 2, substr_count( $area, 'ANPA_Socios_Cambio_Email::aplicar(' ), 'own email and 2nd parent email in the area too' );
-		$this->assertSame( 2, substr_count( $area, 'ANPA_Socios_Cambio_Email::validar(' ), 'same checks as Xestión' );
+		$this->assertSame( 3, substr_count( $area, 'ANPA_Socios_Cambio_Email::validar(' ), 'same checks as Xestión (1.105.0: also before the code for the other parent)' );
 		$this->assertStringContainsString( "(int) \$fam['familia_id'] ) ) {", $area, 'own family only' );
 		$js = $this->src( 'assets/js/admin-management.js' );
 		$this->assertStringContainsString( "'/email', { method: 'POST', body: { novo: novo } }", $js );

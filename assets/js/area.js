@@ -213,6 +213,8 @@
 				setP2('anpa-area-p2-email', p2.email);
 				setP2('anpa-area-p2-nif', p2.nif);
 				setP2('anpa-area-p2-telefono', p2.telefono);
+				// 1.105.0: a new address for the other parent waits for its code.
+				if (profile.p2_email_pendente) { setP2('anpa-area-p2-email', profile.p2_email_pendente); }
 				// Update button label to "Gardar" instead of "Engadir".
 				var p2Btn = root.querySelector('[data-action="proxenitor2-save"]');
 				if (p2Btn) { p2Btn.textContent = __( 'Gardar 2º proxenitor', 'anpa-socios' ); }
@@ -225,6 +227,11 @@
 				});
 			}
 		}
+
+		var p2CodigoBox = root.querySelector('[data-p2-email-codigo]');
+		var p2CodigoEl = root.querySelector('#anpa-area-p2-email-codigo');
+		if (p2CodigoEl) { p2CodigoEl.value = ''; }
+		if (p2CodigoBox) { p2CodigoBox.hidden = !profile.p2_email_pendente; }
 
 		// Toggle "Engadir proxenitor" button vs inline section.
 		var toggleP2Btn = root.querySelector('[data-action="toggle-proxenitor2"]');
@@ -434,6 +441,7 @@
 
 		function renderPanel() {
 			renderCifras();
+			cargarOfertasCarne();
 			// Greeting from the already-filled profile fields (no extra fetch).
 			var saudo = root.querySelector('[data-panel-saudo]');
 			if (saudo) {
@@ -911,6 +919,8 @@
 						nif: p2Nif,
 						telefono: p2Telefono,
 					};
+					var p2Codigo = ((root.querySelector('#anpa-area-p2-email-codigo') || {}).value || '').trim();
+					if (p2Codigo) { payload.p2_email_codigo = p2Codigo; }
 				}
 			}
 
@@ -932,92 +942,427 @@
 					showMessage(root, __( 'Datos gardados. Para cambiar o correo, escribe o código que che enviamos ao novo enderezo e garda de novo.', 'anpa-socios' ), 'info');
 					var codigoEl = root.querySelector('#anpa-area-email-codigo');
 					if (codigoEl) { try { codigoEl.focus(); } catch (_) {} }
+				} else if (profile.p2_email_pendente) {
+					showMessage(root, __( 'Datos gardados. Para gardar o correo do outro proxenitor/titor, escribe o código que lle enviamos a ese enderezo e garda de novo.', 'anpa-socios' ), 'info');
+					var p2CodEl = root.querySelector('#anpa-area-p2-email-codigo');
+					if (p2CodEl) { try { p2CodEl.focus(); } catch (_) {} }
 				} else {
 					showMessage(root, __( 'Datos gardados correctamente.', 'anpa-socios' ), 'success');
 				}
 			}
 		});
 
-		// 1.104.0: member card for the partner shops. Each press asks for a fresh
-		// code (the previous one stops working); it lasts ten minutes.
-		var carneTimer = null;
+		// 1.105.0: the family's permanent member card for the partner shops,
+		// drawn on a canvas (association, logo, «Familia socia», the adults'
+		// names, the QR and the code), plus the offers with what the family has
+		// left and the weekly email switch. Built with nodes and textContent only.
+		var carneDatos = null;
+		var carneCanvas = null;
+		var carneSeq = 0;
+		function carneUrlSegura(u) {
+			return typeof u === 'string' && /^https?:\/\//i.test(u) ? u : '';
+		}
 		function limparCarne() {
-			if (carneTimer) { clearInterval(carneTimer); carneTimer = null; }
+			carneSeq += 1;
+			carneDatos = null;
+			carneCanvas = null;
 			var host = root.querySelector('[data-panel-carne]');
 			if (host) { host.textContent = ''; }
+			['[data-carne-accions]', '[data-carne-cargar]', '[data-carne-correo-campo]', '[data-carne-ofertas]'].forEach(function (s) {
+				var n = root.querySelector(s);
+				if (n) { n.hidden = true; }
+			});
+			var lista = root.querySelector('[data-carne-ofertas]');
+			if (lista) { lista.textContent = ''; }
 		}
-		function debuxarQr(host, texto) {
-			if (!texto || typeof window.qrcode !== 'function') { return; }
-			var qr;
-			try {
-				qr = window.qrcode(0, 'M');
-				qr.addData(texto);
-				qr.make();
-			} catch (_) { return; }
-			var n = qr.getModuleCount();
-			var marxe = 4;
-			var ns = 'http://www.w3.org/2000/svg';
-			var svg = document.createElementNS(ns, 'svg');
-			svg.setAttribute('viewBox', '0 0 ' + (n + marxe * 2) + ' ' + (n + marxe * 2));
-			svg.setAttribute('role', 'img');
-			svg.setAttribute('aria-label', __( 'Código QR do carné', 'anpa-socios' ));
-			svg.setAttribute('shape-rendering', 'crispEdges');
-			var fondo = document.createElementNS(ns, 'rect');
-			fondo.setAttribute('width', '100%');
-			fondo.setAttribute('height', '100%');
-			fondo.setAttribute('fill', '#ffffff');
-			svg.appendChild(fondo);
-			var d = '';
-			for (var r = 0; r < n; r++) {
-				for (var c = 0; c < n; c++) {
-					if (qr.isDark(r, c)) { d += 'M' + (c + marxe) + ' ' + (r + marxe) + 'h1v1h-1z'; }
-				}
+		function carneTexto(ctx, texto, maxW) {
+			var t = String(texto || '');
+			if (ctx.measureText(t).width <= maxW) { return t; }
+			while (t.length > 1 && ctx.measureText(t + '…').width > maxW) { t = t.slice(0, -1); }
+			return t + '…';
+		}
+		function carneRect(ctx, x, y, w, h, r) {
+			ctx.beginPath();
+			ctx.moveTo(x + r, y);
+			ctx.arcTo(x + w, y, x + w, y + h, r);
+			ctx.arcTo(x + w, y + h, x, y + h, r);
+			ctx.arcTo(x, y + h, x, y, r);
+			ctx.arcTo(x, y, x + w, y, r);
+			ctx.closePath();
+		}
+		/** Draws the whole card on `canvas` (1012×638, a bank card at 300 dpi). */
+		function debuxarCarneCanvas(canvas, d, logo) {
+			var W = 1012;
+			var H = 638;
+			canvas.width = W;
+			canvas.height = H;
+			var ctx = canvas.getContext('2d');
+			if (!ctx) { return false; }
+			var verde = '#2d6a4f';
+			var sans = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+			ctx.clearRect(0, 0, W, H);
+			ctx.save();
+			carneRect(ctx, 0, 0, W, H, 36);
+			ctx.clip();
+			ctx.fillStyle = '#ffffff';
+			ctx.fillRect(0, 0, W, H);
+			ctx.fillStyle = verde;
+			ctx.fillRect(0, 0, W, 150);
+			ctx.fillRect(0, H - 16, W, 16);
+
+			// Header: logo (on a white tile) and the association name.
+			var x = 44;
+			if (logo) {
+				ctx.fillStyle = '#ffffff';
+				carneRect(ctx, 32, 23, 104, 104, 14);
+				ctx.fill();
+				var esc = Math.min(88 / (logo.naturalWidth || 88), 88 / (logo.naturalHeight || 88));
+				var lw = (logo.naturalWidth || 88) * esc;
+				var lh = (logo.naturalHeight || 88) * esc;
+				ctx.drawImage(logo, 32 + (104 - lw) / 2, 23 + (104 - lh) / 2, lw, lh);
+				x = 160;
 			}
-			var path = document.createElementNS(ns, 'path');
-			path.setAttribute('d', d);
-			path.setAttribute('fill', '#000000');
-			svg.appendChild(path);
-			host.appendChild(svg);
+			var nome = String(d.asociacion || '');
+			var maxW = W - x - 40;
+			ctx.fillStyle = '#ffffff';
+			ctx.textBaseline = 'middle';
+			ctx.textAlign = 'left';
+			var tam = 44;
+			ctx.font = '700 ' + tam + 'px ' + sans;
+			while (tam > 28 && ctx.measureText(nome).width > maxW) {
+				tam -= 2;
+				ctx.font = '700 ' + tam + 'px ' + sans;
+			}
+			if (ctx.measureText(nome).width <= maxW) {
+				ctx.fillText(nome, x, 75);
+			} else {
+				// Two lines: split at the space nearest the middle.
+				var medio = Math.floor(nome.length / 2);
+				var corte = nome.lastIndexOf(' ', medio);
+				if (corte < 1) { corte = nome.indexOf(' ', medio); }
+				var l1 = corte > 0 ? nome.slice(0, corte) : nome;
+				var l2 = corte > 0 ? nome.slice(corte + 1) : '';
+				ctx.fillText(carneTexto(ctx, l1, maxW), x, 52);
+				ctx.fillText(carneTexto(ctx, l2, maxW), x, 100);
+			}
+
+			// QR (right).
+			var lado = 360;
+			var qx = W - lado - 44;
+			var qy = 186;
+			ctx.fillStyle = '#ffffff';
+			ctx.fillRect(qx, qy, lado, lado);
+			if (d.url && typeof window.qrcode === 'function') {
+				try {
+					var qr = window.qrcode(0, 'M');
+					qr.addData(String(d.url));
+					qr.make();
+					var n = qr.getModuleCount();
+					var m = Math.floor(lado / (n + 4));
+					var off = Math.round((lado - m * n) / 2);
+					ctx.fillStyle = '#000000';
+					for (var r = 0; r < n; r++) {
+						for (var c = 0; c < n; c++) {
+							if (qr.isDark(r, c)) { ctx.fillRect(qx + off + c * m, qy + off + r * m, m, m); }
+						}
+					}
+				} catch (_) {}
+			}
+
+			// Body (left): «Familia socia», names, school year, code.
+			var bx = 48;
+			var bw = qx - bx - 32;
+			ctx.textBaseline = 'alphabetic';
+			ctx.fillStyle = '#1f513b';
+			ctx.font = '800 58px ' + sans;
+			ctx.fillText(carneTexto(ctx, __( 'Familia socia', 'anpa-socios' ), bw), bx, 236);
+			ctx.fillStyle = '#1f1f1f';
+			var adultos = Array.isArray(d.adultos) ? d.adultos.slice(0, 4) : [];
+			adultos.forEach(function (a, i) {
+				// Long names get a smaller font before they are ever cut.
+				var t = String(a || '');
+				var fs = 36;
+				ctx.font = '600 ' + fs + 'px ' + sans;
+				while (fs > 22 && ctx.measureText(t).width > bw) {
+					fs -= 2;
+					ctx.font = '600 ' + fs + 'px ' + sans;
+				}
+				ctx.fillText(carneTexto(ctx, t, bw), bx, 300 + i * 46);
+			});
+			if (d.curso) {
+				ctx.fillStyle = '#4d4d4d';
+				ctx.font = '500 28px ' + sans;
+				/* translators: %s: school year */
+				ctx.fillText(carneTexto(ctx, sprintf( __( 'Curso %s', 'anpa-socios' ), String(d.curso) ), bw), bx, 300 + adultos.length * 46 + 18);
+			}
+			ctx.fillStyle = '#1f1f1f';
+			ctx.font = '700 46px ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace';
+			ctx.fillText(carneTexto(ctx, String(d.codigo || ''), bw + 20), bx, H - 52);
+			ctx.restore();
+			return true;
 		}
-		bind('[data-action="carne"]', 'click', async () => {
-			showMessage(root, '', 'info');
-			if (!areaToken || !root.dataset.carneUrl) { return; }
-			const datos = await tokenRequest('POST', root.dataset.carneUrl, areaToken, {}, root);
+		function cargarLogoCarne(url) {
+			return new Promise(function (resolve) {
+				var u = carneUrlSegura(url);
+				if (!u) { resolve(null); return; }
+				var img = new Image();
+				var t = setTimeout(function () { resolve(null); }, 6000);
+				img.crossOrigin = 'anonymous'; // Without CORS it fails instead of tainting the canvas.
+				img.onload = function () { clearTimeout(t); resolve(img); };
+				img.onerror = function () { clearTimeout(t); resolve(null); };
+				img.src = u;
+			});
+		}
+		function amosarCarne(d) {
 			var host = root.querySelector('[data-panel-carne]');
-			if (!datos || !datos.codigo || !host) { return; }
-			limparCarne();
-			var caixa = document.createElement('div');
-			caixa.className = 'anpa-carne';
-			var qrHost = document.createElement('div');
-			qrHost.className = 'anpa-carne-qr';
-			debuxarQr(qrHost, datos.url || '');
-			if (qrHost.firstChild) { caixa.appendChild(qrHost); }
+			if (!host) { return; }
+			var seq = ++carneSeq;
+			carneDatos = d;
+			host.textContent = '';
+			var canvas = document.createElement('canvas');
+			canvas.className = 'anpa-carne-canvas';
+			canvas.setAttribute('role', 'img');
+			var nomes = Array.isArray(d.adultos) ? d.adultos.map(String).join(', ') : '';
+			/* translators: 1: association name, 2: parents' names, 3: card code */
+			canvas.setAttribute('aria-label', sprintf( __( 'Carné de familia socia de %1$s: %2$s. Código %3$s.', 'anpa-socios' ), String(d.asociacion || ''), nomes, String(d.codigo || '') ));
+			debuxarCarneCanvas(canvas, d, null);
+			carneCanvas = canvas;
+			host.appendChild(canvas);
 			var cod = document.createElement('p');
 			cod.className = 'anpa-carne-codigo';
-			cod.textContent = datos.codigo;
-			caixa.appendChild(cod);
-			if (datos.curso) {
-				var curso = document.createElement('p');
-				curso.className = 'anpa-carne-curso';
-				curso.textContent = sprintf( __( 'Socio/a · curso %s', 'anpa-socios' ), datos.curso );
-				caixa.appendChild(curso);
+			cod.textContent = String(d.codigo || '');
+			host.appendChild(cod);
+			if (!d.url) {
+				var aviso = document.createElement('p');
+				aviso.className = 'anpa-carne-aviso';
+				aviso.textContent = __( 'Aínda non se pode xerar o QR: falta a páxina de caixa dos comercios. Avisa á xunta directiva.', 'anpa-socios' );
+				host.appendChild(aviso);
 			}
-			var caduca = document.createElement('p');
-			caduca.className = 'anpa-carne-caduca';
-			caixa.appendChild(caduca);
-			host.appendChild(caixa);
-			var fin = Date.now() + (parseInt(datos.expires_in, 10) || 600) * 1000;
-			var pintar = function () {
-				var resta = Math.max(0, Math.round((fin - Date.now()) / 1000));
-				if (resta <= 0) {
-					limparCarne();
-					showMessage(root, __( 'O carné caducou. Preme «Amosar o carné» para xerar outro.', 'anpa-socios' ), 'info');
-					return;
+			var accions = root.querySelector('[data-carne-accions]');
+			if (accions) { accions.hidden = false; }
+			var cargar = root.querySelector('[data-carne-cargar]');
+			if (cargar) { cargar.hidden = true; }
+			var campo = root.querySelector('[data-carne-correo-campo]');
+			var caixa = root.querySelector('[data-carne-correo]');
+			if (campo && caixa) {
+				caixa.checked = d.recibir_correo !== false;
+				campo.hidden = !root.dataset.carneCorreoUrl;
+			}
+			// The logo goes in only if it loads and leaves the canvas readable.
+			cargarLogoCarne(d.logo_url).then(function (logo) {
+				if (!logo || seq !== carneSeq) { return; }
+				var proba = document.createElement('canvas');
+				try {
+					debuxarCarneCanvas(proba, d, logo);
+					proba.getContext('2d').getImageData(0, 0, 1, 1);
+				} catch (_) {
+					return; // Tainted or failed: keep the card without the logo.
 				}
-				caduca.textContent = sprintf( __( 'Válido durante %1$s:%2$s min', 'anpa-socios' ), String(Math.floor(resta / 60)), String(resta % 60).padStart(2, '0') );
+				var ctx = canvas.getContext('2d');
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+				ctx.drawImage(proba, 0, 0);
+			});
+		}
+		function textoRestanCarne(o) {
+			if (o.restan === null || o.restan === undefined) { return __( 'Usos ilimitados', 'anpa-socios' ); }
+			var n = parseInt(o.restan, 10) || 0;
+			if (n <= 0) { return __( 'Xa usada', 'anpa-socios' ); }
+			if (n === 1) { return __( 'Queda 1 uso', 'anpa-socios' ); }
+			/* translators: %d: remaining uses */
+			return sprintf( __( 'Quedan %d usos', 'anpa-socios' ), n );
+		}
+		function amosarOfertasCarne(ofertas) {
+			var host = root.querySelector('[data-carne-ofertas]');
+			if (!host) { return; }
+			host.textContent = '';
+			var h = document.createElement('h4');
+			h.textContent = __( 'Ofertas para familias socias', 'anpa-socios' );
+			host.appendChild(h);
+			if (!ofertas.length) {
+				var nada = document.createElement('p');
+				nada.className = 'anpa-area-muted';
+				nada.textContent = __( 'Agora mesmo non hai ofertas publicadas.', 'anpa-socios' );
+				host.appendChild(nada);
+				host.hidden = false;
+				return;
+			}
+			var ul = document.createElement('ul');
+			ul.className = 'anpa-carne-ofertas-lista';
+			ofertas.forEach(function (o) {
+				var li = document.createElement('li');
+				li.className = 'anpa-carne-oferta-item' + (o.disponible === false ? ' anpa-carne-oferta-item--usada' : '');
+				var src = carneUrlSegura(o.imaxe_url);
+				if (src) {
+					var img = document.createElement('img');
+					img.src = src;
+					img.alt = '';
+					img.loading = 'lazy';
+					img.decoding = 'async';
+					img.className = 'anpa-carne-oferta-imaxe';
+					li.appendChild(img);
+				}
+				var corpo = document.createElement('div');
+				corpo.className = 'anpa-carne-oferta-corpo';
+				var tenda = document.createElement('p');
+				tenda.className = 'anpa-carne-oferta-comercio';
+				tenda.textContent = String(o.comercio || '') + (o.enderezo ? ' · ' + String(o.enderezo) : '');
+				corpo.appendChild(tenda);
+				var tit = document.createElement('p');
+				tit.className = 'anpa-carne-oferta-titulo';
+				if (o.desconto) {
+					var desc = document.createElement('span');
+					desc.className = 'anpa-carne-oferta-desconto';
+					desc.textContent = String(o.desconto);
+					tit.appendChild(desc);
+					tit.appendChild(document.createTextNode(' '));
+				}
+				tit.appendChild(document.createTextNode(String(o.titulo || '')));
+				corpo.appendChild(tit);
+				if (o.descricion) {
+					var dsc = document.createElement('p');
+					dsc.className = 'anpa-carne-oferta-texto';
+					dsc.textContent = String(o.descricion);
+					corpo.appendChild(dsc);
+				}
+				if (o.condicions) {
+					var cnd = document.createElement('p');
+					cnd.className = 'anpa-carne-oferta-texto anpa-area-muted';
+					cnd.textContent = String(o.condicions);
+					corpo.appendChild(cnd);
+				}
+				var et = document.createElement('p');
+				et.className = 'anpa-carne-oferta-etiquetas';
+				var resta = document.createElement('span');
+				resta.className = 'anpa-carne-etiqueta anpa-carne-etiqueta--restan' + (o.disponible === false ? ' anpa-carne-etiqueta--usada' : '');
+				resta.textContent = textoRestanCarne(o);
+				et.appendChild(resta);
+				et.appendChild(document.createTextNode(' '));
+				var acu = document.createElement('span');
+				acu.className = 'anpa-carne-etiqueta';
+				acu.textContent = o.acumulable ? __( 'Acumulable con outras ofertas', 'anpa-socios' ) : __( 'Non acumulable', 'anpa-socios' );
+				et.appendChild(acu);
+				var ata = String(o.valida_ata || '');
+				if (/^\d{4}-\d{2}-\d{2}$/.test(ata) && ata !== '0000-00-00') {
+					et.appendChild(document.createTextNode(' '));
+					var vx = document.createElement('span');
+					vx.className = 'anpa-carne-etiqueta';
+					var p = ata.split('-');
+					/* translators: %s: date (d/m/yyyy) */
+					vx.textContent = sprintf( __( 'Ata o %s', 'anpa-socios' ), parseInt(p[2], 10) + '/' + parseInt(p[1], 10) + '/' + p[0] );
+					et.appendChild(vx);
+				}
+				corpo.appendChild(et);
+				li.appendChild(corpo);
+				ul.appendChild(li);
+			});
+			host.appendChild(ul);
+			host.hidden = false;
+		}
+		// Called when the panel opens: the card and the offers, silently (a
+		// family that is not a member now simply gets a short note).
+		function cargarOfertasCarne() {
+			var host = root.querySelector('[data-panel-carne]');
+			if (!host || !root.dataset.carneUrl || !areaToken) { return; }
+			var seq = ++carneSeq;
+			var cab = { 'X-Anpa-Area-Token': areaToken };
+			fetch(root.dataset.carneUrl, { method: 'GET', headers: cab, cache: 'no-store' })
+				.then(function (r) {
+					return r.json().catch(function () { return null; }).then(function (d) { return { ok: r.ok, d: d }; });
+				})
+				.then(function (res) {
+					if (seq !== carneSeq) { return; }
+					if (res.ok && res.d && res.d.codigo) {
+						amosarCarne(res.d);
+						return;
+					}
+					host.textContent = '';
+					var p = document.createElement('p');
+					p.className = 'anpa-area-muted';
+					p.textContent = (res.d && typeof res.d.message === 'string' && res.d.message) || __( 'Non se puido cargar o carné.', 'anpa-socios' );
+					host.appendChild(p);
+					var cargar = root.querySelector('[data-carne-cargar]');
+					if (cargar) { cargar.hidden = false; }
+				})
+				.catch(function () {
+					var cargar = root.querySelector('[data-carne-cargar]');
+					if (cargar) { cargar.hidden = false; }
+				});
+			if (root.dataset.carneOfertasUrl) {
+				fetch(root.dataset.carneOfertasUrl, { method: 'GET', headers: cab, cache: 'no-store' })
+					.then(function (r) { return r.ok ? r.json() : null; })
+					.then(function (d) {
+						if (d && Array.isArray(d.ofertas)) { amosarOfertasCarne(d.ofertas); }
+					})
+					.catch(function () {});
+			}
+		}
+		bind('[data-action="carne"]', 'click', function () {
+			showMessage(root, '', 'info');
+			cargarOfertasCarne();
+		});
+		bind('[data-action="carne-descargar"]', 'click', function () {
+			if (!carneCanvas || typeof carneCanvas.toBlob !== 'function') { return; }
+			try {
+				carneCanvas.toBlob(function (blob) {
+					if (!blob) {
+						showMessage(root, __( 'Non se puido preparar a imaxe do carné.', 'anpa-socios' ), 'error');
+						return;
+					}
+					var u = URL.createObjectURL(blob);
+					var a = document.createElement('a');
+					a.href = u;
+					a.download = 'carne-familia-socia.png';
+					a.hidden = true;
+					document.body.appendChild(a);
+					a.click();
+					document.body.removeChild(a);
+					setTimeout(function () { URL.revokeObjectURL(u); }, 30000);
+				}, 'image/png');
+			} catch (_) {
+				showMessage(root, __( 'Non se puido preparar a imaxe do carné.', 'anpa-socios' ), 'error');
+			}
+		});
+		bind('[data-action="carne-imprimir"]', 'click', function () {
+			var host = root.querySelector('[data-panel-carne]');
+			if (!host || !carneCanvas) { return; }
+			var html = document.documentElement;
+			var limpar = function () {
+				html.classList.remove('anpa-colab-imprimindo');
+				host.classList.remove('anpa-colab-imprimible');
+				window.removeEventListener('afterprint', limpar);
 			};
-			pintar();
-			carneTimer = setInterval(pintar, 1000);
+			html.classList.add('anpa-colab-imprimindo');
+			host.classList.add('anpa-colab-imprimible');
+			window.addEventListener('afterprint', limpar);
+			try { window.print(); } catch (_) {}
+			setTimeout(limpar, 1000);
+		});
+		bind('[data-action="carne-renovar"]', 'click', async () => {
+			if (!areaToken || !root.dataset.carneRenovarUrl) { return; }
+			if (!window.confirm(__( 'Se renovas o carné, o QR e o código actuais deixan de funcionar (tamén os impresos ou descargados). Renovalo agora?', 'anpa-socios' ))) {
+				return;
+			}
+			const datos = await tokenRequest('POST', root.dataset.carneRenovarUrl, areaToken, {}, root);
+			if (!datos || !datos.codigo) { return; }
+			amosarCarne(datos);
+			showMessage(root, __( 'Carné renovado. O anterior xa non funciona: descarga ou imprime o novo.', 'anpa-socios' ), 'success');
+		});
+		bind('[data-carne-correo]', 'change', async (ev) => {
+			var caixa = ev.target;
+			if (!areaToken || !root.dataset.carneCorreoUrl) { return; }
+			var querer = !!caixa.checked;
+			caixa.disabled = true;
+			const res = await tokenRequest('PUT', root.dataset.carneCorreoUrl, areaToken, { recibir: querer }, root);
+			caixa.disabled = false;
+			if (!res) {
+				caixa.checked = !querer;
+				return;
+			}
+			caixa.checked = !!res.recibir_correo;
+			if (carneDatos) { carneDatos.recibir_correo = caixa.checked; }
+			showMessage(root, caixa.checked
+				? __( 'Recibirás as ofertas por correo cada semana.', 'anpa-socios' )
+				: __( 'Xa non recibirás as ofertas por correo.', 'anpa-socios' ), 'success');
 		});
 
 		bind('[data-action="logout"]', 'click', async () => {

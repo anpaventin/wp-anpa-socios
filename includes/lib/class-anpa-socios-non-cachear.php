@@ -37,6 +37,7 @@ final class ANPA_Socios_Non_Cachear {
 		// 1.104.0: the shops' panel and the card check are live pages too.
 		'anpa_colaboradores_acceso',
 		'anpa_colaboradores_verificar',
+		'anpa_colaboradores_caixa',
 	);
 
 	/**

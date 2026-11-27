@@ -77,6 +77,10 @@ class ANPA_Socios_Area_Page {
 		$empresa_request_code_url = rest_url( 'anpa-socios/v1/empresa/solicitar-codigo' );
 		// 1.104.0: member card for the collaborators network ('' while the module is off).
 		$carne_url = ANPA_Socios_Colab_DB::activo() ? rest_url( 'anpa-socios/v1/area/carne' ) : '';
+		// 1.105.0: published offers with what the family has left, renewing the card and the weekly email.
+		$carne_ofertas_url = '' !== $carne_url ? rest_url( 'anpa-socios/v1/area/carne/ofertas' ) : '';
+		$carne_renovar_url = '' !== $carne_url ? rest_url( 'anpa-socios/v1/area/carne/renovar' ) : '';
+		$carne_correo_url  = '' !== $carne_url ? rest_url( 'anpa-socios/v1/area/carne/correo' ) : '';
 
 
 		ob_start();
@@ -101,6 +105,9 @@ class ANPA_Socios_Area_Page {
 			data-extra-matricula-base-url="<?php echo esc_attr( $extra_matricula_base_url ); ?>"
 			data-cifras-url="<?php echo esc_attr( $cifras_url ); ?>"
 			data-carne-url="<?php echo esc_attr( $carne_url ); ?>"
+			data-carne-ofertas-url="<?php echo esc_attr( $carne_ofertas_url ); ?>"
+			data-carne-renovar-url="<?php echo esc_attr( $carne_renovar_url ); ?>"
+			data-carne-correo-url="<?php echo esc_attr( $carne_correo_url ); ?>"
 			data-empresa-session-url="<?php echo esc_attr( $empresa_session_url ); ?>"
 			data-empresa-request-code-url="<?php echo esc_attr( $empresa_request_code_url ); ?>"
 			data-empresa-me-url="<?php echo esc_attr( $empresa_me_url ); ?>"
@@ -181,14 +188,24 @@ class ANPA_Socios_Area_Page {
 					</div>
 				</section>
 				<?php if ( '' !== $carne_url ) : ?>
-				<!-- 1.104.0: member card for the partner shops (code + QR, renewed on demand). -->
+				<!-- 1.105.0: the family's permanent member card for the partner shops (drawn by area.js). -->
 				<section class="anpa-area-panel-carne" data-panel-carne-section>
 					<h3><?php esc_html_e( 'O meu carné de socio/a', 'anpa-socios' ); ?></h3>
-					<p class="anpa-area-muted"><?php esc_html_e( 'Ensínao nos comercios colaboradores para gozar das ofertas. O comercio só ve se o carné é válido: non recibe o teu nome nin ningún outro dato.', 'anpa-socios' ); ?></p>
-					<div data-panel-carne></div>
-					<div class="anpa-area-actions">
+					<p class="anpa-area-muted"><?php esc_html_e( 'Ensínao nos comercios colaboradores (no móbil ou impreso) para gozar das ofertas. O comercio só ve que sodes unha familia socia e as ofertas que vos quedan: non recibe o voso nome nin ningún outro dato.', 'anpa-socios' ); ?></p>
+					<div class="anpa-carne" data-panel-carne aria-live="polite"></div>
+					<div class="anpa-area-actions" data-carne-accions hidden>
+						<button type="button" class="anpa-area-secondary" data-action="carne-descargar"><?php esc_html_e( 'Descargar carné', 'anpa-socios' ); ?></button>
+						<button type="button" class="anpa-area-secondary" data-action="carne-imprimir"><?php esc_html_e( 'Imprimir', 'anpa-socios' ); ?></button>
+						<button type="button" class="anpa-area-secondary anpa-area-danger" data-action="carne-renovar"><?php esc_html_e( 'Renovar carné', 'anpa-socios' ); ?></button>
+					</div>
+					<div class="anpa-area-actions" data-carne-cargar hidden>
 						<button type="button" class="anpa-area-secondary" data-action="carne"><?php esc_html_e( 'Amosar o carné', 'anpa-socios' ); ?></button>
 					</div>
+					<p class="anpa-carne-correo" data-carne-correo-campo hidden>
+						<input type="checkbox" id="anpa-carne-correo" data-carne-correo>
+						<label for="anpa-carne-correo"><?php esc_html_e( 'Recibir por correo as ofertas dos xoves', 'anpa-socios' ); ?></label>
+					</p>
+					<div class="anpa-carne-ofertas" data-carne-ofertas hidden></div>
 				</section>
 				<?php endif; ?>
 				<!-- Occupancy per group goes before «A ANPA en cifras» (filled by renderCifras). -->
@@ -245,6 +262,13 @@ class ANPA_Socios_Area_Page {
 					<input id="anpa-area-p2-apelidos" type="text" autocomplete="off">
 					<label for="anpa-area-p2-email"><?php esc_html_e( 'Email (opcional)', 'anpa-socios' ); ?></label>
 					<input id="anpa-area-p2-email" type="email" autocomplete="off" placeholder="<?php esc_attr_e( 'Deixa baleiro se non quere recibir notificacións', 'anpa-socios' ); ?>">
+					<span class="anpa-field-error" data-error="p2_email" hidden></span>
+					<!-- 1.105.0: code sent to the other parent's new address before it is saved. -->
+					<div data-p2-email-codigo hidden>
+						<label for="anpa-area-p2-email-codigo"><?php esc_html_e( 'Código enviado ao correo do outro proxenitor/titor', 'anpa-socios' ); ?></label>
+						<input id="anpa-area-p2-email-codigo" type="text" inputmode="numeric" autocomplete="off" maxlength="6">
+						<span class="anpa-field-error" data-error="p2_email_codigo" hidden></span>
+					</div>
 					<label for="anpa-area-p2-nif"><?php esc_html_e( 'NIF / NIE', 'anpa-socios' ); ?></label>
 					<input id="anpa-area-p2-nif" type="text" autocomplete="off">
 					<label for="anpa-area-p2-telefono"><?php esc_html_e( 'Teléfono (opcional)', 'anpa-socios' ); ?></label>
