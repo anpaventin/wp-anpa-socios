@@ -85,3 +85,134 @@
 	color: #4b5563;
 	font-size: 0.95em;
 }
+
+/* 1.105.1: the sign-in steps look like the partner shops' panel (same card,
+   fields and buttons), so every way into the site reads as one thing. Only the
+   entry steps are styled: the member area itself (data-step="area") and the
+   alta form keep their own styles. */
+#anpa-unified > [data-step="alta"],
+#anpa-unified > [data-step="code"],
+#anpa-unified > [data-step="inactivo"],
+#anpa-unified > [data-step="error"] {
+	width: 100%;
+	max-width: 46rem;
+	margin: 1.5rem auto;
+	padding: 1.25rem;
+	background: #ffffff;
+	color: #1f1f1f;
+	border: 1px solid #d9d9d9;
+	border-top: 4px solid #2d6a4f;
+	border-radius: 10px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+	box-sizing: border-box;
+}
+
+#anpa-unified > .anpa-unified-notice,
+#anpa-unified > .anpa-unified-busy {
+	max-width: 46rem;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+#anpa-unified > [data-step="alta"] > h2,
+#anpa-unified > [data-step="code"] > h2,
+#anpa-unified > [data-step="inactivo"] > h2,
+#anpa-unified > [data-step="error"] > h2 {
+	margin: 0 0 1.5rem;
+}
+
+#anpa-unified > [data-step="alta"] > p,
+#anpa-unified > [data-step="code"] > p,
+#anpa-unified > [data-step="inactivo"] > p,
+#anpa-unified > [data-step="error"] > p {
+	margin: 0 0 0.75rem;
+	color: #4b5563;
+}
+
+#anpa-unified > [data-step="alta"] > label,
+#anpa-unified > [data-step="code"] > label {
+	display: block;
+	margin: 1rem 0 0.45rem;
+	font-weight: 700;
+	color: #1f1f1f;
+}
+
+#anpa-unified > [data-step="alta"] > input[type="email"],
+#anpa-unified > [data-step="code"] > input[type="text"] {
+	max-width: 36rem;
+	min-height: 44px;
+	margin: 0 0 1.1rem;
+	padding: 0.65rem 0.85rem;
+	background: #ffffff;
+	color: #1f1f1f;
+	border: 1px solid #8a8a8a;
+	border-radius: 6px;
+	line-height: 1.4;
+}
+
+#anpa-unified > [data-step="alta"] > input[type="email"]:focus-visible,
+#anpa-unified > [data-step="code"] > input[type="text"]:focus-visible {
+	outline: 3px solid #1a4b8b;
+	outline-offset: 2px;
+	border-color: #2d6a4f;
+}
+
+#anpa-unified > [data-step] > .anpa-unified-actions > .wp-element-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 44px;
+	padding: 0.6rem 1.15rem;
+	border: 2px solid #2d6a4f;
+	border-radius: 8px;
+	background: #2d6a4f;
+	color: #ffffff;
+	font-size: 1rem;
+	font-weight: 700;
+	line-height: 1.2;
+	cursor: pointer;
+	transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+#anpa-unified > [data-step] > .anpa-unified-actions > .wp-element-button:hover:not(:disabled) {
+	background: #1f513b;
+	border-color: #1f513b;
+	color: #ffffff;
+}
+
+#anpa-unified > [data-step] > .anpa-unified-actions > .wp-element-button.is-style-outline {
+	background: #ffffff;
+	color: #1f513b;
+	border-color: #9cc6b4;
+}
+
+#anpa-unified > [data-step] > .anpa-unified-actions > .wp-element-button.is-style-outline:hover:not(:disabled) {
+	background: #eef7f2;
+	color: #1f513b;
+	border-color: #2d6a4f;
+}
+
+#anpa-unified > [data-step] > .anpa-unified-actions > .wp-element-button:focus-visible {
+	outline: 3px solid #1a4b8b;
+	outline-offset: 2px;
+}
+
+#anpa-unified > [data-step] > .anpa-unified-actions > .wp-element-button:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+@media (max-width: 689.98px) {
+	#anpa-unified > [data-step="alta"],
+	#anpa-unified > [data-step="code"],
+	#anpa-unified > [data-step="inactivo"],
+	#anpa-unified > [data-step="error"] {
+		padding: 1rem;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	#anpa-unified > [data-step] > .anpa-unified-actions > .wp-element-button {
+		transition: none;
+	}
+}

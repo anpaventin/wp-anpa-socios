@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.105.1] - 2026-11-27
+
+### Changed
+
+- **Entrada á área de socios.** As pantallas de entrada (correo, código, conta de baixa e erro) teñen agora a mesma
+  imaxe que o panel dos establecementos colaboradores: tarxeta branca co borde verde, campos con borde e botóns
+  iguais. Só cambian os estilos; o funcionamento e a área de socios unha vez dentro quedan como estaban.
+
 ## [1.105.0] - 2026-11-27
 
 ### Added
